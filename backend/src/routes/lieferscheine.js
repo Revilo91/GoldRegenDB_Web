@@ -50,10 +50,21 @@ router.post('/', async (req, res) => {
   try {
     const { Nummer, Artikelnummern, Kundennummer, Datei } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Lieferschein" ("Nummer", "Artikelnummern", "Kundennummer", "Datei")
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [Nummer, Artikelnummern, Kundennummer, Datei]
+      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datei")
+       VALUES ($1, $2, $3) RETURNING *`,
+      [Nummer, Kundennummer, Datei]
     );
+
+    const lieferscheinId = rows[0].ID;
+
+    // Assign products to this delivery note
+    if (Artikelnummern && Artikelnummern.length > 0) {
+      await db.query(
+        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+        [lieferscheinId, Artikelnummern]
+      );
+    }
+
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -66,13 +77,25 @@ router.put('/:id', async (req, res) => {
   try {
     const { Nummer, Artikelnummern, Kundennummer, Datei } = req.body;
     const { rows } = await db.query(
-      `UPDATE "Lieferschein" SET "Nummer" = $1, "Artikelnummern" = $2, "Kundennummer" = $3, "Datei" = $4
-       WHERE "ID" = $5 RETURNING *`,
-      [Nummer, Artikelnummern, Kundennummer, Datei, req.params.id]
+      `UPDATE "Lieferschein" SET "Nummer" = $1, "Kundennummer" = $2, "Datei" = $3
+       WHERE "ID" = $4 RETURNING *`,
+      [Nummer, Kundennummer, Datei, req.params.id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
     }
+
+    // Reset old associations
+    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = NULL WHERE "Lieferschein_ID" = $1`, [req.params.id]);
+
+    // Set new associations
+    if (Artikelnummern && Artikelnummern.length > 0) {
+      await db.query(
+        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+        [req.params.id, Artikelnummern]
+      );
+    }
+
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
