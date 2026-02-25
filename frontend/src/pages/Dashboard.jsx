@@ -25,11 +25,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Dashboard</h2>
-        <p>Übersicht über Ihren Schmuckbestand</p>
-      </div>
-
       <div className="stats-grid">
         <div className="stat-card gold">
           <div className="stat-icon">💎</div>
