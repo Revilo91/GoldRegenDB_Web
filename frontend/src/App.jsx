@@ -1,0 +1,60 @@
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
+import Schmuckstuecke from './pages/Schmuckstuecke';
+import Kunden from './pages/Kunden';
+import Lieferscheine from './pages/Lieferscheine';
+import Rechnungen from './pages/Rechnungen';
+import AuditLog from './pages/AuditLog';
+import './index.css';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-icon">💎</div>
+          <h1>GoldRegen</h1>
+        </div>
+        <nav className="sidebar-nav">
+          <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">📊</span>
+            <span>Dashboard</span>
+          </NavLink>
+          <NavLink to="/schmuckstuecke" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">💍</span>
+            <span>Schmuckstücke</span>
+          </NavLink>
+          <NavLink to="/kunden" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">👥</span>
+            <span>Kunden</span>
+          </NavLink>
+          <NavLink to="/lieferscheine" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">📦</span>
+            <span>Lieferscheine</span>
+          </NavLink>
+          <NavLink to="/rechnungen" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">🧾</span>
+            <span>Rechnungen</span>
+          </NavLink>
+          <NavLink to="/audit-log" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">📋</span>
+            <span>Audit Log</span>
+          </NavLink>
+        </nav>
+      </aside>
+
+      <main className="main-content">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/schmuckstuecke" element={<Schmuckstuecke />} />
+          <Route path="/kunden" element={<Kunden />} />
+          <Route path="/lieferscheine" element={<Lieferscheine />} />
+          <Route path="/rechnungen" element={<Rechnungen />} />
+          <Route path="/audit-log" element={<AuditLog />} />
+        </Routes>
+      </main>
+    </BrowserRouter>
+  );
+}
+
+export default App;
