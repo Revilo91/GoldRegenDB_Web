@@ -21,6 +21,7 @@ app.use('/api/lieferscheine', lieferscheineRoutes);
 app.use('/api/rechnungen', rechnungenRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/debug', require('./routes/debug'));
 
 // Health check
 app.get('/api/health', (req, res) => {

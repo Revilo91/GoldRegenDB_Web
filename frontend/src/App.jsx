@@ -5,6 +5,7 @@ import Kunden from './pages/Kunden';
 import Lieferscheine from './pages/Lieferscheine';
 import Rechnungen from './pages/Rechnungen';
 import AuditLog from './pages/AuditLog';
+import Debug from './pages/Debug';
 import './index.css';
 
 function App() {
@@ -40,6 +41,10 @@ function App() {
             <span className="nav-icon">📋</span>
             <span>Audit Log</span>
           </NavLink>
+          <NavLink to="/debug" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <span className="nav-icon">🛠️</span>
+            <span>Debug</span>
+          </NavLink>
         </nav>
       </aside>
 
@@ -51,6 +56,7 @@ function App() {
           <Route path="/lieferscheine" element={<Lieferscheine />} />
           <Route path="/rechnungen" element={<Rechnungen />} />
           <Route path="/audit-log" element={<AuditLog />} />
+          <Route path="/debug" element={<Debug />} />
         </Routes>
       </main>
     </BrowserRouter>
