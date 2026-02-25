@@ -9,6 +9,7 @@ export default function Schmuckstuecke() {
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
   const [selected, setSelected] = useState(null);
+  const [kunden, setKunden] = useState([]);
 
   const load = () => {
     setLoading(true);
@@ -20,9 +21,15 @@ export default function Schmuckstuecke() {
 
   useEffect(() => {
     api.getFilterOptions().then(setFilterOptions).catch(console.error);
+    api.getKunden().then(setKunden).catch(console.error);
   }, []);
 
   useEffect(() => { load(); }, [page, search, filters]);
+
+  const getKundenName = (id) => {
+    const kunde = kunden.find(k => k.ID === id);
+    return kunde ? kunde.Name : `Kundennummer ${id}`;
+  };
 
   const p = data.pagination;
 
@@ -41,16 +48,37 @@ export default function Schmuckstuecke() {
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
         <select className="form-control" style={{ width: 'auto', minWidth: 150 }}
-          value={filters.art || ''}
-          onChange={(e) => { setFilters({ ...filters, art: e.target.value || undefined }); setPage(1); }}>
+          value={filters.artikelnummer_art ?? ''}
+          onChange={(e) => {
+            const { artikelnummer_art, ...rest } = filters;
+            setFilters(e.target.value !== "" ? { ...rest, artikelnummer_art: e.target.value } : rest);
+            setPage(1);
+          }}>
           <option value="">Alle Arten</option>
-          {filterOptions.arten?.map(a => <option key={a} value={a}>{a}</option>)}
+          <option value="H">Halskette</option>
+          <option value="O">Ohrring</option>
+          <option value="A">Armband</option>
+        </select>
+        <select className="form-control" style={{ width: 'auto', minWidth: 130 }}
+          value={filters.ausgelagert ?? ''}
+          onChange={(e) => {
+            const { ausgelagert, ...rest } = filters;
+            setFilters(e.target.value !== "" ? { ...rest, ausgelagert: e.target.value } : rest);
+            setPage(1);
+          }}>
+          <option value="">Alle Standorte</option>
+          <option value="0">Lager</option>
+          {kunden.map(k => <option key={k.ID} value={k.ID}>{k.Name}</option>)}
         </select>
         <select className="form-control" style={{ width: 'auto', minWidth: 130 }}
           value={filters.verkauft ?? ''}
-          onChange={(e) => { setFilters({ ...filters, verkauft: e.target.value || undefined }); setPage(1); }}>
-          <option value="">Alle Status</option>
-          <option value="0">Verfügbar</option>
+          onChange={(e) => {
+            const { verkauft, ...rest } = filters;
+            setFilters(e.target.value !== "" ? { ...rest, verkauft: e.target.value } : rest);
+            setPage(1);
+          }}>
+          <option value="">Status</option>
+          <option value="0">Nicht verkauft</option>
           <option value="1">Verkauft</option>
         </select>
       </div>
@@ -79,14 +107,14 @@ export default function Schmuckstuecke() {
                     <td>{s.Art}</td>
                     <td>{s.Material}</td>
                     <td>{s.Farbe}</td>
-                    <td>{s.Verkaufspreis > 0 ? `${s.Verkaufspreis}€` : '–'}</td>
+                    <td>{s.Verkaufspreis > 0 ? `${s.Verkaufspreis}€` : '-'}</td>
                     <td>
                       {s.Verkauft === 1 && <span className="badge success">Verkauft</span>}
                       {s.Ausschuss === 1 && <span className="badge danger">Ausschuss</span>}
                       {s.Online === 1 && <span className="badge info">Online</span>}
-                      {s.Verkauft === 0 && s.Ausschuss === 0 && s.Online === 0 && <span className="badge gold">Lager</span>}
+                      {s.Verkauft === 0 && s.Ausschuss === 0 && s.Online === 0 && s.Ausgelagert === 0 && <span className="badge gold">Lager</span>}
                     </td>
-                    <td>{s.Ausgelagert > 0 ? <span className="badge warning">Kunde {s.Ausgelagert}</span> : '–'}</td>
+                    <td>{s.Ausgelagert > 0 ? <span className="badge warning">{getKundenName(s.Ausgelagert)}</span> : '-'}</td>
                   </tr>
                 ))}
               </tbody>
