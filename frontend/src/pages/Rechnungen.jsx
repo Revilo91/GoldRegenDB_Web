@@ -49,26 +49,21 @@ export default function Rechnungen() {
                   <th>Nummer</th>
                   <th>Kunde</th>
                   <th>Datum</th>
-                  <th>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((r) => (
-                  <tr key={r.ID}>
+                  <tr
+                    key={r.ID}
+                    onClick={() => openDetail(r.ID)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>{r.ID}</td>
                     <td>
                       <strong>{r.Nummer}</strong>
                     </td>
                     <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
                     <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
-                    <td>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => openDetail(r.ID)}
-                      >
-                        Details
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -82,6 +77,9 @@ export default function Rechnungen() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>🧾 Rechnung {detail.Nummer}</h3>
+              <button onClick={() => setDetail(null)}>
+                Rechnung erstellen
+              </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×
               </button>
