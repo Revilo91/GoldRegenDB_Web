@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { useState, useEffect } from "react";
+import { api } from "../api";
 
 export default function Lieferscheine() {
   const [data, setData] = useState([]);
@@ -9,10 +9,16 @@ export default function Lieferscheine() {
 
   const load = () => {
     setLoading(true);
-    api.getLieferscheine().then(setData).catch(console.error).finally(() => setLoading(false));
+    api
+      .getLieferscheine()
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const openDetail = async (id) => {
     try {
@@ -33,7 +39,9 @@ export default function Lieferscheine() {
       <div className="card">
         <div className="card-body">
           {loading ? (
-            <div className="loading"><div className="spinner"></div>Lade...</div>
+            <div className="loading">
+              <div className="spinner"></div>Lade...
+            </div>
           ) : (
             <table className="data-table">
               <thead>
@@ -46,14 +54,21 @@ export default function Lieferscheine() {
                 </tr>
               </thead>
               <tbody>
-                {data.map(l => (
+                {data.map((l) => (
                   <tr key={l.ID}>
                     <td>{l.ID}</td>
-                    <td><strong>{l.Nummer}</strong></td>
-                    <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
-                    <td>{new Date(l.Datum).toLocaleDateString('de-DE')}</td>
                     <td>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openDetail(l.ID)}>Details</button>
+                      <strong>{l.Nummer}</strong>
+                    </td>
+                    <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
+                    <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => openDetail(l.ID)}
+                      >
+                        Details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -65,10 +80,12 @@ export default function Lieferscheine() {
 
       {detail && (
         <div className="modal-overlay" onClick={() => setDetail(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>📦 Lieferschein {detail.Nummer}</h3>
-              <button className="modal-close" onClick={() => setDetail(null)}>×</button>
+              <button className="modal-close" onClick={() => setDetail(null)}>
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div className="detail-grid">
@@ -82,28 +99,46 @@ export default function Lieferscheine() {
                 </div>
                 <div className="detail-item">
                   <label>Datum</label>
-                  <div className="detail-value">{new Date(detail.Datum).toLocaleDateString('de-DE')}</div>
+                  <div className="detail-value">
+                    {new Date(detail.Datum).toLocaleDateString("de-DE")}
+                  </div>
+                </div>
+                <div className="detail-item">
+                  <label>Gesamtwert</label>
+                  <div className="detail-value">
+                    {detail.schmuckstuecke
+                      .reduce(
+                        (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      )
+                      .toFixed(2)}
+                    €
+                  </div>
                 </div>
               </div>
               {detail.schmuckstuecke?.length > 0 && (
                 <>
-                  <h4 style={{ padding: '16px 24px 8px', fontSize: 15 }}>Zugehörige Schmuckstücke ({detail.schmuckstuecke.length})</h4>
+                  <h4 style={{ padding: "16px 24px 8px", fontSize: 15 }}>
+                    Zugehörige Schmuckstücke ({detail.schmuckstuecke.length})
+                  </h4>
                   <table className="data-table">
                     <thead>
                       <tr>
                         <th>Artikelnr.</th>
                         <th>Art</th>
-                        <th>Material</th>
                         <th>Preis</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {detail.schmuckstuecke.map(s => (
+                      {detail.schmuckstuecke.map((s) => (
                         <tr key={s.Artikelnummer}>
-                          <td><span className="badge gold">{s.Artikelnummer}</span></td>
+                          <td>
+                            <span className="badge gold">
+                              {s.Artikelnummer}
+                            </span>
+                          </td>
                           <td>{s.Art}</td>
-                          <td>{s.Material}</td>
-                          <td>{s.Verkaufspreis}€</td>
+                          <td>{Number(s.Verkaufspreis).toFixed(2)}€</td>
                         </tr>
                       ))}
                     </tbody>
