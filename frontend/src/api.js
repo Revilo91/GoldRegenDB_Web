@@ -55,4 +55,8 @@ export const api = {
     return request(`/audit-log?${qs}`);
   },
   getAuditLogForArtikel: (nr) => request(`/audit-log/artikel/${nr}`),
+  
+  // Excel Export
+  getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
+  getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
 };

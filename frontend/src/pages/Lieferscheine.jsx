@@ -78,6 +78,15 @@ export default function Lieferscheine() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>📦 Lieferschein {detail.Nummer}</h3>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginLeft: "auto", marginRight: 16 }}
+                onClick={() =>
+                  window.open(api.getLieferscheinExcel(detail.ID), "_blank")
+                }
+              >
+                Lieferschein erstellen
+              </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×
               </button>
