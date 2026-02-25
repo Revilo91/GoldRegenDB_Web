@@ -13,6 +13,7 @@ router.get('/', async (req, res) => {
     const verkauft = req.query.verkauft;
     const ausgelagert = req.query.ausgelagert;
     const online = req.query.online;
+    const artikelnummer_art = req.query.artikelnummer_art;
 
     let where = [];
     let params = [];
@@ -26,6 +27,11 @@ router.get('/', async (req, res) => {
     if (art) {
       where.push(`"Art" = $${paramIdx}`);
       params.push(art);
+      paramIdx++;
+    }
+    if (artikelnummer_art) {
+      where.push(`SUBSTRING("Artikelnummer", 3, 1) = $${paramIdx}`);
+      params.push(artikelnummer_art);
       paramIdx++;
     }
     if (verkauft !== undefined) {
