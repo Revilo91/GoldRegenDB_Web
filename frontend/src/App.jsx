@@ -25,7 +25,6 @@ function App() {
             alt="GoldRegen"
             className="mobile-logo"
           />
-          <span>GoldRegen</span>
         </div>
         <button
           className="menu-toggle"
@@ -47,11 +46,6 @@ function App() {
             src="/Logo transparent.png"
             alt="GoldRegen Logo"
             className="sidebar-logo"
-            style={{
-              maxWidth: "100%",
-              height: "auto",
-              backgroundColor: "white",
-            }}
           />
         </div>
         <nav className="sidebar-nav">
