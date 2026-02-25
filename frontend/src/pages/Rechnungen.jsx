@@ -77,7 +77,13 @@ export default function Rechnungen() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>🧾 Rechnung {detail.Nummer}</h3>
-              <button onClick={() => setDetail(null)}>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginLeft: "auto", marginRight: 16 }}
+                onClick={() =>
+                  window.open(api.getRechnungExcel(detail.ID), "_blank")
+                }
+              >
                 Rechnung erstellen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>

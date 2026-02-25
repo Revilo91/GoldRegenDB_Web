@@ -44,6 +44,40 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET excel
+const { generateExcel } = require('../utils/excelService');
+router.get('/:id/excel', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT r.*, k.*
+       FROM "Rechnung" r
+       LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
+       WHERE r."ID" = $1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+
+    const pieces = await db.query(
+      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY "Artikelnummer"',
+      [req.params.id]
+    );
+
+    const buffer = await generateExcel('Rechnung', {
+      ...rows[0],
+      kunde: rows[0],
+      schmuckstuecke: pieces.rows
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Rechnung_${rows[0].Nummer}.xlsx`);
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
+  }
+});
+
 // POST create
 router.post('/', async (req, res) => {
   try {

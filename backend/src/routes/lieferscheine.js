@@ -45,6 +45,40 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET excel
+const { generateExcel } = require('../utils/excelService');
+router.get('/:id/excel', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT l.*, k.*
+       FROM "Lieferschein" l
+       LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"
+       WHERE l."ID" = $1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
+
+    const pieces = await db.query(
+      'SELECT * FROM "Schmuckstück" WHERE "Lieferschein_ID" = $1 ORDER BY "Artikelnummer"',
+      [req.params.id]
+    );
+
+    const buffer = await generateExcel('Lieferschein', {
+      ...rows[0],
+      kunde: rows[0], // rows[0] contains both l and k fields
+      schmuckstuecke: pieces.rows
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Lieferschein_${rows[0].Nummer}.xlsx`);
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
+  }
+});
+
 // POST create
 router.post('/', async (req, res) => {
   try {
