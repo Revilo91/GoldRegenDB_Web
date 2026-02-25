@@ -1,22 +1,32 @@
-import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { useState, useEffect, useMemo } from "react";
+import { api } from "../api";
 
 export default function Kunden() {
   const [kunden, setKunden] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
+  const [sortConfig, setSortConfig] = useState({
+    key: "Name",
+    direction: "asc",
+  });
 
   const load = () => {
     setLoading(true);
-    api.getKunden().then(setKunden).catch(console.error).finally(() => setLoading(false));
+    api
+      .getKunden()
+      .then(setKunden)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleSave = async () => {
     try {
-      if (editing === 'new') {
+      if (editing === "new") {
         await api.createKunde(form);
       } else {
         await api.updateKunde(editing, form);
@@ -29,7 +39,7 @@ export default function Kunden() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Kunde wirklich löschen?')) return;
+    if (!confirm("Kunde wirklich löschen?")) return;
     try {
       await api.deleteKunde(id);
       load();
@@ -39,8 +49,19 @@ export default function Kunden() {
   };
 
   const openNew = () => {
-    setForm({ Name: '', Strasse: '', Hausnummer: 0, Ort: '', PLZ: 0, Email: '', Telefonnummer: '', Provision: 0, Aktiv: false, Artikelnummern_Erforderlich: false });
-    setEditing('new');
+    setForm({
+      Name: "",
+      Strasse: "",
+      Hausnummer: 0,
+      Ort: "",
+      PLZ: 0,
+      Email: "",
+      Telefonnummer: "",
+      Provision: 0,
+      Aktiv: false,
+      Artikelnummern_Erforderlich: false,
+    });
+    setEditing("new");
   };
 
   const openEdit = (k) => {
@@ -48,48 +69,137 @@ export default function Kunden() {
     setEditing(k.ID);
   };
 
+  const sortedKunden = useMemo(() => {
+    let sortableKunden = [...kunden];
+    if (sortConfig.key !== null) {
+      sortableKunden.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableKunden;
+  }, [kunden, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return "↕️";
+    return sortConfig.direction === "asc" ? "🔼" : "🔽";
+  };
+
   return (
     <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div
+        className="page-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
         <div>
           <h2>Kunden</h2>
           <p>{kunden.length} Kunden / Händler</p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}>+ Neuer Kunde</button>
+        <button className="btn btn-primary" onClick={openNew}>
+          + Neuer Kunde
+        </button>
       </div>
 
       <div className="card">
         <div className="card-body">
           {loading ? (
-            <div className="loading"><div className="spinner"></div>Lade...</div>
+            <div className="loading">
+              <div className="spinner"></div>Lade...
+            </div>
           ) : (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Ort</th>
-                  <th>PLZ</th>
-                  <th>Provision</th>
-                  <th>Status</th>
+                  <th
+                    onClick={() => requestSort("ID")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    ID {getSortIcon("ID")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("Name")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Name {getSortIcon("Name")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("Ort")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Ort {getSortIcon("Ort")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("PLZ")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    PLZ {getSortIcon("PLZ")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("Provision")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Provision {getSortIcon("Provision")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("Aktiv")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Status {getSortIcon("Aktiv")}
+                  </th>
                   <th>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
-                {kunden.map(k => (
+                {sortedKunden.map((k) => (
                   <tr key={k.ID}>
                     <td>{k.ID}</td>
-                    <td><strong>{k.Name}</strong></td>
+                    <td>
+                      <strong>{k.Name}</strong>
+                    </td>
                     <td>{k.Ort}</td>
-                    <td>{k.PLZ || '–'}</td>
+                    <td>{k.PLZ || "–"}</td>
                     <td>{k.Provision}%</td>
                     <td>
-                      {k.Aktiv ? <span className="badge success">Aktiv</span> : <span className="badge danger">Inaktiv</span>}
+                      {k.Aktiv ? (
+                        <span className="badge success">Aktiv</span>
+                      ) : (
+                        <span className="badge danger">Inaktiv</span>
+                      )}
                     </td>
                     <td>
                       <div className="btn-group">
-                        <button className="btn btn-secondary btn-sm" onClick={() => openEdit(k)}>✏️</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(k.ID)}>🗑️</button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => openEdit(k)}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(k.ID)}
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -102,68 +212,142 @@ export default function Kunden() {
 
       {editing !== null && (
         <div className="modal-overlay" onClick={() => setEditing(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{editing === 'new' ? 'Neuer Kunde' : 'Kunde bearbeiten'}</h3>
-              <button className="modal-close" onClick={() => setEditing(null)}>×</button>
+              <h3>{editing === "new" ? "Neuer Kunde" : "Kunde bearbeiten"}</h3>
+              <button className="modal-close" onClick={() => setEditing(null)}>
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
                   <label>Name</label>
-                  <input className="form-control" value={form.Name || ''} onChange={e => setForm({ ...form, Name: e.target.value })} />
+                  <input
+                    className="form-control"
+                    value={form.Name || ""}
+                    onChange={(e) => setForm({ ...form, Name: e.target.value })}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Straße</label>
-                  <input className="form-control" value={form.Strasse || ''} onChange={e => setForm({ ...form, Strasse: e.target.value })} />
+                  <input
+                    className="form-control"
+                    value={form.Strasse || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, Strasse: e.target.value })
+                    }
+                  />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Hausnummer</label>
-                  <input className="form-control" type="number" value={form.Hausnummer || 0} onChange={e => setForm({ ...form, Hausnummer: parseInt(e.target.value) })} />
+                  <input
+                    className="form-control"
+                    type="number"
+                    value={form.Hausnummer || 0}
+                    onChange={(e) =>
+                      setForm({ ...form, Hausnummer: parseInt(e.target.value) })
+                    }
+                  />
                 </div>
                 <div className="form-group">
                   <label>Ort</label>
-                  <input className="form-control" value={form.Ort || ''} onChange={e => setForm({ ...form, Ort: e.target.value })} />
+                  <input
+                    className="form-control"
+                    value={form.Ort || ""}
+                    onChange={(e) => setForm({ ...form, Ort: e.target.value })}
+                  />
                 </div>
                 <div className="form-group">
                   <label>PLZ</label>
-                  <input className="form-control" type="number" value={form.PLZ || 0} onChange={e => setForm({ ...form, PLZ: parseInt(e.target.value) })} />
+                  <input
+                    className="form-control"
+                    type="number"
+                    value={form.PLZ || 0}
+                    onChange={(e) =>
+                      setForm({ ...form, PLZ: parseInt(e.target.value) })
+                    }
+                  />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Email</label>
-                  <input className="form-control" type="email" value={form.Email || ''} onChange={e => setForm({ ...form, Email: e.target.value })} />
+                  <input
+                    className="form-control"
+                    type="email"
+                    value={form.Email || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, Email: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="form-group">
                   <label>Telefonnummer</label>
-                  <input className="form-control" value={form.Telefonnummer || ''} onChange={e => setForm({ ...form, Telefonnummer: e.target.value })} />
+                  <input
+                    className="form-control"
+                    value={form.Telefonnummer || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, Telefonnummer: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="form-group">
                   <label>Provision (%)</label>
-                  <input className="form-control" type="number" value={form.Provision || 0} onChange={e => setForm({ ...form, Provision: parseInt(e.target.value) })} />
+                  <input
+                    className="form-control"
+                    type="number"
+                    value={form.Provision || 0}
+                    onChange={(e) =>
+                      setForm({ ...form, Provision: parseInt(e.target.value) })
+                    }
+                  />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>
-                    <input type="checkbox" checked={form.Aktiv || false} onChange={e => setForm({ ...form, Aktiv: e.target.checked })} style={{ marginRight: 8 }} />
+                    <input
+                      type="checkbox"
+                      checked={form.Aktiv || false}
+                      onChange={(e) =>
+                        setForm({ ...form, Aktiv: e.target.checked })
+                      }
+                      style={{ marginRight: 8 }}
+                    />
                     Aktiv
                   </label>
                 </div>
                 <div className="form-group">
                   <label>
-                    <input type="checkbox" checked={form.Artikelnummern_Erforderlich || false} onChange={e => setForm({ ...form, Artikelnummern_Erforderlich: e.target.checked })} style={{ marginRight: 8 }} />
+                    <input
+                      type="checkbox"
+                      checked={form.Artikelnummern_Erforderlich || false}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Artikelnummern_Erforderlich: e.target.checked,
+                        })
+                      }
+                      style={{ marginRight: 8 }}
+                    />
                     Artikelnummern erforderlich
                   </label>
                 </div>
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setEditing(null)}>Abbrechen</button>
-              <button className="btn btn-primary" onClick={handleSave}>Speichern</button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setEditing(null)}
+              >
+                Abbrechen
+              </button>
+              <button className="btn btn-primary" onClick={handleSave}>
+                Speichern
+              </button>
             </div>
           </div>
         </div>
