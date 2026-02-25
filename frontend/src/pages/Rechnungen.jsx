@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api } from "../api";
 
 export default function Rechnungen() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
+  const [sortConfig, setSortConfig] = useState({
+    key: "Datum",
+    direction: "desc",
+  });
 
   const load = () => {
     setLoading(true);
@@ -28,6 +32,39 @@ export default function Rechnungen() {
     }
   };
 
+  const sortedData = useMemo(() => {
+    let sortableData = [...data];
+    if (sortConfig.key !== null) {
+      sortableData.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (sortConfig.key === "KundenName") {
+          aValue = (a.KundenName || `Kunde ${a.Kundennummer}`).toLowerCase();
+          bValue = (b.KundenName || `Kunde ${b.Kundennummer}`).toLowerCase();
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableData;
+  }, [data, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return "↕️";
+    return sortConfig.direction === "asc" ? "🔼" : "🔽";
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -45,14 +82,34 @@ export default function Rechnungen() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>Nummer</th>
-                  <th>Kunde</th>
-                  <th>Datum</th>
+                  <th
+                    onClick={() => requestSort("ID")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    ID {getSortIcon("ID")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("Nummer")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Nummer {getSortIcon("Nummer")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("KundenName")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Kunde {getSortIcon("KundenName")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("Datum")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Datum {getSortIcon("Datum")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {data.map((r) => (
+                {sortedData.map((r) => (
                   <tr
                     key={r.ID}
                     onClick={() => openDetail(r.ID)}
