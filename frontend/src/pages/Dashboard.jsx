@@ -1,15 +1,24 @@
-import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { useState, useEffect } from "react";
+import { api } from "../api";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getDashboard().then(setData).catch(console.error).finally(() => setLoading(false));
+    api
+      .getDashboard()
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="loading"><div className="spinner"></div>Lade Dashboard...</div>;
+  if (loading)
+    return (
+      <div className="loading">
+        <div className="spinner"></div>Lade Dashboard...
+      </div>
+    );
   if (!data) return <div className="loading">Fehler beim Laden</div>;
 
   const s = data.statistics;
@@ -59,22 +68,33 @@ export default function Dashboard() {
         </div>
         <div className="stat-card info">
           <div className="stat-icon">👥</div>
-          <div className="stat-value">{s.activeCustomers}/{s.totalCustomers}</div>
+          <div className="stat-value">
+            {s.activeCustomers}/{s.totalCustomers}
+          </div>
           <div className="stat-label">Aktive Kunden</div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}
+      >
         <div className="card">
-          <div className="card-header"><h3>Stücke nach Art</h3></div>
+          <div className="card-header">
+            <h3>Stücke nach Art</h3>
+          </div>
           <div className="chart-bars">
             {data.piecesByArt.map((item) => {
               const max = data.piecesByArt[0]?.count || 1;
               return (
                 <div className="chart-bar" key={item.Art}>
-                  <div className="bar-label" title={item.Art}>{item.Art}</div>
+                  <div className="bar-label" title={item.Art}>
+                    {item.Art}
+                  </div>
                   <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${(item.count / max) * 100}%` }}></div>
+                    <div
+                      className="bar-fill"
+                      style={{ width: `${(item.count / max) * 100}%` }}
+                    ></div>
                   </div>
                   <div className="bar-value">{item.count}</div>
                 </div>
@@ -84,15 +104,22 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <div className="card-header"><h3>Stücke bei Kunden</h3></div>
+          <div className="card-header">
+            <h3>Stücke bei Kunden</h3>
+          </div>
           <div className="chart-bars">
             {data.piecesByKunde.map((item) => {
               const max = data.piecesByKunde[0]?.count || 1;
               return (
                 <div className="chart-bar" key={item.Name}>
-                  <div className="bar-label" title={item.Name}>{item.Name}</div>
+                  <div className="bar-label" title={item.Name}>
+                    {item.Name}
+                  </div>
                   <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${(item.count / max) * 100}%` }}></div>
+                    <div
+                      className="bar-fill"
+                      style={{ width: `${(item.count / max) * 100}%` }}
+                    ></div>
                   </div>
                   <div className="bar-value">{item.count}</div>
                 </div>
@@ -102,7 +129,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: '24px' }}>
+      {/* <div className="card" style={{ marginTop: '24px' }}>
         <div className="card-header"><h3>Letzte Änderungen</h3></div>
         <div className="card-body">
           <table className="data-table">
@@ -128,7 +155,7 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
