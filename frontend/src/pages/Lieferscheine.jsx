@@ -104,15 +104,47 @@ export default function Lieferscheine() {
                   </div>
                 </div>
                 <div className="detail-item">
-                  <label>Gesamtwert</label>
+                  <label>Gesamtwert (voraussichtlich)</label>
                   <div className="detail-value">
-                    {detail.schmuckstuecke
-                      .reduce(
-                        (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-                        0,
-                      )
-                      .toFixed(2)}
-                    €
+                    <strong>
+                      {detail.schmuckstuecke
+                        .reduce(
+                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                          0,
+                        )
+                        .toFixed(2)}
+                      €
+                    </strong>
+                    <div
+                      style={{
+                        fontSize: "0.85em",
+                        color: "#666",
+                        marginTop: 4,
+                      }}
+                    >
+                      Marina:{" "}
+                      {detail.schmuckstuecke
+                        .filter((s) =>
+                          s.Artikelnummer?.toUpperCase().startsWith("M"),
+                        )
+                        .reduce(
+                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                          0,
+                        )
+                        .toFixed(2)}
+                      €<br />
+                      Saskia:{" "}
+                      {detail.schmuckstuecke
+                        .filter((s) =>
+                          s.Artikelnummer?.toUpperCase().startsWith("S"),
+                        )
+                        .reduce(
+                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                          0,
+                        )
+                        .toFixed(2)}
+                      €
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { useState, useEffect } from "react";
+import { api } from "../api";
 
 export default function Rechnungen() {
   const [data, setData] = useState([]);
@@ -8,10 +8,16 @@ export default function Rechnungen() {
 
   const load = () => {
     setLoading(true);
-    api.getRechnungen().then(setData).catch(console.error).finally(() => setLoading(false));
+    api
+      .getRechnungen()
+      .then(setData)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const openDetail = async (id) => {
     try {
@@ -32,7 +38,9 @@ export default function Rechnungen() {
       <div className="card">
         <div className="card-body">
           {loading ? (
-            <div className="loading"><div className="spinner"></div>Lade...</div>
+            <div className="loading">
+              <div className="spinner"></div>Lade...
+            </div>
           ) : (
             <table className="data-table">
               <thead>
@@ -45,14 +53,21 @@ export default function Rechnungen() {
                 </tr>
               </thead>
               <tbody>
-                {data.map(r => (
+                {data.map((r) => (
                   <tr key={r.ID}>
                     <td>{r.ID}</td>
-                    <td><strong>{r.Nummer}</strong></td>
-                    <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                    <td>{new Date(r.Datum).toLocaleDateString('de-DE')}</td>
                     <td>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openDetail(r.ID)}>Details</button>
+                      <strong>{r.Nummer}</strong>
+                    </td>
+                    <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
+                    <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                    <td>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => openDetail(r.ID)}
+                      >
+                        Details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -64,10 +79,12 @@ export default function Rechnungen() {
 
       {detail && (
         <div className="modal-overlay" onClick={() => setDetail(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>🧾 Rechnung {detail.Nummer}</h3>
-              <button className="modal-close" onClick={() => setDetail(null)}>×</button>
+              <button className="modal-close" onClick={() => setDetail(null)}>
+                ×
+              </button>
             </div>
             <div className="modal-body">
               <div className="detail-grid">
@@ -81,28 +98,78 @@ export default function Rechnungen() {
                 </div>
                 <div className="detail-item">
                   <label>Datum</label>
-                  <div className="detail-value">{new Date(detail.Datum).toLocaleDateString('de-DE')}</div>
+                  <div className="detail-value">
+                    {new Date(detail.Datum).toLocaleDateString("de-DE")}
+                  </div>
+                </div>
+                <div className="detail-item">
+                  <label>Gesamtwert</label>
+                  <div className="detail-value">
+                    <strong>
+                      {detail.schmuckstuecke
+                        .reduce(
+                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                          0,
+                        )
+                        .toFixed(2)}
+                      €
+                    </strong>
+                    <div
+                      style={{
+                        fontSize: "0.85em",
+                        color: "#666",
+                        marginTop: 4,
+                      }}
+                    >
+                      Marina:{" "}
+                      {detail.schmuckstuecke
+                        .filter((s) =>
+                          s.Artikelnummer?.toUpperCase().startsWith("M"),
+                        )
+                        .reduce(
+                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                          0,
+                        )
+                        .toFixed(2)}
+                      €<br />
+                      Saskia:{" "}
+                      {detail.schmuckstuecke
+                        .filter((s) =>
+                          s.Artikelnummer?.toUpperCase().startsWith("S"),
+                        )
+                        .reduce(
+                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                          0,
+                        )
+                        .toFixed(2)}
+                      €
+                    </div>
+                  </div>
                 </div>
               </div>
               {detail.schmuckstuecke?.length > 0 && (
                 <>
-                  <h4 style={{ padding: '16px 24px 8px', fontSize: 15 }}>Zugehörige Schmuckstücke ({detail.schmuckstuecke.length})</h4>
+                  <h4 style={{ padding: "16px 24px 8px", fontSize: 15 }}>
+                    Zugehörige Schmuckstücke ({detail.schmuckstuecke.length})
+                  </h4>
                   <table className="data-table">
                     <thead>
                       <tr>
                         <th>Artikelnr.</th>
                         <th>Art</th>
-                        <th>Material</th>
                         <th>Preis</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {detail.schmuckstuecke.map(s => (
+                      {detail.schmuckstuecke.map((s) => (
                         <tr key={s.Artikelnummer}>
-                          <td><span className="badge gold">{s.Artikelnummer}</span></td>
+                          <td>
+                            <span className="badge gold">
+                              {s.Artikelnummer}
+                            </span>
+                          </td>
                           <td>{s.Art}</td>
-                          <td>{s.Material}</td>
-                          <td>{s.Verkaufspreis}€</td>
+                          <td>{Number(s.Verkaufspreis).toFixed(2)}€</td>
                         </tr>
                       ))}
                     </tbody>
