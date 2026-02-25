@@ -16,7 +16,11 @@ function App() {
           <img
             src="/Logo transparent.png"
             alt="GoldRegen Logo"
-            style={{ width: "200px", height: "auto", backgroundColor: "white" }}
+            style={{
+              maxWidth: "100%",
+              height: "auto",
+              backgroundColor: "white",
+            }}
           />
         </div>
         <nav className="sidebar-nav">
