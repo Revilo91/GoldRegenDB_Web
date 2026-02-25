@@ -50,26 +50,21 @@ export default function Lieferscheine() {
                   <th>Nummer</th>
                   <th>Kunde</th>
                   <th>Datum</th>
-                  <th>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((l) => (
-                  <tr key={l.ID}>
+                  <tr
+                    key={l.ID}
+                    onClick={() => openDetail(l.ID)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>{l.ID}</td>
                     <td>
                       <strong>{l.Nummer}</strong>
                     </td>
                     <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
                     <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
-                    <td>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => openDetail(l.ID)}
-                      >
-                        Details
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
