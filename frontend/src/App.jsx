@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Schmuckstuecke from "./pages/Schmuckstuecke";
@@ -9,13 +10,43 @@ import Debug from "./pages/Debug";
 import "./index.css";
 
 function App() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
     <BrowserRouter>
-      <aside className="sidebar">
+      {/* Mobile Top Header */}
+      <header className="mobile-header">
+        <div className="mobile-brand">
+          <img
+            src="/Logo transparent.png"
+            alt="GoldRegen"
+            className="mobile-logo"
+          />
+          <span>GoldRegen</span>
+        </div>
+        <button
+          className="menu-toggle"
+          onClick={toggleMobileMenu}
+          aria-label="Menu"
+        >
+          {isMobileMenuOpen ? "✕" : "☰"}
+        </button>
+      </header>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div className="sidebar-overlay" onClick={closeMobileMenu}></div>
+      )}
+
+      <aside className={`sidebar ${isMobileMenuOpen ? "open" : ""}`}>
         <div className="sidebar-brand">
           <img
             src="/Logo transparent.png"
             alt="GoldRegen Logo"
+            className="sidebar-logo"
             style={{
               maxWidth: "100%",
               height: "auto",
@@ -28,6 +59,7 @@ function App() {
             to="/"
             end
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">📊</span>
             <span>Dashboard</span>
@@ -35,6 +67,7 @@ function App() {
           <NavLink
             to="/schmuckstuecke"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">💍</span>
             <span>Schmuckstücke</span>
@@ -42,6 +75,7 @@ function App() {
           <NavLink
             to="/kunden"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">👥</span>
             <span>Kunden</span>
@@ -49,6 +83,7 @@ function App() {
           <NavLink
             to="/lieferscheine"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">📦</span>
             <span>Lieferscheine</span>
@@ -56,6 +91,7 @@ function App() {
           <NavLink
             to="/rechnungen"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">🧾</span>
             <span>Rechnungen</span>
@@ -63,6 +99,7 @@ function App() {
           <NavLink
             to="/audit-log"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">📋</span>
             <span>Audit Log</span>
@@ -70,6 +107,7 @@ function App() {
           <NavLink
             to="/debug"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
           >
             <span className="nav-icon">🛠️</span>
             <span>Debug</span>

@@ -64,7 +64,14 @@ body {
   top: 0;
   left: 0;
   height: 100vh;
-  z-index: 100;
+  z-index: 1000;
+  transition: var(--transition);
+}
+
+.sidebar-brand .sidebar-logo {
+  max-width: 100%;
+  height: auto;
+  background-color: white;
   transition: var(--transition);
 }
 
@@ -139,6 +146,7 @@ body {
   margin-left: 260px;
   padding: 32px;
   min-height: 100vh;
+  transition: var(--transition);
 }
 
 .page-header {
@@ -457,6 +465,64 @@ select.form-control {
   color: var(--text-secondary);
 }
 
+/* ============ MOBILE HEADER ============ */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1100;
+}
+
+.mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-logo {
+  height: 32px;
+  width: auto;
+  background: white;
+  border-radius: 4px;
+}
+
+.mobile-brand span {
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold), #f0d78c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 1050;
+  animation: fadeIn 0.2s;
+}
+
 /* ============ MODAL ============ */
 .modal-overlay {
   position: fixed;
@@ -690,25 +756,55 @@ select.form-control {
 }
 
 /* ============ RESPONSIVE ============ */
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .sidebar {
-    width: 70px;
+    width: 80px;
     padding: 16px 8px;
+  }
+  .sidebar-brand {
+    padding: 0 0 16px;
+    margin-bottom: 16px;
+    justify-content: center;
   }
   .sidebar-brand h1,
   .nav-link span {
     display: none;
   }
-  .sidebar-brand {
-    justify-content: center;
-  }
   .nav-link {
     justify-content: center;
     padding: 12px;
   }
+  .nav-link .nav-icon {
+    font-size: 22px;
+    width: auto;
+  }
   .main-content {
-    margin-left: 70px;
-    padding: 20px;
+    margin-left: 80px;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+  }
+  .sidebar {
+    left: -280px;
+    width: 260px;
+    z-index: 1200;
+  }
+  .sidebar.open {
+    left: 0;
+  }
+  .sidebar-brand h1,
+  .nav-link span {
+    display: block;
+  }
+  .nav-link {
+    justify-content: flex-start;
+  }
+  .main-content {
+    margin-left: 0;
+    padding: 80px 16px 20px;
   }
 }
 
