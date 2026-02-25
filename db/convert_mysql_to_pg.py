@@ -44,7 +44,26 @@ def convert_mysql_to_pg(input_file, output_file):
 
     # Convert \r\n in strings
     content = content.replace('\\r\\n', '\r\n')
+    # Convert \n in strings
     content = content.replace('\\n', '\n')
+
+    # Fix boolean values for the Kunde table (Aktiv, Artikelnummern_Erforderlich)
+    # The Kunde table ends with `Provision, Aktiv, Artikelnummern_Erforderlich)`
+    # Since MariaDB dumps them as 1 and 0, we change them to true and false.
+    # We specifically target the Kunde insert block by finding it.
+    if 'INSERT INTO "Kunde"' in content:
+        parts = content.split('INSERT INTO "Kunde"')
+        pre = parts[0]
+        post_parts = parts[1].split('INSERT INTO', 1)
+        kunde_block = post_parts[0]
+        rest = 'INSERT INTO' + post_parts[1] if len(post_parts) > 1 else ''
+        
+        # Replace the 1/0 at the end of the tuples
+        kunde_block = re.sub(r',\s*([01]),\s*([01])\s*(\)[,;])', 
+                             lambda m: f", {'true' if m.group(1)=='1' else 'false'}, {'true' if m.group(2)=='1' else 'false'}{m.group(3)}", 
+                             kunde_block)
+        
+        content = pre + 'INSERT INTO "Kunde"' + kunde_block + rest
 
     # Add SERIAL sequence reset at end
     # Fix: SERIAL IDs need their sequences updated after bulk inserts
