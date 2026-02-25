@@ -19,6 +19,26 @@ const CONTACTS = {
 
 const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
 
+const GRUNDMATERIAL = {
+  'A': "Alkoholtinte",
+  'B': "Beton",
+  'C': "Cucio",
+  'E': "Edelstahl",
+  'F': "Fimo",
+  'H': "Harz",
+  'I': "Phiole",
+  'J': "Papier",
+  'K': "Kordel",
+  'L': "Leder",
+  'M': "Makramee",
+  'N': "Naturstein",
+  'P': "Perle",
+  'S': "Schrumpffolie",
+  'W': "Holz",
+  'X': "3D-Druck",
+  'Y': "Cabochon"
+};
+
 async function generateExcel(type, data) {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(type);
@@ -105,7 +125,8 @@ async function generateExcel(type, data) {
   if (type === 'Lieferschein') {
     worksheet.getCell(`A${textRow}`).value = "Wir liefern Ihnen, wie vereinbart folgende Artikel:";
   } else {
-    worksheet.getCell(`A${textRow}`).value = `Für die verkauften Artikel stellen wir Ihnen folgende Positionen in Rechnung:`;
+    const rechnungsZeitraum = data.rechungsZeitraum || 'xx.xx.xxxx';
+    worksheet.getCell(`A${textRow}`).value = `Für die verkauften Artikel im Zeitraum vom ${rechnungsZeitraum} stellen wir Ihnen folgende Positionen in Rechnung:`;
   }
 
   // 4. Article Block
@@ -131,12 +152,33 @@ async function generateExcel(type, data) {
   currentRow++;
   data.schmuckstuecke.forEach(s => {
     const row = worksheet.getRow(currentRow);
-    row.getCell(1).value = s.Artikelnummer;
-    row.getCell(2).value = s.Art;
+    row.getCell(1).value = s.Artikelnummer.split('_')[0];
+    const materialCode = s.Artikelnummer[1];
+    row.getCell(2).value = GRUNDMATERIAL[materialCode] || s.Art || '';
     
     worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
-    // Simplified bezeichnung
-    row.getCell(3).value = `${s.Art}: ${s.Material || ''} ${s.Farbe || ''}`;
+    
+    // Detailed description logic (ported from Python)
+    let bezeichnung = '';
+    const getVal = (val) => (val && val !== '0' && val !== 0 ? val : '-');
+    
+    const artCode = s.Artikelnummer[2];
+    const artikelTyp = artCode === 'H' ? 'Halskette' : artCode === 'O' ? 'Ohrring' : artCode === 'A' ? 'Armband' : artCode === 'S' ? 'Schlüsselanhänger' : '';
+    if (s.Name && s.Name.trim()) {
+      bezeichnung = `${artikelTyp}: ${s.Name}`;
+    } else if (artikelTyp === 'Ohrring') {
+      bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Form)} ${getVal(s.Fassung)} ${getVal(s.Farbe)}, ${getVal(s.Inhalt_Zusatzmaterial)}`;
+    } else if (artikelTyp === 'Halskette') {
+      bezeichnung = `${artikelTyp}: Fassung ${getVal(s.Anhänger_Fassung)} ${getVal(s.Anhänger_Form)}, ${getVal(s.Anhänger_Inhalt_Farbe)} ${getVal(s.Anhänger_Inhalt_Zusatzmaterial)}`;
+    } else if (artikelTyp === 'Armband') {
+      bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Farbe)}, ${getVal(s.Anhänger)}, ${getVal(s.Zwischenstück)}`;
+    } else if (artikelTyp === 'Schlüsselanhänger') {
+      bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Form)}`;
+    } else {
+      bezeichnung = `${s.Art || ''}: ${s.Material || ''} ${s.Farbe || ''}`;
+    }
+    
+    row.getCell(3).value = bezeichnung;
     
     row.getCell(7).value = 1;
     row.getCell(8).value = Number(s.Verkaufspreis);
@@ -157,21 +199,25 @@ async function generateExcel(type, data) {
 
   // Marina / Saskia Split
   currentRow += 1;
-  const marinaTotal = data.schmuckstuecke
-    .filter(s => s.Artikelnummer?.toUpperCase().startsWith('M'))
-    .reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-  const saskiaTotal = data.schmuckstuecke
-    .filter(s => s.Artikelnummer?.toUpperCase().startsWith('S'))
-    .reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-
-  worksheet.getRow(currentRow).getCell(7).value = "Marina:";
-  worksheet.getRow(currentRow).getCell(9).value = marinaTotal;
-  worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
+  const marinaItems = data.schmuckstuecke.filter(s => s.Artikelnummer?.toUpperCase().startsWith('M'));
+  const saskiaItems = data.schmuckstuecke.filter(s => s.Artikelnummer?.toUpperCase().startsWith('S'));
   
-  currentRow++;
-  worksheet.getRow(currentRow).getCell(7).value = "Saskia:";
-  worksheet.getRow(currentRow).getCell(9).value = saskiaTotal;
-  worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
+  const marinaTotal = marinaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
+  const saskiaTotal = saskiaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
+
+  if (marinaItems.length > 0) {
+    worksheet.getRow(currentRow).getCell(7).value = "Marina:";
+    worksheet.getRow(currentRow).getCell(9).value = marinaTotal;
+    worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
+    currentRow++;
+  }
+  
+  if (saskiaItems.length > 0) {
+    worksheet.getRow(currentRow).getCell(7).value = "Saskia:";
+    worksheet.getRow(currentRow).getCell(9).value = saskiaTotal;
+    worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
+    currentRow++;
+  }
 
   // 5. Total Block (for Invoice)
   if (type === 'Rechnung') {
@@ -219,6 +265,7 @@ async function generateExcel(type, data) {
     };
     
     currentRow += 2;
+    currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Gemäß § 19 Abs. 1 UStG wird keine Umsatzsteuer ausgewiesen.";
     
@@ -229,6 +276,20 @@ async function generateExcel(type, data) {
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Die Rechnung ist sofort bei Erhalt fällig.";
+
+    currentRow++;
+    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = "Vielen Dank";
+  }
+
+  if (type === 'Lieferschein') {
+    currentRow++;
+    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = "Lieferung: Die Lieferung erfolgt frei Haus.";
+    
+    currentRow += 2;
+    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = `Bei Rückfragen stehen wir Ihnen gerne zu Verfügung unter ${contact.email}`;
   }
 
   currentRow += 2;
@@ -241,8 +302,7 @@ async function generateExcel(type, data) {
   worksheet.getCell(`A${currentRow}`).border = { top: { style: 'thin', color: { argb: 'FFBCBCBC' } } };
 
   // Footer
-  // Note: ExcelJS footer is a bit tricky for multi-column. We'll use page setup if possible, or just add rows.
-  // Using rows at the very end is safer for now.
+  worksheet.headerFooter.oddFooter = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
   
   return await workbook.xlsx.writeBuffer();
 }

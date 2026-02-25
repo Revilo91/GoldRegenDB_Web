@@ -145,6 +145,7 @@ erDiagram
     - `S` = "Schrumpffolie",
     - `W` = "Holz",
     - `X` = "3D-Druck"
+    - `Y` = "Cabochon"
   - Dritte Stelle (Produktart):
     - `A` = "Armband",
     - `H` = "Halskette",
