@@ -8,13 +8,26 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
     const offset = (page - 1) * limit;
+    const search = req.query.search || '';
 
-    const countResult = await db.query('SELECT COUNT(*) FROM audit_log');
+    let where = [];
+    let params = [];
+    let paramIdx = 1;
+
+    if (search) {
+      where.push(`(artikelnummer_id ILIKE $${paramIdx} OR changed_by ILIKE $${paramIdx} OR old_value ILIKE $${paramIdx} OR new_value ILIKE $${paramIdx} OR column_name ILIKE $${paramIdx} OR action_type ILIKE $${paramIdx})`);
+      params.push(`%${search}%`);
+      paramIdx++;
+    }
+
+    const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
+
+    const countResult = await db.query(`SELECT COUNT(*) FROM audit_log ${whereClause}`, params);
     const total = parseInt(countResult.rows[0].count);
 
     const { rows } = await db.query(
-      'SELECT * FROM audit_log ORDER BY change_timestamp DESC LIMIT $1 OFFSET $2',
-      [limit, offset]
+      `SELECT * FROM audit_log ${whereClause} ORDER BY change_timestamp DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      [...params, limit, offset]
     );
 
     res.json({
