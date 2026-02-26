@@ -5,6 +5,7 @@ export default function AuditLog() {
   const [data, setData] = useState({ data: [], pagination: {} });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({
     key: "change_timestamp",
     direction: "desc",
@@ -13,11 +14,11 @@ export default function AuditLog() {
   useEffect(() => {
     setLoading(true);
     api
-      .getAuditLog({ page, limit: 100 })
+      .getAuditLog({ page, limit: 100, search })
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, search]);
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];
@@ -53,6 +54,18 @@ export default function AuditLog() {
       <div className="page-header">
         <h2>Audit Log</h2>
         <p>{p.total || 0} Einträge – Änderungsprotokoll</p>
+      </div>
+
+      <div className="toolbar">
+        <input
+          className="form-control search-input"
+          placeholder="🔍 Suche nach ID, Artikel, Spalte,..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
       </div>
 
       <div className="card">
