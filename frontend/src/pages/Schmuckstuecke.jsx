@@ -24,6 +24,17 @@ export default function Schmuckstuecke() {
       .finally(() => setLoading(false));
   };
 
+  const handleDelete = async (nr) => {
+    if (!confirm(`Schmuckstück ${nr} wirklich löschen?`)) return;
+    try {
+      await api.deleteSchmuckstueck(nr);
+      setSelected(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   useEffect(() => {
     api.getFilterOptions().then(setFilterOptions).catch(console.error);
     api.getKunden().then(setKunden).catch(console.error);
@@ -77,9 +88,24 @@ export default function Schmuckstuecke() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Schmuckstücke</h2>
-        <p>{p.total || 0} Stücke insgesamt</p>
+      <div
+        className="page-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
+        <div>
+          <h2>Schmuckstücke</h2>
+          <p>{p.total || 0} Stücke insgesamt</p>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => alert("Funktion zum Erstellen in Arbeit (Issue #3)")}
+        >
+          + Neues Schmuckstück
+        </button>
       </div>
 
       <div className="toolbar">
@@ -276,6 +302,23 @@ export default function Schmuckstuecke() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>💍 {selected.Artikelnummer}</h3>
+              <div style={{ marginLeft: "auto", marginRight: 16 }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginRight: 8 }}
+                  onClick={() =>
+                    alert("Funktion zum Bearbeiten in Arbeit (Issue #3)")
+                  }
+                >
+                  ✏️ Bearbeiten
+                </button>
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleDelete(selected.Artikelnummer)}
+                >
+                  🗑️ Löschen
+                </button>
+              </div>
               <button className="modal-close" onClick={() => setSelected(null)}>
                 ×
               </button>
