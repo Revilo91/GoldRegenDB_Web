@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
       db.query(`SELECT k."Name", COUNT(s.*) as count 
                 FROM "Schmuckstück" s 
                 JOIN "Kunde" k ON s."Ausgelagert" = k."ID" 
-                WHERE s."Ausgelagert" > 0
+                WHERE s."Ausgelagert" > 0 and s."Verkauft" = 0 and s."Ausschuss" = 0
                 GROUP BY k."Name" ORDER BY count DESC`),
     ]);
 
