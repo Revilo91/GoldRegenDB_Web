@@ -166,12 +166,15 @@ export default function Kunden() {
                   >
                     Status {getSortIcon("Aktiv")}
                   </th>
-                  <th>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedKunden.map((k) => (
-                  <tr key={k.ID}>
+                  <tr
+                    key={k.ID}
+                    onClick={() => openEdit(k)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>{k.ID}</td>
                     <td>
                       <strong>{k.Name}</strong>
@@ -185,22 +188,6 @@ export default function Kunden() {
                       ) : (
                         <span className="badge danger">Inaktiv</span>
                       )}
-                    </td>
-                    <td>
-                      <div className="btn-group">
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => openEdit(k)}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleDelete(k.ID)}
-                        >
-                          🗑️
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -338,16 +325,30 @@ export default function Kunden() {
                 </div>
               </div>
             </div>
-            <div className="modal-footer">
+            <div
+              className="modal-footer"
+              style={{ justifyContent: "space-between" }}
+            >
               <button
-                className="btn btn-secondary"
-                onClick={() => setEditing(null)}
+                className="btn btn-danger"
+                onClick={() => {
+                  handleDelete(form.ID);
+                  setEditing(null);
+                }}
               >
-                Abbrechen
+                Löschen
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
-              </button>
+              <div className="btn-group">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setEditing(null)}
+                >
+                  Abbrechen
+                </button>
+                <button className="btn btn-primary" onClick={handleSave}>
+                  Speichern
+                </button>
+              </div>
             </div>
           </div>
         </div>
