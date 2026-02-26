@@ -33,6 +33,17 @@ export default function Lieferscheine() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!confirm("Lieferschein wirklich löschen?")) return;
+    try {
+      await api.deleteLieferschein(id);
+      setDetail(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const sortedData = useMemo(() => {
     let sortableData = [...data];
     if (sortConfig.key !== null) {
@@ -69,9 +80,24 @@ export default function Lieferscheine() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Lieferscheine</h2>
-        <p>{data.length} Lieferscheine</p>
+      <div
+        className="page-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
+        <div>
+          <h2>Lieferscheine</h2>
+          <p>{data.length} Lieferscheine</p>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => alert("Funktion zur Erstellung in Arbeit (Issue #3)")}
+        >
+          + Neuer Lieferschein
+        </button>
       </div>
 
       <div className="card">
@@ -138,12 +164,19 @@ export default function Lieferscheine() {
               <h3>📦 Lieferschein {detail.Nummer}</h3>
               <button
                 className="btn btn-primary btn-sm"
-                style={{ marginLeft: "auto", marginRight: 16 }}
+                style={{ marginLeft: "auto", marginRight: 8 }}
                 onClick={() =>
                   window.open(api.getLieferscheinExcel(detail.ID), "_blank")
                 }
               >
                 Lieferschein erstellen
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                style={{ marginRight: 16 }}
+                onClick={() => handleDelete(detail.ID)}
+              >
+                🗑️ Löschen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×

@@ -32,6 +32,17 @@ export default function Rechnungen() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!confirm("Rechnung wirklich löschen?")) return;
+    try {
+      await api.deleteRechnung(id);
+      setDetail(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const sortedData = useMemo(() => {
     let sortableData = [...data];
     if (sortConfig.key !== null) {
@@ -67,9 +78,24 @@ export default function Rechnungen() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>Rechnungen</h2>
-        <p>{data.length} Rechnungen</p>
+      <div
+        className="page-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
+        <div>
+          <h2>Rechnungen</h2>
+          <p>{data.length} Rechnungen</p>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => alert("Funktion zur Erstellung in Arbeit (Issue #3)")}
+        >
+          + Neue Rechnung
+        </button>
       </div>
 
       <div className="card">
@@ -136,12 +162,19 @@ export default function Rechnungen() {
               <h3>🧾 Rechnung {detail.Nummer}</h3>
               <button
                 className="btn btn-primary btn-sm"
-                style={{ marginLeft: "auto", marginRight: 16 }}
+                style={{ marginLeft: "auto", marginRight: 8 }}
                 onClick={() =>
                   window.open(api.getRechnungExcel(detail.ID), "_blank")
                 }
               >
                 Rechnung erstellen
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                style={{ marginRight: 16 }}
+                onClick={() => handleDelete(detail.ID)}
+              >
+                🗑️ Löschen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×
