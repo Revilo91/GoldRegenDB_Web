@@ -6,6 +6,17 @@ export default function Lieferscheine() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [kunden, setKunden] = useState([]);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({
+    Nummer: "",
+    Kundennummer: "",
+    Artikelnummern: [],
+  });
+  const [availablePieces, setAvailablePieces] = useState([]);
+  const [pieceSearch, setPieceSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({
     key: "Datum",
     direction: "desc",
@@ -22,6 +33,7 @@ export default function Lieferscheine() {
 
   useEffect(() => {
     load();
+    api.getKunden().then(setKunden).catch(console.error);
   }, []);
 
   const openDetail = async (id) => {
@@ -44,8 +56,66 @@ export default function Lieferscheine() {
     }
   };
 
+  const openNew = async () => {
+    setForm({ Nummer: "", Kundennummer: "", Artikelnummern: [] });
+    setEditing("new");
+    try {
+      const resp = await api.getSchmuckstuecke({
+        ohne_lieferschein: "1",
+        limit: 1000,
+      });
+      setAvailablePieces(resp.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.Nummer || !form.Kundennummer) {
+      alert("Bitte Nummer und Kunde angeben.");
+      return;
+    }
+    try {
+      await api.createLieferschein(form);
+      setEditing(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const togglePiece = (nr) => {
+    const nrs = [...form.Artikelnummern];
+    if (nrs.includes(nr)) {
+      setForm({ ...form, Artikelnummern: nrs.filter((n) => n !== nr) });
+    } else {
+      setForm({ ...form, Artikelnummern: [...nrs, nr] });
+    }
+  };
+
+  const filteredData = useMemo(() => {
+    return data.filter((l) => {
+      // Search filter
+      if (search) {
+        const s = search.toLowerCase();
+        const match =
+          l.Nummer?.toLowerCase().includes(s) ||
+          l.KundenName?.toLowerCase().includes(s) ||
+          String(l.ID).includes(s);
+        if (!match) return false;
+      }
+
+      // Customer filter
+      if (filters.kundennummer) {
+        if (l.Kundennummer !== parseInt(filters.kundennummer)) return false;
+      }
+
+      return true;
+    });
+  }, [data, search, filters]);
+
   const sortedData = useMemo(() => {
-    let sortableData = [...data];
+    let sortableData = [...filteredData];
     if (sortConfig.key !== null) {
       sortableData.sort((a, b) => {
         let aValue = a[sortConfig.key];
@@ -92,12 +162,38 @@ export default function Lieferscheine() {
           <h2>Lieferscheine</h2>
           <p>{data.length} Lieferscheine</p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => alert("Funktion zur Erstellung in Arbeit (Issue #3)")}
-        >
+        <button className="btn btn-primary" onClick={openNew}>
           + Neuer Lieferschein
         </button>
+      </div>
+
+      <div className="toolbar">
+        <input
+          className="form-control search-input"
+          placeholder="🔍 Suche nach Nummer, Kunde, ID..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="form-control"
+          style={{ width: "auto", minWidth: 150 }}
+          value={filters.kundennummer ?? ""}
+          onChange={(e) => {
+            const { kundennummer, ...rest } = filters;
+            setFilters(
+              e.target.value !== ""
+                ? { ...rest, kundennummer: e.target.value }
+                : rest,
+            );
+          }}
+        >
+          <option value="">Alle Kunden</option>
+          {kunden.map((k) => (
+            <option key={k.ID} value={k.ID}>
+              {k.Name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="card">
@@ -272,6 +368,140 @@ export default function Lieferscheine() {
                   </table>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editing === "new" && (
+        <div className="modal-overlay" onClick={() => setEditing(null)}>
+          <div
+            className="modal modal-lg"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "800px" }}
+          >
+            <div className="modal-header">
+              <h3>🆕 Neuer Lieferschein</h3>
+              <button className="modal-close" onClick={() => setEditing(null)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Lieferschein-Nummer*</label>
+                  <input
+                    className="form-control"
+                    value={form.Nummer}
+                    onChange={(e) =>
+                      setForm({ ...form, Nummer: e.target.value })
+                    }
+                    placeholder="z.B. LS-2024-001"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Kunde*</label>
+                  <select
+                    className="form-control"
+                    value={form.Kundennummer}
+                    onChange={(e) =>
+                      setForm({ ...form, Kundennummer: e.target.value })
+                    }
+                  >
+                    <option value="">Bitte wählen...</option>
+                    {kunden.map((k) => (
+                      <option key={k.ID} value={k.ID}>
+                        {k.Name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="piece-selection" style={{ marginTop: 24 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                  }}
+                >
+                  <h4 style={{ margin: 0 }}>
+                    Schmuckstücke auswählen ({form.Artikelnummern.length})
+                  </h4>
+                  <input
+                    className="form-control"
+                    style={{ width: "200px" }}
+                    placeholder="🔍 Suchen..."
+                    value={pieceSearch}
+                    onChange={(e) => setPieceSearch(e.target.value)}
+                  />
+                </div>
+                <div
+                  style={{
+                    maxHeight: "300px",
+                    overflowY: "auto",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                >
+                  <table className="data-table">
+                    <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                      <tr>
+                        <th style={{ width: "40px" }}></th>
+                        <th>Artikelnr.</th>
+                        <th>Art</th>
+                        <th>Preis</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {availablePieces
+                        .filter(
+                          (p) =>
+                            !pieceSearch ||
+                            p.Artikelnummer.toLowerCase().includes(
+                              pieceSearch.toLowerCase(),
+                            ) ||
+                            p.Art.toLowerCase().includes(
+                              pieceSearch.toLowerCase(),
+                            ),
+                        )
+                        .map((p) => (
+                          <tr
+                            key={p.Artikelnummer}
+                            onClick={() => togglePiece(p.Artikelnummer)}
+                            style={{ cursor: "pointer" }}
+                          >
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={form.Artikelnummern.includes(
+                                  p.Artikelnummer,
+                                )}
+                                readOnly
+                              />
+                            </td>
+                            <td>{p.Artikelnummer}</td>
+                            <td>{p.Art}</td>
+                            <td>{p.Verkaufspreis}€</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setEditing(null)}
+              >
+                Abbrechen
+              </button>
+              <button className="btn btn-primary" onClick={handleSave}>
+                Speichern
+              </button>
             </div>
           </div>
         </div>

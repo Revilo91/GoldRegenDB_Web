@@ -14,6 +14,8 @@ router.get('/', async (req, res) => {
     const ausgelagert = req.query.ausgelagert;
     const online = req.query.online;
     const artikelnummer_art = req.query.artikelnummer_art;
+    const ohne_lieferschein = req.query.ohne_lieferschein;
+    const ohne_rechnung = req.query.ohne_rechnung;
 
     let where = [];
     let params = [];
@@ -48,6 +50,12 @@ router.get('/', async (req, res) => {
       where.push(`"Online" = $${paramIdx}`);
       params.push(parseInt(online));
       paramIdx++;
+    }
+    if (ohne_lieferschein === '1') {
+      where.push('"Lieferschein_ID" IS NULL');
+    }
+    if (ohne_rechnung === '1') {
+      where.push('"Rechnung_ID" IS NULL');
     }
 
     const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';

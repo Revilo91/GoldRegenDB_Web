@@ -4,6 +4,8 @@ import { api } from "../api";
 export default function Kunden() {
   const [kunden, setKunden] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({});
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [sortConfig, setSortConfig] = useState({
@@ -69,8 +71,30 @@ export default function Kunden() {
     setEditing(k.ID);
   };
 
+  const filteredKunden = useMemo(() => {
+    return kunden.filter((k) => {
+      // Search filter
+      if (search) {
+        const s = search.toLowerCase();
+        const match =
+          k.Name?.toLowerCase().includes(s) ||
+          k.Ort?.toLowerCase().includes(s) ||
+          k.Email?.toLowerCase().includes(s) ||
+          String(k.ID).includes(s);
+        if (!match) return false;
+      }
+
+      // Quick filters
+      if (filters.aktiv !== undefined) {
+        if (k.Aktiv !== (filters.aktiv === "1")) return false;
+      }
+
+      return true;
+    });
+  }, [kunden, search, filters]);
+
   const sortedKunden = useMemo(() => {
-    let sortableKunden = [...kunden];
+    let sortableKunden = [...filteredKunden];
     if (sortConfig.key !== null) {
       sortableKunden.sort((a, b) => {
         const aValue = a[sortConfig.key];
@@ -118,6 +142,30 @@ export default function Kunden() {
         <button className="btn btn-primary" onClick={openNew}>
           + Neuer Kunde
         </button>
+      </div>
+
+      <div className="toolbar">
+        <input
+          className="form-control search-input"
+          placeholder="🔍 Suche nach Name, Ort, Email, ID..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="form-control"
+          style={{ width: "auto", minWidth: 150 }}
+          value={filters.aktiv ?? ""}
+          onChange={(e) => {
+            const { aktiv, ...rest } = filters;
+            setFilters(
+              e.target.value !== "" ? { ...rest, aktiv: e.target.value } : rest,
+            );
+          }}
+        >
+          <option value="">Alle Status</option>
+          <option value="1">Aktiv</option>
+          <option value="0">Inaktiv</option>
+        </select>
       </div>
 
       <div className="card">
