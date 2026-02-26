@@ -128,32 +128,78 @@ router.get('/:artikelnummer', async (req, res) => {
 
 // POST create piece
 router.post('/', async (req, res) => {
+  const client = await db.connect();
   try {
     const b = req.body;
-    const { rows } = await db.query(
-      `INSERT INTO "Schmuckstück" (
-        "Artikelnummer", "Name", "Foto", "Art", "Form", "Länge", "Fassung", "Farbe",
-        "Inhalt_Material", "Inhalt_Farbe", "Inhalt_Farbakzent", "Inhalt_Zusatzmaterial",
-        "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
-        "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
-        "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
-        "Herstellungskosten", "Verkaufspreis", "Online", "Ausgelagert", "Verkauft", "Ausschuss"
-      ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
-      ) RETURNING *`,
-      [
-        b.Artikelnummer, b.Name, b.Foto, b.Art, b.Form, b.Länge || 0, b.Fassung, b.Farbe,
-        b.Inhalt_Material, b.Inhalt_Farbe, b.Inhalt_Farbakzent, b.Inhalt_Zusatzmaterial,
-        b.Anhänger_Fassung, b.Anhänger_Form, b.Anhänger_Farbe, b.Anhänger_Grösse || 0,
-        b.Anhänger_Inhalt_Material, b.Anhänger_Inhalt_Farbe, b.Anhänger_Inhalt_Farbakzente,
-        b.Anhänger_Inhalt_Zusatzmaterial, b.Material, b.Grösse || 0, b.Anhänger, b.Zwischenstück,
-        b.Herstellungskosten || 0, b.Verkaufspreis || 0, b.Online || 0, b.Ausgelagert || 0, b.Verkauft || 0, b.Ausschuss || 0,
-      ]
-    );
-    res.status(201).json(rows[0]);
+    const quantity = parseInt(b.Anzahl) || 1;
+    let baseArtikelnummer = b.Artikelnummer.trim();
+    let startSuffix = 1;
+
+    await client.query('BEGIN');
+
+    // Case 1: Prefix only (3 chars, e.g. "MHO")
+    if (baseArtikelnummer.length === 3) {
+      const prefix = baseArtikelnummer.toUpperCase();
+      const { rows } = await client.query(
+        `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 4, 3) AS INTEGER)) as max_num 
+         FROM "Schmuckstück" 
+         WHERE "Artikelnummer" LIKE $1`,
+        [`${prefix}%`]
+      );
+      const nextNum = (rows[0].max_num || 0) + 1;
+      baseArtikelnummer = prefix + nextNum.toString().padStart(3, '0');
+    } 
+    // Case 2: Base Artikelnummer (e.g. "MHO112")
+    else if (/^[A-Z]{3}\d{3}$/.test(baseArtikelnummer.toUpperCase())) {
+      baseArtikelnummer = baseArtikelnummer.toUpperCase();
+      const { rows } = await client.query(
+        `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 8) AS INTEGER)) as max_suffix 
+         FROM "Schmuckstück" 
+         WHERE "Artikelnummer" LIKE $1`,
+        [`${baseArtikelnummer}_%`]
+      );
+      startSuffix = (rows[0].max_suffix || 0) + 1;
+    } else if (baseArtikelnummer.includes('_')) {
+        // If they provided a full number with suffix, just use it as is (quantity will still work but might collide)
+        const parts = baseArtikelnummer.split('_');
+        baseArtikelnummer = parts[0].toUpperCase();
+        startSuffix = parseInt(parts[1]) || 1;
+    }
+
+    const createdItems = [];
+    for (let i = 0; i < quantity; i++) {
+        const fullArtNr = `${baseArtikelnummer}_${startSuffix + i}`;
+        const { rows } = await client.query(
+          `INSERT INTO "Schmuckstück" (
+            "Artikelnummer", "Name", "Foto", "Art", "Form", "Länge", "Fassung", "Farbe",
+            "Inhalt_Material", "Inhalt_Farbe", "Inhalt_Farbakzent", "Inhalt_Zusatzmaterial",
+            "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
+            "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
+            "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
+            "Herstellungskosten", "Verkaufspreis", "Online", "Ausgelagert", "Verkauft", "Ausschuss"
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+          ) RETURNING *`,
+          [
+            fullArtNr, b.Name, b.Foto, b.Art, b.Form, b.Länge || 0, b.Fassung, b.Farbe,
+            b.Inhalt_Material, b.Inhalt_Farbe, b.Inhalt_Farbakzent, b.Inhalt_Zusatzmaterial,
+            b.Anhänger_Fassung, b.Anhänger_Form, b.Anhänger_Farbe, b.Anhänger_Grösse || 0,
+            b.Anhänger_Inhalt_Material, b.Anhänger_Inhalt_Farbe, b.Anhänger_Inhalt_Farbakzente,
+            b.Anhänger_Inhalt_Zusatzmaterial, b.Material, b.Grösse || 0, b.Anhänger, b.Zwischenstück,
+            b.Herstellungskosten || 0, b.Verkaufspreis || 0, b.Online || 0, b.Ausgelagert || 0, b.Verkauft || 0, b.Ausschuss || 0,
+          ]
+        );
+        createdItems.push(rows[0]);
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json(quantity === 1 ? createdItems[0] : createdItems);
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
-    res.status(500).json({ error: 'Fehler beim Erstellen des Schmuckstücks' });
+    res.status(500).json({ error: 'Fehler beim Erstellen des Schmuckstücks: ' + err.message });
+  } finally {
+    client.release();
   }
 });
 
