@@ -92,6 +92,14 @@ export default function Rechnungen() {
     }
   };
 
+  const years = useMemo(() => {
+    const y = new Set();
+    data.forEach((r) => {
+      if (r.Datum) y.add(new Date(r.Datum).getFullYear());
+    });
+    return Array.from(y).sort((a, b) => b - a);
+  }, [data]);
+
   const filteredData = useMemo(() => {
     return data.filter((r) => {
       // Search filter
@@ -107,6 +115,12 @@ export default function Rechnungen() {
       // Customer filter
       if (filters.kundennummer) {
         if (r.Kundennummer !== parseInt(filters.kundennummer)) return false;
+      }
+
+      // Year filter
+      if (filters.jahr) {
+        if (new Date(r.Datum).getFullYear() !== parseInt(filters.jahr))
+          return false;
       }
 
       return true;
@@ -131,7 +145,7 @@ export default function Rechnungen() {
       });
     }
     return sortableData;
-  }, [data, sortConfig]);
+  }, [filteredData, sortConfig]);
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -189,6 +203,24 @@ export default function Rechnungen() {
           {kunden.map((k) => (
             <option key={k.ID} value={k.ID}>
               {k.Name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="form-control"
+          style={{ width: "auto" }}
+          value={filters.jahr ?? ""}
+          onChange={(e) => {
+            const { jahr, ...rest } = filters;
+            setFilters(
+              e.target.value !== "" ? { ...rest, jahr: e.target.value } : rest,
+            );
+          }}
+        >
+          <option value="">Alle Jahre</option>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
             </option>
           ))}
         </select>
