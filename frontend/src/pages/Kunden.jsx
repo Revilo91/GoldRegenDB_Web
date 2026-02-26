@@ -110,7 +110,7 @@ export default function Kunden() {
       });
     }
     return sortableKunden;
-  }, [kunden, sortConfig]);
+  }, [filteredKunden, sortConfig]);
 
   const requestSort = (key) => {
     let direction = "asc";
