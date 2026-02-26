@@ -4,7 +4,6 @@ import { api } from "../api";
 export default function Lieferscheine() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [kunden, setKunden] = useState([]);
   const [search, setSearch] = useState("");
@@ -93,6 +92,14 @@ export default function Lieferscheine() {
     }
   };
 
+  const years = useMemo(() => {
+    const y = new Set();
+    data.forEach((l) => {
+      if (l.Datum) y.add(new Date(l.Datum).getFullYear());
+    });
+    return Array.from(y).sort((a, b) => b - a);
+  }, [data]);
+
   const filteredData = useMemo(() => {
     return data.filter((l) => {
       // Search filter
@@ -108,6 +115,12 @@ export default function Lieferscheine() {
       // Customer filter
       if (filters.kundennummer) {
         if (l.Kundennummer !== parseInt(filters.kundennummer)) return false;
+      }
+
+      // Year filter
+      if (filters.jahr) {
+        if (new Date(l.Datum).getFullYear() !== parseInt(filters.jahr))
+          return false;
       }
 
       return true;
@@ -133,7 +146,7 @@ export default function Lieferscheine() {
       });
     }
     return sortableData;
-  }, [data, sortConfig]);
+  }, [filteredData, sortConfig]);
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -191,6 +204,24 @@ export default function Lieferscheine() {
           {kunden.map((k) => (
             <option key={k.ID} value={k.ID}>
               {k.Name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="form-control"
+          style={{ width: "auto" }}
+          value={filters.jahr ?? ""}
+          onChange={(e) => {
+            const { jahr, ...rest } = filters;
+            setFilters(
+              e.target.value !== "" ? { ...rest, jahr: e.target.value } : rest,
+            );
+          }}
+        >
+          <option value="">Alle Jahre</option>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
             </option>
           ))}
         </select>
