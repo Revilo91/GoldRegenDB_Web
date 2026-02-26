@@ -9,6 +9,8 @@ export default function Schmuckstuecke() {
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
   const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
@@ -29,10 +31,47 @@ export default function Schmuckstuecke() {
     try {
       await api.deleteSchmuckstueck(nr);
       setSelected(null);
+      setEditing(null);
       load();
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const handleSave = async () => {
+    try {
+      if (editing === "new") {
+        await api.createSchmuckstueck(form);
+      } else {
+        await api.updateSchmuckstueck(editing, form);
+      }
+      setEditing(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const openNew = () => {
+    setForm({
+      Artikelnummer: "",
+      Name: "",
+      Art: "",
+      Material: "",
+      Farbe: "",
+      Verkaufspreis: 0,
+      Herstellungskosten: 0,
+      Ausgelagert: 0,
+      Verkauft: 0,
+      Online: 0,
+      Ausschuss: 0,
+    });
+    setEditing("new");
+  };
+
+  const openEdit = (s) => {
+    setForm({ ...s });
+    setEditing(s.Artikelnummer);
   };
 
   useEffect(() => {
@@ -100,10 +139,7 @@ export default function Schmuckstuecke() {
           <h2>Schmuckstücke</h2>
           <p>{p.total || 0} Stücke insgesamt</p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => alert("Funktion zum Erstellen in Arbeit (Issue #3)")}
-        >
+        <button className="btn btn-primary" onClick={openNew}>
           + Neues Schmuckstück
         </button>
       </div>
@@ -306,9 +342,7 @@ export default function Schmuckstuecke() {
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ marginRight: 8 }}
-                  onClick={() =>
-                    alert("Funktion zum Bearbeiten in Arbeit (Issue #3)")
-                  }
+                  onClick={() => openEdit(selected)}
                 >
                   ✏️ Bearbeiten
                 </button>
@@ -380,6 +414,461 @@ export default function Schmuckstuecke() {
                     <div className="detail-value">{value}</div>
                   </div>
                 ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editing !== null && (
+        <div className="modal-overlay" onClick={() => setEditing(null)}>
+          <div
+            className="modal modal-lg"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "900px" }}
+          >
+            <div className="modal-header">
+              <h3>
+                {editing === "new"
+                  ? "🆕 Neues Schmuckstück"
+                  : `✏️ ${editing} bearbeiten`}
+              </h3>
+              <button className="modal-close" onClick={() => setEditing(null)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-section">
+                <h4>📦 Basis-Informationen</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Artikelnummer*</label>
+                    <input
+                      className="form-control"
+                      disabled={editing !== "new"}
+                      value={form.Artikelnummer || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Artikelnummer: e.target.value })
+                      }
+                      placeholder="z.M. MBH001_1"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Name</label>
+                    <input
+                      className="form-control"
+                      value={form.Name || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Name: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Art</label>
+                    <input
+                      list="arten-list"
+                      className="form-control"
+                      value={form.Art || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Art: e.target.value })
+                      }
+                    />
+                    <datalist id="arten-list">
+                      {filterOptions.arten?.map((a) => (
+                        <option key={a} value={a} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="form-group">
+                    <label>Material</label>
+                    <input
+                      list="material-list"
+                      className="form-control"
+                      value={form.Material || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Material: e.target.value })
+                      }
+                    />
+                    <datalist id="material-list">
+                      {filterOptions.materialien?.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="form-group">
+                    <label>Farbe</label>
+                    <input
+                      list="farben-list"
+                      className="form-control"
+                      value={form.Farbe || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Farbe: e.target.value })
+                      }
+                    />
+                    <datalist id="farben-list">
+                      {filterOptions.farben?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>🔍 Details (Hauptstück)</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Form</label>
+                    <input
+                      list="formen-list"
+                      className="form-control"
+                      value={form.Form || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Form: e.target.value })
+                      }
+                    />
+                    <datalist id="formen-list">
+                      {filterOptions.formen?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="form-group">
+                    <label>Größe</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      step="0.1"
+                      value={form.Grösse || 0}
+                      onChange={(e) =>
+                        setForm({ ...form, Grösse: parseFloat(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Länge (cm)</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      step="0.1"
+                      value={form.Länge || 0}
+                      onChange={(e) =>
+                        setForm({ ...form, Länge: parseFloat(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Fassung</label>
+                    <input
+                      className="form-control"
+                      value={form.Fassung || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Fassung: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>✨ Inhalt</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Inhalt Material</label>
+                    <input
+                      className="form-control"
+                      value={form.Inhalt_Material || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Inhalt_Material: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Inhalt Farbe</label>
+                    <input
+                      className="form-control"
+                      value={form.Inhalt_Farbe || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Inhalt_Farbe: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Inhalt Farbakzent</label>
+                    <input
+                      className="form-control"
+                      value={form.Inhalt_Farbakzent || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Inhalt_Farbakzent: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Inhalt Zusatzmaterial</label>
+                    <input
+                      className="form-control"
+                      value={form.Inhalt_Zusatzmaterial || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Inhalt_Zusatzmaterial: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>📎 Anhänger / Attachment</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Anhänger Fassung</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Fassung || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Anhänger_Fassung: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anhänger Form</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Form || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Anhänger_Form: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anhänger Farbe</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Farbe || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Anhänger_Farbe: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anhänger Größe</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      step="0.1"
+                      value={form.Anhänger_Grösse || 0}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Anhänger_Grösse: parseFloat(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Anh. Inhalt Material</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Inhalt_Material || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Anhänger_Inhalt_Material: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anh. Inhalt Farbe</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Inhalt_Farbe || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Anhänger_Inhalt_Farbe: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anh. Inhalt Farbakzent</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Inhalt_Farbakzente || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Anhänger_Inhalt_Farbakzente: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anh. Inhalt Zusatzmaterial</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger_Inhalt_Zusatzmaterial || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Anhänger_Inhalt_Zusatzmaterial: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Zwischenstück</label>
+                    <input
+                      className="form-control"
+                      value={form.Zwischenstück || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Zwischenstück: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Anhänger (Allg.)</label>
+                    <input
+                      className="form-control"
+                      value={form.Anhänger || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Anhänger: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>💰 Inventar & Preise</h4>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Verkaufspreis (€)</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      step="0.01"
+                      value={form.Verkaufspreis || 0}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Verkaufspreis: parseFloat(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Herstellungskosten (€)</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      step="0.01"
+                      value={form.Herstellungskosten || 0}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Herstellungskosten: parseFloat(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Standort / Ausgelagert</label>
+                    <select
+                      className="form-control"
+                      value={form.Ausgelagert || 0}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Ausgelagert: parseInt(e.target.value),
+                        })
+                      }
+                    >
+                      <option value="0">Lager</option>
+                      {kunden.map((k) => (
+                        <option key={k.ID} value={k.ID}>
+                          {k.Name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row" style={{ marginTop: "16px" }}>
+                  <div
+                    className="form-group"
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="form-verkauft"
+                      checked={form.Verkauft === 1}
+                      onChange={(e) =>
+                        setForm({ ...form, Verkauft: e.target.checked ? 1 : 0 })
+                      }
+                      style={{ marginRight: "8px" }}
+                    />
+                    <label htmlFor="form-verkauft" style={{ marginBottom: 0 }}>
+                      Verkauft
+                    </label>
+                  </div>
+                  <div
+                    className="form-group"
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="form-online"
+                      checked={form.Online === 1}
+                      onChange={(e) =>
+                        setForm({ ...form, Online: e.target.checked ? 1 : 0 })
+                      }
+                      style={{ marginRight: "8px" }}
+                    />
+                    <label htmlFor="form-online" style={{ marginBottom: 0 }}>
+                      Online
+                    </label>
+                  </div>
+                  <div
+                    className="form-group"
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="form-ausschuss"
+                      checked={form.Ausschuss === 1}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          Ausschuss: e.target.checked ? 1 : 0,
+                        })
+                      }
+                      style={{ marginRight: "8px" }}
+                    />
+                    <label htmlFor="form-ausschuss" style={{ marginBottom: 0 }}>
+                      Ausschuss
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setEditing(null)}
+              >
+                Abbrechen
+              </button>
+              <button className="btn btn-primary" onClick={handleSave}>
+                Speichern
+              </button>
             </div>
           </div>
         </div>
