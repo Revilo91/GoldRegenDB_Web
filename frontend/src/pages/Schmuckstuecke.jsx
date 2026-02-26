@@ -55,6 +55,7 @@ export default function Schmuckstuecke() {
   const openNew = () => {
     setForm({
       Artikelnummer: "",
+      Anzahl: 1,
       Name: "",
       Art: "",
       Material: "",
@@ -449,9 +450,26 @@ export default function Schmuckstuecke() {
                       onChange={(e) =>
                         setForm({ ...form, Artikelnummer: e.target.value })
                       }
-                      placeholder="z.M. MBH001_1"
+                      placeholder="z.B. MHO oder MHO112"
                     />
                   </div>
+                  {editing === "new" && (
+                    <div className="form-group" style={{ maxWidth: "100px" }}>
+                      <label>Anzahl</label>
+                      <input
+                        className="form-control"
+                        type="number"
+                        min="1"
+                        value={form.Anzahl || 1}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            Anzahl: parseInt(e.target.value) || 1,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Name</label>
                     <input
