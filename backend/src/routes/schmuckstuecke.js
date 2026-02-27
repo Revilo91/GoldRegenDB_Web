@@ -166,6 +166,45 @@ router.post('/', async (req, res) => {
         startSuffix = parseInt(parts[1]) || 1;
     }
 
+    // Daten von Produkt holen, sobald das form nicht ausgefüllt ist
+    if (b.Artikelnummer) {
+        const { rows } = await client.query(
+          `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 || '_' || $2`,
+          [baseArtikelnummer, startSuffix - 1]
+        );
+        if (rows.length > 0) {
+          b.Name = rows[0].Name;
+          b.Foto = rows[0].Foto;  
+          b.Art = rows[0].Art;
+          b.Material = rows[0].Material;
+          b.Farbe = rows[0].Farbe;
+          b.Verkaufspreis = rows[0].Verkaufspreis;
+          b.Herstellungskosten = rows[0].Herstellungskosten;
+          b.Ausgelagert = 0;
+          b.Verkauft = 0;
+          b.Online = 0;
+          b.Ausschuss = 0;
+          b.Länge = rows[0].Länge;
+          b.Fassung = rows[0].Fassung;
+          b.Farbe = rows[0].Farbe;
+          b.Inhalt_Material = rows[0].Inhalt_Material;
+          b.Inhalt_Farbe = rows[0].Inhalt_Farbe;
+          b.Inhalt_Farbakzent = rows[0].Inhalt_Farbakzent;
+          b.Inhalt_Zusatzmaterial = rows[0].Inhalt_Zusatzmaterial;
+          b.Anhänger_Fassung = rows[0].Anhänger_Fassung;
+          b.Anhänger_Form = rows[0].Anhänger_Form;
+          b.Anhänger_Farbe = rows[0].Anhänger_Farbe;
+          b.Anhänger_Grösse = rows[0].Anhänger_Grösse;
+          b.Anhänger_Inhalt_Material = rows[0].Anhänger_Inhalt_Material;
+          b.Anhänger_Inhalt_Farbe = rows[0].Anhänger_Inhalt_Farbe;
+          b.Anhänger_Inhalt_Farbakzente = rows[0].Anhänger_Inhalt_Farbakzente;
+          b.Anhänger_Inhalt_Zusatzmaterial = rows[0].Anhänger_Inhalt_Zusatzmaterial;
+          b.Material = rows[0].Material;
+          b.Grösse = rows[0].Grösse;
+          b.Anhänger = rows[0].Anhänger;
+          b.Zwischenstück = rows[0].Zwischenstück;
+        }
+    }
     const createdItems = [];
     for (let i = 0; i < quantity; i++) {
         const fullArtNr = `${baseArtikelnummer}_${startSuffix + i}`;
