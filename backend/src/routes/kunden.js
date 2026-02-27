@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/schmuckstuecke', async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Ausgelagert" = $1 ORDER BY "Artikelnummer"',
+      'SELECT * FROM "Schmuckstück" WHERE "Ausgelagert" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
       [req.params.id]
     );
     res.json(rows);

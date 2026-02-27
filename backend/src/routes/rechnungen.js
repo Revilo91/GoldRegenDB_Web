@@ -33,7 +33,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY "Artikelnummer"',
+      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
       [req.params.id]
     );
 
@@ -59,7 +59,7 @@ router.get('/:id/excel', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY "Artikelnummer"',
+      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
       [req.params.id]
     );
 
