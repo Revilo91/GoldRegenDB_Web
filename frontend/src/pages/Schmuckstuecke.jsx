@@ -105,6 +105,12 @@ export default function Schmuckstuecke() {
           if (b.Ausgelagert === 0) bValue = "";
         }
 
+        if (sortConfig.key === "Artikelnummer") {
+          return sortConfig.direction === "asc"
+            ? aValue.localeCompare(bValue, undefined, { numeric: true })
+            : bValue.localeCompare(aValue, undefined, { numeric: true });
+        }
+
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -278,7 +284,12 @@ export default function Schmuckstuecke() {
                     style={{ cursor: "pointer" }}
                   >
                     <td>
-                      <strong>{s.Artikelnummer}</strong>
+                      <strong>{s.Artikelnummer.split("_")[0]}</strong>
+                      {s.Artikelnummer.split("_")[1] > 0 && (
+                        <span className="badge warning">
+                          {s.Artikelnummer.split("_")[1]}
+                        </span>
+                      )}
                     </td>
                     <td>{s.Art}</td>
                     <td>{s.Material}</td>

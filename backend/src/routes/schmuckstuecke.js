@@ -69,7 +69,7 @@ router.get('/', async (req, res) => {
 
     // Get page
     const { rows } = await db.query(
-      `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY "Artikelnummer" LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset]
     );
 

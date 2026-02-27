@@ -388,7 +388,7 @@ export default function Lieferscheine() {
                         <tr key={s.Artikelnummer}>
                           <td>
                             <span className="badge gold">
-                              {s.Artikelnummer}
+                              {s.Artikelnummer.split("_")[0]}
                             </span>
                           </td>
                           <td>{s.Art}</td>
