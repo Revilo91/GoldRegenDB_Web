@@ -128,7 +128,7 @@ router.get('/:artikelnummer', async (req, res) => {
 
 // POST create piece
 router.post('/', async (req, res) => {
-  const client = await db.connect();
+  const client = await db.pool.connect();
   try {
     const b = req.body;
     const quantity = parseInt(b.Anzahl) || 1;
