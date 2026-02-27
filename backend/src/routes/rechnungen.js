@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT r.*, k."Name" as "KundenName"
+      `SELECT r.*, k."Name" as "KundenName", k."Provision"
        FROM "Rechnung" r
        LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
        WHERE r."ID" = $1`,

@@ -325,47 +325,150 @@ export default function Rechnungen() {
                   </div>
                 </div>
                 <div className="detail-item">
-                  <label>Gesamtwert</label>
+                  <label>Werteübersicht</label>
                   <div className="detail-value">
-                    <strong>
-                      {detail.schmuckstuecke
-                        .reduce(
-                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-                          0,
-                        )
-                        .toFixed(2)}
-                      €
-                    </strong>
-                    <div
-                      style={{
-                        fontSize: "0.85em",
-                        color: "#666",
-                        marginTop: 4,
-                      }}
-                    >
-                      Marina:{" "}
-                      {detail.schmuckstuecke
-                        .filter((s) =>
-                          s.Artikelnummer?.toUpperCase().startsWith("M"),
-                        )
-                        .reduce(
-                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-                          0,
-                        )
-                        .toFixed(2)}
-                      €<br />
-                      Saskia:{" "}
-                      {detail.schmuckstuecke
-                        .filter((s) =>
-                          s.Artikelnummer?.toUpperCase().startsWith("S"),
-                        )
-                        .reduce(
-                          (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-                          0,
-                        )
-                        .toFixed(2)}
-                      €
-                    </div>
+                    {(() => {
+                      const totalBrutto = detail.schmuckstuecke.reduce(
+                        (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      );
+                      const provisionPercent = Number(detail.Provision) || 0;
+                      const provisionValue =
+                        totalBrutto * (provisionPercent / 100);
+                      const finalTotal = totalBrutto - provisionValue;
+
+                      return (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
+                          }}
+                        >
+                          <div>
+                            <span style={{ color: "#666", fontSize: "0.9em" }}>
+                              Gesamtwert (brutto):
+                            </span>{" "}
+                            <strong>{totalBrutto.toFixed(2)} €</strong>
+                          </div>
+                          {provisionPercent > 0 && (
+                            <div style={{ color: "#d32f2f" }}>
+                              <span style={{ fontSize: "0.9em" }}>
+                                - Provision ({provisionPercent}%):
+                              </span>{" "}
+                              <strong>{provisionValue.toFixed(2)} €</strong>
+                            </div>
+                          )}
+                          <div
+                            style={{
+                              marginTop: "4px",
+                              paddingTop: "8px",
+                              borderTop: "1px solid #eee",
+                              fontSize: "1.1em",
+                            }}
+                          >
+                            <span>Überweisungsbetrag:</span>{" "}
+                            <strong style={{ color: "var(--primary)" }}>
+                              {finalTotal.toFixed(2)} €
+                            </strong>
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: "0.85em",
+                              color: "#666",
+                              marginTop: 8,
+                              padding: "12px",
+                              backgroundColor: "#f9f9f9",
+                              borderRadius: "4px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "8px",
+                            }}
+                          >
+                            <label
+                              style={{
+                                fontSize: "0.9em",
+                                marginBottom: "0",
+                                display: "block",
+                                color: "#888",
+                                fontWeight: "600",
+                              }}
+                            >
+                              Aufteilung (Netto nach Provision):
+                            </label>
+
+                            {(() => {
+                              const marinaBrutto = detail.schmuckstuecke
+                                .filter((s) =>
+                                  s.Artikelnummer?.toUpperCase().startsWith(
+                                    "M",
+                                  ),
+                                )
+                                .reduce(
+                                  (sum, s) =>
+                                    sum + (Number(s.Verkaufspreis) || 0),
+                                  0,
+                                );
+                              const saskiaBrutto = detail.schmuckstuecke
+                                .filter((s) =>
+                                  s.Artikelnummer?.toUpperCase().startsWith(
+                                    "S",
+                                  ),
+                                )
+                                .reduce(
+                                  (sum, s) =>
+                                    sum + (Number(s.Verkaufspreis) || 0),
+                                  0,
+                                );
+
+                              const marinaNetto =
+                                marinaBrutto * (1 - provisionPercent / 100);
+                              const saskiaNetto =
+                                saskiaBrutto * (1 - provisionPercent / 100);
+
+                              return (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    gap: "12px",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <div>
+                                    <strong>Marina:</strong>{" "}
+                                    {marinaNetto.toFixed(2)} €
+                                    <span
+                                      style={{
+                                        fontSize: "0.9em",
+                                        color: "#999",
+                                        marginLeft: "4px",
+                                      }}
+                                    >
+                                      ({marinaBrutto.toFixed(2)} brutto)
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <strong>Saskia:</strong>{" "}
+                                    {saskiaNetto.toFixed(2)} €
+                                    <span
+                                      style={{
+                                        fontSize: "0.9em",
+                                        color: "#999",
+                                        marginLeft: "4px",
+                                      }}
+                                    >
+                                      ({saskiaBrutto.toFixed(2)} brutto)
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
