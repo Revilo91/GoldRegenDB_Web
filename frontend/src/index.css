@@ -856,3 +856,7 @@ select.form-control {
     grid-template-columns: 1fr;
   }
 }
+
+.dblUnderlined {
+  border-bottom: 3px double;
+}

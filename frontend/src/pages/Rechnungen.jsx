@@ -287,7 +287,9 @@ export default function Rechnungen() {
         <div className="modal-overlay" onClick={() => setDetail(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>🧾 Rechnung {detail.Nummer}</h3>
+              <h3>
+                🧾 Rechnung {detail.Nummer} ({detail.ID})
+              </h3>
               <button
                 className="btn btn-primary btn-sm"
                 style={{ marginLeft: "auto", marginRight: 8 }}
@@ -308,12 +310,9 @@ export default function Rechnungen() {
                 ×
               </button>
             </div>
+
             <div className="modal-body">
               <div className="detail-grid">
-                <div className="detail-item">
-                  <label>Nummer</label>
-                  <div className="detail-value">{detail.Nummer}</div>
-                </div>
                 <div className="detail-item">
                   <label>Kunde</label>
                   <div className="detail-value">{detail.KundenName}</div>
@@ -325,7 +324,6 @@ export default function Rechnungen() {
                   </div>
                 </div>
                 <div className="detail-item">
-                  <label>Werteübersicht</label>
                   <div className="detail-value">
                     {(() => {
                       const totalBrutto = detail.schmuckstuecke.reduce(
@@ -368,104 +366,119 @@ export default function Rechnungen() {
                             }}
                           >
                             <span>Überweisungsbetrag:</span>{" "}
-                            <strong style={{ color: "var(--primary)" }}>
+                            <strong
+                              className="dblUnderlined"
+                              style={{ color: "var(--primary)" }}
+                            >
                               {finalTotal.toFixed(2)} €
                             </strong>
                           </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div className="detail-item">
+                  <div className="detail-value">
+                    {(() => {
+                      const totalBrutto = detail.schmuckstuecke.reduce(
+                        (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      );
+                      const provisionPercent = Number(detail.Provision) || 0;
+                      const provisionValue =
+                        totalBrutto * (provisionPercent / 100);
+                      const finalTotal = totalBrutto - provisionValue;
 
-                          <div
+                      return (
+                        <div
+                          style={{
+                            fontSize: "0.85em",
+                            color: "#666",
+                            marginTop: 8,
+                            padding: "12px",
+                            backgroundColor: "#f9f9f9",
+                            borderRadius: "4px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
+                          }}
+                        >
+                          <label
                             style={{
-                              fontSize: "0.85em",
-                              color: "#666",
-                              marginTop: 8,
-                              padding: "12px",
-                              backgroundColor: "#f9f9f9",
-                              borderRadius: "4px",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "8px",
+                              fontSize: "0.9em",
+                              marginBottom: "0",
+                              display: "block",
+                              color: "#888",
+                              fontWeight: "600",
                             }}
                           >
-                            <label
-                              style={{
-                                fontSize: "0.9em",
-                                marginBottom: "0",
-                                display: "block",
-                                color: "#888",
-                                fontWeight: "600",
-                              }}
-                            >
-                              Aufteilung (Netto nach Provision):
-                            </label>
+                            Aufteilung (Netto nach Provision):
+                          </label>
 
-                            {(() => {
-                              const marinaBrutto = detail.schmuckstuecke
-                                .filter((s) =>
-                                  s.Artikelnummer?.toUpperCase().startsWith(
-                                    "M",
-                                  ),
-                                )
-                                .reduce(
-                                  (sum, s) =>
-                                    sum + (Number(s.Verkaufspreis) || 0),
-                                  0,
-                                );
-                              const saskiaBrutto = detail.schmuckstuecke
-                                .filter((s) =>
-                                  s.Artikelnummer?.toUpperCase().startsWith(
-                                    "S",
-                                  ),
-                                )
-                                .reduce(
-                                  (sum, s) =>
-                                    sum + (Number(s.Verkaufspreis) || 0),
-                                  0,
-                                );
-
-                              const marinaNetto =
-                                marinaBrutto * (1 - provisionPercent / 100);
-                              const saskiaNetto =
-                                saskiaBrutto * (1 - provisionPercent / 100);
-
-                              return (
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    gap: "12px",
-                                    flexWrap: "wrap",
-                                  }}
-                                >
-                                  <div>
-                                    <strong>Marina:</strong>{" "}
-                                    {marinaNetto.toFixed(2)} €
-                                    <span
-                                      style={{
-                                        fontSize: "0.9em",
-                                        color: "#999",
-                                        marginLeft: "4px",
-                                      }}
-                                    >
-                                      ({marinaBrutto.toFixed(2)} brutto)
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <strong>Saskia:</strong>{" "}
-                                    {saskiaNetto.toFixed(2)} €
-                                    <span
-                                      style={{
-                                        fontSize: "0.9em",
-                                        color: "#999",
-                                        marginLeft: "4px",
-                                      }}
-                                    >
-                                      ({saskiaBrutto.toFixed(2)} brutto)
-                                    </span>
-                                  </div>
-                                </div>
+                          {(() => {
+                            const marinaBrutto = detail.schmuckstuecke
+                              .filter((s) =>
+                                s.Artikelnummer?.toUpperCase().startsWith("M"),
+                              )
+                              .reduce(
+                                (sum, s) =>
+                                  sum + (Number(s.Verkaufspreis) || 0),
+                                0,
                               );
-                            })()}
-                          </div>
+                            const saskiaBrutto = detail.schmuckstuecke
+                              .filter((s) =>
+                                s.Artikelnummer?.toUpperCase().startsWith("S"),
+                              )
+                              .reduce(
+                                (sum, s) =>
+                                  sum + (Number(s.Verkaufspreis) || 0),
+                                0,
+                              );
+
+                            const marinaNetto =
+                              marinaBrutto * (1 - provisionPercent / 100);
+                            const saskiaNetto =
+                              saskiaBrutto * (1 - provisionPercent / 100);
+
+                            return (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: "12px",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <div>
+                                  <strong>Marina:</strong>{" "}
+                                  {marinaNetto.toFixed(2)} €
+                                  <span
+                                    style={{
+                                      fontSize: "0.9em",
+                                      color: "#999",
+                                      marginLeft: "4px",
+                                    }}
+                                  >
+                                    ({marinaBrutto.toFixed(2)} brutto)
+                                  </span>
+                                </div>
+                                <div>
+                                  <strong>Saskia:</strong>{" "}
+                                  {saskiaNetto.toFixed(2)} €
+                                  <span
+                                    style={{
+                                      fontSize: "0.9em",
+                                      color: "#999",
+                                      marginLeft: "4px",
+                                    }}
+                                  >
+                                    ({saskiaBrutto.toFixed(2)} brutto)
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })()}
@@ -486,17 +499,23 @@ export default function Rechnungen() {
                       </tr>
                     </thead>
                     <tbody>
-                      {detail.schmuckstuecke.map((s) => (
-                        <tr key={s.Artikelnummer}>
-                          <td>
-                            <span className="badge gold">
-                              {s.Artikelnummer.split("_")[0]}
-                            </span>
-                          </td>
-                          <td>{s.Art}</td>
-                          <td>{Number(s.Verkaufspreis).toFixed(2)}€</td>
-                        </tr>
-                      ))}
+                      {detail.schmuckstuecke
+                        .sort((a, b) =>
+                          a.Artikelnummer.split("_")[0].localeCompare(
+                            b.Artikelnummer.split("_")[0],
+                          ),
+                        )
+                        .map((s) => (
+                          <tr key={s.Artikelnummer}>
+                            <td>
+                              <span className="badge gold">
+                                {s.Artikelnummer.split("_")[0]}
+                              </span>
+                            </td>
+                            <td>{s.Art}</td>
+                            <td>{Number(s.Verkaufspreis).toFixed(0)}€</td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </>
