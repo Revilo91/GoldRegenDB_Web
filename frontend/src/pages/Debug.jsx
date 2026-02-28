@@ -138,8 +138,8 @@ const DebugTable = ({ tableName }) => {
         if (aValue === null) aValue = "";
         if (bValue === null) bValue = "";
 
-        if (typeof aValue === "string") aValue = aValue.toLowerCase();
-        if (typeof bValue === "string") bValue = bValue.toLowerCase();
+        if (typeof aValue === "string") aValue = aValue.toUpperCase();
+        if (typeof bValue === "string") bValue = bValue.toUpperCase();
 
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;

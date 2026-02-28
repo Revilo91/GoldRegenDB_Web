@@ -75,11 +75,11 @@ export default function Kunden() {
     return kunden.filter((k) => {
       // Search filter
       if (search) {
-        const s = search.toLowerCase();
+        const s = search.toUpperCase();
         const match =
-          k.Name?.toLowerCase().includes(s) ||
-          k.Ort?.toLowerCase().includes(s) ||
-          k.Email?.toLowerCase().includes(s) ||
+          k.Name?.toUpperCase().includes(s) ||
+          k.Ort?.toUpperCase().includes(s) ||
+          k.Email?.toUpperCase().includes(s) ||
           String(k.ID).includes(s);
         if (!match) return false;
       }
