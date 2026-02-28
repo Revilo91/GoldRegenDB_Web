@@ -55,30 +55,59 @@ export default function Lieferscheine() {
     }
   };
 
-  const openNew = async () => {
-    setForm({ Nummer: "", Kundennummer: "", Artikelnummern: [] });
-    setEditing("new");
+  const loadAvailablePieces = async () => {
     try {
       const resp = await api.getSchmuckstuecke({
         ohne_lieferschein: "1",
         limit: 1000,
       });
+
       setAvailablePieces(resp.data);
     } catch (err) {
       console.error(err);
     }
   };
 
+  const openNew = async () => {
+    // Jahr bestimmen
+    const year = new Date().getFullYear();
+    // Alle Lieferscheine des aktuellen Jahres filtern
+    const yearLieferscheine = data.filter((l) => {
+      if (!l.Nummer) return false;
+      // Akzeptiere Formate wie "2024-001" oder "LS-2024-001"
+      const match = l.Nummer.match(/(\d{4})-(\d{3})$/);
+      return match && match[1] === String(year);
+    });
+    // Höchste laufende Nummer bestimmen
+    let maxNr = 0;
+    yearLieferscheine.forEach((l) => {
+      const match = l.Nummer.match(/(\d{4})-(\d{3})$/);
+      if (match) {
+        const nr = parseInt(match[2], 10);
+        if (nr > maxNr) maxNr = nr;
+      }
+    });
+    const nextNr = String(maxNr + 1).padStart(3, "0");
+    const neueNummer = `${year}-${nextNr}`;
+    console.log("Nächste Lieferschein-Nummer:", neueNummer);
+    setForm({ Nummer: neueNummer, Kundennummer: "", Artikelnummern: [] });
+    setEditing("new");
+    loadAvailablePieces();
+  };
+
   const handleSave = async () => {
-    if (!form.Nummer || !form.Kundennummer) {
-      alert("Bitte Nummer und Kunde angeben.");
+    if (!form.Kundennummer) {
+      alert("Bitte Kunde angeben.");
       return;
     }
     try {
+      console.error("Creating Lieferschein with data:", JSON.stringify(form));
       await api.createLieferschein(form);
       setEditing(null);
       load();
+      loadAvailablePieces();
     } catch (err) {
+      alert(JSON.stringify(form));
       alert(err.message);
     }
   };
@@ -169,8 +198,7 @@ export default function Lieferscheine() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-        }}
-      >
+        }}>
         <div>
           <h2>Lieferscheine</h2>
           <p>{data.length} Lieferscheine</p>
@@ -198,8 +226,7 @@ export default function Lieferscheine() {
                 ? { ...rest, kundennummer: e.target.value }
                 : rest,
             );
-          }}
-        >
+          }}>
           <option value="">Alle Kunden</option>
           {kunden.map((k) => (
             <option key={k.ID} value={k.ID}>
@@ -216,8 +243,7 @@ export default function Lieferscheine() {
             setFilters(
               e.target.value !== "" ? { ...rest, jahr: e.target.value } : rest,
             );
-          }}
-        >
+          }}>
           <option value="">Alle Jahre</option>
           {years.map((y) => (
             <option key={y} value={y}>
@@ -239,26 +265,22 @@ export default function Lieferscheine() {
                 <tr>
                   <th
                     onClick={() => requestSort("ID")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     ID {getSortIcon("ID")}
                   </th>
                   <th
                     onClick={() => requestSort("Nummer")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Nummer {getSortIcon("Nummer")}
                   </th>
                   <th
                     onClick={() => requestSort("KundenName")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Kunde {getSortIcon("KundenName")}
                   </th>
                   <th
                     onClick={() => requestSort("Datum")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Datum {getSortIcon("Datum")}
                   </th>
                 </tr>
@@ -268,8 +290,7 @@ export default function Lieferscheine() {
                   <tr
                     key={l.ID}
                     onClick={() => openDetail(l.ID)}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     <td>{l.ID}</td>
                     <td>
                       <strong>{l.Nummer}</strong>
@@ -296,15 +317,13 @@ export default function Lieferscheine() {
                 style={{ marginLeft: "auto", marginRight: 8 }}
                 onClick={() =>
                   window.open(api.getLieferscheinExcel(detail.ID), "_blank")
-                }
-              >
+                }>
                 Lieferschein erstellen
               </button>
               <button
                 className="btn btn-danger btn-sm"
                 style={{ marginRight: 16 }}
-                onClick={() => handleDelete(detail.ID)}
-              >
+                onClick={() => handleDelete(detail.ID)}>
                 🗑️ Löschen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
@@ -341,8 +360,7 @@ export default function Lieferscheine() {
                             display: "flex",
                             flexDirection: "column",
                             gap: "8px",
-                          }}
-                        >
+                          }}>
                           <div>
                             <span style={{ color: "#666", fontSize: "0.9em" }}>
                               Gesamtwert (brutto):
@@ -363,13 +381,11 @@ export default function Lieferscheine() {
                               paddingTop: "8px",
                               borderTop: "1px solid #eee",
                               fontSize: "1.1em",
-                            }}
-                          >
+                            }}>
                             <span>Voraussichtlich:</span>{" "}
                             <strong
                               className="dblUnderlined"
-                              style={{ color: "var(--primary)" }}
-                            >
+                              style={{ color: "var(--primary)" }}>
                               {finalTotal.toFixed(2)} €
                             </strong>
                           </div>
@@ -402,8 +418,7 @@ export default function Lieferscheine() {
                             display: "flex",
                             flexDirection: "column",
                             gap: "8px",
-                          }}
-                        >
+                          }}>
                           <label
                             style={{
                               fontSize: "0.9em",
@@ -411,8 +426,7 @@ export default function Lieferscheine() {
                               display: "block",
                               color: "#888",
                               fontWeight: "600",
-                            }}
-                          >
+                            }}>
                             Aufteilung (Netto nach Provision):
                           </label>
 
@@ -448,8 +462,7 @@ export default function Lieferscheine() {
                                   justifyContent: "space-between",
                                   gap: "12px",
                                   flexWrap: "wrap",
-                                }}
-                              >
+                                }}>
                                 <div>
                                   <strong>Marina:</strong>{" "}
                                   {marinaNetto.toFixed(2)} €
@@ -458,8 +471,7 @@ export default function Lieferscheine() {
                                       fontSize: "0.9em",
                                       color: "#999",
                                       marginLeft: "4px",
-                                    }}
-                                  >
+                                    }}>
                                     ({marinaBrutto.toFixed(2)} brutto)
                                   </span>
                                 </div>
@@ -471,8 +483,7 @@ export default function Lieferscheine() {
                                       fontSize: "0.9em",
                                       color: "#999",
                                       marginLeft: "4px",
-                                    }}
-                                  >
+                                    }}>
                                     ({saskiaBrutto.toFixed(2)} brutto)
                                   </span>
                                 </div>
@@ -526,14 +537,23 @@ export default function Lieferscheine() {
       )}
 
       {editing === "new" && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setEditing(null);
+            loadAvailablePieces();
+          }}>
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "800px" }}
-          >
+            style={{
+              width: "95vw",
+              height: "95vh",
+              maxWidth: "1200px",
+              maxHeight: "800px",
+            }}>
             <div className="modal-header">
-              <h3>🆕 Neuer Lieferschein</h3>
+              <h3>🆕 Neuer Lieferschein ({form.Nummer})</h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
@@ -541,25 +561,13 @@ export default function Lieferscheine() {
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Lieferschein-Nummer*</label>
-                  <input
-                    className="form-control"
-                    value={form.Nummer}
-                    onChange={(e) =>
-                      setForm({ ...form, Nummer: e.target.value })
-                    }
-                    placeholder="z.B. LS-2024-001"
-                  />
-                </div>
-                <div className="form-group">
                   <label>Kunde*</label>
                   <select
                     className="form-control"
                     value={form.Kundennummer}
                     onChange={(e) =>
                       setForm({ ...form, Kundennummer: e.target.value })
-                    }
-                  >
+                    }>
                     <option value="">Bitte wählen...</option>
                     {kunden.map((k) => (
                       <option key={k.ID} value={k.ID}>
@@ -574,41 +582,38 @@ export default function Lieferscheine() {
                 <div
                   style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  <h4 style={{ margin: 0 }}>
-                    Schmuckstücke auswählen ({form.Artikelnummern.length})
-                  </h4>
-                  <input
-                    className="form-control"
-                    style={{ width: "200px" }}
-                    placeholder="🔍 Suchen..."
-                    value={pieceSearch}
-                    onChange={(e) => setPieceSearch(e.target.value)}
-                  />
-                </div>
-                <div
-                  style={{
-                    maxHeight: "300px",
-                    overflowY: "auto",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  <table className="data-table">
-                    <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                      <tr>
-                        <th style={{ width: "40px" }}></th>
-                        <th>Artikelnr.</th>
-                        <th>Art</th>
-                        <th>Preis</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {availablePieces
+                    gap: 24,
+                    alignItems: "flex-start",
+                  }}>
+                  {/* Linke Seite: Alle verfügbaren Schmuckstücke */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h5>Alle Schmuckstücke</h5>
+                    <input
+                      className="form-control"
+                      style={{ width: "200px", marginBottom: 8 }}
+                      placeholder="🔍 Suchen..."
+                      value={pieceSearch}
+                      onChange={(e) => setPieceSearch(e.target.value)}
+                    />
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}>
+                      <table className="data-table">
+                        <thead
+                          style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                          <tr>
+                            <th style={{ width: "40px" }}></th>
+                            <th>Artikelnr.</th>
+                            <th>Art</th>
+                            <th>Preis</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {availablePieces
                             .filter((p) => {
                               if (!pieceSearch) return true;
                               const s = pieceSearch.toUpperCase();
@@ -618,41 +623,96 @@ export default function Lieferscheine() {
                                 (p.Name?.toUpperCase().includes(s) ?? false)
                               );
                             })
-                        .sort((a, b) =>
-                          a.Artikelnummer.split("_")[0].localeCompare(
-                            b.Artikelnummer.split("_")[0],
-                          ),
-                        )
-                        .map((p) => (
-                          <tr
-                            key={p.Artikelnummer}
-                            onClick={() => togglePiece(p.Artikelnummer)}
-                            style={{ cursor: "pointer" }}
-                          >
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={form.Artikelnummern.includes(
-                                  p.Artikelnummer,
-                                )}
-                                readOnly
-                              />
-                            </td>
-                            <td>{p.Artikelnummer}</td>
-                            <td>{p.Art}</td>
-                            <td>{p.Verkaufspreis}€</td>
+                            .sort((a, b) =>
+                              a.Artikelnummer.split("_")[0].localeCompare(
+                                b.Artikelnummer.split("_")[0],
+                              ),
+                            )
+                            .map((p) => (
+                              <tr
+                                key={p.Artikelnummer}
+                                onClick={() => togglePiece(p.Artikelnummer)}
+                                style={{ cursor: "pointer" }}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={form.Artikelnummern.includes(
+                                      p.Artikelnummer,
+                                    )}
+                                    readOnly
+                                  />
+                                </td>
+                                <td>{p.Artikelnummer}</td>
+                                <td>{p.Art}</td>
+                                <td>{p.Verkaufspreis}€</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {/* Rechte Seite: Selektierte Schmuckstücke */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h5>
+                      Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
+                    </h5>
+                    <input
+                      className="form-control"
+                      style={{ width: "200px", marginBottom: 8 }}
+                      placeholder="🔍 Suchen..."
+                      value={pieceSearch}
+                      onChange={(e) => setPieceSearch(e.target.value)}
+                      disabled
+                    />
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Artikelnr.</th>
+                            <th>Art</th>
+                            <th>Preis</th>
+                            <th></th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {form.Artikelnummern.map((nr) => {
+                            const piece = availablePieces.find(
+                              (p) => p.Artikelnummer === nr,
+                            );
+                            if (!piece) return null;
+                            return (
+                              <tr key={nr}>
+                                <td>{piece.Artikelnummer}</td>
+                                <td>{piece.Art}</td>
+                                <td>{piece.Verkaufspreis}€</td>
+                                <td>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    title="Entfernen"
+                                    onClick={() => togglePiece(nr)}>
+                                    ✕
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setEditing(null)}
-              >
+                onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
