@@ -239,6 +239,12 @@ export default function Schmuckstuecke() {
                     Artikelnr. {getSortIcon("Artikelnummer")}
                   </th>
                   <th
+                    onClick={() => requestSort("Grundmaterial")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Grundmaterial {getSortIcon("Grundmaterial")}
+                  </th>
+                  <th
                     onClick={() => requestSort("Art")}
                     style={{ cursor: "pointer" }}
                   >
@@ -291,6 +297,7 @@ export default function Schmuckstuecke() {
                         </span>
                       )}
                     </td>
+                    <td>{s.Grundmaterial}</td>
                     <td>{s.Art}</td>
                     <td>{s.Material}</td>
                     <td>{s.Farbe}</td>
