@@ -99,8 +99,8 @@ export default function Schmuckstuecke() {
         let bValue = b[sortConfig.key];
 
         if (sortConfig.key === "Ausgelagert") {
-          aValue = getKundenName(a.Ausgelagert).toLowerCase();
-          bValue = getKundenName(b.Ausgelagert).toLowerCase();
+          aValue = getKundenName(a.Ausgelagert).toUpperCase();
+          bValue = getKundenName(b.Ausgelagert).toUpperCase();
           if (a.Ausgelagert === 0) aValue = "";
           if (b.Ausgelagert === 0) bValue = "";
         }

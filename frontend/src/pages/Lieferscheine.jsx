@@ -104,10 +104,10 @@ export default function Lieferscheine() {
     return data.filter((l) => {
       // Search filter
       if (search) {
-        const s = search.toLowerCase();
+        const s = search.toUpperCase();
         const match =
-          l.Nummer?.toLowerCase().includes(s) ||
-          l.KundenName?.toLowerCase().includes(s) ||
+          l.Nummer?.toUpperCase().includes(s) ||
+          l.KundenName?.toUpperCase().includes(s) ||
           String(l.ID).includes(s);
         if (!match) return false;
       }
@@ -136,8 +136,8 @@ export default function Lieferscheine() {
 
         // Handle nested or computed values if necessary
         if (sortConfig.key === "KundenName") {
-          aValue = (a.KundenName || `Kunde ${a.Kundennummer}`).toLowerCase();
-          bValue = (b.KundenName || `Kunde ${b.Kundennummer}`).toLowerCase();
+          aValue = (a.KundenName || `Kunde ${a.Kundennummer}`).toUpperCase();
+          bValue = (b.KundenName || `Kunde ${b.Kundennummer}`).toUpperCase();
         }
 
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
@@ -609,6 +609,15 @@ export default function Lieferscheine() {
                     </thead>
                     <tbody>
                       {availablePieces
+                            .filter((p) => {
+                              if (!pieceSearch) return true;
+                              const s = pieceSearch.toUpperCase();
+                              return (
+                                p.Artikelnummer?.toUpperCase().includes(s) ||
+                                p.Art?.toUpperCase().includes(s) ||
+                                (p.Name?.toUpperCase().includes(s) ?? false)
+                              );
+                            })
                         .sort((a, b) =>
                           a.Artikelnummer.split("_")[0].localeCompare(
                             b.Artikelnummer.split("_")[0],

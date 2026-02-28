@@ -104,10 +104,10 @@ export default function Rechnungen() {
     return data.filter((r) => {
       // Search filter
       if (search) {
-        const s = search.toLowerCase();
+        const s = search.toUpperCase();
         const match =
-          r.Nummer?.toLowerCase().includes(s) ||
-          r.KundenName?.toLowerCase().includes(s) ||
+          r.Nummer?.toUpperCase().includes(s) ||
+          r.KundenName?.toUpperCase().includes(s) ||
           String(r.ID).includes(s);
         if (!match) return false;
       }
@@ -135,8 +135,8 @@ export default function Rechnungen() {
         let bValue = b[sortConfig.key];
 
         if (sortConfig.key === "KundenName") {
-          aValue = (a.KundenName || `Kunde ${a.Kundennummer}`).toLowerCase();
-          bValue = (b.KundenName || `Kunde ${b.Kundennummer}`).toLowerCase();
+          aValue = (a.KundenName || `Kunde ${a.Kundennummer}`).toUpperCase();
+          bValue = (b.KundenName || `Kunde ${b.Kundennummer}`).toUpperCase();
         }
 
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
@@ -612,11 +612,11 @@ export default function Rechnungen() {
                         .filter(
                           (p) =>
                             !pieceSearch ||
-                            p.Artikelnummer.toLowerCase().includes(
-                              pieceSearch.toLowerCase(),
+                            p.Artikelnummer.toUpperCase().includes(
+                              pieceSearch.toUpperCase(),
                             ) ||
-                            p.Art.toLowerCase().includes(
-                              pieceSearch.toLowerCase(),
+                            p.Art.toUpperCase().includes(
+                              pieceSearch.toUpperCase(),
                             ),
                         )
                         .map((p) => (
