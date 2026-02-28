@@ -79,7 +79,6 @@ CREATE TABLE "Kunde" (
 CREATE TABLE "Lieferschein" (
     "ID" SERIAL,
     "Nummer" VARCHAR(20) NOT NULL,
-    "Artikelnummern" TEXT NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "Datei" TEXT DEFAULT NULL,
@@ -91,7 +90,6 @@ CREATE TABLE "Lieferschein" (
 CREATE TABLE "Rechnung" (
     "ID" SERIAL,
     "Nummer" VARCHAR(20) NOT NULL,
-    "Artikelnummern" TEXT DEFAULT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "Datei" TEXT DEFAULT NULL,
