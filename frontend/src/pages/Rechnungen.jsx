@@ -56,22 +56,67 @@ export default function Rechnungen() {
   };
 
   const openNew = async () => {
-    setForm({ Nummer: "", Kundennummer: "", Artikelnummern: [] });
+    // Jahr bestimmen
+    const year = new Date().getFullYear();
+    // Alle Rechnungen des aktuellen Jahres filtern
+    const yearRechnungen = data.filter((r) => {
+      if (!r.Nummer) return false;
+      const match = r.Nummer.match(/(\d{4})-(\d{3})$/);
+      return match && match[1] === String(year);
+    });
+    let maxNr = 0;
+    yearRechnungen.forEach((r) => {
+      const match = r.Nummer.match(/(\d{4})-(\d{3})$/);
+      if (match) {
+        const nr = parseInt(match[2], 10);
+        if (nr > maxNr) maxNr = nr;
+      }
+    });
+    const nextNr = String(maxNr + 1).padStart(3, "0");
+    setForm({ Nummer: `${year}-${nextNr}`, Kundennummer: "", Artikelnummern: [] });
+    setAvailablePieces([]);
     setEditing("new");
-    try {
-      const resp = await api.getSchmuckstuecke({
-        ohne_rechnung: "1",
-        limit: 1000,
-      });
-      setAvailablePieces(resp.data);
-    } catch (err) {
-      console.error(err);
-    }
   };
 
+  // Schmuckstücke laden, wenn Kunde gewählt wurde und im "new"-Dialog
+  useEffect(() => {
+    const loadPieces = async () => {
+      if (editing !== "new" || !form.Kundennummer) {
+        setAvailablePieces([]);
+        return;
+      }
+      try {
+        // Hole alle Lieferscheine des Kunden
+        const lieferscheine = await api.getLieferscheine();
+        const kundenLieferscheinIDs = lieferscheine
+          .filter((l) => String(l.Kundennummer) === String(form.Kundennummer))
+          .map((l) => l.ID);
+        // Filter für Schmuckstücke
+        const params = {
+          ohne_rechnung: "1",
+          verkauft: "0",
+          ausschuss: "0",
+          kunde: form.Kundennummer,
+          limit: 1000,
+        };
+        const resp = await api.getSchmuckstuecke(params);
+        // Nur Stücke, die keinem Lieferschein zugeordnet sind ODER deren Lieferschein_ID zu diesem Kunden gehört
+        const filtered = resp.data.filter(
+          (s) => !s.Lieferschein_ID || kundenLieferscheinIDs.includes(s.Lieferschein_ID)
+        );
+        setAvailablePieces(filtered);
+      } catch (err) {
+        setAvailablePieces([]);
+        console.error(err);
+      }
+    };
+    loadPieces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.Kundennummer, editing]);
+
   const handleSave = async () => {
-    if (!form.Nummer || !form.Kundennummer) {
-      alert("Bitte Nummer und Kunde angeben.");
+    if (!form.Kundennummer) {
+      alert("Bitte Kunde angeben.");
       return;
     }
     try {
@@ -102,7 +147,7 @@ export default function Rechnungen() {
 
   const filteredData = useMemo(() => {
     return data.filter((r) => {
-      // Search filter
+      // Suchfilter
       if (search) {
         const s = search.toUpperCase();
         const match =
@@ -112,15 +157,16 @@ export default function Rechnungen() {
         if (!match) return false;
       }
 
-      // Customer filter
+      // Kundenfilter
       if (filters.kundennummer) {
         if (r.Kundennummer !== parseInt(filters.kundennummer)) return false;
       }
 
       // Year filter
       if (filters.jahr) {
-        if (new Date(r.Datum).getFullYear() !== parseInt(filters.jahr))
-          return false;
+        if (!r.Datum) return false;
+        const jahr = new Date(r.Datum).getFullYear();
+        if (String(jahr) !== String(filters.jahr)) return false;
       }
 
       return true;
@@ -530,10 +576,15 @@ export default function Rechnungen() {
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "800px" }}
+            style={{
+              width: "95vw",
+              height: "95vh",
+              maxWidth: "1200px",
+              maxHeight: "800px",
+            }}
           >
             <div className="modal-header">
-              <h3>🆕 Neue Rechnung</h3>
+              <h3>🆕 Neue Rechnung ({form.Nummer})</h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
@@ -541,23 +592,12 @@ export default function Rechnungen() {
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Rechnungs-Nummer*</label>
-                  <input
-                    className="form-control"
-                    value={form.Nummer}
-                    onChange={(e) =>
-                      setForm({ ...form, Nummer: e.target.value })
-                    }
-                    placeholder="z.B. RE-2024-001"
-                  />
-                </div>
-                <div className="form-group">
                   <label>Kunde*</label>
                   <select
                     className="form-control"
                     value={form.Kundennummer}
                     onChange={(e) =>
-                      setForm({ ...form, Kundennummer: e.target.value })
+                      setForm({ ...form, Kundennummer: e.target.value, Artikelnummern: [] })
                     }
                   >
                     <option value="">Bitte wählen...</option>
@@ -571,76 +611,131 @@ export default function Rechnungen() {
               </div>
 
               <div className="piece-selection" style={{ marginTop: 24 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  <h4 style={{ margin: 0 }}>
-                    Schmuckstücke auswählen ({form.Artikelnummern.length})
-                  </h4>
-                  <input
-                    className="form-control"
-                    style={{ width: "200px" }}
-                    placeholder="🔍 Suchen..."
-                    value={pieceSearch}
-                    onChange={(e) => setPieceSearch(e.target.value)}
-                  />
-                </div>
-                <div
-                  style={{
-                    maxHeight: "300px",
-                    overflowY: "auto",
-                    border: "1px solid var(--border)",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                >
-                  <table className="data-table">
-                    <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                      <tr>
-                        <th style={{ width: "40px" }}></th>
-                        <th>Artikelnr.</th>
-                        <th>Art</th>
-                        <th>Preis</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {availablePieces
-                        .filter(
-                          (p) =>
-                            !pieceSearch ||
-                            p.Artikelnummer.toUpperCase().includes(
-                              pieceSearch.toUpperCase(),
-                            ) ||
-                            p.Art.toUpperCase().includes(
-                              pieceSearch.toUpperCase(),
-                            ),
-                        )
-                        .map((p) => (
-                          <tr
-                            key={p.Artikelnummer}
-                            onClick={() => togglePiece(p.Artikelnummer)}
-                            style={{ cursor: "pointer" }}
-                          >
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={form.Artikelnummern.includes(
-                                  p.Artikelnummer,
-                                )}
-                                readOnly
-                              />
-                            </td>
-                            <td>{p.Artikelnummer}</td>
-                            <td>{p.Art}</td>
-                            <td>{p.Verkaufspreis}€</td>
+
+                <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+                  {/* Linke Seite: Alle verfügbaren Schmuckstücke */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h5>Alle Schmuckstücke</h5>
+                    <input
+                      className="form-control"
+                      style={{ width: "200px", marginBottom: 8 }}
+                      placeholder="🔍 Suchen..."
+                      value={pieceSearch}
+                      onChange={(e) => setPieceSearch(e.target.value)}
+                      disabled={!form.Kundennummer}
+                    />
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}
+                    >
+                      <table className="data-table">
+                        <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                          <tr>
+                            <th style={{ width: "40px" }}></th>
+                            <th>Artikelnr.</th>
+                            <th>Art</th>
+                            <th>Preis</th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {form.Kundennummer && availablePieces
+                            .filter((p) => {
+                              // Nur Stücke, deren Lieferschein_ID zu einem Lieferschein des Kunden gehört ODER kein Lieferschein zugeordnet ist
+                              if (!p.Lieferschein_ID) return false;
+                              // Lieferschein_ID muss zu diesem Kunden gehören
+                              // availablePieces ist bereits nach Kunde gefiltert, aber wir filtern hier nochmal sicherheitshalber
+                              return (
+                                (!pieceSearch ||
+                                  p.Artikelnummer.toUpperCase().includes(pieceSearch.toUpperCase()) ||
+                                  p.Art.toUpperCase().includes(pieceSearch.toUpperCase()))
+                              );
+                            })
+                            .map((p) => (
+                              <tr
+                                key={p.Artikelnummer}
+                                onClick={() => togglePiece(p.Artikelnummer)}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={form.Artikelnummern.includes(
+                                      p.Artikelnummer,
+                                    )}
+                                    readOnly
+                                  />
+                                </td>
+                                <td>{p.Artikelnummer}</td>
+                                <td>{p.Art}</td>
+                                <td>{p.Verkaufspreis}€</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {/* Rechte Seite: Selektierte Schmuckstücke */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h5>
+                      Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
+                    </h5>
+                    <input
+                      className="form-control"
+                      style={{ width: "200px", marginBottom: 8 }}
+                      placeholder="🔍 Suchen..."
+                      value={pieceSearch}
+                      onChange={(e) => setPieceSearch(e.target.value)}
+                      disabled
+                    />
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}
+                    >
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Artikelnr.</th>
+                            <th>Art</th>
+                            <th>Preis</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {form.Kundennummer && form.Artikelnummern
+                            .map((nr) => {
+                              // Nur Stücke anzeigen, die auch wirklich zu diesem Kunden gehören
+                              const piece = availablePieces.find(
+                                (p) => p.Artikelnummer === nr
+                              );
+                              if (!piece) return null;
+                              return (
+                                <tr key={nr}>
+                                  <td>{piece.Artikelnummer}</td>
+                                  <td>{piece.Art}</td>
+                                  <td>{piece.Verkaufspreis}€</td>
+                                  <td>
+                                    <button
+                                      className="btn btn-danger btn-sm"
+                                      title="Entfernen"
+                                      onClick={() => togglePiece(nr)}>
+                                      ✕
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
