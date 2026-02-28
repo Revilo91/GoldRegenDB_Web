@@ -74,10 +74,10 @@ router.get("/", async (req, res) => {
       paramIdx++;
     }
     if (ohne_lieferschein === "1") {
-      where.push('"Lieferschein_ID" IS NULL');
+      where.push('"Lieferschein_ID" = 0');
     }
     if (ohne_rechnung === "1") {
-      where.push('"Rechnung_ID" IS NULL');
+      where.push('"Rechnung_ID" = 0');
     }
 
     const whereClause = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
@@ -177,8 +177,8 @@ router.post("/", async (req, res) => {
     if (baseArtikelnummer.length === 3) {
       const prefix = baseArtikelnummer.toUpperCase();
       const { rows } = await client.query(
-        `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 4, 3) AS INTEGER)) as max_num 
-         FROM "Schmuckstück" 
+        `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 4, 3) AS INTEGER)) as max_num
+         FROM "Schmuckstück"
          WHERE "Artikelnummer" LIKE $1`,
         [`${prefix}%`],
       );
@@ -189,8 +189,8 @@ router.post("/", async (req, res) => {
     else if (/^[A-Z]{3}\d{3}$/.test(baseArtikelnummer.toUpperCase())) {
       baseArtikelnummer = baseArtikelnummer.toUpperCase();
       const { rows } = await client.query(
-        `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 8) AS INTEGER)) as max_suffix 
-         FROM "Schmuckstück" 
+        `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 8) AS INTEGER)) as max_suffix
+         FROM "Schmuckstück"
          WHERE "Artikelnummer" LIKE $1`,
         [`${baseArtikelnummer}_%`],
       );
