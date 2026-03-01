@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  Navigate,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -45,8 +51,7 @@ function AppLayout() {
         <button
           className="menu-toggle"
           onClick={toggleMobileMenu}
-          aria-label="Menu"
-        >
+          aria-label="Menu">
           {isMobileMenuOpen ? "✕" : "☰"}
         </button>
       </header>
@@ -69,53 +74,47 @@ function AppLayout() {
             to="/"
             end
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">📊</span>
             <span>Dashboard</span>
           </NavLink>
           <NavLink
             to="/schmuckstuecke"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">💍</span>
             <span>Schmuckstücke</span>
           </NavLink>
           <NavLink
             to="/kunden"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">👥</span>
             <span>Kunden</span>
           </NavLink>
           <NavLink
             to="/lieferscheine"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">📦</span>
             <span>Lieferscheine</span>
           </NavLink>
           <NavLink
             to="/rechnungen"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">🧾</span>
             <span>Rechnungen</span>
           </NavLink>
-          #TODO
           {isAdmin && (
             <>
+            <div className="nav-section">Admin</div>
               <NavLink
                 to="/audit-log"
                 className={({ isActive }) =>
                   `nav-link ${isActive ? "active" : ""}`
                 }
-                onClick={closeMobileMenu}
-              >
+                onClick={closeMobileMenu}>
                 <span className="nav-icon">📋</span>
                 <span>Audit Log</span>
               </NavLink>
@@ -124,38 +123,21 @@ function AppLayout() {
                 className={({ isActive }) =>
                   `nav-link ${isActive ? "active" : ""}`
                 }
-                onClick={closeMobileMenu}
-              >
+                onClick={closeMobileMenu}>
                 <span className="nav-icon">🛠️</span>
                 <span>Debug</span>
               </NavLink>
+              <NavLink
+                to="/benutzerverwaltung"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "active" : ""}`
+                }
+                onClick={closeMobileMenu}>
+                <span className="nav-icon">🔐</span>
+                <span>Benutzerverwaltung</span>
+              </NavLink>
             </>
           )}
-          #TODO
-          <NavLink
-            to="/audit-log"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">📋</span>
-            <span>Audit Log</span>
-          </NavLink>
-          <NavLink
-            to="/debug"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">🛠️</span>
-            <span>Debug</span>
-          </NavLink>
-          <NavLink
-            to="/benutzerverwaltung"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">🔐</span>
-            <span>Benutzerverwaltung</span>
-          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <div className="sidebar-user">
@@ -163,7 +145,10 @@ function AppLayout() {
             <span className="sidebar-username">{user.username}</span>
             <span className={`role-badge role-${user.role}`}>{user.role}</span>
           </div>
-          <button className="btn btn-secondary btn-sm logout-btn" onClick={logout} aria-label="Abmelden">
+          <button
+            className="btn btn-secondary btn-sm logout-btn"
+            onClick={logout}
+            aria-label="Abmelden">
             Abmelden
           </button>
         </div>
@@ -171,14 +156,70 @@ function AppLayout() {
 
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/schmuckstuecke" element={<ProtectedRoute><Schmuckstuecke /></ProtectedRoute>} />
-          <Route path="/kunden" element={<ProtectedRoute><Kunden /></ProtectedRoute>} />
-          <Route path="/lieferscheine" element={<ProtectedRoute><Lieferscheine /></ProtectedRoute>} />
-          <Route path="/rechnungen" element={<ProtectedRoute><Rechnungen /></ProtectedRoute>} />
-          <Route path="/audit-log" element={<ProtectedRoute adminOnly><AuditLog /></ProtectedRoute>} />
-          <Route path="/debug" element={<ProtectedRoute adminOnly><Debug /></ProtectedRoute>} />
-          <Route path="/benutzerverwaltung" element={<ProtectedRoute adminOnly><Benutzerverwaltung /></ProtectedRoute>} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/schmuckstuecke"
+            element={
+              <ProtectedRoute>
+                <Schmuckstuecke />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kunden"
+            element={
+              <ProtectedRoute>
+                <Kunden />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lieferscheine"
+            element={
+              <ProtectedRoute>
+                <Lieferscheine />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rechnungen"
+            element={
+              <ProtectedRoute>
+                <Rechnungen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-log"
+            element={
+              <ProtectedRoute adminOnly>
+                <AuditLog />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/debug"
+            element={
+              <ProtectedRoute adminOnly>
+                <Debug />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/benutzerverwaltung"
+            element={
+              <ProtectedRoute adminOnly>
+                <Benutzerverwaltung />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/login" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
