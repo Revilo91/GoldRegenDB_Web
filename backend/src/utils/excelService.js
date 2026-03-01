@@ -1,5 +1,6 @@
 const ExcelJS = require("exceljs");
 const fs = require("fs");
+const path = require("path");
 
 const CONTACTS = {
   GOLDREGEN: {
@@ -19,6 +20,8 @@ const CONTACTS = {
 };
 
 const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
+
+const DEFAULT_LOGO_PATH = path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png");
 
 const GRUNDMATERIAL = {
   A: "Alkoholtinte",
@@ -78,12 +81,15 @@ async function generateExcel(type, data, logoPath) {
     footer: 0.3,
   };
 
-  // Add logo if provided
-  if (logoPath) {
+  // Add logo
+  const resolvedLogoPath =
+    logoPath && fs.existsSync(logoPath) ? logoPath : DEFAULT_LOGO_PATH;
+
+  if (resolvedLogoPath) {
     try {
-      if (fs.existsSync(logoPath)) {
+      if (fs.existsSync(resolvedLogoPath)) {
         const imageId = workbook.addImage({
-          filename: logoPath,
+          filename: resolvedLogoPath,
           extension: "png",
         });
         worksheet.addImage(imageId, {
@@ -91,7 +97,7 @@ async function generateExcel(type, data, logoPath) {
           br: { col: 7, row: 4 },
         });
       } else {
-        console.warn("Logo-Datei nicht gefunden:", logoPath);
+        console.warn("Logo-Datei nicht gefunden:", resolvedLogoPath);
       }
     } catch (err) {
       console.error("Fehler beim Laden des Logos:", err.message);
