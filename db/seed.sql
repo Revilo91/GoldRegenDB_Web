@@ -2,8 +2,8 @@
 -- Converted from MariaDB/MySQL dump
 
 -- Default admin user (password: admin123)
-INSERT INTO users (username, password_hash, role) VALUES
-  ('admin', '$2b$10$YkjlQromcqlgSVINOCwo2eNkpdjcJlkjE7MlAGez2UAT3259neVK6', 'admin')
+INSERT INTO app_users (username, password_hash, email, role, active) VALUES
+  ('admin', '$2b$10$YkjlQromcqlgSVINOCwo2eNkpdjcJlkjE7MlAGez2UAT3259neVK6', 'admin@goldregen.local', 'admin', TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- Disable triggers during bulk import

@@ -13,7 +13,7 @@ router.post('/login', async (req, res) => {
   }
   try {
     const { rows } = await db.query(
-      'SELECT id, username, password_hash, role FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, role, active FROM app_users WHERE username = $1',
       [username]
     );
     const user = rows[0];
@@ -24,6 +24,11 @@ router.post('/login', async (req, res) => {
     if (!user || !valid) {
       return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
     }
+    if (!user.active) {
+      return res.status(403).json({ error: 'Benutzerkonto ist deaktiviert' });
+    }
+    // Update last login timestamp
+    await db.query('UPDATE app_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       JWT_SECRET,
