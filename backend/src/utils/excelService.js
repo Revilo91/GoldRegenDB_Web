@@ -1,4 +1,5 @@
 const ExcelJS = require('exceljs');
+const fs = require('fs');
 
 const CONTACTS = {
   GOLDREGEN: {
@@ -39,10 +40,10 @@ const GRUNDMATERIAL = {
   'Y': "Cabochon"
 };
 
-async function generateExcel(type, data) {
+async function generateExcel(type, data, logoPath) {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(type);
-  
+
   const contact = CONTACTS.GOLDREGEN; // Default to Marina/GoldRegen
 
   // Setup column widths
@@ -69,6 +70,19 @@ async function generateExcel(type, data) {
     top: 0.75, bottom: 0.75,
     header: 0.3, footer: 0.3
   };
+
+  // Add logo if provided
+  if (logoPath && fs.existsSync(logoPath)) {
+    try {
+      const imageData = fs.readFileSync(logoPath);
+      worksheet.addImage({
+        buffer: imageData,
+        extension: 'png'
+      }, { tl: { col: 5, row: 0 }, ext: { width: 80, height: 80 } });
+    } catch (err) {
+      console.warn('Logo konnte nicht geladen werden:', err.message);
+    }
+  }
 
   // 1. Header with Address Line
   const headerRow = 9; // Line 8 in Python (0-indexed here)
@@ -105,12 +119,12 @@ async function generateExcel(type, data) {
   const infoLabelRow = currentRow;
   worksheet.mergeCells(`A${infoLabelRow}:B${infoLabelRow}`);
   worksheet.getCell(`A${infoLabelRow}`).value = `${type} Nr.`;
-  
+
   if (type === 'Lieferschein') {
     worksheet.mergeCells(`D${infoLabelRow}:E${infoLabelRow}`);
     worksheet.getCell(`D${infoLabelRow}`).value = 'Lieferdatum';
   }
-  
+
   worksheet.mergeCells(`G${infoLabelRow}:H${infoLabelRow}`);
   worksheet.getCell(`G${infoLabelRow}`).value = 'Datum';
 
@@ -118,7 +132,7 @@ async function generateExcel(type, data) {
   const infoValueRow = currentRow;
   worksheet.mergeCells(`A${infoValueRow}:B${infoValueRow}`);
   worksheet.getCell(`A${infoValueRow}`).value = data.Nummer;
-  
+
   const datum = new Date(data.Datum).toLocaleDateString('de-DE');
   worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
   if (type === 'Lieferschein') {
@@ -169,13 +183,13 @@ async function generateExcel(type, data) {
     row.getCell(1).value = s.Artikelnummer.split('_')[0];
     const materialCode = s.Artikelnummer[1];
     row.getCell(2).value = GRUNDMATERIAL[materialCode] || s.Art || '';
-    
+
     worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
-    
+
     // Detailed description logic (ported from Python)
     let bezeichnung = '';
     const getVal = (val) => (val && val !== '0' && val !== 0 ? val : '-');
-    
+
     const artCode = s.Artikelnummer[2];
     const artikelTyp = artCode === 'H' ? 'Halskette' : artCode === 'O' ? 'Ohrring' : artCode === 'A' ? 'Armband' : artCode === 'S' ? 'Schlüsselanhänger' : '';
     if (s.Name && s.Name.trim()) {
@@ -191,9 +205,9 @@ async function generateExcel(type, data) {
     } else {
       bezeichnung = `${s.Art || ''}: ${s.Material || ''} ${s.Farbe || ''}`;
     }
-    
+
     row.getCell(3).value = bezeichnung;
-    
+
     row.getCell(7).value = 1;
     row.getCell(8).value = Number(s.Verkaufspreis);
     row.getCell(8).numFmt = '#,##0.00 €';
@@ -211,42 +225,18 @@ async function generateExcel(type, data) {
     currentRow++;
   });
 
-  // Marina / Saskia Split
-  currentRow += 1;
-  const marinaItems = data.schmuckstuecke.filter(s => s.Artikelnummer?.toUpperCase().startsWith('M'));
-  const saskiaItems = data.schmuckstuecke.filter(s => s.Artikelnummer?.toUpperCase().startsWith('S'));
-  
-  const marinaTotal = marinaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-  const saskiaTotal = saskiaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
 
-  const splitProvisionPct = type === 'Rechnung' ? (data.kunde.Provision || 0) : 0;
-
-  if (marinaItems.length > 0) {
-    const marinaValue = marinaTotal * (1 - splitProvisionPct / 100);
-    worksheet.getRow(currentRow).getCell(7).value = type === 'Rechnung' ? "Marina (netto):" : "Marina:";
-    worksheet.getRow(currentRow).getCell(9).value = marinaValue;
-    worksheet.getRow(currentRow).getCell(9).numFmt = '#,##0.00 €';
-    currentRow++;
-  }
-  
-  if (saskiaItems.length > 0) {
-    const saskiaValue = saskiaTotal * (1 - splitProvisionPct / 100);
-    worksheet.getRow(currentRow).getCell(7).value = type === 'Rechnung' ? "Saskia (netto):" : "Saskia:";
-    worksheet.getRow(currentRow).getCell(9).value = saskiaValue;
-    worksheet.getRow(currentRow).getCell(9).numFmt = '#,##0.00 €';
-    currentRow++;
-  }
 
   // 5. Total Block (for Invoice)
   if (type === 'Rechnung') {
     currentRow++;
     const total = data.schmuckstuecke.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-    
+
     const totalLabelCell = worksheet.getCell(`G${currentRow}`);
     totalLabelCell.value = "Gesamtwert";
     totalLabelCell.font = { bold: true };
     worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
-    
+
     const totalValueCell = worksheet.getCell(`I${currentRow}`);
     totalValueCell.value = total;
     totalValueCell.numFmt = '#,##0.00 €';
@@ -255,11 +245,11 @@ async function generateExcel(type, data) {
     currentRow++;
     const provisionPercent = data.kunde.Provision || 0;
     const provisionValue = total * (provisionPercent / 100);
-    
+
     const provLabelCell = worksheet.getCell(`G${currentRow}`);
     provLabelCell.value = "- Provision";
     worksheet.getCell(`H${currentRow}`).value = `${provisionPercent} %`;
-    
+
     const provValueCell = worksheet.getCell(`I${currentRow}`);
     provValueCell.value = provisionValue;
     provValueCell.numFmt = '#,##0.00 €';
@@ -267,12 +257,12 @@ async function generateExcel(type, data) {
     // Final Total
     currentRow++;
     const finalTotal = total - provisionValue;
-    
+
     const finalLabelRow = worksheet.getRow(currentRow);
     finalLabelRow.getCell(7).value = "Überweisungsbetrag";
     finalLabelRow.getCell(7).font = { bold: true };
     worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
-    
+
     const finalValueCell = worksheet.getCell(`I${currentRow}`);
     finalValueCell.value = finalTotal;
     finalValueCell.numFmt = '#,##0.00 €';
@@ -281,16 +271,16 @@ async function generateExcel(type, data) {
       pattern: 'solid',
       fgColor: { argb: 'FFBCBCBC' }
     };
-    
+
     currentRow += 2;
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Gemäß § 19 Abs. 1 UStG wird keine Umsatzsteuer ausgewiesen.";
-    
+
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Bitte überweisen Sie den Rechnungsbetrag an u.g. Bankverbindung.";
-    
+
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Die Rechnung ist sofort bei Erhalt fällig.";
@@ -304,7 +294,7 @@ async function generateExcel(type, data) {
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Lieferung: Die Lieferung erfolgt frei Haus.";
-    
+
     currentRow += 2;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = `Bei Rückfragen stehen wir Ihnen gerne zu Verfügung unter ${contact.email}`;
@@ -313,7 +303,7 @@ async function generateExcel(type, data) {
   currentRow += 2;
   worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
   worksheet.getCell(`A${currentRow}`).value = "Mit freundlichen Grüßen";
-  
+
   currentRow += 4;
   worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
   worksheet.getCell(`A${currentRow}`).value = contact.name;
@@ -321,7 +311,7 @@ async function generateExcel(type, data) {
 
   // Footer
   worksheet.headerFooter.oddFooter = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
-  
+
   return await workbook.xlsx.writeBuffer();
 }
 
