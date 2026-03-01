@@ -20,6 +20,15 @@ export default function Rechnungen() {
     key: "Datum",
     direction: "desc",
   });
+  const [sumupCheckout, setSumupCheckout] = useState(null);
+  const [sumupLoading, setSumupLoading] = useState(false);
+
+  const SUMUP_PAY_BASE_URL = "https://pay.sumup.com/b2c";
+
+  const handleCloseDetail = () => {
+    setDetail(null);
+    setSumupCheckout(null);
+  };
 
   const load = () => {
     setLoading(true);
@@ -39,6 +48,7 @@ export default function Rechnungen() {
     try {
       const d = await api.getRechnung(id);
       setDetail(d);
+      setSumupCheckout(null);
     } catch (err) {
       alert(err.message);
     }
@@ -52,6 +62,48 @@ export default function Rechnungen() {
       load();
     } catch (err) {
       alert(err.message);
+    }
+  };
+
+  const handleCreateSumupCheckout = async () => {
+    if (!detail) return;
+    setSumupLoading(true);
+    try {
+      const totalBrutto = detail.schmuckstuecke.reduce(
+        (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+        0,
+      );
+      const provisionPercent = Math.min(Math.max(Number(detail.Provision) || 0, 0), 100);
+      const amount = totalBrutto * (1 - provisionPercent / 100);
+      if (amount <= 0) {
+        alert("Der Zahlungsbetrag muss größer als 0 sein.");
+        setSumupLoading(false);
+        return;
+      }
+      const checkout = await api.createSumupCheckout({
+        rechnungNummer: detail.Nummer,
+        amount: parseFloat(amount.toFixed(2)),
+        currency: "EUR",
+        description: `GoldRegen Rechnung ${detail.Nummer}`,
+      });
+      setSumupCheckout(checkout);
+    } catch (err) {
+      alert(`SumUp Fehler: ${err.message}`);
+    } finally {
+      setSumupLoading(false);
+    }
+  };
+
+  const handleRefreshSumupStatus = async () => {
+    if (!sumupCheckout?.id) return;
+    setSumupLoading(true);
+    try {
+      const updated = await api.getSumupCheckout(sumupCheckout.id);
+      setSumupCheckout(updated);
+    } catch (err) {
+      alert(`SumUp Fehler: ${err.message}`);
+    } finally {
+      setSumupLoading(false);
     }
   };
 
@@ -330,15 +382,23 @@ export default function Rechnungen() {
       </div>
 
       {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)}>
+        <div className="modal-overlay" onClick={handleCloseDetail}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
                 🧾 Rechnung {detail.Nummer} ({detail.ID})
               </h3>
               <button
+                  className="btn btn-primary btn-sm"
+                  style={{ marginLeft: "auto", marginRight: 8, background: "#1a72c9" }}
+                  onClick={handleCreateSumupCheckout}
+                  disabled={sumupLoading}
+                >
+                  💳 SumUp Zahlung
+                </button>
+              <button
                 className="btn btn-primary btn-sm"
-                style={{ marginLeft: "auto", marginRight: 8 }}
+                style={{ marginRight: 8 }}
                 onClick={() =>
                   window.open(api.getRechnungExcel(detail.ID), "_blank")
                 }
@@ -352,7 +412,7 @@ export default function Rechnungen() {
               >
                 🗑️ Löschen
               </button>
-              <button className="modal-close" onClick={() => setDetail(null)}>
+              <button className="modal-close" onClick={handleCloseDetail}>
                 ×
               </button>
             </div>
@@ -565,6 +625,90 @@ export default function Rechnungen() {
                     </tbody>
                   </table>
                 </>
+              )}
+
+              {sumupCheckout && (
+                <div
+                  style={{
+                    margin: "16px 24px",
+                    padding: "16px",
+                    backgroundColor: "var(--bg-secondary)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <h4 style={{ margin: 0, fontSize: 15 }}>
+                      💳 SumUp Zahlung
+                    </h4>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={handleRefreshSumupStatus}
+                      disabled={sumupLoading}
+                    >
+                      🔄 Status aktualisieren
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      fontSize: "0.9em",
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: "var(--text-secondary)" }}>
+                        Betrag:
+                      </span>{" "}
+                      <strong>
+                        {Number(sumupCheckout.amount).toFixed(2)}{" "}
+                        {sumupCheckout.currency}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--text-secondary)" }}>
+                        Referenz:
+                      </span>{" "}
+                      <span>{sumupCheckout.checkout_reference}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--text-secondary)" }}>
+                        Status:
+                      </span>{" "}
+                      <span
+                        style={{
+                          color:
+                            sumupCheckout.status === "PAID"
+                              ? "var(--success)"
+                              : sumupCheckout.status === "FAILED"
+                                ? "var(--danger)"
+                                : "var(--warning)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {sumupCheckout.status}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: "8px" }}>
+                      <a
+                        href={`${SUMUP_PAY_BASE_URL}/${sumupCheckout.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-primary btn-sm"
+                      >
+                        🔗 Zahlungslink öffnen
+                      </a>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>

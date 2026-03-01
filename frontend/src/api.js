@@ -59,4 +59,8 @@ export const api = {
   // Excel Export
   getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
   getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
+
+  // SumUp
+  createSumupCheckout: (data) => request('/sumup/checkout', { method: 'POST', body: JSON.stringify(data) }),
+  getSumupCheckout: (id) => request(`/sumup/checkout/${id}`),
 };
