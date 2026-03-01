@@ -200,20 +200,32 @@ async function generateExcel(type, data, logoPath) {
       "Einzelpreis",
       "Gesamtpreis",
     ];
-    headers.forEach((h, i) => {
-      if (h) {
-        const cell = worksheet.getRow(headerRow).getCell(i + 1);
-        cell.value = h;
-        cell.font = { name: "Calibri", size: 10, bold: true };
-        cell.alignment = { horizontal: "center" };
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFBCBCBC" } },
-          left: { style: "thin", color: { argb: "FFBCBCBC" } },
-          bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
-          right: { style: "thin", color: { argb: "FFBCBCBC" } },
-        };
+
+    // Formatiere ALLE 9 Spalten mit Border
+    for (let i = 1; i <= 9; i++) {
+      const cell = worksheet.getRow(headerRow).getCell(i);
+      const headerText = headers[i - 1];
+
+      if (headerText) {
+        cell.value = headerText;
+        cell.alignment = { horizontal: "center", vertical: "center" };
       }
-    });
+
+      cell.font = { name: "Calibri", size: 10, bold: true };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFBCBCBC" } },
+        left: { style: "thin", color: { argb: "FFBCBCBC" } },
+        bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
+        right: { style: "thin", color: { argb: "FFBCBCBC" } },
+      };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF2F2F2" },
+      };
+    }
+
+    // Merge Cells für "Bezeichnung" (C-F)
     worksheet.mergeCells(`C${headerRow}:F${headerRow}`);
   };
 
@@ -221,18 +233,13 @@ async function generateExcel(type, data, logoPath) {
   writeTableHeaders(tableHeaderStartRow);
   currentRow++;
 
-  // Article loop with pagination every 47 lines
+  // Set print titles so header repeats on each page
+  worksheet.pageSetup.printTitlesRow = `${tableHeaderStartRow}:${tableHeaderStartRow}`;
+
+  // Article loop
   let articleIndex = 0;
-  let linesInBlock = 0; // Counter für Zeilen im aktuellen Block
 
   while (articleIndex < data.schmuckstuecke.length) {
-    // Check if we need a new header (every 47 data lines)
-    if (linesInBlock > 0 && linesInBlock % 47 === 0) {
-      writeTableHeaders(currentRow);
-      currentRow++;
-      linesInBlock = 0;
-    }
-
     const s = data.schmuckstuecke[articleIndex];
     const row = worksheet.getRow(currentRow);
     row.getCell(1).value = s.Artikelnummer.split("_")[0];
@@ -290,7 +297,6 @@ async function generateExcel(type, data, logoPath) {
 
     currentRow++;
     articleIndex++;
-    linesInBlock++;
   }
 
   // 5. Total Block (for Invoice)
