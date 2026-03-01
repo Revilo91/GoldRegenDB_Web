@@ -139,7 +139,7 @@ async function generateExcel(type, data, logoPath) {
     left: 0.7,
     right: 0.7,
     top: 0.75,
-    bottom: 0.75,
+    bottom: 1.2,    // Erhöht von 0.75 für mehr Platz für die Fußzeile
     header: 0.3,
     footer: 0.3,
   };
@@ -420,7 +420,7 @@ async function generateExcel(type, data, logoPath) {
 
     const provPercentCell = worksheet.getCell(`H${currentRow}`);
     provPercentCell.value = `${provisionPercent} %`;
-    provPercentCell.font = { name: "Calibri", size: 10, bold: true };
+    provPercentCell.font = { name: "Calibri", size: 11, bold: true };
     provPercentCell.alignment = { horizontal: "left" };
 
     const provValueCell = worksheet.getCell(`I${currentRow}`);
@@ -522,6 +522,7 @@ async function generateExcel(type, data, logoPath) {
   const footerText = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
   worksheet.headerFooter.oddFooter = footerText;
   worksheet.headerFooter.evenFooter = footerText;
+  worksheet.headerFooter.font = { name: "Calibri", size: 8 };
 
   // Auto-fit column widths based on content
   autoFitColumns(worksheet);
