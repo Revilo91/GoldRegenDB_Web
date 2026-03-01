@@ -59,4 +59,12 @@ export const api = {
   // Excel Export
   getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
   getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
+
+  // Benutzerverwaltung
+  getUsers: () => request('/users'),
+  getUser: (id) => request(`/users/${id}`),
+  createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  resetUserPassword: (id, newPassword) => request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 };
