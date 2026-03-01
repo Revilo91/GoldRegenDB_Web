@@ -9,6 +9,7 @@ const ROLES = [
 const EMPTY_FORM = {
   username: "",
   password: "",
+  passwordConfirm: "",
   email: "",
   role: "user",
   active: true,
@@ -22,6 +23,9 @@ export default function Benutzerverwaltung() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [resetModal, setResetModal] = useState(null);
   const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [sortConfig, setSortConfig] = useState({
     key: "username",
     direction: "asc",
@@ -43,15 +47,44 @@ export default function Benutzerverwaltung() {
   const handleSave = async () => {
     try {
       if (editing === "new") {
-        await api.createUser(form);
+        if (form.password !== form.passwordConfirm) {
+          alert("Passwörter stimmen nicht überein");
+          return;
+        }
+        if (form.password.length < 8) {
+          alert("Passwort muss mindestens 8 Zeichen lang sein");
+          return;
+        }
+        if (!form.username.trim()) {
+          alert("Benutzername darf nicht leer sein");
+          return;
+        }
+        const createData = { username: form.username, password: form.password, email: form.email, role: form.role, active: form.active };
+        await api.createUser(createData);
       } else {
+        if (!form.username.trim()) {
+          alert("Benutzername darf nicht leer sein");
+          return;
+        }
         const updateData = { username: form.username, email: form.email, role: form.role, active: form.active };
         await api.updateUser(editing, updateData);
       }
       setEditing(null);
       load();
     } catch (err) {
-      alert(err.message);
+      let errorMessage = "Fehler beim Speichern";
+
+      if (err.message === "Failed to fetch") {
+        errorMessage = "Backend-Server nicht erreichbar. Bitte stelle sicher, dass der Server läuft (http://localhost:3001).";
+      } else if (err.message === "Request failed") {
+        // Versuche Details aus der Axios-Response zu bekommen
+        errorMessage = "Backend-Fehler: " + (err.message || "Unbekannter Fehler");
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      alert(errorMessage);
+      console.error("Save error:", err);
     }
   };
 
@@ -145,11 +178,11 @@ export default function Benutzerverwaltung() {
 
       {/* Create / Edit Modal */}
       {editing !== null && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay" onClick={() => { setEditing(null); setShowPassword(false); setShowPasswordConfirm(false); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editing === "new" ? "Neuer Benutzer" : "Benutzer bearbeiten"}</h3>
-              <button className="modal-close" onClick={() => setEditing(null)}>
+              <button className="modal-close" onClick={() => { setEditing(null); setShowPassword(false); setShowPasswordConfirm(false); }}>
                 ✕
               </button>
             </div>
@@ -165,13 +198,45 @@ export default function Benutzerverwaltung() {
               {editing === "new" && (
                 <div className="form-group">
                   <label className="form-label">Passwort *</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    placeholder="Mindestens 8 Zeichen"
-                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      className="form-control"
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      placeholder="Mindestens 8 Zeichen"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ padding: "6px 12px", minWidth: "40px" }}
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {editing === "new" && (
+                <div className="form-group">
+                  <label className="form-label">Passwort bestätigen *</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type={showPasswordConfirm ? "text" : "password"}
+                      className="form-control"
+                      value={form.passwordConfirm}
+                      onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })}
+                      placeholder="Passwort wiederholen"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                      style={{ padding: "6px 12px", minWidth: "40px" }}
+                    >
+                      {showPasswordConfirm ? "🙈" : "👁️"}
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="form-group">
@@ -209,7 +274,7 @@ export default function Benutzerverwaltung() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setEditing(null)}>
+              <button className="btn btn-secondary" onClick={() => { setEditing(null); setShowPassword(false); setShowPasswordConfirm(false); }}>
                 Abbrechen
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
@@ -222,7 +287,7 @@ export default function Benutzerverwaltung() {
 
       {/* Reset Password Modal */}
       {resetModal !== null && (
-        <div className="modal-overlay" onClick={() => { setResetModal(null); setNewPassword(""); }}>
+        <div className="modal-overlay" onClick={() => { setResetModal(null); setNewPassword(""); setShowNewPassword(false); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Passwort zurücksetzen – {resetModal.username}</h3>
@@ -231,6 +296,7 @@ export default function Benutzerverwaltung() {
                 onClick={() => {
                   setResetModal(null);
                   setNewPassword("");
+                  setShowNewPassword(false);
                 }}
               >
                 ✕
@@ -239,13 +305,23 @@ export default function Benutzerverwaltung() {
             <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Neues Passwort *</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mindestens 8 Zeichen"
-                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    className="form-control"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mindestens 8 Zeichen"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{ padding: "6px 12px", minWidth: "40px" }}
+                  >
+                    {showNewPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="modal-footer">
@@ -254,6 +330,7 @@ export default function Benutzerverwaltung() {
                 onClick={() => {
                   setResetModal(null);
                   setNewPassword("");
+                  setShowNewPassword(false);
                 }}
               >
                 Abbrechen
