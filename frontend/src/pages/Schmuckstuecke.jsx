@@ -8,6 +8,7 @@ export default function Schmuckstuecke() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
+  const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
@@ -29,6 +30,7 @@ export default function Schmuckstuecke() {
     if (!confirm(`Schmuckstück ${nr} wirklich löschen?`)) return;
     try {
       await api.deleteSchmuckstueck(nr);
+      setSelected(null);
       setEditing(null);
       load();
     } catch (err) {
@@ -284,7 +286,7 @@ export default function Schmuckstuecke() {
                 {sortedData.map((s) => (
                   <tr
                     key={s.Artikelnummer}
-                    onClick={() => openEdit(s)}
+                    onClick={() => setSelected(s)}
                     style={{ cursor: "pointer" }}
                   >
                     <td>
@@ -460,15 +462,6 @@ export default function Schmuckstuecke() {
                   ? "🆕 Neues Schmuckstück"
                   : `✏️ ${editing} bearbeiten`}
               </h3>
-              {editing !== "new" && (
-                <button
-                  className="btn btn-danger btn-sm"
-                  style={{ marginLeft: "auto", marginRight: 16 }}
-                  onClick={() => handleDelete(editing)}
-                >
-                  🗑️ Löschen
-                </button>
-              )}
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
