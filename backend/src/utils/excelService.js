@@ -237,13 +237,24 @@ async function generateExcel(type, data, logoPath) {
   worksheet.pageSetup.printTitlesRow = `${tableHeaderStartRow}:${tableHeaderStartRow}`;
 
   // Article loop
-  let articleIndex = 0;
+  const articleCounts = {};
+  data.schmuckstuecke.forEach((s) => {
+    const artikelnummerBasis = (s.Artikelnummer || "").split("_")[0];
+    articleCounts[artikelnummerBasis] =
+      (articleCounts[artikelnummerBasis] || 0) + 1;
+  });
 
-  while (articleIndex < data.schmuckstuecke.length) {
-    const s = data.schmuckstuecke[articleIndex];
+  const processedArticles = new Set();
+  data.schmuckstuecke.forEach((s) => {
+    const artikelnummerBasis = (s.Artikelnummer || "").split("_")[0];
+    if (processedArticles.has(artikelnummerBasis)) {
+      return;
+    }
+    processedArticles.add(artikelnummerBasis);
+
     const row = worksheet.getRow(currentRow);
-    row.getCell(1).value = s.Artikelnummer.split("_")[0];
-    const materialCode = s.Artikelnummer[1];
+    row.getCell(1).value = artikelnummerBasis;
+    const materialCode = artikelnummerBasis[1];
     row.getCell(2).value = GRUNDMATERIAL[materialCode] || s.Art || "";
 
     worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
@@ -252,7 +263,7 @@ async function generateExcel(type, data, logoPath) {
     let bezeichnung = "";
     const getVal = (val) => (val && val !== "0" && val !== 0 ? val : "-");
 
-    const artCode = s.Artikelnummer[2];
+    const artCode = artikelnummerBasis[2];
     const artikelTyp =
       artCode === "H"
         ? "Halskette"
@@ -279,10 +290,13 @@ async function generateExcel(type, data, logoPath) {
 
     row.getCell(3).value = bezeichnung;
 
-    row.getCell(7).value = 1;
-    row.getCell(8).value = Number(s.Verkaufspreis);
+    const menge = articleCounts[artikelnummerBasis] || 1;
+    const einzelpreis = Number(s.Verkaufspreis) || 0;
+
+    row.getCell(7).value = menge;
+    row.getCell(8).value = einzelpreis;
     row.getCell(8).numFmt = "#,##0.00 €";
-    row.getCell(9).value = Number(s.Verkaufspreis);
+    row.getCell(9).value = einzelpreis * menge;
     row.getCell(9).numFmt = "#,##0.00 €";
 
     for (let i = 1; i <= 9; i++) {
@@ -296,8 +310,7 @@ async function generateExcel(type, data, logoPath) {
     }
 
     currentRow++;
-    articleIndex++;
-  }
+  });
 
   // 5. Total Block (for Invoice)
   if (type === "Rechnung") {
@@ -315,7 +328,7 @@ async function generateExcel(type, data, logoPath) {
     const totalValueCell = worksheet.getCell(`I${currentRow}`);
     totalValueCell.value = total;
     totalValueCell.numFmt = "#,##0.00 €";
-    totalValueCell.font = { name: "Calibri", bold: true, size: 10 };
+    totalValueCell.font = { name: "Calibri", size: 10 };
 
     // Provision
     currentRow++;
@@ -364,7 +377,7 @@ async function generateExcel(type, data, logoPath) {
     const finalValueCell = worksheet.getCell(`I${currentRow}`);
     finalValueCell.value = finalTotal;
     finalValueCell.numFmt = "#,##0.00 €";
-    finalValueCell.font = { name: "Calibri", bold: true, size: 10 };
+    finalValueCell.font = { name: "Calibri", size: 10 };
     finalValueCell.alignment = { horizontal: "right" };
     finalValueCell.fill = {
       type: "pattern",
