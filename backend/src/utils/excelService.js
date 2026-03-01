@@ -334,7 +334,7 @@ async function generateExcel(type, data, logoPath) {
 
     const totalLabelCell = worksheet.getCell(`G${currentRow}`);
     totalLabelCell.value = "Gesamtwert";
-    totalLabelCell.font = { name: "Calibri", bold: true, size: 10 };
+    totalLabelCell.font = { name: "Calibri", bold: true, size: 11 };
     worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
 
     const totalValueCell = worksheet.getCell(`I${currentRow}`);
