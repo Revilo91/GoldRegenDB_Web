@@ -157,14 +157,6 @@ CREATE TABLE audit_log (
 -- ============================================================
 -- User Management
 -- ============================================================
-#TODO Wirklich?
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(100) NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Benutzerverwaltung
 -- ============================================================
