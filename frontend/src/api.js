@@ -7,7 +7,8 @@ async function request(url, options = {}) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Request failed');
+    const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+    throw new Error(errorMessage);
   }
   return res.json();
 }
@@ -55,8 +56,16 @@ export const api = {
     return request(`/audit-log?${qs}`);
   },
   getAuditLogForArtikel: (nr) => request(`/audit-log/artikel/${nr}`),
-  
+
   // Excel Export
   getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
   getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
+
+  // Benutzerverwaltung
+  getUsers: () => request('/users'),
+  getUser: (id) => request(`/users/${id}`),
+  createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  resetUserPassword: (id, newPassword) => request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 };

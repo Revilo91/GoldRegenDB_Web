@@ -7,6 +7,7 @@ import Lieferscheine from "./pages/Lieferscheine";
 import Rechnungen from "./pages/Rechnungen";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
+import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import "./index.css";
 
 function App() {
@@ -106,6 +107,14 @@ function App() {
             <span className="nav-icon">🛠️</span>
             <span>Debug</span>
           </NavLink>
+          <NavLink
+            to="/benutzerverwaltung"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">🔐</span>
+            <span>Benutzerverwaltung</span>
+          </NavLink>
         </nav>
       </aside>
 
@@ -118,6 +127,7 @@ function App() {
           <Route path="/rechnungen" element={<Rechnungen />} />
           <Route path="/audit-log" element={<AuditLog />} />
           <Route path="/debug" element={<Debug />} />
+          <Route path="/benutzerverwaltung" element={<Benutzerverwaltung />} />
         </Routes>
       </main>
     </BrowserRouter>
