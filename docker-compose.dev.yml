@@ -13,6 +13,7 @@ services:
       - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
       - ./db/backup.sh:/backup.sh
       - ./db/restore.sh:/restore.sh
+      - ./db/load_seed.sh:/load_seed.sh
     ports:
       - "5432:5432"
     healthcheck:
