@@ -387,7 +387,7 @@ export default function Rechnungen() {
                                 <strong>{r.Nummer}</strong>
                               </td>
                               <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                              <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                              <td>{new Date(r.Datum).toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                             </tr>
                           ))
                         : [])
@@ -404,7 +404,7 @@ export default function Rechnungen() {
                           <strong>{r.Nummer}</strong>
                         </td>
                         <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                        <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                        <td>{new Date(r.Datum).toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                       </tr>
                     ))}
               </tbody>
@@ -450,7 +450,7 @@ export default function Rechnungen() {
                 <div className="detail-item">
                   <label>Datum</label>
                   <div className="detail-value">
-                    {new Date(detail.Datum).toLocaleDateString("de-DE")}
+                    {new Date(detail.Datum).toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </div>
                 </div>
                 <div className="detail-item">
