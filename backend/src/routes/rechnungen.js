@@ -46,6 +46,7 @@ router.get('/:id', async (req, res) => {
 
 // GET excel
 const { generateExcel } = require('../utils/excelService');
+
 router.get('/:id/excel', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -72,8 +73,16 @@ router.get('/:id/excel', async (req, res) => {
         [lieferscheinIds]
       );
       if (lsResult.rows[0] && lsResult.rows[0].min_datum) {
-        const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE');
-        const maxDate = new Date(lsResult.rows[0].max_datum).toLocaleDateString('de-DE');
+        const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        const maxDate = new Date(lsResult.rows[0].max_datum).toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
         rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
       }
     }
