@@ -19,13 +19,14 @@ export default function Benutzerverwaltung() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [resetModal, setResetModal] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [sortConfig, setSortConfig] = useState({
     key: "username",
     direction: "asc",
@@ -67,9 +68,10 @@ export default function Benutzerverwaltung() {
           return;
         }
         const updateData = { username: form.username, email: form.email, role: form.role, active: form.active };
-        await api.updateUser(editing, updateData);
+        await api.updateUser(selected.id, updateData);
       }
       setEditing(null);
+      setSelected(null);
       load();
     } catch (err) {
       let errorMessage = "Fehler beim Speichern";
@@ -88,10 +90,12 @@ export default function Benutzerverwaltung() {
     }
   };
 
-  const handleDelete = async (id, username) => {
-    if (!confirm(`Benutzer "${username}" wirklich löschen?`)) return;
+  const handleDelete = async () => {
+    if (!confirm(`Benutzer "${selected.username}" wirklich löschen?`)) return;
     try {
-      await api.deleteUser(id);
+      await api.deleteUser(selected.id);
+      setSelected(null);
+      setEditing(null);
       load();
     } catch (err) {
       alert(err.message);
@@ -100,10 +104,19 @@ export default function Benutzerverwaltung() {
 
   const handleResetPassword = async () => {
     try {
-      await api.resetUserPassword(resetModal.id, newPassword);
+      if (!newPassword) {
+        alert("Bitte ein neues Passwort eingeben");
+        return;
+      }
+      if (newPassword.length < 8) {
+        alert("Passwort muss mindestens 8 Zeichen lang sein");
+        return;
+      }
+      await api.resetUserPassword(selected.id, newPassword);
       alert("Passwort erfolgreich zurückgesetzt");
-      setResetModal(null);
       setNewPassword("");
+      setShowNewPassword(false);
+      load();
     } catch (err) {
       alert(err.message);
     }
@@ -111,17 +124,22 @@ export default function Benutzerverwaltung() {
 
   const openNew = () => {
     setForm({ ...EMPTY_FORM });
+    setSelected({ id: "new", username: "", email: "", role: "user", active: true });
     setEditing("new");
   };
 
   const openEdit = (u) => {
+    setSelected(u);
     setForm({
       username: u.username,
       email: u.email || "",
       role: u.role,
       active: u.active,
     });
-    setEditing(u.id);
+    setEditing(null);
+    setNewPassword("");
+    setShowNewPassword(false);
+    setShowPasswordReset(false);
   };
 
   const requestSort = (key) => {
@@ -176,168 +194,240 @@ export default function Benutzerverwaltung() {
         </button>
       </div>
 
-      {/* Create / Edit Modal */}
-      {editing !== null && (
-        <div className="modal-overlay" onClick={() => { setEditing(null); setShowPassword(false); setShowPasswordConfirm(false); }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+      {/* User Detail Modal */}
+      {selected && (
+        <div className="modal-overlay" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
             <div className="modal-header">
-              <h3>{editing === "new" ? "Neuer Benutzer" : "Benutzer bearbeiten"}</h3>
-              <button className="modal-close" onClick={() => { setEditing(null); setShowPassword(false); setShowPasswordConfirm(false); }}>
-                ✕
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label className="form-label">Benutzername *</label>
-                <input
-                  className="form-control"
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                />
-              </div>
-              {editing === "new" && (
-                <div className="form-group">
-                  <label className="form-label">Passwort *</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      className="form-control"
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      placeholder="Mindestens 8 Zeichen"
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{ padding: "6px 12px", minWidth: "40px" }}
-                    >
-                      {showPassword ? "🙈" : "👁️"}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {editing === "new" && (
-                <div className="form-group">
-                  <label className="form-label">Passwort bestätigen *</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type={showPasswordConfirm ? "text" : "password"}
-                      className="form-control"
-                      value={form.passwordConfirm}
-                      onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })}
-                      placeholder="Passwort wiederholen"
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                      style={{ padding: "6px 12px", minWidth: "40px" }}
-                    >
-                      {showPasswordConfirm ? "🙈" : "👁️"}
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div className="form-group">
-                <label className="form-label">E-Mail</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Rolle *</label>
-                <select
-                  className="form-control"
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={form.active}
-                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                  />
-                  Aktiv
-                </label>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => { setEditing(null); setShowPassword(false); setShowPasswordConfirm(false); }}>
-                Abbrechen
-              </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Password Modal */}
-      {resetModal !== null && (
-        <div className="modal-overlay" onClick={() => { setResetModal(null); setNewPassword(""); setShowNewPassword(false); }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Passwort zurücksetzen – {resetModal.username}</h3>
+              <h3>{editing === "new" ? "➕ Neuer Benutzer" : editing === selected.id ? "📝 Benutzer bearbeiten" : "👤 " + selected.username}</h3>
               <button
                 className="modal-close"
-                onClick={() => {
-                  setResetModal(null);
-                  setNewPassword("");
-                  setShowNewPassword(false);
-                }}
+                onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}
               >
                 ✕
               </button>
             </div>
+
             <div className="modal-body">
-              <div className="form-group">
-                <label className="form-label">Neues Passwort *</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    className="form-control"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mindestens 8 Zeichen"
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    style={{ padding: "6px 12px", minWidth: "40px" }}
-                  >
-                    {showNewPassword ? "🙈" : "👁️"}
-                  </button>
-                </div>
-              </div>
+              {editing === "new" || editing === selected.id ? (
+                // Edit/Create Mode
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Benutzername *</label>
+                    <input
+                      className="form-control"
+                      value={form.username}
+                      onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    />
+                  </div>
+                  {editing === "new" && (
+                    <div className="form-group">
+                      <label className="form-label">Passwort *</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          className="form-control"
+                          value={form.password}
+                          onChange={(e) => setForm({ ...form, password: e.target.value })}
+                          placeholder="Mindestens 8 Zeichen"
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{ padding: "6px 12px", minWidth: "40px" }}
+                        >
+                          {showPassword ? "🙈" : "👁️"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {editing === "new" && (
+                    <div className="form-group">
+                      <label className="form-label">Passwort bestätigen *</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type={showPasswordConfirm ? "text" : "password"}
+                          className="form-control"
+                          value={form.passwordConfirm}
+                          onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })}
+                          placeholder="Passwort wiederholen"
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                          style={{ padding: "6px 12px", minWidth: "40px" }}
+                        >
+                          {showPasswordConfirm ? "🙈" : "👁️"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">E-Mail</label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Rolle *</label>
+                    <select
+                      className="form-control"
+                      value={form.role}
+                      onChange={(e) => setForm({ ...form, role: e.target.value })}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={form.active}
+                        onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                      />
+                      Aktiv
+                    </label>
+                  </div>
+                </>
+              ) : (
+                // View Mode
+                <>
+                  <div style={{ marginBottom: "20px" }}>
+                    <h4 style={{ marginBottom: "10px", color: "var(--text-secondary)" }}>Grundinformationen</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "12px 20px" }}>
+                      <strong>Benutzername:</strong>
+                      <span>{selected.username}</span>
+                      <strong>E-Mail:</strong>
+                      <span>{selected.email || "–"}</span>
+                      <strong>Rolle:</strong>
+                      <span>
+                        <span className={`badge ${selected.role === "admin" ? "gold" : "info"}`}>
+                          {selected.role === "admin" ? "👑 Admin" : "👤 Benutzer"}
+                        </span>
+                      </span>
+                      <strong>Status:</strong>
+                      <span>
+                        <span className={`badge ${selected.active ? "success" : "danger"}`}>
+                          {selected.active ? "✅ Aktiv" : "❌ Inaktiv"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 style={{ marginBottom: "10px", color: "var(--text-secondary)" }}>Audit-Informationen</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "12px 20px" }}>
+                      <strong>Erstellt:</strong>
+                      <span>
+                        {selected.created_at
+                          ? new Date(selected.created_at).toLocaleString("de-DE")
+                          : "–"}
+                      </span>
+                      <strong>Letzter Login:</strong>
+                      <span>
+                        {selected.last_login
+                          ? new Date(selected.last_login).toLocaleString("de-DE")
+                          : "Noch nicht angemeldet"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {showPasswordReset && (
+                    <>
+                      <hr style={{ margin: "20px 0", borderColor: "var(--border)" }} />
+                      <h4 style={{ marginBottom: "10px", color: "var(--text-secondary)" }}>Passwort zurücksetzen</h4>
+                      <div style={{ display: "grid", gap: "10px" }}>
+                        <div className="form-group">
+                          <label className="form-label">Neues Passwort *</label>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input
+                              type={showNewPassword ? "text" : "password"}
+                              className="form-control"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              placeholder="Mindestens 8 Zeichen"
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              style={{ padding: "6px 12px", minWidth: "40px" }}
+                            >
+                              {showNewPassword ? "🙈" : "👁️"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
-            <div className="modal-footer">
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setResetModal(null);
-                  setNewPassword("");
-                  setShowNewPassword(false);
-                }}
-              >
-                Abbrechen
-              </button>
-              <button className="btn btn-danger" onClick={handleResetPassword}>
-                Passwort zurücksetzen
-              </button>
+
+            <div
+              className="modal-footer"
+              style={{
+                gap: "10px",
+                justifyContent:
+                  editing === "new" || editing === selected?.id
+                    ? "flex-end"
+                    : "space-between",
+              }}
+            >
+              {selected.id !== "new" && editing === null && (
+                <button
+                  className="btn btn-danger"
+                  onClick={handleDelete}
+                  style={{ marginRight: "auto" }}
+                >
+                  🗑️ Löschen
+                </button>
+              )}
+              <div style={{ display: "flex", gap: "10px" }}>
+                {selected.id !== "new" && editing === null && (
+                  <>
+                    {showPasswordReset ? (
+                      <>
+                        <button className="btn btn-secondary" onClick={() => { setNewPassword(""); setShowNewPassword(false); setShowPasswordReset(false); }}>
+                          ✕ Passwort-Reset abbrechen
+                        </button>
+                        <button className="btn btn-success" onClick={handleResetPassword} disabled={!newPassword}>
+                          ✓ Passwort jetzt zurücksetzen
+                        </button>
+                      </>
+                    ) : (
+                      <button className="btn btn-secondary" onClick={() => setShowPasswordReset(true)}>
+                        🔑 Passwort zurücksetzen
+                      </button>
+                    )}
+                  </>
+                )}
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}
+                >
+                  {editing === "new" || editing === selected.id ? "Abbrechen" : "Schließen"}
+                </button>
+                {(editing === "new" || editing === selected.id) && (
+                  <button className="btn btn-primary" onClick={handleSave}>
+                    ✓ Speichern
+                  </button>
+                )}
+                {editing === null && selected.id !== "new" && (
+                  <button className="btn btn-primary" onClick={() => setEditing(selected.id)}>
+                    ✏️ Bearbeiten
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -374,12 +464,11 @@ export default function Benutzerverwaltung() {
                   <th onClick={() => requestSort("last_login")} style={{ cursor: "pointer" }}>
                     Letzter Login {getSortIcon("last_login")}
                   </th>
-                  <th>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.map((u) => (
-                  <tr key={u.id}>
+                  <tr key={u.id} onClick={() => openEdit(u)} style={{ cursor: "pointer" }}>
                     <td>{u.id}</td>
                     <td>
                       <strong>{u.username}</strong>
@@ -405,36 +494,11 @@ export default function Benutzerverwaltung() {
                         ? new Date(u.last_login).toLocaleString("de-DE")
                         : "–"}
                     </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ padding: "4px 10px", fontSize: 12 }}
-                          onClick={() => openEdit(u)}
-                        >
-                          ✏️ Bearbeiten
-                        </button>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ padding: "4px 10px", fontSize: 12, background: "var(--warning-bg)", color: "var(--warning)", border: "1px solid var(--warning)" }}
-                          onClick={() => setResetModal(u)}
-                        >
-                          🔑 Passwort
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: "4px 10px", fontSize: 12 }}
-                          onClick={() => handleDelete(u.id, u.username)}
-                        >
-                          🗑️ Löschen
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
                 {filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                    <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)" }}>
                       Keine Benutzer gefunden
                     </td>
                   </tr>
