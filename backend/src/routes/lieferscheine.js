@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const db = require('../config/db');
 
 // GET all delivery notes
@@ -65,12 +64,11 @@ router.get('/:id/excel', async (req, res) => {
       [req.params.id]
     );
 
-    const logoPath = path.join(__dirname, '../../frontend/public/Logo transparent.png');
     const buffer = await generateExcel('Lieferschein', {
       ...rows[0],
       kunde: rows[0], // rows[0] contains both l and k fields
       schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
-    }, logoPath);
+    });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Lieferschein_${rows[0].Nummer}.xlsx`);

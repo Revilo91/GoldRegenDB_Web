@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const db = require('../config/db');
 
 // GET all invoices
@@ -79,13 +78,12 @@ router.get('/:id/excel', async (req, res) => {
       }
     }
 
-    const logoPath = path.join(__dirname, '../../frontend/public/Logo transparent.png');
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],
       kunde: rows[0],
       rechungsZeitraum,
       schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
-    }, logoPath);
+    });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Rechnung_${rows[0].Nummer}.xlsx`);
