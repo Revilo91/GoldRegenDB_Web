@@ -862,6 +862,15 @@ select.form-control {
 }
 
 /* ============ GROUP HEADER ROW ============ */
+.group-header-row {
+  user-select: none;
+  transition: var(--transition);
+}
+
+.group-header-row:hover {
+  background: var(--bg-hover);
+}
+
 .group-header-row td {
   background: var(--bg-input);
   color: var(--gold);
@@ -872,4 +881,11 @@ select.form-control {
   padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   border-top: 2px solid var(--border);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.group-header-row:hover td {
+  background: var(--bg-card);
+  color: var(--accent-hover);
 }

@@ -21,6 +21,7 @@ export default function Lieferscheine() {
     direction: "desc",
   });
   const [groupByKunde, setGroupByKunde] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
   const load = () => {
     setLoading(true);
@@ -191,6 +192,16 @@ export default function Lieferscheine() {
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
 
+  const toggleGroup = (groupKey) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
   const groupedData = useMemo(() => {
     if (!groupByKunde) return null;
     const groups = [];
@@ -313,29 +324,47 @@ export default function Lieferscheine() {
               </thead>
               <tbody>
                 {groupByKunde
-                  ? groupedData.flatMap((group) => [
-                      <tr key={`group-${group.key}`} className="group-header-row" aria-label={`Kundengruppe: ${group.name}`}>
+                  ? groupedData.flatMap((group) => {
+                    const isExpanded = expandedGroups.has(group.key);
+                    return [
+                      <tr
+                        key={`group-${group.key}`}
+                        className="group-header-row"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => toggleGroup(group.key)}
+                        aria-label={`Kundengruppe: ${group.name}`}
+                      >
                         <td colSpan={4}>
+                          <span style={{ marginRight: 8 }}>
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
                           👤 {group.name}{" "}
                           <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
                             ({group.items.length})
                           </span>
                         </td>
                       </tr>,
-                      ...group.items.map((l) => (
-                        <tr
-                          key={l.ID}
-                          onClick={() => openDetail(l.ID)}
-                          style={{ cursor: "pointer" }}>
-                          <td>{l.ID}</td>
-                          <td>
-                            <strong>{l.Nummer}</strong>
-                          </td>
-                          <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
-                          <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
-                        </tr>
-                      )),
-                    ])
+                      ...(isExpanded
+                        ? group.items.map((l) => (
+                            <tr
+                              key={l.ID}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetail(l.ID);
+                              }}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <td>{l.ID}</td>
+                              <td>
+                                <strong>{l.Nummer}</strong>
+                              </td>
+                              <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
+                              <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
+                            </tr>
+                          ))
+                        : [])
+                    ];
+                  })
                   : sortedData.map((l) => (
                       <tr
                         key={l.ID}
