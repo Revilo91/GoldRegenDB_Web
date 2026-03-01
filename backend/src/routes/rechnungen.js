@@ -46,6 +46,7 @@ router.get('/:id', async (req, res) => {
 
 // GET excel
 const { generateExcel } = require('../utils/excelService');
+
 router.get('/:id/excel', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -63,10 +64,34 @@ router.get('/:id/excel', async (req, res) => {
       [req.params.id]
     );
 
+    // Compute invoice period from Lieferschein dates of the pieces
+    const lieferscheinIds = [...new Set(pieces.rows.map(p => p.Lieferschein_ID).filter(id => id > 0))];
+    let rechungsZeitraum = null;
+    if (lieferscheinIds.length > 0) {
+      const lsResult = await db.query(
+        `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[])`,
+        [lieferscheinIds]
+      );
+      if (lsResult.rows[0] && lsResult.rows[0].min_datum) {
+        const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        const maxDate = new Date(lsResult.rows[0].max_datum).toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
+      }
+    }
+
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],
       kunde: rows[0],
-      schmuckstuecke: pieces.rows
+      rechungsZeitraum,
+      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

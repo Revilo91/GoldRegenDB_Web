@@ -1,4 +1,7 @@
-const ExcelJS = require('exceljs');
+const ExcelJS = require("exceljs");
+const fs = require("fs");
+const path = require("path");
+const sizeOf = require("image-size");
 
 const CONTACTS = {
   GOLDREGEN: {
@@ -6,77 +9,189 @@ const CONTACTS = {
     mobile: "0152 22731186",
     email: "goldregen.schmuckdesign@gmail.com",
     website: "www.goldregenschmuckdesign.de",
-    bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447"
+    bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447",
   },
   TCS: {
     name: "Oliver Südholt",
     mobile: "0151 21832342",
     email: "techcraftsuedholt@gmail.com",
     website: "",
-    bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447"
-  }
+    bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447",
+  },
 };
 
 const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
 
+const DEFAULT_LOGO_PATH = path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png");
+
+/**
+ * Auto-fit columns based on content with support for merged cells
+ * Scans all cells and sets optimal width between min and max values
+ */
+function autoFitColumns(worksheet) {
+  const columnWidths = {};
+
+  // Process all rows to calculate required widths
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (!cell.value) return;
+
+      const cellValue = cell.value.toString();
+      const length = cellValue.length;
+
+      // Check if this is a master cell (start of a merge)
+      if (cell.isMerged && cell.master) {
+        // This cell is part of a merge, check if it's the master
+        if (cell.master.address === cell.address) {
+          // This is the master cell - calculate the merge range
+          const masterRow = cell.master.row;
+          const masterCol = cell.master.col;
+
+          // Find how many columns this merge spans
+          let mergeWidth = 1;
+          for (let col = masterCol + 1; col <= worksheet.columnCount; col++) {
+            const nextCell = worksheet.getCell(masterRow, col);
+            if (nextCell.isMerged && nextCell.master && nextCell.master.address === cell.address) {
+              mergeWidth++;
+            } else {
+              break;
+            }
+          }
+
+          // Distribute width across merged columns
+          const widthPerColumn = length / mergeWidth;
+          for (let col = masterCol; col < masterCol + mergeWidth; col++) {
+            columnWidths[col] = Math.max(columnWidths[col] || 0, widthPerColumn);
+          }
+        }
+        // Skip non-master merged cells
+      } else {
+        // Regular cell (not merged)
+        columnWidths[colNumber] = Math.max(columnWidths[colNumber] || 0, length);
+      }
+    });
+  });
+
+  // Apply calculated widths with minimal padding for tight columns
+  worksheet.columns.forEach((column, index) => {
+    const colNumber = index + 1;
+    if (columnWidths[colNumber]) {
+      // Minimal padding (1) and limit between 5 and 50 for tight fit
+      column.width = Math.min(Math.max(columnWidths[colNumber] + 1, 5), 50);
+    } else {
+      // Minimal default width if no content found
+      column.width = 5;
+    }
+  });
+}
+
 const GRUNDMATERIAL = {
-  'A': "Alkoholtinte",
-  'B': "Beton",
-  'C': "Cucio",
-  'E': "Edelstahl",
-  'F': "Fimo",
-  'H': "Harz",
-  'I': "Phiole",
-  'J': "Papier",
-  'K': "Kordel",
-  'L': "Leder",
-  'M': "Makramee",
-  'N': "Naturstein",
-  'P': "Perle",
-  'S': "Schrumpffolie",
-  'W': "Holz",
-  'X': "3D-Druck",
-  'Y': "Cabochon"
+  A: "Alkoholtinte",
+  B: "Beton",
+  C: "Cucio",
+  E: "Edelstahl",
+  F: "Fimo",
+  H: "Harz",
+  I: "Phiole",
+  J: "Papier",
+  K: "Kordel",
+  L: "Leder",
+  M: "Makramee",
+  N: "Naturstein",
+  P: "Perle",
+  S: "Schrumpffolie",
+  W: "Holz",
+  X: "3D-Druck",
+  Y: "Cabochon",
 };
 
-async function generateExcel(type, data) {
+async function generateExcel(type, data, logoPath) {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(type);
-  
+
+  // Set default font
+  workbook.defaultFont = { name: "Calibri", size: 10 };
+  worksheet.font = { name: "Calibri", size: 10 };
+
   const contact = CONTACTS.GOLDREGEN; // Default to Marina/GoldRegen
 
-  // Setup column widths
+  // Setup column widths optimized for table structure
+  // Columns C-F are merged for "Bezeichnung", so they share space
   worksheet.columns = [
-    { width: 15 }, // A
-    { width: 15 }, // B
-    { width: 15 }, // C
-    { width: 15 }, // D
-    { width: 15 }, // E
-    { width: 15 }, // F
-    { width: 10 }, // G
-    { width: 12 }, // H
-    { width: 14 }  // I
+    { width: 12 }, // A - Artikelnr.
+    { width: 10 }, // B - Kategorie
+    { width: 12 }, // C - Bezeichnung (merged C:F)
+    { width: 12 }, // D - Bezeichnung (merged C:F)
+    { width: 12 }, // E - Bezeichnung (merged C:F)
+    { width: 12 }, // F - Bezeichnung (merged C:F)
+    { width: 8 },  // G - Menge
+    { width: 13 }, // H - Einzelpreis
+    { width: 13 }, // I - Gesamtpreis
   ];
+
+  // Page setup for A4 print layout
+  worksheet.pageSetup.paperSize = 9; // A4
+  worksheet.pageSetup.orientation = "portrait";
+  worksheet.pageSetup.fitToPage = true;
+  worksheet.pageSetup.fitToHeight = 0;
+  worksheet.pageSetup.fitToWidth = 1;
+  worksheet.pageSetup.margins = {
+    left: 0.7,
+    right: 0.7,
+    top: 0.75,
+    bottom: 0.75,
+    header: 0.3,
+    footer: 0.3,
+  };
+
+  // Add logo
+  const resolvedLogoPath =
+    logoPath && fs.existsSync(logoPath) ? logoPath : DEFAULT_LOGO_PATH;
+
+  if (resolvedLogoPath && fs.existsSync(resolvedLogoPath)) {
+    try {
+      const dimensions = sizeOf(resolvedLogoPath);
+      const scaleFactor = 0.1;
+
+      const imageId = workbook.addImage({
+        filename: resolvedLogoPath,
+        extension: "png",
+      });
+
+      worksheet.addImage(imageId, {
+        tl: { col: 5, row: 0 },
+        ext: {
+          width: dimensions.width * scaleFactor,
+          height: dimensions.height * scaleFactor
+        },
+        editAs: "oneCell",
+      });
+    } catch (err) {
+      console.error("Fehler beim Laden des Logos:", err.message);
+    }
+  }
 
   // 1. Header with Address Line
   const headerRow = 9; // Line 8 in Python (0-indexed here)
   worksheet.mergeCells(`A${headerRow}:E${headerRow}`);
   const headerCell = worksheet.getCell(`A${headerRow}`);
   headerCell.value = `${contact.name} • ${BUSINESS_ADDRESS}`;
-  headerCell.font = { size: 8 };
-  headerCell.border = { bottom: { style: 'thin' } };
+  headerCell.font = { name: "Calibri", size: 8 };
+  headerCell.alignment = { horizontal: "left", vertical: "bottom" };
+  headerCell.border = { bottom: { style: "thin" } };
 
   // 2. Customer Address Block
   let currentRow = 11;
   const address = [
     data.kunde.Name,
-    `${data.kunde.Strasse} ${data.kunde.Hausnummer || ''}`,
-    `${data.kunde.PLZ || ''} ${data.kunde.Ort || ''}`
+    `${data.kunde.Strasse} ${data.kunde.Hausnummer || ""}`,
+    `${data.kunde.PLZ || ""} ${data.kunde.Ort || ""}`,
   ];
-  address.forEach(line => {
+  address.forEach((line) => {
     if (line && line.trim()) {
       worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
       worksheet.getCell(`A${currentRow}`).value = line;
+      worksheet.getCell(`A${currentRow}`).font = { name: "Calibri", size: 10 };
       currentRow++;
     }
   });
@@ -87,223 +202,330 @@ async function generateExcel(type, data) {
   worksheet.mergeCells(`A${titleRow}:C${titleRow}`);
   const titleCell = worksheet.getCell(`A${titleRow}`);
   titleCell.value = type;
-  titleCell.font = { bold: true, size: 20 };
+  titleCell.font = { name: "Calibri", bold: true, size: 20 };
 
   currentRow += 2;
   const infoLabelRow = currentRow;
   worksheet.mergeCells(`A${infoLabelRow}:B${infoLabelRow}`);
   worksheet.getCell(`A${infoLabelRow}`).value = `${type} Nr.`;
-  
-  if (type === 'Lieferschein') {
+  worksheet.getCell(`A${infoLabelRow}`).font = { name: "Calibri", size: 10 };
+
+  if (type === "Lieferschein") {
     worksheet.mergeCells(`D${infoLabelRow}:E${infoLabelRow}`);
-    worksheet.getCell(`D${infoLabelRow}`).value = 'Lieferdatum';
+    worksheet.getCell(`D${infoLabelRow}`).value = "Lieferdatum";
+    worksheet.getCell(`D${infoLabelRow}`).font = { name: "Calibri", size: 10 };
   }
-  
+
   worksheet.mergeCells(`G${infoLabelRow}:H${infoLabelRow}`);
-  worksheet.getCell(`G${infoLabelRow}`).value = 'Datum';
+  worksheet.getCell(`G${infoLabelRow}`).value = "Datum";
+  worksheet.getCell(`G${infoLabelRow}`).font = { name: "Calibri", size: 10 };
 
   currentRow++;
   const infoValueRow = currentRow;
   worksheet.mergeCells(`A${infoValueRow}:B${infoValueRow}`);
   worksheet.getCell(`A${infoValueRow}`).value = data.Nummer;
-  
+  worksheet.getCell(`A${infoValueRow}`).font = { name: "Calibri", size: 10 };
+
+  const datum = new Date(data.Datum).toLocaleDateString("de-DE", {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
   worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
-  // Lieferschein date usually empty or specific
-  
-  const datum = new Date(data.Datum).toLocaleDateString('de-DE');
+  if (type === "Lieferschein") {
+    worksheet.getCell(`D${infoValueRow}`).value = datum;
+    worksheet.getCell(`D${infoValueRow}`).font = { name: "Calibri", size: 10 };
+  }
+
   worksheet.mergeCells(`G${infoValueRow}:H${infoValueRow}`);
   worksheet.getCell(`G${infoValueRow}`).value = datum;
+  worksheet.getCell(`G${infoValueRow}`).font = { name: "Calibri", size: 10 };
 
   currentRow++;
   const separatorRow = currentRow;
   worksheet.mergeCells(`A${separatorRow}:I${separatorRow}`);
-  worksheet.getCell(`A${separatorRow}`).border = { top: { style: 'thin', color: { argb: 'FFBCBCBC' } } };
+  worksheet.getCell(`A${separatorRow}`).border = {
+    top: { style: "thin", color: { argb: "FFBCBCBC" } },
+  };
 
   currentRow++;
   const textRow = currentRow;
   worksheet.mergeCells(`A${textRow}:I${textRow}`);
-  if (type === 'Lieferschein') {
-    worksheet.getCell(`A${textRow}`).value = "Wir liefern Ihnen, wie vereinbart folgende Artikel:";
+  if (type === "Lieferschein") {
+    worksheet.getCell(`A${textRow}`).value =
+      "Wir liefern Ihnen, wie vereinbart folgende Artikel:";
   } else {
-    const rechnungsZeitraum = data.rechungsZeitraum || 'xx.xx.xxxx';
-    worksheet.getCell(`A${textRow}`).value = `Für die verkauften Artikel im Zeitraum vom ${rechnungsZeitraum} stellen wir Ihnen folgende Positionen in Rechnung:`;
+    const rechnungsZeitraum = data.rechungsZeitraum || "xx.xx.xxxx";
+    worksheet.getCell(`A${textRow}`).value =
+      `Für die verkauften Artikel im Zeitraum vom ${rechnungsZeitraum} stellen wir Ihnen folgende Positionen in Rechnung:`;
   }
+  worksheet.getCell(`A${textRow}`).font = { name: "Calibri", size: 10 };
 
   // 4. Article Block
-  currentRow += 2;
-  const tableHeaderRow = currentRow;
-  const headers = ['Artikelnr.', 'Kategorie', 'Bezeichnung', '', '', '', 'Menge', 'Einzelpreis', 'Gesamtpreis'];
-  headers.forEach((h, i) => {
-    if (h) {
-      const cell = worksheet.getRow(tableHeaderRow).getCell(i + 1);
-      cell.value = h;
-      cell.font = { bold: true };
-      cell.alignment = { horizontal: 'center' };
+  currentRow += 1;
+  const tableHeaderStartRow = currentRow;
+
+  // Function to write table headers
+  const writeTableHeaders = (headerRow) => {
+    const headers = [
+      "Artikelnr.",
+      "Kategorie",
+      "Bezeichnung",
+      "",
+      "",
+      "",
+      "Menge",
+      "Einzelpreis",
+      "Gesamtpreis",
+    ];
+
+    // Formatiere ALLE 9 Spalten mit Border
+    for (let i = 1; i <= 9; i++) {
+      const cell = worksheet.getRow(headerRow).getCell(i);
+      const headerText = headers[i - 1];
+
+      if (headerText) {
+        cell.value = headerText;
+        cell.alignment = { horizontal: "center", vertical: "center" };
+      }
+
+      cell.font = { name: "Calibri", size: 10, bold: true };
       cell.border = {
-        top: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-        left: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-        bottom: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-        right: { style: 'thin', color: { argb: 'FFBCBCBC' } }
+        top: { style: "thin", color: { argb: "FFBCBCBC" } },
+        left: { style: "thin", color: { argb: "FFBCBCBC" } },
+        bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
+        right: { style: "thin", color: { argb: "FFBCBCBC" } },
+      };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF2F2F2" },
       };
     }
-  });
-  worksheet.mergeCells(`C${tableHeaderRow}:F${tableHeaderRow}`);
 
+    // Merge Cells für "Bezeichnung" (C-F)
+    worksheet.mergeCells(`C${headerRow}:F${headerRow}`);
+  };
+
+  // Write first header
+  writeTableHeaders(tableHeaderStartRow);
   currentRow++;
-  data.schmuckstuecke.forEach(s => {
+
+  // Set print titles so header repeats on each page
+  worksheet.pageSetup.printTitlesRow = `${tableHeaderStartRow}:${tableHeaderStartRow}`;
+
+  // Article loop
+  const articleCounts = {};
+  data.schmuckstuecke.forEach((s) => {
+    const artikelnummerBasis = (s.Artikelnummer || "").split("_")[0];
+    articleCounts[artikelnummerBasis] =
+      (articleCounts[artikelnummerBasis] || 0) + 1;
+  });
+
+  const processedArticles = new Set();
+  data.schmuckstuecke.forEach((s) => {
+    const artikelnummerBasis = (s.Artikelnummer || "").split("_")[0];
+    if (processedArticles.has(artikelnummerBasis)) {
+      return;
+    }
+    processedArticles.add(artikelnummerBasis);
+
     const row = worksheet.getRow(currentRow);
-    row.getCell(1).value = s.Artikelnummer.split('_')[0];
-    const materialCode = s.Artikelnummer[1];
-    row.getCell(2).value = GRUNDMATERIAL[materialCode] || s.Art || '';
-    
+    row.getCell(1).value = artikelnummerBasis;
+    const materialCode = artikelnummerBasis[1];
+    row.getCell(2).value = GRUNDMATERIAL[materialCode] || s.Art || "";
+
     worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
-    
+
     // Detailed description logic (ported from Python)
-    let bezeichnung = '';
-    const getVal = (val) => (val && val !== '0' && val !== 0 ? val : '-');
-    
-    const artCode = s.Artikelnummer[2];
-    const artikelTyp = artCode === 'H' ? 'Halskette' : artCode === 'O' ? 'Ohrring' : artCode === 'A' ? 'Armband' : artCode === 'S' ? 'Schlüsselanhänger' : '';
+    let bezeichnung = "";
+    const getVal = (val) => (val && val !== "0" && val !== 0 ? val : "-");
+
+    const artCode = artikelnummerBasis[2];
+    const artikelTyp =
+      artCode === "H"
+        ? "Halskette"
+        : artCode === "O"
+          ? "Ohrring"
+          : artCode === "A"
+            ? "Armband"
+            : artCode === "S"
+              ? "Schlüsselanhänger"
+              : "";
     if (s.Name && s.Name.trim()) {
       bezeichnung = `${artikelTyp}: ${s.Name}`;
-    } else if (artikelTyp === 'Ohrring') {
+    } else if (artikelTyp === "Ohrring") {
       bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Form)} ${getVal(s.Fassung)} ${getVal(s.Farbe)}, ${getVal(s.Inhalt_Zusatzmaterial)}`;
-    } else if (artikelTyp === 'Halskette') {
+    } else if (artikelTyp === "Halskette") {
       bezeichnung = `${artikelTyp}: Fassung ${getVal(s.Anhänger_Fassung)} ${getVal(s.Anhänger_Form)}, ${getVal(s.Anhänger_Inhalt_Farbe)} ${getVal(s.Anhänger_Inhalt_Zusatzmaterial)}`;
-    } else if (artikelTyp === 'Armband') {
+    } else if (artikelTyp === "Armband") {
       bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Farbe)}, ${getVal(s.Anhänger)}, ${getVal(s.Zwischenstück)}`;
-    } else if (artikelTyp === 'Schlüsselanhänger') {
+    } else if (artikelTyp === "Schlüsselanhänger") {
       bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Form)}`;
     } else {
-      bezeichnung = `${s.Art || ''}: ${s.Material || ''} ${s.Farbe || ''}`;
+      bezeichnung = `${s.Art || ""}: ${s.Material || ""} ${s.Farbe || ""}`;
     }
-    
+
     row.getCell(3).value = bezeichnung;
-    
-    row.getCell(7).value = 1;
-    row.getCell(8).value = Number(s.Verkaufspreis);
-    row.getCell(8).numFormat = '#,##0.00 €';
-    row.getCell(9).value = Number(s.Verkaufspreis);
-    row.getCell(9).numFormat = '#,##0.00 €';
+
+    const menge = articleCounts[artikelnummerBasis] || 1;
+    const einzelpreis = Number(s.Verkaufspreis) || 0;
+
+    row.getCell(7).value = menge;
+    row.getCell(8).value = einzelpreis;
+    row.getCell(8).numFmt = "#,##0.00 €";
+    row.getCell(9).value = einzelpreis * menge;
+    row.getCell(9).numFmt = "#,##0.00 €";
 
     for (let i = 1; i <= 9; i++) {
+      row.getCell(i).font = { name: "Calibri", size: 10 };
       row.getCell(i).border = {
-        top: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-        left: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-        bottom: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-        right: { style: 'thin', color: { argb: 'FFBCBCBC' } }
+        top: { style: "thin", color: { argb: "FFBCBCBC" } },
+        left: { style: "thin", color: { argb: "FFBCBCBC" } },
+        bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
+        right: { style: "thin", color: { argb: "FFBCBCBC" } },
       };
     }
+
     currentRow++;
   });
 
-  // Marina / Saskia Split
-  currentRow += 1;
-  const marinaItems = data.schmuckstuecke.filter(s => s.Artikelnummer?.toUpperCase().startsWith('M'));
-  const saskiaItems = data.schmuckstuecke.filter(s => s.Artikelnummer?.toUpperCase().startsWith('S'));
-  
-  const marinaTotal = marinaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-  const saskiaTotal = saskiaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-
-  if (marinaItems.length > 0) {
-    worksheet.getRow(currentRow).getCell(7).value = "Marina:";
-    worksheet.getRow(currentRow).getCell(9).value = marinaTotal;
-    worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
-    currentRow++;
-  }
-  
-  if (saskiaItems.length > 0) {
-    worksheet.getRow(currentRow).getCell(7).value = "Saskia:";
-    worksheet.getRow(currentRow).getCell(9).value = saskiaTotal;
-    worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
-    currentRow++;
-  }
-
   // 5. Total Block (for Invoice)
-  if (type === 'Rechnung') {
+  if (type === "Rechnung") {
     currentRow++;
-    const total = data.schmuckstuecke.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
-    
+    const total = data.schmuckstuecke.reduce(
+      (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+      0,
+    );
+
     const totalLabelCell = worksheet.getCell(`G${currentRow}`);
     totalLabelCell.value = "Gesamtwert";
-    totalLabelCell.font = { bold: true };
+    totalLabelCell.font = { name: "Calibri", bold: true, size: 11 };
     worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
-    
+
     const totalValueCell = worksheet.getCell(`I${currentRow}`);
     totalValueCell.value = total;
-    totalValueCell.numFormat = '#,##0.00 €';
+    totalValueCell.numFmt = "#,##0.00 €";
+    totalValueCell.font = { name: "Calibri", size: 10 };
 
     // Provision
     currentRow++;
     const provisionPercent = data.kunde.Provision || 0;
     const provisionValue = total * (provisionPercent / 100);
-    
+
     const provLabelCell = worksheet.getCell(`G${currentRow}`);
     provLabelCell.value = "- Provision";
-    worksheet.getCell(`H${currentRow}`).value = `${provisionPercent} %`;
-    
+    provLabelCell.font = { name: "Calibri", size: 11, bold: true };
+    provLabelCell.alignment = { horizontal: "right" };
+
+    const provPercentCell = worksheet.getCell(`H${currentRow}`);
+    provPercentCell.value = `${provisionPercent} %`;
+    provPercentCell.font = { name: "Calibri", size: 10, bold: true };
+    provPercentCell.alignment = { horizontal: "left" };
+
     const provValueCell = worksheet.getCell(`I${currentRow}`);
     provValueCell.value = provisionValue;
-    provValueCell.numFormat = '#,##0.00 €';
+    provValueCell.numFmt = "#,##0.00 €";
+    provValueCell.font = { name: "Calibri", size: 10};
+    provValueCell.alignment = { horizontal: "right" };
 
     // Final Total
     currentRow++;
     const finalTotal = total - provisionValue;
-    
-    const finalLabelRow = worksheet.getRow(currentRow);
-    finalLabelRow.getCell(7).value = "Überweisungsbetrag";
-    finalLabelRow.getCell(7).font = { bold: true };
+
+    const finalLabelCell = worksheet.getCell(`G${currentRow}`);
+    finalLabelCell.value = "Überweisungsbetrag";
+    finalLabelCell.font = {
+      name: "Calibri",
+      bold: true,
+      background: {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFBCBCBC" },
+      },
+    };
+    finalLabelCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFBCBCBC" },
+    };
+    finalLabelCell.alignment = { horizontal: "left" };
     worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
-    
+
     const finalValueCell = worksheet.getCell(`I${currentRow}`);
     finalValueCell.value = finalTotal;
-    finalValueCell.numFormat = '#,##0.00 €';
+    finalValueCell.numFmt = "#,##0.00 €";
+    finalValueCell.font = { name: "Calibri", size: 10 };
+    finalValueCell.alignment = { horizontal: "right" };
     finalValueCell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFBCBCBC' }
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFBCBCBC" },
     };
-    
+    finalValueCell.border = {
+      bottom: { style: "double", color: { argb: "FF000000" } },
+    };
+
     currentRow += 2;
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    worksheet.getCell(`A${currentRow}`).value = "Gemäß § 19 Abs. 1 UStG wird keine Umsatzsteuer ausgewiesen.";
-    
+    worksheet.getCell(`A${currentRow}`).value =
+      "Gemäß § 19 Abs. 1 UStG wird keine Umsatzsteuer ausgewiesen.";
+    worksheet.getCell(`A${currentRow}`).font = { name: "Calibri", size: 10 };
+
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    worksheet.getCell(`A${currentRow}`).value = "Bitte überweisen Sie den Rechnungsbetrag an u.g. Bankverbindung.";
-    
+    worksheet.getCell(`A${currentRow}`).value =
+      "Bitte überweisen Sie den Rechnungsbetrag an u.g. Bankverbindung.";
+    worksheet.getCell(`A${currentRow}`).font = { name: "Calibri", size: 10 };
+
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    worksheet.getCell(`A${currentRow}`).value = "Die Rechnung ist sofort bei Erhalt fällig.";
+    worksheet.getCell(`A${currentRow}`).value =
+      "Die Rechnung ist sofort bei Erhalt fällig.";
+    worksheet.getCell(`A${currentRow}`).font = { name: "Calibri", size: 10 };
 
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
     worksheet.getCell(`A${currentRow}`).value = "Vielen Dank";
+    worksheet.getCell(`A${currentRow}`).font = { name: "Calibri", size: 10 };
   }
 
-  if (type === 'Lieferschein') {
+  if (type === "Lieferschein") {
     currentRow++;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    worksheet.getCell(`A${currentRow}`).value = "Lieferung: Die Lieferung erfolgt frei Haus.";
-    
+    worksheet.getCell(`A${currentRow}`).value =
+      "Lieferung: Die Lieferung erfolgt frei Haus.";
+
     currentRow += 2;
     worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    worksheet.getCell(`A${currentRow}`).value = `Bei Rückfragen stehen wir Ihnen gerne zu Verfügung unter ${contact.email}`;
+    worksheet.getCell(`A${currentRow}`).value =
+      `Bei Rückfragen stehen wir Ihnen gerne zu Verfügung unter ${contact.email}`;
   }
 
   currentRow += 2;
   worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-  worksheet.getCell(`A${currentRow}`).value = "Mit freundlichen Grüßen";
-  
+  const greetingCell = worksheet.getCell(`A${currentRow}`);
+  greetingCell.value = "Mit freundlichen Grüßen";
+  greetingCell.font = { name: "Calibri", size: 10 };
+
   currentRow += 4;
   worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
-  worksheet.getCell(`A${currentRow}`).value = contact.name;
-  worksheet.getCell(`A${currentRow}`).border = { top: { style: 'thin', color: { argb: 'FFBCBCBC' } } };
+  const signatureCell = worksheet.getCell(`A${currentRow}`);
+  signatureCell.value = contact.name;
+  signatureCell.font = { name: "Calibri", size: 10 };
+  signatureCell.border = {
+    top: { style: "thin", color: { argb: "FFBCBCBC" } },
+  };
 
   // Footer
-  worksheet.headerFooter.oddFooter = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
-  
+  const footerText = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
+  worksheet.headerFooter.oddFooter = footerText;
+  worksheet.headerFooter.evenFooter = footerText;
+
+  // Auto-fit column widths based on content
+  autoFitColumns(worksheet);
+
   return await workbook.xlsx.writeBuffer();
 }
 

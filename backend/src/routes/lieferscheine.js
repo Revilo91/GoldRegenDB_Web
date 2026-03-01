@@ -67,7 +67,7 @@ router.get('/:id/excel', async (req, res) => {
     const buffer = await generateExcel('Lieferschein', {
       ...rows[0],
       kunde: rows[0], // rows[0] contains both l and k fields
-      schmuckstuecke: pieces.rows
+      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
