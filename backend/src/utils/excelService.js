@@ -184,7 +184,7 @@ async function generateExcel(type, data, logoPath) {
   worksheet.getCell(`A${textRow}`).font = { name: "Calibri", size: 10 };
 
   // 4. Article Block
-  currentRow += 2;
+  currentRow += 1;
   const tableHeaderStartRow = currentRow;
 
   // Function to write table headers
