@@ -20,6 +20,7 @@ export default function Lieferscheine() {
     key: "Datum",
     direction: "desc",
   });
+  const [groupByKunde, setGroupByKunde] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -190,6 +191,22 @@ export default function Lieferscheine() {
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
 
+  const groupedData = useMemo(() => {
+    if (!groupByKunde) return null;
+    const groups = [];
+    const seen = new Map();
+    for (const l of sortedData) {
+      const key = l.Kundennummer;
+      const name = l.KundenName || `Kunde ${l.Kundennummer}`;
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ key, name, items: [] });
+      }
+      groups[seen.get(key)].items.push(l);
+    }
+    return groups.sort((a, b) => a.name.localeCompare(b.name));
+  }, [sortedData, groupByKunde]);
+
   return (
     <div>
       <div
@@ -251,6 +268,15 @@ export default function Lieferscheine() {
             </option>
           ))}
         </select>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14, color: "var(--text-secondary)", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={groupByKunde}
+            onChange={(e) => setGroupByKunde(e.target.checked)}
+          />
+          Nach Kunde gruppieren
+        </label>
       </div>
 
       <div className="card">
@@ -286,19 +312,43 @@ export default function Lieferscheine() {
                 </tr>
               </thead>
               <tbody>
-                {sortedData.map((l) => (
-                  <tr
-                    key={l.ID}
-                    onClick={() => openDetail(l.ID)}
-                    style={{ cursor: "pointer" }}>
-                    <td>{l.ID}</td>
-                    <td>
-                      <strong>{l.Nummer}</strong>
-                    </td>
-                    <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
-                    <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
-                  </tr>
-                ))}
+                {groupByKunde
+                  ? groupedData.flatMap((group) => [
+                      <tr key={`group-${group.key}`} className="group-header-row" aria-label={`Kundengruppe: ${group.name}`}>
+                        <td colSpan={4}>
+                          👤 {group.name}{" "}
+                          <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
+                            ({group.items.length})
+                          </span>
+                        </td>
+                      </tr>,
+                      ...group.items.map((l) => (
+                        <tr
+                          key={l.ID}
+                          onClick={() => openDetail(l.ID)}
+                          style={{ cursor: "pointer" }}>
+                          <td>{l.ID}</td>
+                          <td>
+                            <strong>{l.Nummer}</strong>
+                          </td>
+                          <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
+                          <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
+                        </tr>
+                      )),
+                    ])
+                  : sortedData.map((l) => (
+                      <tr
+                        key={l.ID}
+                        onClick={() => openDetail(l.ID)}
+                        style={{ cursor: "pointer" }}>
+                        <td>{l.ID}</td>
+                        <td>
+                          <strong>{l.Nummer}</strong>
+                        </td>
+                        <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
+                        <td>{new Date(l.Datum).toLocaleDateString("de-DE")}</td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           )}
