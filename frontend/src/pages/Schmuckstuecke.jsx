@@ -8,7 +8,6 @@ export default function Schmuckstuecke() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
-  const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
@@ -30,7 +29,6 @@ export default function Schmuckstuecke() {
     if (!confirm(`Schmuckstück ${nr} wirklich löschen?`)) return;
     try {
       await api.deleteSchmuckstueck(nr);
-      setSelected(null);
       setEditing(null);
       load();
     } catch (err) {
@@ -286,7 +284,7 @@ export default function Schmuckstuecke() {
                 {sortedData.map((s) => (
                   <tr
                     key={s.Artikelnummer}
-                    onClick={() => setSelected(s)}
+                    onClick={() => openEdit(s)}
                     style={{ cursor: "pointer" }}
                   >
                     <td>
@@ -352,92 +350,6 @@ export default function Schmuckstuecke() {
         )}
       </div>
 
-      {selected && (
-        <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>💍 {selected.Artikelnummer}</h3>
-              <div style={{ marginLeft: "auto", marginRight: 16 }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  style={{ marginRight: 8 }}
-                  onClick={() => openEdit(selected)}
-                >
-                  ✏️ Bearbeiten
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(selected.Artikelnummer)}
-                >
-                  🗑️ Löschen
-                </button>
-              </div>
-              <button className="modal-close" onClick={() => setSelected(null)}>
-                ×
-              </button>
-            </div>
-            <div className="detail-grid">
-              {[
-                ["Art", selected.Art],
-                ["Form", selected.Form],
-                ["Länge", selected["Länge"] ? `${selected["Länge"]} cm` : "–"],
-                ["Fassung", selected.Fassung],
-                ["Farbe", selected.Farbe],
-                ["Material", selected.Material],
-                ["Größe", selected["Grösse"]],
-                ["Inhalt Material", selected.Inhalt_Material],
-                ["Inhalt Farbe", selected.Inhalt_Farbe],
-                ["Inhalt Farbakzent", selected.Inhalt_Farbakzent],
-                ["Inhalt Zusatzmaterial", selected.Inhalt_Zusatzmaterial],
-                ["Anhänger Fassung", selected["Anhänger_Fassung"]],
-                ["Anhänger Form", selected["Anhänger_Form"]],
-                ["Anhänger Farbe", selected["Anhänger_Farbe"]],
-                ["Anhänger Größe", selected["Anhänger_Grösse"]],
-                [
-                  "Anhänger Inhalt Material",
-                  selected["Anhänger_Inhalt_Material"],
-                ],
-                ["Anhänger Inhalt Farbe", selected["Anhänger_Inhalt_Farbe"]],
-                ["Zwischenstück", selected["Zwischenstück"]],
-                [
-                  "Herstellungskosten",
-                  selected.Herstellungskosten
-                    ? `${selected.Herstellungskosten}€`
-                    : "–",
-                ],
-                [
-                  "Verkaufspreis",
-                  selected.Verkaufspreis ? `${selected.Verkaufspreis}€` : "–",
-                ],
-                [
-                  "Erstellt",
-                  selected.Erstelldatum
-                    ? new Date(selected.Erstelldatum).toLocaleDateString(
-                        "de-DE",
-                      )
-                    : "–",
-                ],
-                [
-                  "Letzte Änderung",
-                  selected["Letzte_Änderung"]
-                    ? new Date(selected["Letzte_Änderung"]).toLocaleString(
-                        "de-DE",
-                      )
-                    : "–",
-                ],
-              ]
-                .filter(([, v]) => v && v !== "–" && v !== 0 && v !== "0")
-                .map(([label, value]) => (
-                  <div className="detail-item" key={label}>
-                    <label>{label}</label>
-                    <div className="detail-value">{value}</div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {editing !== null && (
         <div className="modal-overlay" onClick={() => setEditing(null)}>
           <div
@@ -451,6 +363,15 @@ export default function Schmuckstuecke() {
                   ? "🆕 Neues Schmuckstück"
                   : `✏️ ${editing} bearbeiten`}
               </h3>
+              {editing !== "new" && (
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ marginLeft: "auto", marginRight: 16 }}
+                  onClick={() => handleDelete(editing)}
+                >
+                  🗑️ Löschen
+                </button>
+              )}
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
