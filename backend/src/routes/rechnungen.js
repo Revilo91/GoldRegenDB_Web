@@ -84,7 +84,7 @@ router.get('/:id/excel', async (req, res) => {
       ...rows[0],
       kunde: rows[0],
       rechungsZeitraum,
-      schmuckstuecke: pieces.rows
+      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     }, logoPath);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
