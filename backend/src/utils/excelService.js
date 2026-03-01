@@ -58,6 +58,18 @@ async function generateExcel(type, data) {
     { width: 14 }  // I
   ];
 
+  // Page setup for A4 print layout
+  worksheet.pageSetup.paperSize = 9; // A4
+  worksheet.pageSetup.orientation = 'portrait';
+  worksheet.pageSetup.fitToPage = true;
+  worksheet.pageSetup.fitToHeight = 0;
+  worksheet.pageSetup.fitToWidth = 1;
+  worksheet.pageSetup.margins = {
+    left: 0.7, right: 0.7,
+    top: 0.75, bottom: 0.75,
+    header: 0.3, footer: 0.3
+  };
+
   // 1. Header with Address Line
   const headerRow = 9; // Line 8 in Python (0-indexed here)
   worksheet.mergeCells(`A${headerRow}:E${headerRow}`);
@@ -107,10 +119,12 @@ async function generateExcel(type, data) {
   worksheet.mergeCells(`A${infoValueRow}:B${infoValueRow}`);
   worksheet.getCell(`A${infoValueRow}`).value = data.Nummer;
   
-  worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
-  // Lieferschein date usually empty or specific
-  
   const datum = new Date(data.Datum).toLocaleDateString('de-DE');
+  worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
+  if (type === 'Lieferschein') {
+    worksheet.getCell(`D${infoValueRow}`).value = datum;
+  }
+
   worksheet.mergeCells(`G${infoValueRow}:H${infoValueRow}`);
   worksheet.getCell(`G${infoValueRow}`).value = datum;
 
@@ -182,9 +196,9 @@ async function generateExcel(type, data) {
     
     row.getCell(7).value = 1;
     row.getCell(8).value = Number(s.Verkaufspreis);
-    row.getCell(8).numFormat = '#,##0.00 €';
+    row.getCell(8).numFmt = '#,##0.00 €';
     row.getCell(9).value = Number(s.Verkaufspreis);
-    row.getCell(9).numFormat = '#,##0.00 €';
+    row.getCell(9).numFmt = '#,##0.00 €';
 
     for (let i = 1; i <= 9; i++) {
       row.getCell(i).border = {
@@ -205,17 +219,21 @@ async function generateExcel(type, data) {
   const marinaTotal = marinaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
   const saskiaTotal = saskiaItems.reduce((sum, s) => sum + (Number(s.Verkaufspreis) || 0), 0);
 
+  const splitProvisionPct = type === 'Rechnung' ? (data.kunde.Provision || 0) : 0;
+
   if (marinaItems.length > 0) {
-    worksheet.getRow(currentRow).getCell(7).value = "Marina:";
-    worksheet.getRow(currentRow).getCell(9).value = marinaTotal;
-    worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
+    const marinaValue = marinaTotal * (1 - splitProvisionPct / 100);
+    worksheet.getRow(currentRow).getCell(7).value = type === 'Rechnung' ? "Marina (netto):" : "Marina:";
+    worksheet.getRow(currentRow).getCell(9).value = marinaValue;
+    worksheet.getRow(currentRow).getCell(9).numFmt = '#,##0.00 €';
     currentRow++;
   }
   
   if (saskiaItems.length > 0) {
-    worksheet.getRow(currentRow).getCell(7).value = "Saskia:";
-    worksheet.getRow(currentRow).getCell(9).value = saskiaTotal;
-    worksheet.getRow(currentRow).getCell(9).numFormat = '#,##0.00 €';
+    const saskiaValue = saskiaTotal * (1 - splitProvisionPct / 100);
+    worksheet.getRow(currentRow).getCell(7).value = type === 'Rechnung' ? "Saskia (netto):" : "Saskia:";
+    worksheet.getRow(currentRow).getCell(9).value = saskiaValue;
+    worksheet.getRow(currentRow).getCell(9).numFmt = '#,##0.00 €';
     currentRow++;
   }
 
@@ -231,7 +249,7 @@ async function generateExcel(type, data) {
     
     const totalValueCell = worksheet.getCell(`I${currentRow}`);
     totalValueCell.value = total;
-    totalValueCell.numFormat = '#,##0.00 €';
+    totalValueCell.numFmt = '#,##0.00 €';
 
     // Provision
     currentRow++;
@@ -244,7 +262,7 @@ async function generateExcel(type, data) {
     
     const provValueCell = worksheet.getCell(`I${currentRow}`);
     provValueCell.value = provisionValue;
-    provValueCell.numFormat = '#,##0.00 €';
+    provValueCell.numFmt = '#,##0.00 €';
 
     // Final Total
     currentRow++;
@@ -257,7 +275,7 @@ async function generateExcel(type, data) {
     
     const finalValueCell = worksheet.getCell(`I${currentRow}`);
     finalValueCell.value = finalTotal;
-    finalValueCell.numFormat = '#,##0.00 €';
+    finalValueCell.numFmt = '#,##0.00 €';
     finalValueCell.fill = {
       type: 'pattern',
       pattern: 'solid',
