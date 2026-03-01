@@ -1,6 +1,7 @@
 const ExcelJS = require("exceljs");
 const fs = require("fs");
 const path = require("path");
+const sizeOf = require("image-size");
 
 const CONTACTS = {
   GOLDREGEN: {
@@ -85,20 +86,24 @@ async function generateExcel(type, data, logoPath) {
   const resolvedLogoPath =
     logoPath && fs.existsSync(logoPath) ? logoPath : DEFAULT_LOGO_PATH;
 
-  if (resolvedLogoPath) {
+  if (resolvedLogoPath && fs.existsSync(resolvedLogoPath)) {
     try {
-      if (fs.existsSync(resolvedLogoPath)) {
-        const imageId = workbook.addImage({
-          filename: resolvedLogoPath,
-          extension: "png",
-        });
-        worksheet.addImage(imageId, {
-          tl: { col: 5, row: 0 },
-          br: { col: 7, row: 4 },
-        });
-      } else {
-        console.warn("Logo-Datei nicht gefunden:", resolvedLogoPath);
-      }
+      const dimensions = sizeOf(resolvedLogoPath);
+      const scaleFactor = 0.1;
+
+      const imageId = workbook.addImage({
+        filename: resolvedLogoPath,
+        extension: "png",
+      });
+
+      worksheet.addImage(imageId, {
+        tl: { col: 5, row: 0 },
+        ext: {
+          width: dimensions.width * scaleFactor,
+          height: dimensions.height * scaleFactor
+        },
+        editAs: "oneCell",
+      });
     } catch (err) {
       console.error("Fehler beim Laden des Logos:", err.message);
     }
@@ -124,6 +129,7 @@ async function generateExcel(type, data, logoPath) {
     if (line && line.trim()) {
       worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
       worksheet.getCell(`A${currentRow}`).value = line;
+      worksheet.getCell(`A${currentRow}`).font = { name: "Calibri", size: 10 };
       currentRow++;
     }
   });
