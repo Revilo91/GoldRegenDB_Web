@@ -226,7 +226,11 @@ async function generateExcel(type, data, logoPath) {
   worksheet.getCell(`A${infoValueRow}`).value = data.Nummer;
   worksheet.getCell(`A${infoValueRow}`).font = { name: "Calibri", size: 10 };
 
-  const datum = new Date(data.Datum).toLocaleDateString("de-DE");
+  const datum = new Date(data.Datum).toLocaleDateString("de-DE", {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
   worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
   if (type === "Lieferschein") {
     worksheet.getCell(`D${infoValueRow}`).value = datum;
