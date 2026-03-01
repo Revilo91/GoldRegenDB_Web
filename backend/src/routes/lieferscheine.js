@@ -91,11 +91,11 @@ router.post('/', async (req, res) => {
 
     const lieferscheinId = rows[0].ID;
 
-    // Assign products to this delivery note
+    // Assign products to this delivery note and mark as outsourced to customer
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [lieferscheinId, Artikelnummern]
+        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
+        [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
       );
     }
 
@@ -120,13 +120,13 @@ router.put('/:id', async (req, res) => {
     }
 
     // Reset old associations
-    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = NULL WHERE "Lieferschein_ID" = $1`, [req.params.id]);
+    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`, [req.params.id]);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [req.params.id, Artikelnummern]
+        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
+        [req.params.id, parseInt(Kundennummer), Artikelnummern]
       );
     }
 
@@ -140,6 +140,11 @@ router.put('/:id', async (req, res) => {
 // DELETE
 router.delete('/:id', async (req, res) => {
   try {
+    // Reset associations before deleting
+    await db.query(
+      `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`,
+      [req.params.id]
+    );
     const { rowCount } = await db.query(
       'DELETE FROM "Lieferschein" WHERE "ID" = $1',
       [req.params.id]
