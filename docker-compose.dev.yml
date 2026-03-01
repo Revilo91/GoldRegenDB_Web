@@ -31,6 +31,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
       PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
     volumes:
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
