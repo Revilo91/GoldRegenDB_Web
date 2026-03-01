@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Schmuckstuecke from "./pages/Schmuckstuecke";
 import Kunden from "./pages/Kunden";
@@ -7,16 +16,29 @@ import Lieferscheine from "./pages/Lieferscheine";
 import Rechnungen from "./pages/Rechnungen";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
+import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import "./index.css";
 
-function App() {
+function AppLayout() {
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  const isAdmin = user.role === "admin";
+
   return (
-    <BrowserRouter>
+    <>
       {/* Mobile Top Header */}
       <header className="mobile-header">
         <div className="mobile-brand">
@@ -29,8 +51,7 @@ function App() {
         <button
           className="menu-toggle"
           onClick={toggleMobileMenu}
-          aria-label="Menu"
-        >
+          aria-label="Menu">
           {isMobileMenuOpen ? "✕" : "☰"}
         </button>
       </header>
@@ -53,73 +74,165 @@ function App() {
             to="/"
             end
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">📊</span>
             <span>Dashboard</span>
           </NavLink>
           <NavLink
             to="/schmuckstuecke"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">💍</span>
             <span>Schmuckstücke</span>
           </NavLink>
           <NavLink
             to="/kunden"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">👥</span>
             <span>Kunden</span>
           </NavLink>
           <NavLink
             to="/lieferscheine"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">📦</span>
             <span>Lieferscheine</span>
           </NavLink>
           <NavLink
             to="/rechnungen"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">🧾</span>
             <span>Rechnungen</span>
           </NavLink>
-          <NavLink
-            to="/audit-log"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">📋</span>
-            <span>Audit Log</span>
-          </NavLink>
-          <NavLink
-            to="/debug"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">🛠️</span>
-            <span>Debug</span>
-          </NavLink>
+          {isAdmin && (
+            <>
+            <div className="nav-section">Admin</div>
+              <NavLink
+                to="/audit-log"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "active" : ""}`
+                }
+                onClick={closeMobileMenu}>
+                <span className="nav-icon">📋</span>
+                <span>Audit Log</span>
+              </NavLink>
+              <NavLink
+                to="/debug"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "active" : ""}`
+                }
+                onClick={closeMobileMenu}>
+                <span className="nav-icon">🛠️</span>
+                <span>Debug</span>
+              </NavLink>
+              <NavLink
+                to="/benutzerverwaltung"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "active" : ""}`
+                }
+                onClick={closeMobileMenu}>
+                <span className="nav-icon">🔐</span>
+                <span>Benutzerverwaltung</span>
+              </NavLink>
+            </>
+          )}
         </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <span className="nav-icon">👤</span>
+            <span className="sidebar-username">{user.username}</span>
+            <span className={`role-badge role-${user.role}`}>{user.role}</span>
+          </div>
+          <button
+            className="btn btn-secondary btn-sm logout-btn"
+            onClick={logout}
+            aria-label="Abmelden">
+            Abmelden
+          </button>
+        </div>
       </aside>
 
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/schmuckstuecke" element={<Schmuckstuecke />} />
-          <Route path="/kunden" element={<Kunden />} />
-          <Route path="/lieferscheine" element={<Lieferscheine />} />
-          <Route path="/rechnungen" element={<Rechnungen />} />
-          <Route path="/audit-log" element={<AuditLog />} />
-          <Route path="/debug" element={<Debug />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/schmuckstuecke"
+            element={
+              <ProtectedRoute>
+                <Schmuckstuecke />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kunden"
+            element={
+              <ProtectedRoute>
+                <Kunden />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lieferscheine"
+            element={
+              <ProtectedRoute>
+                <Lieferscheine />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rechnungen"
+            element={
+              <ProtectedRoute>
+                <Rechnungen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-log"
+            element={
+              <ProtectedRoute adminOnly>
+                <AuditLog />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/debug"
+            element={
+              <ProtectedRoute adminOnly>
+                <Debug />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/benutzerverwaltung"
+            element={
+              <ProtectedRoute adminOnly>
+                <Benutzerverwaltung />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/login" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppLayout />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

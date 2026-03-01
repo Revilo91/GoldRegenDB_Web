@@ -108,7 +108,7 @@ router.post('/', async (req, res) => {
 
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
         [rechnungId, Artikelnummern]
       );
     }
@@ -134,12 +134,12 @@ router.put('/:id', async (req, res) => {
     }
 
     // Reset old associations
-    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = NULL WHERE "Rechnung_ID" = $1`, [req.params.id]);
+    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
         [req.params.id, Artikelnummern]
       );
     }
@@ -154,6 +154,11 @@ router.put('/:id', async (req, res) => {
 // DELETE
 router.delete('/:id', async (req, res) => {
   try {
+    // Reset associations before deleting
+    await db.query(
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`,
+      [req.params.id]
+    );
     const { rowCount } = await db.query(
       'DELETE FROM "Rechnung" WHERE "ID" = $1',
       [req.params.id]

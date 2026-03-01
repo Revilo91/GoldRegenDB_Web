@@ -16,10 +16,13 @@ export default function Rechnungen() {
   });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
+  const [artikelnummerInput, setArtikelnummerInput] = useState("");
   const [sortConfig, setSortConfig] = useState({
     key: "Datum",
     direction: "desc",
   });
+  const [groupByKunde, setGroupByKunde] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
   const load = () => {
     setLoading(true);
@@ -74,6 +77,7 @@ export default function Rechnungen() {
     });
     const nextNr = String(maxNr + 1).padStart(3, "0");
     setForm({ Nummer: `${year}-${nextNr}`, Kundennummer: "", Artikelnummern: [] });
+    setArtikelnummerInput("");
     setAvailablePieces([]);
     setEditing("new");
   };
@@ -86,32 +90,19 @@ export default function Rechnungen() {
         return;
       }
       try {
-        // Hole alle Lieferscheine des Kunden
-        const lieferscheine = await api.getLieferscheine();
-        const kundenLieferscheinIDs = lieferscheine
-          .filter((l) => String(l.Kundennummer) === String(form.Kundennummer))
-          .map((l) => l.ID);
-        // Filter für Schmuckstücke
-        const params = {
-          ohne_rechnung: "1",
+        // Nur Stücke, die beim Kunden ausgelagert sind (Ausgelagert = KundenID)
+        const resp = await api.getSchmuckstuecke({
+          ausgelagert: form.Kundennummer,
           verkauft: "0",
-          ausschuss: "0",
-          kunde: form.Kundennummer,
           limit: 1000,
-        };
-        const resp = await api.getSchmuckstuecke(params);
-        // Nur Stücke, die keinem Lieferschein zugeordnet sind ODER deren Lieferschein_ID zu diesem Kunden gehört
-        const filtered = resp.data.filter(
-          (s) => !s.Lieferschein_ID || kundenLieferscheinIDs.includes(s.Lieferschein_ID)
-        );
-        setAvailablePieces(filtered);
+        });
+        setAvailablePieces(resp.data);
       } catch (err) {
         setAvailablePieces([]);
         console.error(err);
       }
     };
     loadPieces();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.Kundennummer, editing]);
 
   const handleSave = async () => {
@@ -135,6 +126,22 @@ export default function Rechnungen() {
     } else {
       setForm({ ...form, Artikelnummern: [...nrs, nr] });
     }
+  };
+
+  const addByArtikelnummer = () => {
+    const nr = artikelnummerInput.trim();
+    if (!nr) return;
+    const piece = availablePieces.find(
+      (p) => p.Artikelnummer.toUpperCase() === nr.toUpperCase()
+    );
+    if (!piece) {
+      alert(`Artikelnummer "${nr}" nicht gefunden oder nicht beim Kunden ausgelagert.`);
+      return;
+    }
+    if (!form.Artikelnummern.includes(piece.Artikelnummer)) {
+      setForm({ ...form, Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer] });
+    }
+    setArtikelnummerInput("");
   };
 
   const years = useMemo(() => {
@@ -206,6 +213,32 @@ export default function Rechnungen() {
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
 
+  const toggleGroup = (groupKey) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  const groupedData = useMemo(() => {
+    if (!groupByKunde) return null;
+    const groups = [];
+    const seen = new Map();
+    for (const r of sortedData) {
+      const key = r.Kundennummer;
+      const name = r.KundenName || `Kunde ${r.Kundennummer}`;
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ key, name, items: [] });
+      }
+      groups[seen.get(key)].items.push(r);
+    }
+    return groups.sort((a, b) => a.name.localeCompare(b.name));
+  }, [sortedData, groupByKunde]);
+
   return (
     <div>
       <div
@@ -270,6 +303,15 @@ export default function Rechnungen() {
             </option>
           ))}
         </select>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14, color: "var(--text-secondary)", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={groupByKunde}
+            onChange={(e) => setGroupByKunde(e.target.checked)}
+          />
+          Nach Kunde gruppieren
+        </label>
       </div>
 
       <div className="card">
@@ -309,20 +351,62 @@ export default function Rechnungen() {
                 </tr>
               </thead>
               <tbody>
-                {sortedData.map((r) => (
-                  <tr
-                    key={r.ID}
-                    onClick={() => openDetail(r.ID)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>{r.ID}</td>
-                    <td>
-                      <strong>{r.Nummer}</strong>
-                    </td>
-                    <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                    <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
-                  </tr>
-                ))}
+                {groupByKunde
+                  ? groupedData.flatMap((group) => {
+                    const isExpanded = expandedGroups.has(group.key);
+                    return [
+                      <tr
+                        key={`group-${group.key}`}
+                        className="group-header-row"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => toggleGroup(group.key)}
+                        aria-label={`Kundengruppe: ${group.name}`}
+                      >
+                        <td colSpan={4}>
+                          <span style={{ marginRight: 8 }}>
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
+                          👤 {group.name}{" "}
+                          <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
+                            ({group.items.length})
+                          </span>
+                        </td>
+                      </tr>,
+                      ...(isExpanded
+                        ? group.items.map((r) => (
+                            <tr
+                              key={r.ID}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetail(r.ID);
+                              }}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <td>{r.ID}</td>
+                              <td>
+                                <strong>{r.Nummer}</strong>
+                              </td>
+                              <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
+                              <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                            </tr>
+                          ))
+                        : [])
+                    ];
+                  })
+                  : sortedData.map((r) => (
+                      <tr
+                        key={r.ID}
+                        onClick={() => openDetail(r.ID)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td>{r.ID}</td>
+                        <td>
+                          <strong>{r.Nummer}</strong>
+                        </td>
+                        <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
+                        <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           )}
@@ -613,9 +697,9 @@ export default function Rechnungen() {
               <div className="piece-selection" style={{ marginTop: 24 }}>
 
                 <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-                  {/* Linke Seite: Alle verfügbaren Schmuckstücke */}
+                  {/* Linke Seite: Beim Kunden ausgelagerte Schmuckstücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h5>Alle Schmuckstücke</h5>
+                    <h5>Beim Kunden ausgelagerte Schmuckstücke</h5>
                     <input
                       className="form-control"
                       style={{ width: "200px", marginBottom: 8 }}
@@ -644,21 +728,23 @@ export default function Rechnungen() {
                         <tbody>
                           {form.Kundennummer && availablePieces
                             .filter((p) => {
-                              // Nur Stücke, deren Lieferschein_ID zu einem Lieferschein des Kunden gehört ODER kein Lieferschein zugeordnet ist
-                              if (!p.Lieferschein_ID) return false;
-                              // Lieferschein_ID muss zu diesem Kunden gehören
-                              // availablePieces ist bereits nach Kunde gefiltert, aber wir filtern hier nochmal sicherheitshalber
+                              if (!pieceSearch) return true;
+                              const s = pieceSearch.toUpperCase();
                               return (
-                                (!pieceSearch ||
-                                  p.Artikelnummer.toUpperCase().includes(pieceSearch.toUpperCase()) ||
-                                  p.Art.toUpperCase().includes(pieceSearch.toUpperCase()))
+                                p.Artikelnummer?.toUpperCase().includes(s) ||
+                                p.Art?.toUpperCase().includes(s) ||
+                                p.Name?.toUpperCase().includes(s)
                               );
                             })
                             .map((p) => (
                               <tr
                                 key={p.Artikelnummer}
+                                draggable
+                                onDragStart={(e) =>
+                                  e.dataTransfer.setData("artikelnummer", p.Artikelnummer)
+                                }
                                 onClick={() => togglePiece(p.Artikelnummer)}
-                                style={{ cursor: "pointer" }}
+                                style={{ cursor: "grab" }}
                               >
                                 <td>
                                   <input
@@ -683,20 +769,37 @@ export default function Rechnungen() {
                     <h5>
                       Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
                     </h5>
-                    <input
-                      className="form-control"
-                      style={{ width: "200px", marginBottom: 8 }}
-                      placeholder="🔍 Suchen..."
-                      value={pieceSearch}
-                      onChange={(e) => setPieceSearch(e.target.value)}
-                      disabled
-                    />
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <input
+                        className="form-control"
+                        style={{ flex: 1 }}
+                        placeholder="Artikelnummer eingeben..."
+                        value={artikelnummerInput}
+                        onChange={(e) => setArtikelnummerInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addByArtikelnummer()}
+                        disabled={!form.Kundennummer}
+                      />
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={addByArtikelnummer}
+                        disabled={!form.Kundennummer}>
+                        Hinzufügen
+                      </button>
+                    </div>
                     <div
                       style={{
                         maxHeight: "400px",
                         overflowY: "auto",
-                        border: "1px solid var(--border)",
+                        border: "2px dashed var(--border)",
                         borderRadius: "var(--radius-sm)",
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const nr = e.dataTransfer.getData("artikelnummer");
+                        if (nr && !form.Artikelnummern.includes(nr)) {
+                          setForm({ ...form, Artikelnummern: [...form.Artikelnummern, nr] });
+                        }
                       }}
                     >
                       <table className="data-table">
@@ -711,7 +814,6 @@ export default function Rechnungen() {
                         <tbody>
                           {form.Kundennummer && form.Artikelnummern
                             .map((nr) => {
-                              // Nur Stücke anzeigen, die auch wirklich zu diesem Kunden gehören
                               const piece = availablePieces.find(
                                 (p) => p.Artikelnummer === nr
                               );

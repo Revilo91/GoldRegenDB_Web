@@ -7,24 +7,26 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - pgbackups:/backups
-      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
-      - ./db/backup.sh:/backup.sh
-      - ./db/restore.sh:/restore.sh
-      - ./db/load_seed.sh:/load_seed.sh
+      # Ersetzen Sie /volume1 mit Ihrem tatsächlichen Volume auf Synology
+      - /volume1/docker/goldregendb/data:/var/lib/postgresql/data
+      - /volume1/docker/goldregendb/backups:/backups
+      - /volume1/docker/goldregendb/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - /volume1/docker/goldregendb/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - /volume1/docker/goldregendb/db/backup.sh:/backup.sh
+      - /volume1/docker/goldregendb/db/restore.sh:/restore.sh
+      - /volume1/docker/goldregendb/db/load_seed.sh:/load_seed.sh
     ports:
-      - "5432:5432"
+      - "15432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 1m
+
   backend:
     build:
-      context: ./backend
+      context: /volume1/docker/goldregendb/backend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -34,13 +36,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       PORT: ${PORT}
-      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "${PORT}:${PORT}"
 
   frontend:
     build:
-      context: ./frontend
+      context: /volume1/docker/goldregendb/frontend
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL}
@@ -50,6 +51,4 @@ services:
     ports:
       - "3000:80"
 
-volumes:
-  pgdata:
-  pgbackups:
+# Keine named volumes nötig bei absoluten Pfaden
