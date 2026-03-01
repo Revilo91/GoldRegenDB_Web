@@ -81,21 +81,20 @@ async function generateExcel(type, data, logoPath) {
   // Add logo if provided
   if (logoPath) {
     try {
-      const logoExists = fs.existsSync(logoPath);
-      if (!logoExists) {
-        console.warn("Logo-Datei nicht gefunden:", logoPath);
+      if (fs.existsSync(logoPath)) {
+        const imageId = workbook.addImage({
+          filename: logoPath,
+          extension: "png",
+        });
+        worksheet.addImage(imageId, {
+          tl: { col: 5, row: 0 },
+          br: { col: 7, row: 4 },
+        });
       } else {
-        const imageData = fs.readFileSync(logoPath);
-        worksheet.addImage(
-          {
-            buffer: imageData,
-            extension: "png",
-          },
-          { tl: { col: 5, row: 0 }, ext: { width: 80, height: 80 } },
-        );
+        console.warn("Logo-Datei nicht gefunden:", logoPath);
       }
     } catch (err) {
-      console.warn("Logo konnte nicht geladen werden:", err.message);
+      console.error("Fehler beim Laden des Logos:", err.message);
     }
   }
 
@@ -135,28 +134,34 @@ async function generateExcel(type, data, logoPath) {
   const infoLabelRow = currentRow;
   worksheet.mergeCells(`A${infoLabelRow}:B${infoLabelRow}`);
   worksheet.getCell(`A${infoLabelRow}`).value = `${type} Nr.`;
+  worksheet.getCell(`A${infoLabelRow}`).font = { name: "Calibri", size: 10 };
 
   if (type === "Lieferschein") {
     worksheet.mergeCells(`D${infoLabelRow}:E${infoLabelRow}`);
     worksheet.getCell(`D${infoLabelRow}`).value = "Lieferdatum";
+    worksheet.getCell(`D${infoLabelRow}`).font = { name: "Calibri", size: 10 };
   }
 
   worksheet.mergeCells(`G${infoLabelRow}:H${infoLabelRow}`);
   worksheet.getCell(`G${infoLabelRow}`).value = "Datum";
+  worksheet.getCell(`G${infoLabelRow}`).font = { name: "Calibri", size: 10 };
 
   currentRow++;
   const infoValueRow = currentRow;
   worksheet.mergeCells(`A${infoValueRow}:B${infoValueRow}`);
   worksheet.getCell(`A${infoValueRow}`).value = data.Nummer;
+  worksheet.getCell(`A${infoValueRow}`).font = { name: "Calibri", size: 10 };
 
   const datum = new Date(data.Datum).toLocaleDateString("de-DE");
   worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
   if (type === "Lieferschein") {
     worksheet.getCell(`D${infoValueRow}`).value = datum;
+    worksheet.getCell(`D${infoValueRow}`).font = { name: "Calibri", size: 10 };
   }
 
   worksheet.mergeCells(`G${infoValueRow}:H${infoValueRow}`);
   worksheet.getCell(`G${infoValueRow}`).value = datum;
+  worksheet.getCell(`G${infoValueRow}`).font = { name: "Calibri", size: 10 };
 
   currentRow++;
   const separatorRow = currentRow;
@@ -176,6 +181,7 @@ async function generateExcel(type, data, logoPath) {
     worksheet.getCell(`A${textRow}`).value =
       `Für die verkauften Artikel im Zeitraum vom ${rechnungsZeitraum} stellen wir Ihnen folgende Positionen in Rechnung:`;
   }
+  worksheet.getCell(`A${textRow}`).font = { name: "Calibri", size: 10 };
 
   // 4. Article Block
   currentRow += 2;
@@ -273,6 +279,7 @@ async function generateExcel(type, data, logoPath) {
     row.getCell(9).numFmt = "#,##0.00 €";
 
     for (let i = 1; i <= 9; i++) {
+      row.getCell(i).font = { name: "Calibri", size: 10 };
       row.getCell(i).border = {
         top: { style: "thin", color: { argb: "FFBCBCBC" } },
         left: { style: "thin", color: { argb: "FFBCBCBC" } },
