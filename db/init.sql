@@ -155,6 +155,27 @@ CREATE TABLE audit_log (
 );
 
 -- ============================================================
+-- Benutzerverwaltung
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS app_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    email TEXT DEFAULT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP DEFAULT NULL,
+    CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
+);
+
+-- Default admin user (password: admin – must be changed after first login)
+INSERT INTO app_users (username, password_hash, email, role, active)
+VALUES ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin@goldregen.local', 'admin', TRUE)
+ON CONFLICT (username) DO NOTHING;
+
+-- ============================================================
 -- Trigger
 -- ============================================================
 

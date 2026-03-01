@@ -7,6 +7,7 @@ const lieferscheineRoutes = require('./routes/lieferscheine');
 const rechnungenRoutes = require('./routes/rechnungen');
 const auditLogRoutes = require('./routes/auditLog');
 const dashboardRoutes = require('./routes/dashboard');
+const usersRoutes = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,6 +23,7 @@ app.use('/api/rechnungen', rechnungenRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/debug', require('./routes/debug'));
+app.use('/api/users', usersRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
