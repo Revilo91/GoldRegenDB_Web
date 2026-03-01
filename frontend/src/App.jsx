@@ -171,7 +171,6 @@ function AppLayout() {
 
       <main className="main-content">
         <Routes>
-          #TODO
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/schmuckstuecke" element={<ProtectedRoute><Schmuckstuecke /></ProtectedRoute>} />
           <Route path="/kunden" element={<ProtectedRoute><Kunden /></ProtectedRoute>} />
@@ -179,16 +178,8 @@ function AppLayout() {
           <Route path="/rechnungen" element={<ProtectedRoute><Rechnungen /></ProtectedRoute>} />
           <Route path="/audit-log" element={<ProtectedRoute adminOnly><AuditLog /></ProtectedRoute>} />
           <Route path="/debug" element={<ProtectedRoute adminOnly><Debug /></ProtectedRoute>} />
+          <Route path="/benutzerverwaltung" element={<ProtectedRoute adminOnly><Benutzerverwaltung /></ProtectedRoute>} />
           <Route path="/login" element={<Navigate to="/" replace />} />
-          #TODO
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/schmuckstuecke" element={<Schmuckstuecke />} />
-          <Route path="/kunden" element={<Kunden />} />
-          <Route path="/lieferscheine" element={<Lieferscheine />} />
-          <Route path="/rechnungen" element={<Rechnungen />} />
-          <Route path="/audit-log" element={<AuditLog />} />
-          <Route path="/debug" element={<Debug />} />
-          <Route path="/benutzerverwaltung" element={<Benutzerverwaltung />} />
         </Routes>
       </main>
     </>
