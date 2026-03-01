@@ -29,17 +29,24 @@ services:
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: development
       PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
     volumes:
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
+      - backend_node_modules:/app/node_modules
     ports:
       - "${PORT}:${PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:3001/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build:
@@ -54,9 +61,12 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
+      - frontend_node_modules:/app/node_modules
     ports:
       - "3000:5173"
 
 volumes:
   pgdata_dev:
+  backend_node_modules:
+  frontend_node_modules:
   pgbackups_dev:
