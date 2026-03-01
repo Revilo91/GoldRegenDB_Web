@@ -24,6 +24,67 @@ const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
 
 const DEFAULT_LOGO_PATH = path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png");
 
+/**
+ * Auto-fit columns based on content with support for merged cells
+ * Scans all cells and sets optimal width between min and max values
+ */
+function autoFitColumns(worksheet) {
+  const columnWidths = {};
+
+  // Process all rows to calculate required widths
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (!cell.value) return;
+
+      const cellValue = cell.value.toString();
+      const length = cellValue.length;
+
+      // Check if this is a master cell (start of a merge)
+      if (cell.isMerged && cell.master) {
+        // This cell is part of a merge, check if it's the master
+        if (cell.master.address === cell.address) {
+          // This is the master cell - calculate the merge range
+          const masterRow = cell.master.row;
+          const masterCol = cell.master.col;
+
+          // Find how many columns this merge spans
+          let mergeWidth = 1;
+          for (let col = masterCol + 1; col <= worksheet.columnCount; col++) {
+            const nextCell = worksheet.getCell(masterRow, col);
+            if (nextCell.isMerged && nextCell.master && nextCell.master.address === cell.address) {
+              mergeWidth++;
+            } else {
+              break;
+            }
+          }
+
+          // Distribute width across merged columns
+          const widthPerColumn = length / mergeWidth;
+          for (let col = masterCol; col < masterCol + mergeWidth; col++) {
+            columnWidths[col] = Math.max(columnWidths[col] || 0, widthPerColumn);
+          }
+        }
+        // Skip non-master merged cells
+      } else {
+        // Regular cell (not merged)
+        columnWidths[colNumber] = Math.max(columnWidths[colNumber] || 0, length);
+      }
+    });
+  });
+
+  // Apply calculated widths with minimal padding for tight columns
+  worksheet.columns.forEach((column, index) => {
+    const colNumber = index + 1;
+    if (columnWidths[colNumber]) {
+      // Minimal padding (1) and limit between 5 and 50 for tight fit
+      column.width = Math.min(Math.max(columnWidths[colNumber] + 1, 5), 50);
+    } else {
+      // Minimal default width if no content found
+      column.width = 5;
+    }
+  });
+}
+
 const GRUNDMATERIAL = {
   A: "Alkoholtinte",
   B: "Beton",
@@ -54,17 +115,18 @@ async function generateExcel(type, data, logoPath) {
 
   const contact = CONTACTS.GOLDREGEN; // Default to Marina/GoldRegen
 
-  // Setup column widths
+  // Setup column widths optimized for table structure
+  // Columns C-F are merged for "Bezeichnung", so they share space
   worksheet.columns = [
-    { width: 15 }, // A
-    { width: 15 }, // B
-    { width: 15 }, // C
-    { width: 15 }, // D
-    { width: 15 }, // E
-    { width: 15 }, // F
-    { width: 10 }, // G
-    { width: 12 }, // H
-    { width: 14 }, // I
+    { width: 12 }, // A - Artikelnr.
+    { width: 10 }, // B - Kategorie
+    { width: 12 }, // C - Bezeichnung (merged C:F)
+    { width: 12 }, // D - Bezeichnung (merged C:F)
+    { width: 12 }, // E - Bezeichnung (merged C:F)
+    { width: 12 }, // F - Bezeichnung (merged C:F)
+    { width: 8 },  // G - Menge
+    { width: 13 }, // H - Einzelpreis
+    { width: 13 }, // I - Gesamtpreis
   ];
 
   // Page setup for A4 print layout
@@ -456,6 +518,9 @@ async function generateExcel(type, data, logoPath) {
   const footerText = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
   worksheet.headerFooter.oddFooter = footerText;
   worksheet.headerFooter.evenFooter = footerText;
+
+  // Auto-fit column widths based on content
+  autoFitColumns(worksheet);
 
   return await workbook.xlsx.writeBuffer();
 }
