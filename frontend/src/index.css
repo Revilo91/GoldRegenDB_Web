@@ -566,9 +566,9 @@ select.form-control {
   background: var(--bg-card);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  width: 80%;
+  width: 90%;
   max-width: 700px;
-  max-height: 95vh;
+  max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.25s ease;
