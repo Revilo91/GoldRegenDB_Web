@@ -10,6 +10,7 @@ import Lieferscheine from "./pages/Lieferscheine";
 import Rechnungen from "./pages/Rechnungen";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
+import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import "./index.css";
 
 function AppLayout() {
@@ -105,6 +106,7 @@ function AppLayout() {
             <span className="nav-icon">🧾</span>
             <span>Rechnungen</span>
           </NavLink>
+          #TODO
           {isAdmin && (
             <>
               <NavLink
@@ -129,6 +131,31 @@ function AppLayout() {
               </NavLink>
             </>
           )}
+          #TODO
+          <NavLink
+            to="/audit-log"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">📋</span>
+            <span>Audit Log</span>
+          </NavLink>
+          <NavLink
+            to="/debug"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">🛠️</span>
+            <span>Debug</span>
+          </NavLink>
+          <NavLink
+            to="/benutzerverwaltung"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">🔐</span>
+            <span>Benutzerverwaltung</span>
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <div className="sidebar-user">
@@ -144,6 +171,7 @@ function AppLayout() {
 
       <main className="main-content">
         <Routes>
+          #TODO
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/schmuckstuecke" element={<ProtectedRoute><Schmuckstuecke /></ProtectedRoute>} />
           <Route path="/kunden" element={<ProtectedRoute><Kunden /></ProtectedRoute>} />
@@ -152,6 +180,15 @@ function AppLayout() {
           <Route path="/audit-log" element={<ProtectedRoute adminOnly><AuditLog /></ProtectedRoute>} />
           <Route path="/debug" element={<ProtectedRoute adminOnly><Debug /></ProtectedRoute>} />
           <Route path="/login" element={<Navigate to="/" replace />} />
+          #TODO
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/schmuckstuecke" element={<Schmuckstuecke />} />
+          <Route path="/kunden" element={<Kunden />} />
+          <Route path="/lieferscheine" element={<Lieferscheine />} />
+          <Route path="/rechnungen" element={<Rechnungen />} />
+          <Route path="/audit-log" element={<AuditLog />} />
+          <Route path="/debug" element={<Debug />} />
+          <Route path="/benutzerverwaltung" element={<Benutzerverwaltung />} />
         </Routes>
       </main>
     </>
