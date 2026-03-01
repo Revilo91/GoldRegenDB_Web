@@ -8,7 +8,6 @@ export default function Schmuckstuecke() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
-  const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
@@ -30,7 +29,6 @@ export default function Schmuckstuecke() {
     if (!confirm(`Schmuckstück ${nr} wirklich löschen?`)) return;
     try {
       await api.deleteSchmuckstueck(nr);
-      setSelected(null);
       setEditing(null);
       load();
     } catch (err) {
@@ -286,7 +284,7 @@ export default function Schmuckstuecke() {
                 {sortedData.map((s) => (
                   <tr
                     key={s.Artikelnummer}
-                    onClick={() => setSelected(s)}
+                    onClick={() => openEdit(s)}
                     style={{ cursor: "pointer" }}
                   >
                     <td>
@@ -354,9 +352,19 @@ export default function Schmuckstuecke() {
 
       {selected && (
         <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} >
             <div className="modal-header">
-              <h3>💍 {selected.Artikelnummer}</h3>
+              <h3>💍 {selected.Artikelnummer} {" "}
+                {selected.Verkauft === 1 ? (
+                  <span className="badge success">Verkauft</span>
+                ) : selected.Ausschuss === 1 ? (
+                  <span className="badge danger">Ausschuss</span>
+                ) : selected.Ausgelagert > 0 ? (
+                  <span className="badge gold">Ausgelagert: {getKundenName(selected.Ausgelagert)}</span>
+                ) : (
+                  <span className="badge warning">Lager</span>
+                )}
+              </h3>
               <div style={{ marginLeft: "auto", marginRight: 16 }}>
                 <button
                   className="btn btn-secondary btn-sm"
@@ -378,6 +386,7 @@ export default function Schmuckstuecke() {
             </div>
             <div className="detail-grid">
               {[
+                ["Grundmaterial", selected.Grundmaterial],
                 ["Art", selected.Art],
                 ["Form", selected.Form],
                 ["Länge", selected["Länge"] ? `${selected["Länge"]} cm` : "–"],
@@ -451,6 +460,15 @@ export default function Schmuckstuecke() {
                   ? "🆕 Neues Schmuckstück"
                   : `✏️ ${editing} bearbeiten`}
               </h3>
+              {editing !== "new" && (
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ marginLeft: "auto", marginRight: 16 }}
+                  onClick={() => handleDelete(editing)}
+                >
+                  🗑️ Löschen
+                </button>
+              )}
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
@@ -597,12 +615,18 @@ export default function Schmuckstuecke() {
                   <div className="form-group">
                     <label>Fassung</label>
                     <input
+                      list="fassungen-list"
                       className="form-control"
                       value={form.Fassung || ""}
                       onChange={(e) =>
                         setForm({ ...form, Fassung: e.target.value })
                       }
                     />
+                    <datalist id="fassungen-list">
+                      {filterOptions.fassungen?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
               </div>
@@ -613,36 +637,55 @@ export default function Schmuckstuecke() {
                   <div className="form-group">
                     <label>Inhalt Material</label>
                     <input
+                      list="inhalt-material-list"
                       className="form-control"
                       value={form.Inhalt_Material || ""}
                       onChange={(e) =>
                         setForm({ ...form, Inhalt_Material: e.target.value })
                       }
                     />
+                    <datalist id="inhalt-material-list">
+                      {filterOptions.inhalt_materialien?.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Inhalt Farbe</label>
                     <input
+                      list="inhalt-farbe-list"
                       className="form-control"
                       value={form.Inhalt_Farbe || ""}
                       onChange={(e) =>
                         setForm({ ...form, Inhalt_Farbe: e.target.value })
                       }
                     />
+                    <datalist id="inhalt-farbe-list">
+                      {filterOptions.inhalt_farben?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Inhalt Farbakzent</label>
                     <input
+                      list="inhalt-farbakzent-list"
                       className="form-control"
                       value={form.Inhalt_Farbakzent || ""}
                       onChange={(e) =>
                         setForm({ ...form, Inhalt_Farbakzent: e.target.value })
                       }
                     />
+                    <datalist id="inhalt-farbakzent-list">
+                      {filterOptions.inhalt_farbakzente?.map((a) => (
+                        <option key={a} value={a} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Inhalt Zusatzmaterial</label>
                     <input
+                      list="inhalt-zusatzmaterial-list"
                       className="form-control"
                       value={form.Inhalt_Zusatzmaterial || ""}
                       onChange={(e) =>
@@ -652,6 +695,11 @@ export default function Schmuckstuecke() {
                         })
                       }
                     />
+                    <datalist id="inhalt-zusatzmaterial-list">
+                      {filterOptions.inhalt_zusatzmaterialien?.map((z) => (
+                        <option key={z} value={z} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
               </div>
@@ -662,32 +710,50 @@ export default function Schmuckstuecke() {
                   <div className="form-group">
                     <label>Anhänger Fassung</label>
                     <input
+                      list="anhaenger-fassung-list"
                       className="form-control"
                       value={form.Anhänger_Fassung || ""}
                       onChange={(e) =>
                         setForm({ ...form, Anhänger_Fassung: e.target.value })
                       }
                     />
+                    <datalist id="anhaenger-fassung-list">
+                      {filterOptions.anhaenger_fassungen?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anhänger Form</label>
                     <input
+                      list="anhaenger-form-list"
                       className="form-control"
                       value={form.Anhänger_Form || ""}
                       onChange={(e) =>
                         setForm({ ...form, Anhänger_Form: e.target.value })
                       }
                     />
+                    <datalist id="anhaenger-form-list">
+                      {filterOptions.anhaenger_formen?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anhänger Farbe</label>
                     <input
+                      list="anhaenger-farbe-list"
                       className="form-control"
                       value={form.Anhänger_Farbe || ""}
                       onChange={(e) =>
                         setForm({ ...form, Anhänger_Farbe: e.target.value })
                       }
                     />
+                    <datalist id="anhaenger-farbe-list">
+                      {filterOptions.anhaenger_farben?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anhänger Größe</label>
@@ -709,6 +775,7 @@ export default function Schmuckstuecke() {
                   <div className="form-group">
                     <label>Anh. Inhalt Material</label>
                     <input
+                      list="anhaenger-inhalt-material-list"
                       className="form-control"
                       value={form.Anhänger_Inhalt_Material || ""}
                       onChange={(e) =>
@@ -718,10 +785,16 @@ export default function Schmuckstuecke() {
                         })
                       }
                     />
+                    <datalist id="anhaenger-inhalt-material-list">
+                      {filterOptions.anhaenger_inhalt_materialien?.map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anh. Inhalt Farbe</label>
                     <input
+                      list="anhaenger-inhalt-farbe-list"
                       className="form-control"
                       value={form.Anhänger_Inhalt_Farbe || ""}
                       onChange={(e) =>
@@ -731,10 +804,16 @@ export default function Schmuckstuecke() {
                         })
                       }
                     />
+                    <datalist id="anhaenger-inhalt-farbe-list">
+                      {filterOptions.anhaenger_inhalt_farben?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anh. Inhalt Farbakzent</label>
                     <input
+                      list="anhaenger-inhalt-farbakzent-list"
                       className="form-control"
                       value={form.Anhänger_Inhalt_Farbakzente || ""}
                       onChange={(e) =>
@@ -744,10 +823,16 @@ export default function Schmuckstuecke() {
                         })
                       }
                     />
+                    <datalist id="anhaenger-inhalt-farbakzent-list">
+                      {filterOptions.anhaenger_inhalt_farbakzente?.map((a) => (
+                        <option key={a} value={a} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anh. Inhalt Zusatzmaterial</label>
                     <input
+                      list="anhaenger-inhalt-zusatzmaterial-list"
                       className="form-control"
                       value={form.Anhänger_Inhalt_Zusatzmaterial || ""}
                       onChange={(e) =>
@@ -757,28 +842,61 @@ export default function Schmuckstuecke() {
                         })
                       }
                     />
+                    <datalist id="anhaenger-inhalt-zusatzmaterial-list">
+                      {filterOptions.anhaenger_inhalt_zusatzmaterialien?.map((z) => (
+                        <option key={z} value={z} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Zwischenstück</label>
                     <input
+                      list="zwischenstuecke-list"
                       className="form-control"
                       value={form.Zwischenstück || ""}
                       onChange={(e) =>
                         setForm({ ...form, Zwischenstück: e.target.value })
                       }
                     />
+                    <datalist id="zwischenstuecke-list">
+                      {filterOptions.zwischenstuecke?.map((z) => (
+                        <option key={z} value={z} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="form-group">
+                    <label>Fassung</label>
+                    <input
+                      list="fassungen-list"
+                      className="form-control"
+                      value={form.Fassung || ""}
+                      onChange={(e) =>
+                        setForm({ ...form, Fassung: e.target.value })
+                      }
+                    />
+                    <datalist id="fassungen-list">
+                      {filterOptions.fassungen?.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Anhänger (Allg.)</label>
                     <input
+                      list="anhaenger-list"
                       className="form-control"
                       value={form.Anhänger || ""}
                       onChange={(e) =>
                         setForm({ ...form, Anhänger: e.target.value })
                       }
                     />
+                    <datalist id="anhaenger-list">
+                      {filterOptions.anhaenger?.map((a) => (
+                        <option key={a} value={a} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
               </div>
@@ -821,6 +939,7 @@ export default function Schmuckstuecke() {
                     <select
                       className="form-control"
                       value={form.Ausgelagert || 0}
+                      disabled={editing === "new"}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -846,6 +965,7 @@ export default function Schmuckstuecke() {
                       type="checkbox"
                       id="form-verkauft"
                       checked={form.Verkauft === 1}
+                      disabled
                       onChange={(e) =>
                         setForm({ ...form, Verkauft: e.target.checked ? 1 : 0 })
                       }
@@ -863,6 +983,7 @@ export default function Schmuckstuecke() {
                       type="checkbox"
                       id="form-online"
                       checked={form.Online === 1}
+                      disabled={editing === "new"}
                       onChange={(e) =>
                         setForm({ ...form, Online: e.target.checked ? 1 : 0 })
                       }
@@ -880,6 +1001,7 @@ export default function Schmuckstuecke() {
                       type="checkbox"
                       id="form-ausschuss"
                       checked={form.Ausschuss === 1}
+                      disabled={editing === "new"}
                       onChange={(e) =>
                         setForm({
                           ...form,

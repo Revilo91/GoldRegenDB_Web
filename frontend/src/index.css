@@ -566,9 +566,9 @@ select.form-control {
   background: var(--bg-card);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  width: 90%;
+  width: 80%;
   max-width: 700px;
-  max-height: 85vh;
+  max-height: 95vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.25s ease;
@@ -859,4 +859,33 @@ select.form-control {
 
 .dblUnderlined {
   border-bottom: 3px double;
+}
+
+/* ============ GROUP HEADER ROW ============ */
+.group-header-row {
+  user-select: none;
+  transition: var(--transition);
+}
+
+.group-header-row:hover {
+  background: var(--bg-hover);
+}
+
+.group-header-row td {
+  background: var(--bg-input);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  border-top: 2px solid var(--border);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.group-header-row:hover td {
+  background: var(--bg-card);
+  color: var(--accent-hover);
 }

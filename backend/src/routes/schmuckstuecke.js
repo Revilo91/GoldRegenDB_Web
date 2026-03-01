@@ -125,25 +125,67 @@ router.get("/", async (req, res) => {
 // GET distinct values for filters
 router.get("/filter-options", async (req, res) => {
   try {
-    const [arten, farben, materialien, formen] = await Promise.all([
-      db.query(
-        'SELECT DISTINCT "Art" FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != \'\' ORDER BY "Art"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Farbe" FROM "Schmuckstück" WHERE "Farbe" IS NOT NULL AND "Farbe" != \'\' ORDER BY "Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Material" FROM "Schmuckstück" WHERE "Material" IS NOT NULL AND "Material" != \'\' ORDER BY "Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Form" FROM "Schmuckstück" WHERE "Form" IS NOT NULL AND "Form" != \'\' ORDER BY "Form"',
-      ),
+    const [
+      arten, farben, materialien, formen,
+      anhaenger_fassungen, anhaenger_formen, anhaenger_farben, anhaenger_groessen,
+      anhaenger_inhalt_materialien, anhaenger_inhalt_farben, anhaenger_inhalt_farbakzente, anhaenger_inhalt_zusatzmaterialien,
+      inhalt_materialien, inhalt_farben, inhalt_farbakzente, inhalt_zusatzmaterialien,
+      zwischenstuecke, fassungen, laengen, groessen, fotos, namen, verkaufspreise, herstellungskosten, ausschuesse, anhaenger
+    ] = await Promise.all([
+      db.query("SELECT DISTINCT \"Art\" FROM \"Schmuckstück\" WHERE \"Art\" IS NOT NULL AND \"Art\" != '' ORDER BY \"Art\""),
+      db.query("SELECT DISTINCT \"Farbe\" FROM \"Schmuckstück\" WHERE \"Farbe\" IS NOT NULL AND \"Farbe\" != '' ORDER BY \"Farbe\""),
+      db.query("SELECT DISTINCT \"Material\" FROM \"Schmuckstück\" WHERE \"Material\" IS NOT NULL AND \"Material\" != '' ORDER BY \"Material\""),
+      db.query("SELECT DISTINCT \"Form\" FROM \"Schmuckstück\" WHERE \"Form\" IS NOT NULL AND \"Form\" != '' ORDER BY \"Form\""),
+      db.query("SELECT DISTINCT \"Anhänger_Fassung\" FROM \"Schmuckstück\" WHERE \"Anhänger_Fassung\" IS NOT NULL AND \"Anhänger_Fassung\" != '' ORDER BY \"Anhänger_Fassung\""),
+      db.query("SELECT DISTINCT \"Anhänger_Form\" FROM \"Schmuckstück\" WHERE \"Anhänger_Form\" IS NOT NULL AND \"Anhänger_Form\" != '' ORDER BY \"Anhänger_Form\""),
+      db.query("SELECT DISTINCT \"Anhänger_Farbe\" FROM \"Schmuckstück\" WHERE \"Anhänger_Farbe\" IS NOT NULL AND \"Anhänger_Farbe\" != '' ORDER BY \"Anhänger_Farbe\""),
+      db.query("SELECT DISTINCT \"Anhänger_Grösse\" FROM \"Schmuckstück\" WHERE \"Anhänger_Grösse\" IS NOT NULL ORDER BY \"Anhänger_Grösse\""),
+      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Material\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Material\" IS NOT NULL AND \"Anhänger_Inhalt_Material\" != '' ORDER BY \"Anhänger_Inhalt_Material\""),
+      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Farbe\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Farbe\" IS NOT NULL AND \"Anhänger_Inhalt_Farbe\" != '' ORDER BY \"Anhänger_Inhalt_Farbe\""),
+      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Farbakzente\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Farbakzente\" IS NOT NULL AND \"Anhänger_Inhalt_Farbakzente\" != '' ORDER BY \"Anhänger_Inhalt_Farbakzente\""),
+      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Zusatzmaterial\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Zusatzmaterial\" IS NOT NULL AND \"Anhänger_Inhalt_Zusatzmaterial\" != '' ORDER BY \"Anhänger_Inhalt_Zusatzmaterial\""),
+      db.query("SELECT DISTINCT \"Inhalt_Material\" FROM \"Schmuckstück\" WHERE \"Inhalt_Material\" IS NOT NULL AND \"Inhalt_Material\" != '' ORDER BY \"Inhalt_Material\""),
+      db.query("SELECT DISTINCT \"Inhalt_Farbe\" FROM \"Schmuckstück\" WHERE \"Inhalt_Farbe\" IS NOT NULL AND \"Inhalt_Farbe\" != '' ORDER BY \"Inhalt_Farbe\""),
+      db.query("SELECT DISTINCT \"Inhalt_Farbakzent\" FROM \"Schmuckstück\" WHERE \"Inhalt_Farbakzent\" IS NOT NULL AND \"Inhalt_Farbakzent\" != '' ORDER BY \"Inhalt_Farbakzent\""),
+      db.query("SELECT DISTINCT \"Inhalt_Zusatzmaterial\" FROM \"Schmuckstück\" WHERE \"Inhalt_Zusatzmaterial\" IS NOT NULL AND \"Inhalt_Zusatzmaterial\" != '' ORDER BY \"Inhalt_Zusatzmaterial\""),
+      db.query("SELECT DISTINCT \"Zwischenstück\" FROM \"Schmuckstück\" WHERE \"Zwischenstück\" IS NOT NULL AND \"Zwischenstück\" != '' ORDER BY \"Zwischenstück\""),
+      db.query("SELECT DISTINCT \"Fassung\" FROM \"Schmuckstück\" WHERE \"Fassung\" IS NOT NULL AND \"Fassung\" != '' ORDER BY \"Fassung\""),
+      db.query("SELECT DISTINCT \"Länge\" FROM \"Schmuckstück\" WHERE \"Länge\" IS NOT NULL ORDER BY \"Länge\""),
+      db.query("SELECT DISTINCT \"Grösse\" FROM \"Schmuckstück\" WHERE \"Grösse\" IS NOT NULL ORDER BY \"Grösse\""),
+      db.query("SELECT DISTINCT \"Foto\" FROM \"Schmuckstück\" WHERE \"Foto\" IS NOT NULL AND \"Foto\" != '' ORDER BY \"Foto\""),
+      db.query("SELECT DISTINCT \"Name\" FROM \"Schmuckstück\" WHERE \"Name\" IS NOT NULL AND \"Name\" != '' ORDER BY \"Name\""),
+      db.query("SELECT DISTINCT \"Verkaufspreis\" FROM \"Schmuckstück\" WHERE \"Verkaufspreis\" IS NOT NULL ORDER BY \"Verkaufspreis\""),
+      db.query("SELECT DISTINCT \"Herstellungskosten\" FROM \"Schmuckstück\" WHERE \"Herstellungskosten\" IS NOT NULL ORDER BY \"Herstellungskosten\""),
+      db.query("SELECT DISTINCT \"Ausschuss\" FROM \"Schmuckstück\" WHERE \"Ausschuss\" IS NOT NULL ORDER BY \"Ausschuss\""),
+      db.query("SELECT DISTINCT \"Anhänger\" FROM \"Schmuckstück\" WHERE \"Anhänger\" IS NOT NULL AND \"Anhänger\" != '' ORDER BY \"Anhänger\""),
     ]);
     res.json({
-      arten: arten.rows.map((r) => r.Art),
-      farben: farben.rows.map((r) => r.Farbe),
-      materialien: materialien.rows.map((r) => r.Material),
-      formen: formen.rows.map((r) => r.Form),
+      arten: arten.rows.map(r => r.Art),
+      farben: farben.rows.map(r => r.Farbe),
+      materialien: materialien.rows.map(r => r.Material),
+      formen: formen.rows.map(r => r.Form),
+      anhaenger_fassungen: anhaenger_fassungen.rows.map(r => r.Anhänger_Fassung),
+      anhaenger_formen: anhaenger_formen.rows.map(r => r.Anhänger_Form),
+      anhaenger_farben: anhaenger_farben.rows.map(r => r.Anhänger_Farbe),
+      anhaenger_groessen: anhaenger_groessen.rows.map(r => r.Anhänger_Grösse),
+      anhaenger_inhalt_materialien: anhaenger_inhalt_materialien.rows.map(r => r.Anhänger_Inhalt_Material),
+      anhaenger_inhalt_farben: anhaenger_inhalt_farben.rows.map(r => r.Anhänger_Inhalt_Farbe),
+      anhaenger_inhalt_farbakzente: anhaenger_inhalt_farbakzente.rows.map(r => r.Anhänger_Inhalt_Farbakzente),
+      anhaenger_inhalt_zusatzmaterialien: anhaenger_inhalt_zusatzmaterialien.rows.map(r => r.Anhänger_Inhalt_Zusatzmaterial),
+      inhalt_materialien: inhalt_materialien.rows.map(r => r.Inhalt_Material),
+      inhalt_farben: inhalt_farben.rows.map(r => r.Inhalt_Farbe),
+      inhalt_farbakzente: inhalt_farbakzente.rows.map(r => r.Inhalt_Farbakzent),
+      inhalt_zusatzmaterialien: inhalt_zusatzmaterialien.rows.map(r => r.Inhalt_Zusatzmaterial),
+      zwischenstuecke: zwischenstuecke.rows.map(r => r.Zwischenstück),
+      fassungen: fassungen.rows.map(r => r.Fassung),
+      laengen: laengen.rows.map(r => r.Länge),
+      groessen: groessen.rows.map(r => r.Grösse),
+      fotos: fotos.rows.map(r => r.Foto),
+      namen: namen.rows.map(r => r.Name),
+      verkaufspreise: verkaufspreise.rows.map(r => r.Verkaufspreis),
+      herstellungskosten: herstellungskosten.rows.map(r => r.Herstellungskosten),
+      ausschuesse: ausschuesse.rows.map(r => r.Ausschuss),
+      anhaenger: anhaenger.rows.map(r => r.Anhänger),
     });
   } catch (err) {
     console.error(err);

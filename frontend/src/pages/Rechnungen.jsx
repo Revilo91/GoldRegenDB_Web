@@ -21,6 +21,8 @@ export default function Rechnungen() {
     key: "Datum",
     direction: "desc",
   });
+  const [groupByKunde, setGroupByKunde] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
   const load = () => {
     setLoading(true);
@@ -211,6 +213,32 @@ export default function Rechnungen() {
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
 
+  const toggleGroup = (groupKey) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  const groupedData = useMemo(() => {
+    if (!groupByKunde) return null;
+    const groups = [];
+    const seen = new Map();
+    for (const r of sortedData) {
+      const key = r.Kundennummer;
+      const name = r.KundenName || `Kunde ${r.Kundennummer}`;
+      if (!seen.has(key)) {
+        seen.set(key, groups.length);
+        groups.push({ key, name, items: [] });
+      }
+      groups[seen.get(key)].items.push(r);
+    }
+    return groups.sort((a, b) => a.name.localeCompare(b.name));
+  }, [sortedData, groupByKunde]);
+
   return (
     <div>
       <div
@@ -275,6 +303,15 @@ export default function Rechnungen() {
             </option>
           ))}
         </select>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14, color: "var(--text-secondary)", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={groupByKunde}
+            onChange={(e) => setGroupByKunde(e.target.checked)}
+          />
+          Nach Kunde gruppieren
+        </label>
       </div>
 
       <div className="card">
@@ -314,20 +351,62 @@ export default function Rechnungen() {
                 </tr>
               </thead>
               <tbody>
-                {sortedData.map((r) => (
-                  <tr
-                    key={r.ID}
-                    onClick={() => openDetail(r.ID)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>{r.ID}</td>
-                    <td>
-                      <strong>{r.Nummer}</strong>
-                    </td>
-                    <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                    <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
-                  </tr>
-                ))}
+                {groupByKunde
+                  ? groupedData.flatMap((group) => {
+                    const isExpanded = expandedGroups.has(group.key);
+                    return [
+                      <tr
+                        key={`group-${group.key}`}
+                        className="group-header-row"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => toggleGroup(group.key)}
+                        aria-label={`Kundengruppe: ${group.name}`}
+                      >
+                        <td colSpan={4}>
+                          <span style={{ marginRight: 8 }}>
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
+                          👤 {group.name}{" "}
+                          <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
+                            ({group.items.length})
+                          </span>
+                        </td>
+                      </tr>,
+                      ...(isExpanded
+                        ? group.items.map((r) => (
+                            <tr
+                              key={r.ID}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetail(r.ID);
+                              }}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <td>{r.ID}</td>
+                              <td>
+                                <strong>{r.Nummer}</strong>
+                              </td>
+                              <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
+                              <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                            </tr>
+                          ))
+                        : [])
+                    ];
+                  })
+                  : sortedData.map((r) => (
+                      <tr
+                        key={r.ID}
+                        onClick={() => openDetail(r.ID)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td>{r.ID}</td>
+                        <td>
+                          <strong>{r.Nummer}</strong>
+                        </td>
+                        <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
+                        <td>{new Date(r.Datum).toLocaleDateString("de-DE")}</td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           )}
