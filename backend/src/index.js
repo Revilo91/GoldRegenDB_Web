@@ -11,6 +11,7 @@ const rechnungenRoutes = require('./routes/rechnungen');
 const auditLogRoutes = require('./routes/auditLog');
 const dashboardRoutes = require('./routes/dashboard');
 const authRoutes = require('./routes/auth');
+const usersRoutes = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,6 +35,15 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
 });
+// Routes
+app.use('/api/kunden', kundenRoutes);
+app.use('/api/schmuckstuecke', schmuckstueckeRoutes);
+app.use('/api/lieferscheine', lieferscheineRoutes);
+app.use('/api/rechnungen', rechnungenRoutes);
+app.use('/api/audit-log', auditLogRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/debug', require('./routes/debug'));
+app.use('/api/users', usersRoutes);
 
 // Public routes
 app.use('/api/auth/login', loginLimiter);
