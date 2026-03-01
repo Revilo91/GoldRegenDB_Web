@@ -16,6 +16,7 @@ export default function Lieferscheine() {
   });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
+  const [artikelnummerInput, setArtikelnummerInput] = useState("");
   const [sortConfig, setSortConfig] = useState({
     key: "Datum",
     direction: "desc",
@@ -58,7 +59,9 @@ export default function Lieferscheine() {
   const loadAvailablePieces = async () => {
     try {
       const resp = await api.getSchmuckstuecke({
-        ohne_lieferschein: "1",
+        ausgelagert: "0",
+        verkauft: "0",
+        ausschuss: "0",
         limit: 1000,
       });
 
@@ -91,6 +94,7 @@ export default function Lieferscheine() {
     const neueNummer = `${year}-${nextNr}`;
     console.log("Nächste Lieferschein-Nummer:", neueNummer);
     setForm({ Nummer: neueNummer, Kundennummer: "", Artikelnummern: [] });
+    setArtikelnummerInput("");
     setEditing("new");
     loadAvailablePieces();
   };
@@ -119,6 +123,22 @@ export default function Lieferscheine() {
     } else {
       setForm({ ...form, Artikelnummern: [...nrs, nr] });
     }
+  };
+
+  const addByArtikelnummer = () => {
+    const nr = artikelnummerInput.trim();
+    if (!nr) return;
+    const piece = availablePieces.find(
+      (p) => p.Artikelnummer.toUpperCase() === nr.toUpperCase()
+    );
+    if (!piece) {
+      alert(`Artikelnummer "${nr}" nicht gefunden oder nicht verfügbar.`);
+      return;
+    }
+    if (!form.Artikelnummern.includes(piece.Artikelnummer)) {
+      setForm({ ...form, Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer] });
+    }
+    setArtikelnummerInput("");
   };
 
   const years = useMemo(() => {
@@ -631,8 +651,12 @@ export default function Lieferscheine() {
                             .map((p) => (
                               <tr
                                 key={p.Artikelnummer}
+                                draggable
+                                onDragStart={(e) =>
+                                  e.dataTransfer.setData("artikelnummer", p.Artikelnummer)
+                                }
                                 onClick={() => togglePiece(p.Artikelnummer)}
-                                style={{ cursor: "pointer" }}>
+                                style={{ cursor: "grab" }}>
                                 <td>
                                   <input
                                     type="checkbox"
@@ -656,20 +680,35 @@ export default function Lieferscheine() {
                     <h5>
                       Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
                     </h5>
-                    <input
-                      className="form-control"
-                      style={{ width: "200px", marginBottom: 8 }}
-                      placeholder="🔍 Suchen..."
-                      value={pieceSearch}
-                      onChange={(e) => setPieceSearch(e.target.value)}
-                      disabled
-                    />
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <input
+                        className="form-control"
+                        style={{ flex: 1 }}
+                        placeholder="Artikelnummer eingeben..."
+                        value={artikelnummerInput}
+                        onChange={(e) => setArtikelnummerInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addByArtikelnummer()}
+                      />
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={addByArtikelnummer}>
+                        Hinzufügen
+                      </button>
+                    </div>
                     <div
                       style={{
                         maxHeight: "400px",
                         overflowY: "auto",
-                        border: "1px solid var(--border)",
+                        border: "2px dashed var(--border)",
                         borderRadius: "var(--radius-sm)",
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const nr = e.dataTransfer.getData("artikelnummer");
+                        if (nr && !form.Artikelnummern.includes(nr)) {
+                          setForm({ ...form, Artikelnummern: [...form.Artikelnummern, nr] });
+                        }
                       }}>
                       <table className="data-table">
                         <thead>
