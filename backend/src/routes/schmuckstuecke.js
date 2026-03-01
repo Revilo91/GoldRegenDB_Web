@@ -32,6 +32,7 @@ router.get("/", async (req, res) => {
     const art = req.query.art || "";
     const verkauft = req.query.verkauft;
     const ausgelagert = req.query.ausgelagert;
+    const ausschuss = req.query.ausschuss;
     const online = req.query.online;
     const artikelnummer_art = req.query.artikelnummer_art;
     const ohne_lieferschein = req.query.ohne_lieferschein;
@@ -66,6 +67,11 @@ router.get("/", async (req, res) => {
     if (ausgelagert !== undefined) {
       where.push(`"Ausgelagert" = $${paramIdx}`);
       params.push(parseInt(ausgelagert));
+      paramIdx++;
+    }
+    if (ausschuss !== undefined) {
+      where.push(`"Ausschuss" = $${paramIdx}`);
+      params.push(parseInt(ausschuss));
       paramIdx++;
     }
     if (online !== undefined) {
