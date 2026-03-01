@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS app_users (
 
 -- Default admin user (password: admin – must be changed after first login)
 INSERT INTO app_users (username, password_hash, email, role, active)
-VALUES ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin@goldregen.local', 'admin', TRUE)
+VALUES ('admin', '$2b$10$PEPpBG.7g5QFmj8p0XXU6u2/IfVwLCXPlvRnnDPCqSXuTX5uFt/zq', 'admin@goldregen.local', 'admin', TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================

@@ -1,9 +1,9 @@
 -- GoldRegenDB Seed Data (PostgreSQL)
 -- Converted from MariaDB/MySQL dump
 
--- Default admin user (password: admin123)
+-- Default admin user (password: admin)
 INSERT INTO app_users (username, password_hash, email, role, active) VALUES
-  ('admin', '$2b$10$YkjlQromcqlgSVINOCwo2eNkpdjcJlkjE7MlAGez2UAT3259neVK6', 'admin@goldregen.local', 'admin', TRUE)
+  ('admin', '$2b$10$PEPpBG.7g5QFmj8p0XXU6u2/IfVwLCXPlvRnnDPCqSXuTX5uFt/zq', 'admin@goldregen.local', 'admin', TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- Disable triggers during bulk import
