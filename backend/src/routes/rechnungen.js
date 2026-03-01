@@ -63,9 +63,25 @@ router.get('/:id/excel', async (req, res) => {
       [req.params.id]
     );
 
+    // Compute invoice period from Lieferschein dates of the pieces
+    const lieferscheinIds = [...new Set(pieces.rows.map(p => p.Lieferschein_ID).filter(id => id > 0))];
+    let rechungsZeitraum = null;
+    if (lieferscheinIds.length > 0) {
+      const lsResult = await db.query(
+        `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[])`,
+        [lieferscheinIds]
+      );
+      if (lsResult.rows[0] && lsResult.rows[0].min_datum) {
+        const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE');
+        const maxDate = new Date(lsResult.rows[0].max_datum).toLocaleDateString('de-DE');
+        rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
+      }
+    }
+
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],
       kunde: rows[0],
+      rechungsZeitraum,
       schmuckstuecke: pieces.rows
     });
 
