@@ -48,23 +48,30 @@ router.post('/import', async (req, res) => {
       `TRUNCATE TABLE "Schmuckstück", "Rechnung", "Lieferschein", "Kunde" RESTART IDENTITY CASCADE`
     );
 
-    // Helper: bulk-insert rows for a table using a single multi-row INSERT
+    // Helper: bulk-insert rows for a table in batches to avoid PostgreSQL param limit (65535)
     const insertRows = async (tableName, rows) => {
       if (!rows || rows.length === 0) return;
-      const cols = Object.keys(rows[0])
-        .map((c) => `"${c}"`)
-        .join(', ');
-      const colCount = Object.keys(rows[0]).length;
-      const placeholders = rows
-        .map((_, rowIdx) =>
-          `(${Array.from({ length: colCount }, (__, colIdx) => `$${rowIdx * colCount + colIdx + 1}`).join(', ')})`
-        )
-        .join(', ');
-      const values = rows.flatMap((row) => Object.values(row));
-      await client.query(
-        `INSERT INTO "${tableName}" (${cols}) VALUES ${placeholders}`,
-        values
-      );
+
+      const BATCH_SIZE = 100; // Process 100 rows at a time (safe for tables with ~34 columns)
+
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
+        const cols = Object.keys(batch[0])
+          .map((c) => `"${c}"`)
+          .join(', ');
+        const colCount = Object.keys(batch[0]).length;
+        const placeholders = batch
+          .map((_, rowIdx) =>
+            `(${Array.from({ length: colCount }, (__, colIdx) => `$${rowIdx * colCount + colIdx + 1}`).join(', ')})`
+          )
+          .join(', ');
+        const values = batch.flatMap((row) => Object.values(row));
+
+        await client.query(
+          `INSERT INTO "${tableName}" (${cols}) VALUES ${placeholders}`,
+          values
+        );
+      }
     };
 
     await insertRows('Kunde', tables['Kunde']);
