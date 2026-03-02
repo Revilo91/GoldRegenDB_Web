@@ -97,12 +97,33 @@ router.post("/import", async (req, res) => {
     // Prüfe, ob Artikelnummern in DB existieren
     // Nutze LIKE um auch Suffix-Varianten (z.B. SPA425_1, SPA425_2) zu finden
     const likePatterns = artikelnummernArray.map((num) => `${num}%`);
-    const { rows: existingItems } = await db.query(
+    const { rows: matchingItems } = await db.query(
       `SELECT "Artikelnummer", "Verkaufspreis"
        FROM "Schmuckstück"
-       WHERE "Artikelnummer" LIKE ANY($1::text[])`,
+       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0 AND "Artikelnummer" LIKE ANY($1::text[])
+       ORDER BY length("Artikelnummer"), "Artikelnummer"`,
       [likePatterns],
     );
+
+    // Pro angefragter Artikelnummer nur einen Treffer übernehmen
+    // und insgesamt maximal so viele Artikel wie in artikelnummernArray vorhanden sind.
+    const usedArtikelnummern = new Set();
+    const existingItems = [];
+
+    for (const requestedNum of artikelnummernArray) {
+      const normalizedRequested = requestedNum.toUpperCase();
+      const match = matchingItems.find(
+        (item) =>
+          !usedArtikelnummern.has(item.Artikelnummer) &&
+          item.Artikelnummer.toUpperCase().startsWith(normalizedRequested),
+      );
+
+      if (match) {
+        existingItems.push(match);
+        usedArtikelnummern.add(match.Artikelnummer);
+      }
+    }
+
     console.log(artikelnummernArray);
     console.log(existingItems);
 
