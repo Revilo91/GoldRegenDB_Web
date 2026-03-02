@@ -76,10 +76,10 @@ erDiagram
         text Zwischenstueck
         double Herstellungskosten
         double Verkaufspreis
-        smallint Online
+        boolean Online
         int Ausgelagert FK
-        smallint Verkauft
-        smallint Ausschuss
+        boolean Verkauft
+        boolean Ausschuss
         int Lieferschein_ID FK
         int Rechnung_ID FK
         timestamp Erstelldatum
@@ -133,7 +133,6 @@ erDiagram
 
 - `Schmuckstück.Ausgelagert`, `Verkauft`, `Ausschuss`, `Lieferschein_ID`, `Rechnung_ID` haben Standard-Wert `0` (nicht NULL)
 - Filter auf "nicht zugeordnet" verwenden `... = 0`
-- `Online`, `Verkauft`, `Ausschuss` sind als `SMALLINT` (nicht `BOOLEAN`) definiert
 - DB-Indizes: `idx_schmuck_ausgelagert`, `idx_schmuck_lieferschein`, `idx_schmuck_rechnung`
 
 ### Geschäftslogik
@@ -169,8 +168,8 @@ erDiagram
     - `O` = "Ohrring",
     - `S` = "Schlüsselanhänger",
 - **Ausgelagert**: Referenz auf Kunden-ID, bei dem das Stück liegt (0 = im Lager)
-- **Verkauft**: SMALLINT (0/1), ob verkauft
-- **Ausschuss**: SMALLINT (0/1), ob aussortiert
+- **Verkauft**: boolean, ob verkauft
+- **Ausschuss**: boolean, ob aussortiert
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Lieferschein_ID, Rechnung_ID, Online)
 
 ---
