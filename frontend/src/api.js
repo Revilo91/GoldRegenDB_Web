@@ -73,6 +73,9 @@ export const api = {
   getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
   getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
 
+  // Sumup CSV Export
+  getSumupExport: () => `${API_URL}/schmuckstuecke/sumup-export`,
+
   // Benutzerverwaltung
   getUsers: () => request('/users'),
   getUser: (id) => request(`/users/${id}`),

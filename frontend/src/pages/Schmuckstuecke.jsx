@@ -149,6 +149,13 @@ export default function Schmuckstuecke() {
         <button className="btn btn-primary" onClick={openNew}>
           + Neues Schmuckstück
         </button>
+        <a
+          className="btn btn-secondary"
+          href={api.getSumupExport()}
+          download
+        >
+          ⬇️ Sumup Export
+        </a>
       </div>
 
       <div className="toolbar">
