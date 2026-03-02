@@ -64,6 +64,7 @@ app.use('/api/rechnungen', apiLimiter, authenticate, rechnungenRoutes);
 // Admin-only routes
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);
 app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/debug'));
+app.use('/api/backup', apiLimiter, authenticate, requireAdmin, express.json({ limit: '50mb' }), require('./routes/backup'));
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`GoldRegenDB Backend running on port ${PORT}`);
