@@ -27,25 +27,10 @@ export default function Sumup() {
     try {
       const text = await file.text();
 
-      // Parse CSV mit ordnungsgemäßem Parser
-      const lines = parseCSVLines(text);
-      if (lines.length < 2) {
-        throw new Error("CSV-Datei ist leer oder ungültig");
-      }
+      // Sende Raw CSV-Text an Backend (Backend macht das Parsing)
+      console.log('CSV Debug: Dateiinhalt gesendet zum Backend');
 
-      const headers = lines[0];
-      const csvData = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i];
-        const row = {};
-        headers.forEach((header, idx) => {
-          row[header] = values[idx] || "";
-        });
-        csvData.push(row);
-      }
-
-      const result = await api.importSumupCsv(csvData);
+      const result = await api.importSumupCsv(text);
       setSumupResult(result);
     } catch (err) {
       setSumupError(err.message);
@@ -53,63 +38,6 @@ export default function Sumup() {
       setSumupImporting(false);
     }
   };
-
-  // CSV-Parser: ordnungsgemäß mit Anführungszeichen und Kommas in Daten
-  function parseCSVLines(text) {
-    const lines = [];
-    let currentLine = "";
-    let inQuotes = false;
-
-    // Zeilenweise parsen (berücksichtigt Anführungszeichen)
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const nextChar = text[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          currentLine += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if ((char === "\n" || char === "\r") && !inQuotes) {
-        if (currentLine.trim()) lines.push(currentLine);
-        currentLine = "";
-        if (char === "\r" && nextChar === "\n") i++; // \r\n
-      } else {
-        currentLine += char;
-      }
-    }
-    if (currentLine.trim()) lines.push(currentLine);
-
-    // Jede Zeile in Felder aufteilen
-    return lines.map((line) => {
-      const fields = [];
-      let field = "";
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        const nextChar = line[i + 1];
-
-        if (char === '"') {
-          if (inQuotes && nextChar === '"') {
-            field += '"';
-            i++;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === "," && !inQuotes) {
-          fields.push(field.trim().replace(/^"|"$/g, ""));
-          field = "";
-        } else {
-          field += char;
-        }
-      }
-      fields.push(field.trim().replace(/^"|"$/g, ""));
-      return fields;
-    });
-  }
 
   return (
     <div>
@@ -213,6 +141,26 @@ export default function Sumup() {
                 display: "block",
               }}>
               <strong>❌ Fehler:</strong> {sumupError}
+              {sumupError.includes("Spalten") && (
+                <>
+                  <br />
+                  <br />
+                  <details style={{ cursor: "pointer", marginTop: "12px" }}>
+                    <summary style={{ fontWeight: "bold" }}>
+                      👉 Klicken für Hilfe zur Fehlersuche
+                    </summary>
+                    <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid currentColor" }}>
+                      <p><strong>Tipps:</strong></p>
+                      <ul style={{ marginLeft: "20px" }}>
+                        <li>Die CSV-Datei sollte eine Spalte mit Artikelnummern haben</li>
+                        <li>Unterstützte Spaltennamen: <code>Beschreibung</code>, <code>SKU</code>, <code>Barcode</code>, <code>Artikelnummer</code>, <code>Name</code></li>
+                        <li>Artikel-Nummern müssen folgendes Format haben: M/S + 2 Buchstaben + 3 Ziffern (z.B. <code>MBH001</code> oder <code>MBH001_2</code>)</li>
+                        <li>Öffnen Sie die Browser-Konsole (F12 → Console) um weitere Debug-Informationen zu sehen</li>
+                      </ul>
+                    </div>
+                  </details>
+                </>
+              )}
             </div>
           )}
 
