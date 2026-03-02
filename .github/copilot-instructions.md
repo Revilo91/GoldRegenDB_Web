@@ -391,7 +391,7 @@ services:
 Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den Export und Import von Datenbankdaten.
 
 ### Export
-- Endpunkt: `GET /api/backup/export` 
+- Endpunkt: `GET /api/backup/export`
 - Erzeugt JSON-Datei mit alle Tabellen (Kunde, Lieferschein, Rechnung, Schmuckstück)
 - Format: Standard-Backup mit `version`, `timestamp` und `tables`-Property
 
