@@ -1,0 +1,219 @@
+name: Release für Synology
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ github.repository_owner }}
+
+jobs:
+  build-and-push:
+    name: Docker Images bauen und veröffentlichen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      backend_image: ${{ steps.meta-backend.outputs.tags }}
+      frontend_image: ${{ steps.meta-frontend.outputs.tags }}
+      version: ${{ steps.get_version.outputs.version }}
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Version ermitteln
+        id: get_version
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Bei GHCR anmelden
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker Buildx einrichten
+        uses: docker/setup-buildx-action@v3
+
+      - name: Metadaten für Backend-Image ermitteln
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/goldregendb-backend
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Metadaten für Frontend-Image ermitteln
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/goldregendb-frontend
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Backend-Image bauen und veröffentlichen
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Frontend-Image bauen und veröffentlichen
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_URL=/api
+
+  create-release:
+    name: GitHub Release erstellen
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: write
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Version und Owner ermitteln
+        id: get_version
+        run: |
+          echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "owner_lower=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Synology-Deployment-Paket erstellen
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          OWNER_LOWER=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')
+          PACKAGE_DIR="goldregendb-synology-${VERSION}"
+
+          mkdir -p "${PACKAGE_DIR}/db"
+
+          # docker-compose für Synology mit fertigen Images generieren
+          cat > "${PACKAGE_DIR}/docker-compose.yml" <<EOF
+          services:
+            db:
+              image: postgres:16-alpine
+              restart: unless-stopped
+              environment:
+                POSTGRES_DB: \${POSTGRES_DB}
+                POSTGRES_USER: \${POSTGRES_USER}
+                POSTGRES_PASSWORD: \${DB_PASSWORD}
+              volumes:
+                - /volume1/docker/goldregendb/data:/var/lib/postgresql/data
+                - /volume1/docker/goldregendb/backups:/backups
+                - /volume1/docker/goldregendb/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+                - /volume1/docker/goldregendb/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+                - /volume1/docker/goldregendb/db/backup.sh:/backup.sh
+                - /volume1/docker/goldregendb/db/restore.sh:/restore.sh
+                - /volume1/docker/goldregendb/db/load_seed.sh:/load_seed.sh
+              ports:
+                - "15432:5432"
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+                start_period: 1m
+
+            backend:
+              image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb-backend:${VERSION}
+              restart: unless-stopped
+              depends_on:
+                db:
+                  condition: service_healthy
+              environment:
+                DATABASE_URL: \${DATABASE_URL}
+                NODE_ENV: production
+                PORT: \${PORT}
+                JWT_SECRET: \${JWT_SECRET}
+              ports:
+                - "\${PORT}:\${PORT}"
+
+            frontend:
+              image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb-frontend:${VERSION}
+              restart: unless-stopped
+              depends_on:
+                - backend
+              ports:
+                - "3000:80"
+          EOF
+
+          # DB-Skripte kopieren
+          cp db/init.sql "${PACKAGE_DIR}/db/"
+          cp db/seed.sql "${PACKAGE_DIR}/db/"
+          cp db/backup.sh "${PACKAGE_DIR}/db/"
+          cp db/restore.sh "${PACKAGE_DIR}/db/"
+          cp db/load_seed.sh "${PACKAGE_DIR}/db/"
+
+          # .env.example kopieren
+          cp .env.example "${PACKAGE_DIR}/.env.example"
+
+          # README für Synology-Deployment erstellen
+          cat > "${PACKAGE_DIR}/README.md" <<'README'
+          # GoldRegenDB – Synology Deployment
+
+          ## Voraussetzungen
+          - Synology NAS mit Docker/Container Manager
+          - SSH-Zugang zur Synology
+
+          ## Installation
+
+          1. Dieses Paket nach `/volume1/docker/goldregendb/` entpacken
+          2. `.env.example` nach `.env` kopieren und anpassen:
+             ```
+             cp .env.example .env
+             nano .env
+             ```
+          3. Container starten:
+             ```
+             docker compose up -d
+             ```
+
+          ## Zugriff
+          - Frontend: http://<synology-ip>:3000
+          - Backend API: http://<synology-ip>:<PORT>
+          - Standard-Login: admin / admin123 (bitte nach dem ersten Login ändern)
+          README
+
+          zip -r "${PACKAGE_DIR}.zip" "${PACKAGE_DIR}/"
+
+      - name: GitHub Release erstellen
+        uses: softprops/action-gh-release@v2
+        with:
+          name: GoldRegenDB ${{ steps.get_version.outputs.version }}
+          body: |
+            ## GoldRegenDB ${{ steps.get_version.outputs.version }}
+
+            ### Docker Images
+            Die fertigen Images sind im GitHub Container Registry verfügbar:
+            - **Backend:** `${{ env.REGISTRY }}/${{ steps.get_version.outputs.owner_lower }}/goldregendb-backend:${{ steps.get_version.outputs.version }}`
+            - **Frontend:** `${{ env.REGISTRY }}/${{ steps.get_version.outputs.owner_lower }}/goldregendb-frontend:${{ steps.get_version.outputs.version }}`
+
+            ### Synology Deployment
+            Das Deployment-Paket (`goldregendb-synology-*.zip`) enthält alle benötigten Dateien.
+            Siehe `README.md` im Paket für die Installationsanleitung.
+          files: goldregendb-synology-${{ steps.get_version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
