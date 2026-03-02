@@ -37,15 +37,6 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
 });
-// Routes
-app.use('/api/kunden', kundenRoutes);
-app.use('/api/schmuckstuecke', schmuckstueckeRoutes);
-app.use('/api/lieferscheine', lieferscheineRoutes);
-app.use('/api/rechnungen', rechnungenRoutes);
-app.use('/api/audit-log', auditLogRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/debug', require('./routes/debug'));
-app.use('/api/users', usersRoutes);
 
 // Public routes
 app.use('/api/auth/login', loginLimiter);
@@ -64,7 +55,7 @@ app.use('/api/lieferscheine', apiLimiter, authenticate, lieferscheineRoutes);
 app.use('/api/rechnungen', apiLimiter, authenticate, rechnungenRoutes);
 app.use('/api/users', apiLimiter, authenticate, requireAdmin, usersRoutes);
 
-// SumUp routes (öffentlich)
+// SumUp routes (authentifiziert)
 app.use('/api/sumup', apiLimiter, authenticate, sumupRoutes);
 
 // Admin-only routes
