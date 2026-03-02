@@ -1,4 +1,6 @@
-# GoldRegenDB – Schmuckverwaltung Web-Anwendung
+# GitHub Copilot Instructions – GoldRegenDB – Schmuckverwaltung Web-Anwendung
+
+Dieses Dokument beschreibt die Konventionen und wichtigsten Fakten des Projekts, damit GitHub Copilot passende Vorschläge machen kann.
 
 ## Projektübersicht
 
