@@ -91,8 +91,8 @@ export const api = {
   uploadFoto: (file, artikelnummer) => {
     const formData = new FormData();
     formData.append('foto', file);
-    formData.append('artikelnummer', artikelnummer);
-    return requestFormData('/schmuckstuecke/upload', { method: 'POST', body: formData });
+    const qs = new URLSearchParams({ artikelnummer }).toString();
+    return requestFormData(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
 

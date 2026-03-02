@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     // Extract base article number (without suffix like _1, _2)
-    let artikelnummer = req.body.artikelnummer || 'unknown';
+    let artikelnummer = req.query.artikelnummer || 'unknown';
     const baseArtikelnummer = artikelnummer.split('_')[0];
     cb(null, `${baseArtikelnummer}${ext}`);
   },
