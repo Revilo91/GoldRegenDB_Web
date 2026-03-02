@@ -58,6 +58,23 @@ export default function Lieferscheine() {
     }
   };
 
+  const handleExcelExport = async (id, nummer) => {
+    try {
+      const blob = await api.exportLieferscheinExcel(id);
+      const url = window.URL.createObjectURL(blob);
+      const safeNummer = String(nummer || id).replace(/[\\/:*?"<>|]+/g, "_");
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Lieferschein_${safeNummer}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const loadAvailablePieces = async () => {
     try {
       const resp = await api.getSchmuckstuecke({
@@ -414,9 +431,7 @@ export default function Lieferscheine() {
               <button
                 className="btn btn-primary btn-sm"
                 style={{ marginLeft: "auto", marginRight: 8 }}
-                onClick={() =>
-                  window.open(api.getLieferscheinExcel(detail.ID), "_blank")
-                }>
+                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
                 Lieferschein erstellen
               </button>
               <button
