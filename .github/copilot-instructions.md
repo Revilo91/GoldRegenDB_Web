@@ -110,8 +110,102 @@ docker compose up --build -d
 
 `[Hersteller][Material][Produktart][Nr]_[Exemplar]` – Beispiel: `MBH001_1`
 
-| Stelle | Bedeutung  | Beispielwerte                                  |
-| ------ | ---------- | ---------------------------------------------- |
-| 1      | Hersteller | `M`=Marina, `S`=Saskia                         |
-| 2      | Material   | `B`=Beton, `H`=Harz, `P`=Perle, `W`=Holz, … |
+### Stellen-Bedeutung
+
+| Stelle | Bedeutung  | Code → Wert |
+| ------ | ---------- | ----------- |
+| 1      | Hersteller | `M`=Marina, `S`=Saskia |
 | 3      | Produktart | `A`=Armband, `H`=Halskette, `O`=Ohrring, `S`=Schlüsselanhänger |
+
+### Material-Codes (Stelle 2)
+
+| Code | Material       | Code | Material        |
+| ---- | -------------- | ---- | --------------- |
+| `A`  | Alkoholtinte   | `M`  | Makramee        |
+| `B`  | Beton          | `N`  | Naturstein      |
+| `C`  | Cucio          | `P`  | Perle           |
+| `E`  | Edelstahl      | `S`  | Schrumpffolie   |
+| `F`  | Fimo           | `W`  | Holz            |
+| `H`  | Harz           | `X`  | 3D-Druck        |
+| `I`  | Phiole         | `Y`  | Cabochon        |
+| `J`  | Papier         |      |                 |
+| `K`  | Kordel         |      |                 |
+| `L`  | Leder          |      |                 |
+
+---
+
+## Projektstruktur
+
+```
+GoldRegenDB_Web_new/
+├── docker-compose.yml              # Produktion
+├── docker-compose.dev.yml          # Entwicklung (Hot Reload)
+├── docker-compose.synology.yml     # Synology-NAS-spezifisch
+├── .env.example
+├── agent.md                        # Vollständige Dokumentation
+├── db/
+│   └── init.sql                    # PostgreSQL-Schema (6 Tabellen + Trigger)
+├── backend/
+│   └── src/
+│       ├── index.js                # Express Entry-Point
+│       ├── config/db.js            # PostgreSQL-Verbindung (pg Pool)
+│       ├── routes/
+│       │   ├── auth.js             # Login, /me
+│       │   ├── users.js            # Benutzerverwaltung (Admin)
+│       │   ├── dashboard.js        # Statistiken
+│       │   ├── kunden.js           # Kunden CRUD
+│       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD
+│       │   ├── lieferscheine.js    # Lieferscheine CRUD
+│       │   ├── rechnungen.js       # Rechnungen CRUD
+│       │   ├── auditLog.js         # Audit-Log (Admin)
+│       │   └── debug.js            # Debug-Endpunkte (Admin)
+│       ├── middleware/auth.js      # JWT-Middleware
+│       └── utils/excelService.js  # Excel-Export
+└── frontend/
+    └── src/
+        ├── App.jsx                 # Router, Layout, Navigation
+        ├── api.js                  # API-Client (alle Backend-Aufrufe)
+        ├── context/AuthContext.jsx # Auth-State
+        ├── components/
+        │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly prop)
+        └── pages/
+            ├── Login.jsx, Dashboard.jsx, Schmuckstuecke.jsx
+            ├── Kunden.jsx, Lieferscheine.jsx, Rechnungen.jsx
+            ├── AuditLog.jsx (Admin), Debug.jsx (Admin)
+            └── Benutzerverwaltung.jsx (Admin)
+```
+
+---
+
+## API-Endpunkte
+
+| Methode | Pfad | Auth | Beschreibung |
+| ------- | ---- | ---- | ------------ |
+| POST | `/api/auth/login` | — | Login → JWT |
+| GET | `/api/auth/me` | JWT | Eigene Benutzerdaten |
+| GET | `/api/health` | — | Health-Check |
+| GET | `/api/dashboard` | JWT | Statistiken |
+| CRUD | `/api/kunden` | JWT | Kunden |
+| CRUD | `/api/schmuckstuecke` | JWT | Schmuckstücke |
+| CRUD | `/api/lieferscheine` | JWT | Lieferscheine |
+| CRUD | `/api/rechnungen` | JWT | Rechnungen |
+| GET | `/api/audit-log` | Admin | Änderungsprotokoll |
+| CRUD | `/api/users` | Admin | Benutzerverwaltung |
+| GET | `/api/debug` | Admin | Debug-Infos |
+
+---
+
+## Docker
+
+| Service   | Entwicklung | Produktion          |
+| --------- | ----------- | ------------------- |
+| Frontend  | 5173        | 3000 (→ Nginx :80)  |
+| Backend   | 3001        | 3001                |
+| Datenbank | 5432        | 5432                |
+
+---
+
+## Excel-Export
+
+`generateExcel(type, data, logoPath?)` in `backend/src/utils/excelService.js`.
+Standard-Logo: `backend/src/assets/Logo trasparent weißer Kreis.png`.
