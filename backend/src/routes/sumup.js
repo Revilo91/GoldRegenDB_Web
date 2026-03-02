@@ -39,6 +39,8 @@ router.post("/import", async (req, res) => {
 
     // Artikelnummern aus verschiedenen Spalten extrahieren
     const artikelnummern = new Set();
+
+    // Relevante Spalten für Artikelnummern (explizit definierte Liste)
     const beschreibungFields = [
       'Beschreibung', 'Description',
       'SKU', 'Barcode',
@@ -47,20 +49,70 @@ router.post("/import", async (req, res) => {
       'Name', 'Produktname', 'Product Name'
     ];
 
-    rows.forEach(row => {
+    // Spalten, die NICHT durchsucht werden sollen (Blacklist)
+    const blacklistedFields = [
+      'Währung', 'Currency', 'EUR', 'USD',
+      'Datum', 'Date', 'Zeit', 'Time',
+      'Betrag', 'Amount', 'Preis', 'Price',
+      'Status', 'Typ', 'Type',
+      'Transaktionsnummer', 'Transaction', 'ID',
+      'Zahlungsmethode', 'Payment',
+      'Menge', 'Quantity',
+      'Rabatt', 'Discount',
+      'Steuer', 'Tax', 'Steuersatz',
+      'Konto', 'Account'
+    ];
+
+    console.log('Processing rows:', rows.length);
+    console.log('Available fields in first row:', rows.length > 0 ? Object.keys(rows[0]) : 'No rows');
+
+    rows.forEach((row, idx) => {
+      // Durchsuche zuerst die explizit definierten Felder
       for (const field of beschreibungFields) {
         const value = row[field];
         if (value) {
           const extracted = extractArtikelnummer(value);
           if (extracted) {
+            console.log(`Row ${idx}: Found "${extracted}" in field "${field}" from value "${value}"`);
             artikelnummern.add(extracted.toUpperCase());
           }
         }
       }
     });
 
+    // Falls nichts gefunden wurde, versuche case-insensitive Suche (aber nur in nicht-blacklisteten Feldern)
     if (artikelnummern.size === 0) {
-      return res.status(400).json({ error: "Keine gültigen Artikelnummern gefunden" });
+      console.log('No articles found in standard fields, trying case-insensitive search in allowed fields...');
+
+      rows.forEach((row, idx) => {
+        for (const key of Object.keys(row)) {
+          // Prüfe, ob das Feld auf der Blacklist steht
+          const isBlacklisted = blacklistedFields.some(blacklisted =>
+            key.toLowerCase().includes(blacklisted.toLowerCase())
+          );
+
+          if (!isBlacklisted) {
+            const value = row[key];
+            if (value && typeof value === 'string') {
+              const extracted = extractArtikelnummer(value);
+              if (extracted) {
+                console.log(`Row ${idx}: Found (case-insensitive) "${extracted}" in field "${key}" from value "${value}"`);
+                artikelnummern.add(extracted.toUpperCase());
+              }
+            }
+          }
+        }
+      });
+    }
+
+    if (artikelnummern.size === 0) {
+      const availableFields = rows.length > 0 ? Object.keys(rows[0]) : [];
+      console.log('No article numbers found. Available fields:', availableFields);
+      return res.status(400).json({
+        error: "Keine gültigen Artikelnummern gefunden",
+        hinweis: "Die CSV-Datei muss eine der folgenden Spalten enthalten: Beschreibung, SKU, Barcode, Artikelnummer oder Name. Gültige Artikelnummern folgen dem Muster: M/S + 2 Buchstaben + 3 Ziffern (z.B. MBH001)",
+        verfuegbareSpalten: availableFields
+      });
     }
 
     const artikelnummernArray = Array.from(artikelnummern);
