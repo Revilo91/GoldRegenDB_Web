@@ -72,8 +72,8 @@ export default function Datensicherung() {
 
   return (
     <div className="page-header">
-      <h2>💾 Datensicherung</h2>
-      <p>
+      <h2>Datensicherung</h2>
+      <p style={{ marginBottom: "32px", fontSize: "1rem", lineHeight: "1.5" }}>
         Exportieren Sie alle Daten als JSON-Backup oder stellen Sie einen
         früheren Stand aus einer Backup-Datei wieder her.
       </p>
@@ -81,11 +81,11 @@ export default function Datensicherung() {
       {/* Info box */}
       <div
         className="card"
-        style={{ marginTop: "24px", borderLeft: "4px solid var(--gold)" }}
+        style={{ marginBottom: "32px", borderLeft: "4px solid var(--gold)" }}
       >
-        <div className="card-body">
-          <strong>ℹ️ Datenpersistenz bei Docker-Neustart</strong>
-          <p style={{ marginTop: "8px", marginBottom: 0 }}>
+        <div className="card-body" style={{ padding: "24px" }}>
+          <strong style={{ fontSize: "1.05rem" }}>ℹ️ Datenpersistenz bei Docker-Neustart</strong>
+          <p style={{ marginTop: "12px", marginBottom: 0, lineHeight: "1.6" }}>
             Die Datenbankdaten werden im Docker-Volume{" "}
             <code>pgdata</code> gespeichert und bleiben bei einem normalen{" "}
             <code>docker compose restart</code> oder{" "}
@@ -99,18 +99,18 @@ export default function Datensicherung() {
       </div>
 
       {/* Export Section */}
-      <div className="card" style={{ marginTop: "24px" }}>
-        <div className="card-header">
+      <div className="card" style={{ marginBottom: "32px" }}>
+        <div className="card-header" style={{ padding: "20px 24px" }}>
           <h3>📤 Daten exportieren</h3>
         </div>
-        <div className="card-body">
-          <p>
+        <div className="card-body" style={{ padding: "24px" }}>
+          <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
             Lädt alle Kunden, Lieferscheine, Rechnungen und Schmuckstücke als
             JSON-Datei herunter. Diese Datei kann später für einen Import
             verwendet werden.
           </p>
           {exportError && (
-            <div className="badge danger" style={{ marginBottom: "12px" }}>
+            <div className="badge danger" style={{ marginBottom: "20px" }}>
               {exportError}
             </div>
           )}
@@ -125,12 +125,12 @@ export default function Datensicherung() {
       </div>
 
       {/* Import Section */}
-      <div className="card" style={{ marginTop: "24px" }}>
-        <div className="card-header">
+      <div className="card">
+        <div className="card-header" style={{ padding: "20px 24px" }}>
           <h3>📥 Daten importieren</h3>
         </div>
-        <div className="card-body">
-          <p>
+        <div className="card-body" style={{ padding: "24px" }}>
+          <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
             <strong>⚠️ Achtung:</strong> Beim Import werden{" "}
             <strong>alle vorhandenen Datensätze gelöscht</strong> und durch den
             Inhalt der Backup-Datei ersetzt. Dieser Vorgang kann nicht rückgängig
@@ -138,7 +138,7 @@ export default function Datensicherung() {
           </p>
 
           {importResult && (
-            <div className="badge success" style={{ marginBottom: "12px" }}>
+            <div className="badge success" style={{ marginBottom: "20px", padding: "12px 16px" }}>
               ✅ Import erfolgreich! Importiert:{" "}
               {Object.entries(importResult.counts)
                 .map(([t, n]) => `${n} ${TABLE_LABELS[t] ?? t}`)
@@ -146,7 +146,7 @@ export default function Datensicherung() {
             </div>
           )}
           {importError && (
-            <div className="badge danger" style={{ marginBottom: "12px" }}>
+            <div className="badge danger" style={{ marginBottom: "20px", padding: "12px 16px" }}>
               {importError}
             </div>
           )}
