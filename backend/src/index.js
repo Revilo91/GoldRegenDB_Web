@@ -12,6 +12,7 @@ const auditLogRoutes = require('./routes/auditLog');
 const dashboardRoutes = require('./routes/dashboard');
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
+const sumupRoutes = require('./routes/sumup');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,6 +62,7 @@ app.use('/api/kunden', apiLimiter, authenticate, kundenRoutes);
 app.use('/api/schmuckstuecke', apiLimiter, authenticate, schmuckstueckeRoutes);
 app.use('/api/lieferscheine', apiLimiter, authenticate, lieferscheineRoutes);
 app.use('/api/rechnungen', apiLimiter, authenticate, rechnungenRoutes);
+app.use('/api/sumup', apiLimiter, authenticate, sumupRoutes);
 
 // Admin-only routes
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);

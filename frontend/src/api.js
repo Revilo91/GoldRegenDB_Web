@@ -76,6 +76,10 @@ export const api = {
   // Sumup CSV Export
   getSumupExport: () => `${API_URL}/schmuckstuecke/sumup-export`,
 
+  // SumUp Import
+  importSumupCsv: (csvData) =>
+    request('/sumup/import', { method: 'POST', body: JSON.stringify({ csvData }) }),
+
   // Benutzerverwaltung
   getUsers: () => request('/users'),
   getUser: (id) => request(`/users/${id}`),
