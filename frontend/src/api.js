@@ -14,6 +14,16 @@ async function request(url, options = {}) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+
+    // Bei SumUp-Import Debug-Infos in Console loggen
+    if (url.includes('/sumup/import') && err.verfuegbareSpalten) {
+      console.error('SumUp Import Fehler-Details:', {
+        verfuegbareSpalten: err.verfuegbareSpalten,
+        beispieldaten: err.beispieldaten,
+        hinweis: err.hinweis
+      });
+    }
+
     throw new Error(errorMessage);
   }
   return res.json();
@@ -73,10 +83,23 @@ export const api = {
   getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
   getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
 
-  // Sumup CSV Export
-  getSumupExport: () => `${API_URL}/schmuckstuecke/sumup-export`,
+  // Sumup
+  // Export - Blob-Download mit Token
+  exportSumupCsv: async () => {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_URL}/sumup/export`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.blob();
+  },
 
-  // SumUp Import
+  // Import
   importSumupCsv: (csvText) =>
     request('/sumup/import', { method: 'POST', body: JSON.stringify({ csvData: csvText }) }),
 

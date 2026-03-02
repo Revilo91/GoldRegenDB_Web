@@ -62,6 +62,9 @@ app.use('/api/kunden', apiLimiter, authenticate, kundenRoutes);
 app.use('/api/schmuckstuecke', apiLimiter, authenticate, schmuckstueckeRoutes);
 app.use('/api/lieferscheine', apiLimiter, authenticate, lieferscheineRoutes);
 app.use('/api/rechnungen', apiLimiter, authenticate, rechnungenRoutes);
+app.use('/api/users', apiLimiter, authenticate, requireAdmin, usersRoutes);
+
+// SumUp routes (öffentlich)
 app.use('/api/sumup', apiLimiter, authenticate, sumupRoutes);
 
 // Admin-only routes
