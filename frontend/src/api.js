@@ -29,6 +29,21 @@ async function request(url, options = {}) {
   return res.json();
 }
 
+async function requestFormData(url, options = {}) {
+  const token = getToken();
+  const headers = { ...options.headers };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${API_URL}${url}`, { headers, ...options });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
 async function downloadBlob(url) {
   const token = getToken();
   const headers = {};
@@ -73,6 +88,12 @@ export const api = {
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
   updateSchmuckstueck: (nr, data) => request(`/schmuckstuecke/${nr}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`, { method: 'DELETE' }),
+  uploadFoto: (file) => {
+    const formData = new FormData();
+    formData.append('foto', file);
+    return requestFormData('/schmuckstuecke/upload', { method: 'POST', body: formData });
+  },
+  getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
 
   // Lieferscheine
   getLieferscheine: () => request('/lieferscheine'),

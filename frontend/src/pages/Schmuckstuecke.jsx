@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "../api";
+import PhotoUpload from "../components/PhotoUpload";
 
 export default function Schmuckstuecke() {
   const [data, setData] = useState({ data: [], pagination: {} });
@@ -40,10 +41,12 @@ export default function Schmuckstuecke() {
 
   const handleSave = async () => {
     try {
+      const dataToSave = { ...form };
+
       if (editing === "new") {
-        await api.createSchmuckstueck(form);
+        await api.createSchmuckstueck(dataToSave);
       } else {
-        await api.updateSchmuckstueck(editing, form);
+        await api.updateSchmuckstueck(editing, dataToSave);
       }
       setEditing(null);
       load();
@@ -375,6 +378,19 @@ export default function Schmuckstuecke() {
                 ×
               </button>
             </div>
+
+            {/* Photo Display */}
+            {selected.Foto && (
+              <div style={{ textAlign: "center", padding: "16px 0", borderBottom: "1px solid #ddd" }}>
+                <img
+                  src={api.getPhotoUrl(selected.Foto)}
+                  alt={selected.Artikelnummer}
+                  style={{ maxWidth: "200px", maxHeight: "200px", borderRadius: "8px" }}
+                  onError={(e) => { e.target.style.display = "none"; }}
+                />
+              </div>
+            )}
+
             <div className="detail-grid">
               {[
                 ["Grundmaterial", selected.Grundmaterial],
@@ -552,7 +568,17 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>🔍 Details (Hauptstück)</h4>
+                <h4>� Foto</h4>
+                <PhotoUpload
+                  initialPhoto={form.Foto}
+                  onPhotoSelected={(photoPath) => {
+                    setForm({ ...form, Foto: photoPath });
+                  }}
+                />
+              </div>
+
+              <div className="form-section">
+                <h4>�🔍 Details (Hauptstück)</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Form</label>
