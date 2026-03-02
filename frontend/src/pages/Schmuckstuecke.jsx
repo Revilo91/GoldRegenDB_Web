@@ -570,6 +570,7 @@ export default function Schmuckstuecke() {
               <div className="form-section">
                 <h4>� Foto</h4>
                 <PhotoUpload
+                  artikelnummer={form.Artikelnummer}
                   initialPhoto={form.Foto}
                   onPhotoSelected={(photoPath) => {
                     setForm({ ...form, Foto: photoPath });

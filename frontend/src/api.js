@@ -88,9 +88,10 @@ export const api = {
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
   updateSchmuckstueck: (nr, data) => request(`/schmuckstuecke/${nr}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`, { method: 'DELETE' }),
-  uploadFoto: (file) => {
+  uploadFoto: (file, artikelnummer) => {
     const formData = new FormData();
     formData.append('foto', file);
+    formData.append('artikelnummer', artikelnummer);
     return requestFormData('/schmuckstuecke/upload', { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
