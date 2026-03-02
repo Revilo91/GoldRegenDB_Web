@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 
-export default function PhotoUpload({ onPhotoSelected, initialPhoto }) {
+export default function PhotoUpload({ artikelnummer, onPhotoSelected, initialPhoto }) {
   const [preview, setPreview] = useState(initialPhoto ? api.getPhotoUrl(initialPhoto) : null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -34,7 +34,7 @@ export default function PhotoUpload({ onPhotoSelected, initialPhoto }) {
       reader.readAsDataURL(file);
 
       // Upload
-      const result = await api.uploadFoto(file);
+      const result = await api.uploadFoto(file, artikelnummer);
       if (result.success || result.path) {
         onPhotoSelected(result.path);
       }
