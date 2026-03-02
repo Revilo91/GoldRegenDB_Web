@@ -31,13 +31,52 @@ router.get('/export', async (req, res) => {
   }
 });
 
+// Helper function to normalize different backup formats
+function normalizeBackupData(data) {
+  // Format 1: Standard backup format { version, timestamp, tables: { Kunde: [...], ... } }
+  if (data.tables && typeof data.tables === 'object' && data.version) {
+    return { version: data.version, tables: data.tables };
+  }
+
+  // Format 2: SQL Export format [{ type: "header" }, { type: "table", name: "...", data: [...] }, ...]
+  if (Array.isArray(data)) {
+    const normalized = {
+      version: '1.0',
+      tables: {},
+    };
+
+    // Extract version from header if present
+    const header = data.find((item) => item.type === 'header');
+    if (header && header.version) {
+      normalized.version = header.version;
+    }
+
+    // Extract table data from items with type: "table"
+    const tableItems = data.filter((item) => item.type === 'table');
+    for (const item of tableItems) {
+      if (item.name && Array.isArray(item.data)) {
+        normalized.tables[item.name] = item.data;
+      }
+    }
+
+    return normalized;
+  }
+
+  return null;
+}
+
 // POST /api/backup/import – Import data from a previously exported JSON backup
 router.post('/import', async (req, res) => {
-  const { tables, version } = req.body;
+  // Try to normalize the incoming data (supports multiple formats)
+  const normalized = normalizeBackupData(req.body);
 
-  if (!tables || !version) {
-    return res.status(400).json({ error: 'Ungültiges Backup-Format' });
+  if (!normalized || !normalized.tables || !normalized.version) {
+    return res.status(400).json({
+      error: 'Ungültiges Backup-Format. Unterstützte Formate: Standard-Backup oder SQL-Export-Array.'
+    });
   }
+
+  const { tables, version } = normalized;
 
   const client = await db.pool.connect();
   try {
@@ -48,24 +87,52 @@ router.post('/import', async (req, res) => {
       `TRUNCATE TABLE "Schmuckstück", "Rechnung", "Lieferschein", "Kunde" RESTART IDENTITY CASCADE`
     );
 
+    // Helper: Get actual column names from database schema
+    const getTableColumns = async (tableName) => {
+      const result = await client.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_name = $1
+         ORDER BY ordinal_position`,
+        [tableName]
+      );
+      return result.rows.map((row) => row.column_name);
+    };
+
     // Helper: bulk-insert rows for a table in batches to avoid PostgreSQL param limit (65535)
+    // Only inserts columns that exist in the current database schema
     const insertRows = async (tableName, rows) => {
       if (!rows || rows.length === 0) return;
+
+      // Get valid columns from database schema
+      const validColumns = await getTableColumns(tableName);
 
       const BATCH_SIZE = 100; // Process 100 rows at a time (safe for tables with ~34 columns)
 
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
-        const cols = Object.keys(batch[0])
-          .map((c) => `"${c}"`)
-          .join(', ');
-        const colCount = Object.keys(batch[0]).length;
+
+        // Filter to only include columns that exist in both backup data AND current schema
+        const backupColumns = Object.keys(batch[0]);
+        const columnsToInsert = backupColumns.filter((col) => validColumns.includes(col));
+
+        if (columnsToInsert.length === 0) {
+          console.warn(`No matching columns found for table ${tableName}`);
+          continue;
+        }
+
+        const cols = columnsToInsert.map((c) => `"${c}"`).join(', ');
+        const colCount = columnsToInsert.length;
         const placeholders = batch
           .map((_, rowIdx) =>
             `(${Array.from({ length: colCount }, (__, colIdx) => `$${rowIdx * colCount + colIdx + 1}`).join(', ')})`
           )
           .join(', ');
-        const values = batch.flatMap((row) => Object.values(row));
+
+        // Extract only the values for columns that will be inserted
+        const values = batch.flatMap((row) =>
+          columnsToInsert.map((col) => row[col])
+        );
 
         await client.query(
           `INSERT INTO "${tableName}" (${cols}) VALUES ${placeholders}`,
