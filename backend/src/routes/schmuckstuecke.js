@@ -193,6 +193,99 @@ router.get("/filter-options", async (req, res) => {
   }
 });
 
+// GET Sumup CSV export (Ausgelagert=0, Ausschuss=0, Verkauft=0)
+router.get("/sumup-export", async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT "Artikelnummer", "Name", "Art", "Material", "Farbe",
+              "Verkaufspreis", "Form", "Fassung",
+              "Inhalt_Zusatzmaterial", "Anhänger_Fassung", "Anhänger_Form",
+              "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Zusatzmaterial",
+              "Anhänger", "Zwischenstück"
+       FROM "Schmuckstück"
+       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0
+       ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+    );
+
+    const escape = (val) => {
+      if (val === null || val === undefined) return "";
+      const str = String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    const getItemName = (s) => {
+      if (s.Name && s.Name.trim()) return s.Name.trim();
+      const artCode = (s.Artikelnummer || "")[2];
+      const getVal = (val) => (val && val !== "0" && val !== 0 ? val : null);
+      if (artCode === "H") {
+        const parts = [
+          "Halskette",
+          getVal(s["Anhänger_Fassung"]),
+          getVal(s["Anhänger_Form"]),
+          getVal(s["Anhänger_Inhalt_Farbe"]),
+          getVal(s["Anhänger_Inhalt_Zusatzmaterial"]),
+        ].filter(Boolean);
+        return parts.join(" ");
+      } else if (artCode === "O") {
+        const parts = [
+          "Ohrring",
+          getVal(s.Art),
+          getVal(s.Form),
+          getVal(s.Fassung),
+          getVal(s.Farbe),
+          getVal(s.Inhalt_Zusatzmaterial),
+        ].filter(Boolean);
+        return parts.join(" ");
+      } else if (artCode === "A") {
+        const parts = [
+          "Armband",
+          getVal(s.Art),
+          getVal(s.Farbe),
+          getVal(s["Anhänger"]),
+          getVal(s["Zwischenstück"]),
+        ].filter(Boolean);
+        return parts.join(" ");
+      } else if (artCode === "S") {
+        const parts = [
+          "Schlüsselanhänger",
+          getVal(s.Art),
+          getVal(s.Form),
+        ].filter(Boolean);
+        return parts.join(" ");
+      }
+      return [s.Art, s.Material, s.Farbe].filter(Boolean).join(" ");
+    };
+
+    const headers = ["Item name", "Price", "SKU", "Category"];
+    const lines = [headers.join(",")];
+
+    rows.forEach((s) => {
+      const itemName = getItemName(s);
+      const price = Number(s.Verkaufspreis) || 0;
+      const sku = s.Artikelnummer || "";
+      const category = s.Art || GRUNDMATERIAL[(s.Artikelnummer || "")[1]?.toUpperCase()] || "";
+      lines.push(
+        [escape(itemName), escape(price.toFixed(2)), escape(sku), escape(category)].join(","),
+      );
+    });
+
+    const csv = lines.join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Sumup_Export_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    res.send("\uFEFF" + csv); // BOM for Excel compatibility
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Fehler beim Erstellen des Sumup-Exports" });
+  }
+});
+
 // GET single piece
 router.get("/:artikelnummer", async (req, res) => {
   try {
