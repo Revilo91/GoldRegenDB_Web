@@ -204,23 +204,7 @@ export default function Sumup() {
             disabled={sumupImporting}
             style={{ display: "none" }}
           />
-          {/* Warning Card */}
-          <div className="alert-card info" style={{ marginTop: "24px" }}>
-            <div className="alert-card-body">
-              <div className="alert-card-title">
-                <span>ℹ️</span>
-                <span>CSV-Format:</span>
-              </div>
-              <div className="alert-card-content">
-                <p>
-                  Die CSV-Datei sollte eine Spalte mit Artikelnummern enthalten.{" "}
-                  <br></br>
-                  Unterstützte Spaltennamen:
-                </p>
-                <code>SKU</code>, <code>Barcode</code>, <code>Produktnummer</code>, <code>Artikelnummer</code>, <code>Product ID</code>, <code>Name</code>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
