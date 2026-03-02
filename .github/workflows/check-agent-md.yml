@@ -1,0 +1,133 @@
+name: agent.md aktuell halten
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'db/**'
+      - 'docker-compose*.yml'
+      - '.env.example'
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'db/**'
+      - 'docker-compose*.yml'
+      - '.env.example'
+
+jobs:
+  check-agent-md:
+    name: Prüfen ob agent.md aktualisiert wurde
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Geänderte Dateien ermitteln
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          elif git rev-parse HEAD^ >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only HEAD^ HEAD)
+          else
+            # Initialer Commit: alle Dateien im Commit auflisten
+            CHANGED=$(git diff-tree --no-commit-id -r --name-only HEAD)
+          fi
+
+          echo "Geänderte Dateien:"
+          echo "$CHANGED"
+
+          AGENT_CHANGED=false
+          for f in $CHANGED; do
+            if [ "$f" = "agent.md" ]; then
+              AGENT_CHANGED=true
+            fi
+          done
+
+          echo "agent_changed=$AGENT_CHANGED" >> "$GITHUB_OUTPUT"
+
+      - name: Kommentar in Pull Request hinterlassen
+        if: github.event_name == 'pull_request' && steps.changed.outputs.agent_changed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                '## ⚠️ agent.md wurde nicht aktualisiert',
+                '',
+                'Dieser Pull Request ändert Projektdateien (`backend/`, `frontend/`, `db/` oder `docker-compose*.yml`), aber **`agent.md` wurde nicht angepasst**.',
+                '',
+                'Bitte prüfe, ob die Änderungen in `agent.md` dokumentiert werden müssen:',
+                '- Neue oder geänderte Routen / Endpunkte',
+                '- Neue oder geänderte Frontend-Seiten / Komponenten',
+                '- Datenbankschema-Änderungen',
+                '- Neue Abhängigkeiten oder Konfigurationsoptionen',
+                '- Änderungen am Authentifizierungsverhalten oder den Rollen',
+                '',
+                'Wenn keine Aktualisierung nötig ist, kann dieser Hinweis ignoriert werden.',
+              ].join('\n'),
+            });
+
+      - name: Issue erstellen (bei Push auf main/master)
+        if: github.event_name == 'push' && steps.changed.outputs.agent_changed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const shortSha = context.sha.slice(0, 7);
+            const commitUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
+
+            // Vorhandene offene Issues mit gleichem Titel suchen
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
+
+            const title = 'Agent.md an Projekt anpassen';
+            const existing = issues.find(i => i.title === title);
+
+            if (!existing) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: [
+                  `Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, aber \`agent.md\` wurde nicht aktualisiert.`,
+                  '',
+                  'Bitte prüfe, ob die folgenden Bereiche in `agent.md` dokumentiert werden müssen:',
+                  '- Neue oder geänderte Backend-Routen / Endpunkte',
+                  '- Neue oder geänderte Frontend-Seiten / Komponenten',
+                  '- Datenbankschema-Änderungen (`db/init.sql`)',
+                  '- Neue Abhängigkeiten (`package.json`)',
+                  '- Änderungen an Docker-Konfiguration oder Umgebungsvariablen',
+                  '- Änderungen am Authentifizierungsverhalten oder den Rollen',
+                ].join('\n'),
+                labels: [],
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Weiterer Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, ohne \`agent.md\` zu aktualisieren.`,
+              });
+            }
