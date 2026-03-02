@@ -1,6 +1,44 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Erstelle uploads-Verzeichnis falls nicht vorhanden
+const uploadsDir = path.join(__dirname, "../assets/uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer-Konfiguration für Foto-Upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    // Dateinamen: artikelnummer_timestamp.erweiterung
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    const timestamp = Date.now();
+    cb(null, `${name}_${timestamp}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ["image/jpeg", "image/png", "image/gif"];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Nur JPG, PNG und GIF Dateien sind erlaubt"));
+    }
+  },
+});
 
 const GRUNDMATERIAL = {
   A: "Alkoholtinte",
@@ -444,6 +482,77 @@ router.delete("/:artikelnummer", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
+  }
+});
+
+// POST upload photo
+router.post("/upload", upload.single("foto"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Keine Datei hochgeladen" });
+    }
+
+    const fileName = req.file.filename;
+    const relativePath = `uploads/${fileName}`;
+
+    res.json({
+      success: true,
+      fileName: fileName,
+      path: relativePath,
+      originalName: req.file.originalname,
+    });
+  } catch (err) {
+    console.error(err);
+    if (err.message.includes("Nur") || err.message.includes("erlaubt")) {
+      res.status(400).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: "Fehler beim Upload des Fotos" });
+    }
+  }
+});
+
+// GET photo by filename
+router.get("/foto/:fileName", (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const filePath = path.join(uploadsDir, fileName);
+
+    // Sicherheitsprüfung: Verhindere Directory Traversal
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: "Zugriff verweigert" });
+    }
+
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ error: "Foto nicht gefunden" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Fehler beim Abrufen des Fotos" });
+  }
+});
+
+// DELETE photo endpoint (optional, für Cleanup)
+router.delete("/foto/:fileName", async (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const filePath = path.join(uploadsDir, fileName);
+
+    // Sicherheitsprüfung
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: "Zugriff verweigert" });
+    }
+
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ message: "Foto gelöscht" });
+    } else {
+      res.status(404).json({ error: "Foto nicht gefunden" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Fehler beim Löschen des Fotos" });
   }
 });
 
