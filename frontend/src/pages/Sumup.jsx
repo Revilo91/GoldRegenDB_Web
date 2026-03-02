@@ -5,6 +5,7 @@ export default function Sumup() {
   const [sumupImporting, setSumupImporting] = useState(false);
   const [sumupResult, setSumupResult] = useState(null);
   const [sumupError, setSumupError] = useState(null);
+  const [sumupExport, setSumupExport] = useState(false);
 
   const sumupFileInputRef = useRef(null);
 
@@ -36,6 +37,26 @@ export default function Sumup() {
       setSumupError(err.message);
     } finally {
       setSumupImporting(false);
+    }
+  };
+
+  const handleSumupExport = async () => {
+    try {
+      setSumupExport(true);
+      const blob = await api.exportSumupCsv();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Sumup_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Export Error:', err);
+      alert(`❌ Fehler beim Export: ${err.message}`);
+    } finally {
+      setSumupExport(false);
     }
   };
 
@@ -73,9 +94,13 @@ export default function Sumup() {
             <li>✅ Vollständiges SumUp CSV-Format (35 Spalten)</li>
             <li>✅ SKU und Barcode für Inventar-Tracking</li>
           </ul>
-          <a className="btn btn-primary" href={api.getSumupExport()} download>
-            ⬇️ CSV für SumUp herunterladen
-          </a>
+          <button
+            className="btn btn-primary"
+            onClick={handleSumupExport}
+            disabled={sumupExport}
+          >
+            {sumupExport ? '⏳ Wird heruntergeladen...' : '⬇️ CSV für SumUp herunterladen'}
+          </button>
         </div>
       </div>
 
