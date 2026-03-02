@@ -80,4 +80,19 @@ export const api = {
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
   resetUserPassword: (id, newPassword) => request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+
+  // Datensicherung (Backup / Restore)
+  exportBackup: async () => {
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_URL}/backup/export`, { headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Export fehlgeschlagen');
+    }
+    return res.blob();
+  },
+  importBackup: (data) =>
+    request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
 };

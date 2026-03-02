@@ -320,6 +320,8 @@ GoldRegenDB_Web_new/
 
 | Methode | Pfad              | Beschreibung                           |
 | ------- | ----------------- | -------------------------------------- |
+| GET     | `/api/backup/export`  | Alle Tabellen als JSON exportieren         |
+| POST    | `/api/backup/import`  | Backup-Daten importieren (2 Formate)      |
 | GET     | `/api/audit-log`  | Änderungsprotokoll anzeigen            |
 | GET/POST/PUT/DELETE | `/api/users` | Benutzerverwaltung              |
 | GET     | `/api/debug`      | Debug-Informationen                    |
@@ -381,6 +383,33 @@ services:
 - Hot-Reload für Frontend (Vite) und Backend (node --watch)
 - Source-Volumes gemounted
 - `docker compose -f docker-compose.dev.yml up --build`
+
+---
+
+## Backup & Import
+
+Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den Export und Import von Datenbankdaten.
+
+### Export
+- Endpunkt: `GET /api/backup/export`
+- Erzeugt JSON-Datei mit alle Tabellen (Kunde, Lieferschein, Rechnung, Schmuckstück)
+- Format: Standard-Backup mit `version`, `timestamp` und `tables`-Property
+
+### Import
+- Endpunkt: `POST /api/backup/import`
+- **Unterstützt zwei Formate automatisch:**
+  1. **Standard-Backup-Format**: `{ "version": "...", "timestamp": "...", "tables": { "Kunde": [...], ... } }`
+  2. **SQL-Export-Array-Format**: `[{ "type": "header", ... }, { "type": "table", "name": "...", "data": [...] }, ...]`
+- **Schema-Kompatibilität**: Ignoriert Spalten, die nicht im aktuellen Datenbankschema existieren
+  - Importiert nur Spalten, die in **beiden** vorhanden sind (Backup-Daten + aktuelle DB)
+  - Fehlende Spalten verwenden Datenbank-Standard-Werte
+  - Hilft bei Migrations- und Schema-Evolution-Szenarien
+
+### Technische Details
+- Nutzt `information_schema.columns` um gültige Spalten zu ermitteln
+- Verarbeitet Daten in Batches (100 Zeilen pro Batch, um PostgreSQL-Parameterlimit zu vermeiden)
+- Setzt SERIAL-Sequenzen nach Import zurück, um PK-Konflikte zu vermeiden
+- Transaktional: Bei Fehler Rollback der gesamten Operation
 
 ---
 
