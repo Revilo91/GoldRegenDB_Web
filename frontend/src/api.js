@@ -29,6 +29,22 @@ async function request(url, options = {}) {
   return res.json();
 }
 
+async function downloadBlob(url) {
+  const token = getToken();
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_URL}${url}`, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || err.message || res.statusText || 'Download fehlgeschlagen');
+  }
+
+  return res.blob();
+}
+
 export const authApi = {
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
@@ -80,24 +96,12 @@ export const api = {
   getAuditLogForArtikel: (nr) => request(`/audit-log/artikel/${nr}`),
 
   // Excel Export
-  getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
-  getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
+  exportLieferscheinExcel: (id) => downloadBlob(`/lieferscheine/${id}/excel`),
+  exportRechnungExcel: (id) => downloadBlob(`/rechnungen/${id}/excel`),
 
   // Sumup
   // Export - Blob-Download mit Token
-  exportSumupCsv: async () => {
-    const token = getToken();
-    const headers = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    const res = await fetch(`${API_URL}/sumup/export`, { headers });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return res.blob();
-  },
+  exportSumupCsv: () => downloadBlob('/sumup/export'),
 
   // Import
   importSumupCsv: (csvText) =>
@@ -112,17 +116,7 @@ export const api = {
   resetUserPassword: (id, newPassword) => request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
-  exportBackup: async () => {
-    const token = getToken();
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${API_URL}/backup/export`, { headers });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'Export fehlgeschlagen');
-    }
-    return res.blob();
-  },
+  exportBackup: () => downloadBlob('/backup/export'),
   importBackup: (data) =>
     request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
 };
