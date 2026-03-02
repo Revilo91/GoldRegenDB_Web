@@ -142,22 +142,22 @@ router.post("/import", async (req, res) => {
       i.Artikelnummer.startsWith("S"),
     );
 
-    // Hole Kunde "SumUp" (ID 7 laut Python-Code)
+    // Hole Kunde "Messe"
     const { rows: kundenResult } = await db.query(
-      `SELECT "ID", "Name" FROM "Kunde" WHERE "Name" ILIKE '%sumup%' OR "ID" = 7 LIMIT 1`,
+      `SELECT "ID", "Name" FROM "Kunde" WHERE "Name" ILIKE '%messe%' LIMIT 1`,
     );
 
-    let sumupKunde;
+    let messeKunde;
     if (kundenResult.length === 0) {
-      // Erstelle SumUp-Kunde falls nicht vorhanden
+      // Erstelle Messe-Kunde falls nicht vorhanden
       const { rows: newKunde } = await db.query(
         `INSERT INTO "Kunde" ("Name", "Strasse", "Ort", "Aktiv")
-         VALUES ('SumUp', '', '', true)
+         VALUES ('Messe', '', '', true)
          RETURNING "ID", "Name"`,
       );
-      sumupKunde = newKunde[0];
+      messeKunde = newKunde[0];
     } else {
-      sumupKunde = kundenResult[0];
+      messeKunde = kundenResult[0];
     }
 
     // Beginne Transaktion
@@ -165,13 +165,20 @@ router.post("/import", async (req, res) => {
 
     try {
       // 1. Erstelle Lieferschein für alle Artikel
-      const lieferscheinNummer = `LS-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Date.now().toString().slice(-4)}`;
+      const aktuellesJahr = new Date().getFullYear();
+      const { rows: lieferscheinnummerResult } = await db.query(
+        `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+         FROM "Lieferschein"
+         WHERE "Nummer" ~ $1`,
+        [`^${aktuellesJahr}-[0-9]+$`],
+      );
+      const lieferscheinNummer = `${aktuellesJahr}-${String(Number(lieferscheinnummerResult[0].max_num) + 1).padStart(3, "0")}`;
 
       const { rows: lieferscheinResult } = await db.query(
         `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datum")
          VALUES ($1, $2, NOW())
          RETURNING "ID", "Nummer"`,
-        [lieferscheinNummer, sumupKunde.ID],
+        [lieferscheinNummer, messeKunde.ID],
       );
 
       const lieferschein = lieferscheinResult[0];
@@ -184,20 +191,31 @@ router.post("/import", async (req, res) => {
           `UPDATE "Schmuckstück"
            SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
            WHERE "Artikelnummer" = ANY($3) AND "Verkauft" = 0 AND "Ausschuss" = 0`,
-          [sumupKunde.ID, lieferschein.ID, artikelnummernArray],
+          [messeKunde.ID, lieferschein.ID, artikelnummernArray],
         );
       }
+
+      // Fortlaufende Rechnungsnummern im Format YYYY-XXX
+      const { rows: rechnungsnummerResult } = await db.query(
+        `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+         FROM "Rechnung"
+         WHERE "Nummer" ~ $1`,
+        [`^${aktuellesJahr}-[0-9]+$`],
+      );
+      let naechsteRechnungsnummer = Number(rechnungsnummerResult[0].max_num) + 1;
+      const createRechnungsnummer = () =>
+        `${aktuellesJahr}-${String(naechsteRechnungsnummer++).padStart(3, "0")}`;
 
       // 2. Erstelle Rechnung für Marina
       let rechnungMarina = null;
       if (marinaArtikelnummern.length > 0) {
-        const rechnungNummerM = `RE-M-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Date.now().toString().slice(-4)}`;
+        const rechnungNummerM = createRechnungsnummer();
 
         const { rows: rechnungMResult } = await db.query(
           `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
            VALUES ($1, $2, NOW())
            RETURNING "ID", "Nummer"`,
-          [rechnungNummerM, sumupKunde.ID],
+          [rechnungNummerM, messeKunde.ID],
         );
 
         rechnungMarina = rechnungMResult[0];
@@ -219,13 +237,13 @@ router.post("/import", async (req, res) => {
       // 3. Erstelle Rechnung für Saskia
       let rechnungSaskia = null;
       if (saskiaArtikelnummern.length > 0) {
-        const rechnungNummerS = `RE-S-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Date.now().toString().slice(-4)}`;
+        const rechnungNummerS = createRechnungsnummer();
 
         const { rows: rechnungSResult } = await db.query(
           `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
            VALUES ($1, $2, NOW())
            RETURNING "ID", "Nummer"`,
-          [rechnungNummerS, sumupKunde.ID],
+          [rechnungNummerS, messeKunde.ID],
         );
 
         rechnungSaskia = rechnungSResult[0];
