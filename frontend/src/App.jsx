@@ -17,6 +17,7 @@ import Rechnungen from "./pages/Rechnungen";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
+import Datensicherung from "./pages/Datensicherung";
 import "./index.css";
 
 function AppLayout() {
@@ -136,6 +137,15 @@ function AppLayout() {
                 <span className="nav-icon">🔐</span>
                 <span>Benutzerverwaltung</span>
               </NavLink>
+              <NavLink
+                to="/datensicherung"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? "active" : ""}`
+                }
+                onClick={closeMobileMenu}>
+                <span className="nav-icon">💾</span>
+                <span>Datensicherung</span>
+              </NavLink>
             </>
           )}
         </nav>
@@ -217,6 +227,14 @@ function AppLayout() {
             element={
               <ProtectedRoute adminOnly>
                 <Benutzerverwaltung />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/datensicherung"
+            element={
+              <ProtectedRoute adminOnly>
+                <Datensicherung />
               </ProtectedRoute>
             }
           />
