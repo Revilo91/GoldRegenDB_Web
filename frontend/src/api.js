@@ -14,9 +14,35 @@ async function request(url, options = {}) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+
+    // Bei SumUp-Import Debug-Infos in Console loggen
+    if (url.includes('/sumup/import') && err.verfuegbareSpalten) {
+      console.error('SumUp Import Fehler-Details:', {
+        verfuegbareSpalten: err.verfuegbareSpalten,
+        beispieldaten: err.beispieldaten,
+        hinweis: err.hinweis
+      });
+    }
+
     throw new Error(errorMessage);
   }
   return res.json();
+}
+
+async function downloadBlob(url) {
+  const token = getToken();
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_URL}${url}`, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || err.message || res.statusText || 'Download fehlgeschlagen');
+  }
+
+  return res.blob();
 }
 
 export const authApi = {
@@ -70,8 +96,16 @@ export const api = {
   getAuditLogForArtikel: (nr) => request(`/audit-log/artikel/${nr}`),
 
   // Excel Export
-  getLieferscheinExcel: (id) => `${API_URL}/lieferscheine/${id}/excel`,
-  getRechnungExcel: (id) => `${API_URL}/rechnungen/${id}/excel`,
+  exportLieferscheinExcel: (id) => downloadBlob(`/lieferscheine/${id}/excel`),
+  exportRechnungExcel: (id) => downloadBlob(`/rechnungen/${id}/excel`),
+
+  // Sumup
+  // Export - Blob-Download mit Token
+  exportSumupCsv: () => downloadBlob('/sumup/export'),
+
+  // Import
+  importSumupCsv: (csvText) =>
+    request('/sumup/import', { method: 'POST', body: JSON.stringify({ csvData: csvText }) }),
 
   // Benutzerverwaltung
   getUsers: () => request('/users'),
@@ -82,17 +116,7 @@ export const api = {
   resetUserPassword: (id, newPassword) => request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
-  exportBackup: async () => {
-    const token = getToken();
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${API_URL}/backup/export`, { headers });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'Export fehlgeschlagen');
-    }
-    return res.blob();
-  },
+  exportBackup: () => downloadBlob('/backup/export'),
   importBackup: (data) =>
     request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
 };

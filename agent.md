@@ -199,7 +199,7 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 | Rolle   | Seiten / Berechtigungen                                                        |
 | ------- | ------------------------------------------------------------------------------ |
-| `user`  | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen                    |
+| `user`  | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp             |
 | `admin` | Alles wie `user` + Audit Log, Debug, Benutzerverwaltung                        |
 
 ### Technische Details
@@ -254,6 +254,7 @@ GoldRegenDB_Web_new/
 │       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD
 │       │   ├── lieferscheine.js    # Lieferscheine CRUD
 │       │   ├── rechnungen.js       # Rechnungen CRUD
+│       │   ├── sumup.js            # SumUp CSV Import/Export
 │       │   ├── auditLog.js         # Audit-Log (Admin)
 │       │   └── debug.js            # Debug-Endpunkte (Admin)
 │       ├── middleware/
@@ -284,6 +285,7 @@ GoldRegenDB_Web_new/
 │           ├── Kunden.jsx          # Kundenverwaltung
 │           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung
 │           ├── Rechnungen.jsx      # Rechnungs-Verwaltung
+│           ├── Sumup.jsx           # SumUp CSV-Import/-Export
 │           ├── AuditLog.jsx        # Änderungsprotokoll (Admin)
 │           ├── Debug.jsx           # Debug-Oberfläche (Admin)
 │           └── Benutzerverwaltung.jsx  # Benutzerverwaltung (Admin)
@@ -313,6 +315,8 @@ GoldRegenDB_Web_new/
 | GET/POST/PUT/DELETE | `/api/schmuckstuecke` | Schmuckstücke CRUD       |
 | GET/POST/PUT/DELETE | `/api/lieferscheine` | Lieferscheine CRUD        |
 | GET/POST/PUT/DELETE | `/api/rechnungen` | Rechnungen CRUD              |
+| POST    | `/api/sumup/import`    | SumUp-Verkaufsbericht importieren (CSV) |
+| GET     | `/api/sumup/export`    | Verfügbare Schmuckstücke als SumUp-CSV exportieren |
 
 ### Admin-Only
 
@@ -501,6 +505,8 @@ VITE_API_URL=http://localhost:3001/api
 ### Phase 2: Erweiterte Features ✅ (teilweise)
 
 - [x] Export-Funktionen (Excel via exceljs)
+- [x] SumUp CSV-Export verfügbarer Schmuckstücke
+- [x] SumUp CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
 - [ ] Foto-Upload für Schmuckstücke (statt Netzwerk-Pfaden)
 - [ ] PDF-Generierung für Lieferscheine und Rechnungen
 - [ ] Barcode-/QR-Code-Scanner für Artikelnummern

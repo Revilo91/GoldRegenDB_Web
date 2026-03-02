@@ -78,23 +78,41 @@ export default function Datensicherung() {
         früheren Stand aus einer Backup-Datei wieder her.
       </p>
 
-      {/* Info box */}
-      <div
-        className="card"
-        style={{ marginBottom: "32px", borderLeft: "4px solid var(--gold)" }}
-      >
-        <div className="card-body" style={{ padding: "24px" }}>
-          <strong style={{ fontSize: "1.05rem" }}>ℹ️ Datenpersistenz bei Docker-Neustart</strong>
-          <p style={{ marginTop: "12px", marginBottom: 0, lineHeight: "1.6" }}>
-            Die Datenbankdaten werden im Docker-Volume{" "}
-            <code>pgdata</code> gespeichert und bleiben bei einem normalen{" "}
-            <code>docker compose restart</code> oder{" "}
-            <code>docker compose down &amp;&amp; docker compose up</code>{" "}
-            erhalten. Verwenden Sie niemals{" "}
-            <code>docker compose down -v</code>, da dieser Befehl alle Volumes
-            und damit alle Daten unwiderruflich löscht. Erstellen Sie vor
-            riskanten Aktionen stets ein Backup über die Export-Funktion unten.
-          </p>
+      {/* Warning Card */}
+      <div className="alert-card warning">
+        <div className="alert-card-body">
+          <div className="alert-card-title">
+            <span>⚠️</span>
+            <span>Wichtiger Hinweis</span>
+          </div>
+          <div className="alert-card-content">
+            <p>
+              Beim Import werden <strong>alle vorhandenen Datensätze gelöscht</strong> und durch den
+              Inhalt der Backup-Datei ersetzt. Dieser Vorgang kann nicht rückgängig gemacht werden.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Info Card */}
+      <div className="alert-card info">
+        <div className="alert-card-body">
+          <div className="alert-card-title">
+            <span>ℹ️</span>
+            <span>Datenpersistenz bei Docker-Neustart</span>
+          </div>
+          <div className="alert-card-content">
+            <p>
+              Die Datenbankdaten werden im Docker-Volume{" "}
+              <code>pgdata</code> gespeichert und bleiben bei einem normalen{" "}
+              <code>docker compose restart</code> oder{" "}
+              <code>docker compose down &amp;&amp; docker compose up</code>{" "}
+              erhalten. Verwenden Sie niemals{" "}
+              <code>docker compose down -v</code>, da dieser Befehl alle Volumes
+              und damit alle Daten unwiderruflich löscht. Erstellen Sie vor
+              riskanten Aktionen stets ein Backup über die Export-Funktion unten.
+            </p>
+          </div>
         </div>
       </div>
 

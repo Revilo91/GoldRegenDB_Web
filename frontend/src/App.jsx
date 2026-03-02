@@ -14,6 +14,7 @@ import Schmuckstuecke from "./pages/Schmuckstuecke";
 import Kunden from "./pages/Kunden";
 import Lieferscheine from "./pages/Lieferscheine";
 import Rechnungen from "./pages/Rechnungen";
+import Sumup from "./pages/Sumup";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
@@ -106,6 +107,13 @@ function AppLayout() {
             onClick={closeMobileMenu}>
             <span className="nav-icon">🧾</span>
             <span>Rechnungen</span>
+          </NavLink>
+          <NavLink
+            to="/sumup"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}>
+            <span className="nav-icon">💳</span>
+            <span>SumUp</span>
           </NavLink>
           {isAdmin && (
             <>
@@ -203,6 +211,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Rechnungen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sumup"
+            element={
+              <ProtectedRoute>
+                <Sumup />
               </ProtectedRoute>
             }
           />

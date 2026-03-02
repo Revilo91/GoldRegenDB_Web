@@ -22,6 +22,13 @@ const GRUNDMATERIAL = {
   Y: "Cabochon",
 };
 
+const PRODUKTART = {
+  A: "Armband",
+  H: "Halskette",
+  O: "Ohrring",
+  S: "Schlüsselanhänger",
+};
+
 // GET with pagination, search and filters
 router.get("/", async (req, res) => {
   try {
@@ -192,6 +199,7 @@ router.get("/filter-options", async (req, res) => {
     res.status(500).json({ error: "Fehler beim Laden der Filter-Optionen" });
   }
 });
+
 
 // GET single piece
 router.get("/:artikelnummer", async (req, res) => {

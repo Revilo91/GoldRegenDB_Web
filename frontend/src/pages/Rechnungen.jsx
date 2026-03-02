@@ -58,6 +58,23 @@ export default function Rechnungen() {
     }
   };
 
+  const handleExcelExport = async (id, nummer) => {
+    try {
+      const blob = await api.exportRechnungExcel(id);
+      const url = window.URL.createObjectURL(blob);
+      const safeNummer = String(nummer || id).replace(/[\\/:*?"<>|]+/g, "_");
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Rechnung_${safeNummer}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const openNew = async () => {
     // Jahr bestimmen
     const year = new Date().getFullYear();
@@ -423,9 +440,7 @@ export default function Rechnungen() {
               <button
                 className="btn btn-primary btn-sm"
                 style={{ marginLeft: "auto", marginRight: 8 }}
-                onClick={() =>
-                  window.open(api.getRechnungExcel(detail.ID), "_blank")
-                }
+                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}
               >
                 Rechnung erstellen
               </button>
