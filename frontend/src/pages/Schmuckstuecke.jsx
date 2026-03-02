@@ -140,22 +140,16 @@ export default function Schmuckstuecke() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-        }}
-      >
+        }}>
         <div>
           <h2>Schmuckstücke</h2>
           <p>{p.total || 0} Stücke insgesamt</p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}>
-          + Neues Schmuckstück
-        </button>
-        <a
-          className="btn btn-secondary"
-          href={api.getSumupExport()}
-          download
-        >
-          ⬇️ Sumup Export
-        </a>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button className="btn btn-primary" onClick={openNew}>
+            + Neues Schmuckstück
+          </button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -180,8 +174,7 @@ export default function Schmuckstuecke() {
                 : rest,
             );
             setPage(1);
-          }}
-        >
+          }}>
           <option value="">Alle Arten</option>
           <option value="H">Halskette</option>
           <option value="O">Ohrring</option>
@@ -199,8 +192,7 @@ export default function Schmuckstuecke() {
                 : rest,
             );
             setPage(1);
-          }}
-        >
+          }}>
           <option value="">Alle Standorte</option>
           <option value="0">Lager</option>
           {kunden.map((k) => (
@@ -221,8 +213,7 @@ export default function Schmuckstuecke() {
                 : rest,
             );
             setPage(1);
-          }}
-        >
+          }}>
           <option value="">Status</option>
           <option value="0">Nicht verkauft</option>
           <option value="1">Verkauft</option>
@@ -241,50 +232,42 @@ export default function Schmuckstuecke() {
                 <tr>
                   <th
                     onClick={() => requestSort("Artikelnummer")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Artikelnr. {getSortIcon("Artikelnummer")}
                   </th>
                   <th
                     onClick={() => requestSort("Grundmaterial")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Grundmaterial {getSortIcon("Grundmaterial")}
                   </th>
                   <th
                     onClick={() => requestSort("Art")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Art {getSortIcon("Art")}
                   </th>
                   <th
                     onClick={() => requestSort("Material")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Material {getSortIcon("Material")}
                   </th>
                   <th
                     onClick={() => requestSort("Farbe")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Farbe {getSortIcon("Farbe")}
                   </th>
                   <th
                     onClick={() => requestSort("Verkaufspreis")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Preis {getSortIcon("Verkaufspreis")}
                   </th>
                   <th
                     onClick={() => requestSort("Verkauft")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Status {getSortIcon("Verkauft")}
                   </th>
                   <th
                     onClick={() => requestSort("Ausgelagert")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Ausgelagert {getSortIcon("Ausgelagert")}
                   </th>
                 </tr>
@@ -294,8 +277,7 @@ export default function Schmuckstuecke() {
                   <tr
                     key={s.Artikelnummer}
                     onClick={() => setSelected(s)}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     <td>
                       <strong>{s.Artikelnummer.split("_")[0]}</strong>
                       {s.Artikelnummer.split("_")[1] > 0 && (
@@ -351,8 +333,7 @@ export default function Schmuckstuecke() {
             </span>
             <button
               disabled={page >= p.totalPages}
-              onClick={() => setPage(page + 1)}
-            >
+              onClick={() => setPage(page + 1)}>
               Weiter →
             </button>
           </div>
@@ -361,15 +342,18 @@ export default function Schmuckstuecke() {
 
       {selected && (
         <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>💍 {selected.Artikelnummer} {" "}
+              <h3>
+                💍 {selected.Artikelnummer}{" "}
                 {selected.Verkauft === 1 ? (
                   <span className="badge success">Verkauft</span>
                 ) : selected.Ausschuss === 1 ? (
                   <span className="badge danger">Ausschuss</span>
                 ) : selected.Ausgelagert > 0 ? (
-                  <span className="badge gold">Ausgelagert: {getKundenName(selected.Ausgelagert)}</span>
+                  <span className="badge gold">
+                    Ausgelagert: {getKundenName(selected.Ausgelagert)}
+                  </span>
                 ) : (
                   <span className="badge warning">Lager</span>
                 )}
@@ -378,14 +362,12 @@ export default function Schmuckstuecke() {
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ marginRight: 8 }}
-                  onClick={() => openEdit(selected)}
-                >
+                  onClick={() => openEdit(selected)}>
                   ✏️ Bearbeiten
                 </button>
                 <button
                   className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(selected.Artikelnummer)}
-                >
+                  onClick={() => handleDelete(selected.Artikelnummer)}>
                   🗑️ Löschen
                 </button>
               </div>
@@ -432,7 +414,7 @@ export default function Schmuckstuecke() {
                   selected.Erstelldatum
                     ? new Date(selected.Erstelldatum).toLocaleDateString(
                         "de-DE",
-                        { day: '2-digit', month: '2-digit', year: 'numeric' }
+                        { day: "2-digit", month: "2-digit", year: "numeric" },
                       )
                     : "–",
                 ],
@@ -462,8 +444,7 @@ export default function Schmuckstuecke() {
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "900px" }}
-          >
+            style={{ maxWidth: "900px" }}>
             <div className="modal-header">
               <h3>
                 {editing === "new"
@@ -844,9 +825,11 @@ export default function Schmuckstuecke() {
                       }
                     />
                     <datalist id="anhaenger-inhalt-zusatzmaterial-list">
-                      {filterOptions.anhaenger_inhalt_zusatzmaterialien?.map((z) => (
-                        <option key={z} value={z} />
-                      ))}
+                      {filterOptions.anhaenger_inhalt_zusatzmaterialien?.map(
+                        (z) => (
+                          <option key={z} value={z} />
+                        ),
+                      )}
                     </datalist>
                   </div>
                 </div>
@@ -946,8 +929,7 @@ export default function Schmuckstuecke() {
                           ...form,
                           Ausgelagert: parseInt(e.target.value),
                         })
-                      }
-                    >
+                      }>
                       <option value="0">Lager</option>
                       {kunden.map((k) => (
                         <option key={k.ID} value={k.ID}>
@@ -960,8 +942,7 @@ export default function Schmuckstuecke() {
                 <div className="form-row" style={{ marginTop: "16px" }}>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
+                    style={{ display: "flex", alignItems: "center" }}>
                     <input
                       type="checkbox"
                       id="form-verkauft"
@@ -978,8 +959,7 @@ export default function Schmuckstuecke() {
                   </div>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
+                    style={{ display: "flex", alignItems: "center" }}>
                     <input
                       type="checkbox"
                       id="form-online"
@@ -996,8 +976,7 @@ export default function Schmuckstuecke() {
                   </div>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
+                    style={{ display: "flex", alignItems: "center" }}>
                     <input
                       type="checkbox"
                       id="form-ausschuss"
@@ -1021,8 +1000,7 @@ export default function Schmuckstuecke() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setEditing(null)}
-              >
+                onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
               <button className="btn btn-primary" onClick={handleSave}>

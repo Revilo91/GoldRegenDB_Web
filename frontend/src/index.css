@@ -251,6 +251,53 @@ body {
   padding: 0;
 }
 
+/* ============ ALERT CARDS ============ */
+.alert-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+.alert-card.warning {
+  border-left: 4px solid var(--warning);
+}
+
+.alert-card.info {
+  border-left: 4px solid var(--info);
+}
+
+.alert-card.error {
+  border-left: 4px solid var(--danger);
+}
+
+.alert-card.success {
+  border-left: 4px solid var(--success);
+}
+
+.alert-card-body {
+  padding: 24px;
+}
+
+.alert-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-card-content {
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.alert-card-content p:last-child {
+  margin-bottom: 0;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
