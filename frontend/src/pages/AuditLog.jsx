@@ -59,7 +59,7 @@ export default function AuditLog() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="🔍 Suche nach ID, Artikel, Spalte,..."
+          placeholder="Suche nach ID, Artikel, Spalte,..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
