@@ -90,12 +90,11 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
     }
 
     const fileName = req.file.filename;
-    const relativePath = `uploads/${fileName}`;
 
     res.json({
       success: true,
       fileName: fileName,
-      path: relativePath,
+      path: fileName,
       originalName: req.file.originalname,
     });
   } catch (err) {
