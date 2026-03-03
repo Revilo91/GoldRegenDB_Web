@@ -264,13 +264,7 @@ export default function Lieferscheine() {
 
   return (
     <div>
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}>
+      <div className="page-header">
         <div>
           <h2>Lieferscheine</h2>
           <p>{data.length} Lieferscheine</p>

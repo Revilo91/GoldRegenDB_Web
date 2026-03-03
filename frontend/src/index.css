@@ -153,6 +153,11 @@ body {
 }
 
 .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 32px;
 }
 
@@ -893,6 +898,83 @@ select.form-control {
     margin-left: 0;
     padding: 80px 16px 20px;
   }
+
+  /* Page header stacks vertically on mobile */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .page-header h2 {
+    font-size: 22px;
+  }
+
+  /* Allow data table to scroll horizontally */
+  .card {
+    overflow: visible;
+  }
+  .card-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Card header wraps on mobile */
+  .card-header {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  /* Toolbar filters stack and fill width */
+  .toolbar {
+    gap: 8px;
+  }
+  .search-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Buttons wrap on small screens */
+  .btn-group {
+    flex-wrap: wrap;
+  }
+
+  /* Modal sizing for mobile */
+  .modal {
+    width: 96%;
+    max-height: 90vh;
+  }
+  .modal-header {
+    padding: 16px;
+  }
+  .modal-header h3 {
+    font-size: 16px;
+  }
+  .modal-body {
+    padding: 16px;
+  }
+  .modal-footer {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  /* Detail grid: 2 columns on mid-size, 1 on small */
+  .detail-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    padding: 16px;
+    gap: 12px;
+  }
+
+  /* Reduce table cell padding */
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+  }
+
+  /* Form rows: single column on mobile */
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -901,6 +983,77 @@ select.form-control {
   }
   .form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Full-width bottom-sheet modal on small phones */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+    margin: 0;
+  }
+
+  /* Stack modal footer buttons */
+  .modal-footer {
+    flex-direction: column;
+  }
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Smaller page header */
+  .page-header h2 {
+    font-size: 20px;
+  }
+
+  /* Reduce table text */
+  .data-table th,
+  .data-table td {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  /* Reduce card-header padding */
+  .card-header {
+    padding: 12px;
+  }
+
+  /* Stats single column on very small screens */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Pagination compact */
+  .pagination {
+    gap: 4px;
+    padding: 12px;
+  }
+  .pagination button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ============ NAV SECTION ============ */
+.nav-section {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  padding: 12px 16px 4px;
+}
+
+@media (max-width: 1024px) {
+  .nav-section {
+    display: none;
   }
 }
 
@@ -959,6 +1112,16 @@ select.form-control {
 .login-btn {
   width: 100%;
   justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 24px 20px;
+  }
+  .login-title {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
 }
 
 /* ============ SIDEBAR FOOTER ============ */

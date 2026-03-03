@@ -265,14 +265,7 @@ export default function Rechnungen() {
 
   return (
     <div>
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
+      <div className="page-header">
         <div>
           <h2>Rechnungen</h2>
           <p>{data.length} Rechnungen</p>

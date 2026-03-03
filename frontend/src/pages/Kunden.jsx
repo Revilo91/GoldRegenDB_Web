@@ -127,14 +127,7 @@ export default function Kunden() {
 
   return (
     <div>
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
+      <div className="page-header">
         <div>
           <h2>Kunden</h2>
           <p>{kunden.length} Kunden / Händler</p>
