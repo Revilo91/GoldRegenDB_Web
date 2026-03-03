@@ -163,4 +163,9 @@ export const api = {
   exportBackup: () => downloadBlob('/backup/export'),
   importBackup: (data) =>
     request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Inventur
+  getInventur: () => request('/inventur'),
+  getInventurKunde: (kundeId) => request(`/inventur/${kundeId}`),
+  exportInventurExcel: (kundeId) => downloadBlob(`/inventur/${kundeId}/excel`),
 };
