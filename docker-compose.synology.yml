@@ -23,6 +23,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 1m
+    networks:
+      - goldregendb_net
 
   backend:
     build:
@@ -36,19 +38,31 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "${PORT}:${PORT}"
+    networks:
+      - goldregendb_net
 
   frontend:
     build:
       context: /volume1/docker/goldregendb/frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        # Build-Zeit-Argument: Wird beim Build in die React-App eingebettet.
+        # Relative URL: API-Anfragen laufen über den nginx-Proxy im Frontend-Container.
+        # Dadurch funktioniert die Verbindung unabhängig von der IP-Adresse der Synology.
+        VITE_API_URL: /api
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "3000:80"
+    networks:
+      - goldregendb_net
+
+networks:
+  goldregendb_net:
+    driver: bridge
 
 # Keine named volumes nötig bei absoluten Pfaden
