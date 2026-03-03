@@ -146,7 +146,6 @@ export default function Kunden() {
         />
         <select
           className="form-control"
-          style={{ width: "auto", minWidth: 150 }}
           value={filters.aktiv ?? ""}
           onChange={(e) => {
             const { aktiv, ...rest } = filters;
