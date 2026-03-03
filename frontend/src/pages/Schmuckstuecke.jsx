@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
   faGem,
   faPen,
@@ -8,6 +9,7 @@ import {
   faBoxOpen,
   faMagnifyingGlass,
   faEuroSign,
+  faPaperclip
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
@@ -624,7 +626,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>✨ Inhalt</h4>
+                <h4><FontAwesomeIcon icon={faRegularStar} /> Inhalt</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Inhalt Material</label>
@@ -697,7 +699,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>📎 Anhänger / Attachment</h4>
+                <h4><FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Anhänger Fassung</label>
