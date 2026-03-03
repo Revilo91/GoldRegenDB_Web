@@ -165,6 +165,7 @@ jobs:
           cp db/backup.sh "${PACKAGE_DIR}/db/"
           cp db/restore.sh "${PACKAGE_DIR}/db/"
           cp db/load_seed.sh "${PACKAGE_DIR}/db/"
+          cp db/README.md "${PACKAGE_DIR}/db/"
 
           # .env.example kopieren
           cp .env.example "${PACKAGE_DIR}/.env.example"
