@@ -1,4 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faUser,
+  faBox,
+  faTrash,
+  faTimes,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 export default function Lieferscheine() {
@@ -276,7 +283,7 @@ export default function Lieferscheine() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="🔍 Suche nach Nummer, Kunde, ID..."
+          placeholder="Suche nach Nummer, Kunde, ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -375,7 +382,7 @@ export default function Lieferscheine() {
                           <span style={{ marginRight: 8 }}>
                             {isExpanded ? "▼" : "▶"}
                           </span>
-                          👤 {group.name}{" "}
+                          <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
                           <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
                             ({group.items.length})
                           </span>
@@ -426,7 +433,7 @@ export default function Lieferscheine() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                📦 Lieferschein {detail.Nummer} ({detail.ID})
+                <FontAwesomeIcon icon={faBox} /> Lieferschein {detail.Nummer} ({detail.ID})
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -438,7 +445,7 @@ export default function Lieferscheine() {
                 className="btn btn-danger btn-sm"
                 style={{ marginRight: 16 }}
                 onClick={() => handleDelete(detail.ID)}>
-                🗑️ Löschen
+                <FontAwesomeIcon icon={faTrash} /> Löschen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×
@@ -705,7 +712,7 @@ export default function Lieferscheine() {
                     <input
                       className="form-control"
                       style={{ width: "200px", marginBottom: 8 }}
-                      placeholder="🔍 Suchen..."
+                      placeholder="Suchen..."
                       value={pieceSearch}
                       onChange={(e) => setPieceSearch(e.target.value)}
                     />
@@ -829,7 +836,7 @@ export default function Lieferscheine() {
                                     className="btn btn-danger btn-sm"
                                     title="Entfernen"
                                     onClick={() => togglePiece(nr)}>
-                                    ✕
+                                    <FontAwesomeIcon icon={faTimes} />
                                   </button>
                                 </td>
                               </tr>

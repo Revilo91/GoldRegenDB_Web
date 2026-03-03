@@ -1,4 +1,19 @@
 import { useState, useRef } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCreditCard,
+  faFileExport,
+  faFileImport,
+  faCheck,
+  faBox,
+  faChartBar,
+  faEuroSign,
+  faTimes,
+  faSpinner,
+  faDownload,
+  faFolderOpen,
+  faHandPointRight,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 export default function Sumup() {
@@ -54,7 +69,7 @@ export default function Sumup() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Export Error:', err);
-      alert(`❌ Fehler beim Export: ${err.message}`);
+      alert(`Fehler beim Export: ${err.message}`);
     } finally {
       setSumupExport(false);
     }
@@ -63,7 +78,7 @@ export default function Sumup() {
   return (
     <div>
       <div className="page-header">
-        <h2>💳 SumUp Verwaltung</h2>
+        <h2><FontAwesomeIcon icon={faCreditCard} /> SumUp Verwaltung</h2>
         <p
           style={{ marginBottom: "32px", fontSize: "1rem", lineHeight: "1.5" }}>
           Exportieren Sie verfügbare Artikel für SumUp oder importieren Sie
@@ -74,7 +89,7 @@ export default function Sumup() {
       {/* Export Section */}
       <div className="card" style={{ marginBottom: "32px" }}>
         <div className="card-header" style={{ padding: "20px 24px" }}>
-          <h3>📤 SumUp Export (CSV)</h3>
+          <h3><FontAwesomeIcon icon={faFileExport} /> SumUp Export (CSV)</h3>
         </div>
         <div className="card-body" style={{ padding: "24px" }}>
           <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
@@ -84,22 +99,22 @@ export default function Sumup() {
           </p>
           <ul style={{ marginBottom: "20px", lineHeight: "1.8" }}>
             <li>
-              ✅ Gruppierung nach Basis-Artikelnummer (z.B. MBH028 mit Varianten
+              <FontAwesomeIcon icon={faCheck} /> Gruppierung nach Basis-Artikelnummer (z.B. MBH028 mit Varianten
               _1 bis _5)
             </li>
             <li>
-              ✅ Produktspezifische Beschreibungen (Ohrring, Halskette, Armband,
+              <FontAwesomeIcon icon={faCheck} /> Produktspezifische Beschreibungen (Ohrring, Halskette, Armband,
               Schlüsselanhänger)
             </li>
-            <li>✅ Vollständiges SumUp CSV-Format (35 Spalten)</li>
-            <li>✅ SKU und Barcode für Inventar-Tracking</li>
+            <li><FontAwesomeIcon icon={faCheck} /> Vollständiges SumUp CSV-Format (35 Spalten)</li>
+            <li><FontAwesomeIcon icon={faCheck} /> SKU und Barcode für Inventar-Tracking</li>
           </ul>
           <button
             className="btn btn-primary"
             onClick={handleSumupExport}
             disabled={sumupExport}
           >
-            {sumupExport ? '⏳ Wird heruntergeladen...' : '⬇️ CSV für SumUp herunterladen'}
+            {sumupExport ? <><FontAwesomeIcon icon={faSpinner} spin /> Wird heruntergeladen...</> : <><FontAwesomeIcon icon={faDownload} /> CSV für SumUp herunterladen</>}
           </button>
         </div>
       </div>
@@ -107,7 +122,7 @@ export default function Sumup() {
       {/* Import Section */}
       <div className="card">
         <div className="card-header" style={{ padding: "20px 24px" }}>
-          <h3>📥 SumUp Verkaufsbericht importieren</h3>
+          <h3><FontAwesomeIcon icon={faFileImport} /> SumUp Verkaufsbericht importieren</h3>
         </div>
         <div className="card-body" style={{ padding: "24px" }}>
           <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
@@ -116,11 +131,11 @@ export default function Sumup() {
           </p>
           <ul style={{ marginBottom: "20px", lineHeight: "1.8" }}>
             <li>
-              ✅ Einen Lieferschein für alle verkauften Artikel (zu SumUp
+              <FontAwesomeIcon icon={faCheck} /> Einen Lieferschein für alle verkauften Artikel (zu SumUp
               ausgelagert)
             </li>
-            <li>✅ Separate Rechnungen für Marina- und Saskia-Artikel</li>
-            <li>✅ Markierung der Artikel als "verkauft"</li>
+            <li><FontAwesomeIcon icon={faCheck} /> Separate Rechnungen für Marina- und Saskia-Artikel</li>
+            <li><FontAwesomeIcon icon={faCheck} /> Markierung der Artikel als "verkauft"</li>
           </ul>
 
           {sumupResult && (
@@ -132,26 +147,26 @@ export default function Sumup() {
                 display: "block",
                 whiteSpace: "pre-line",
               }}>
-              <strong>✅ Import erfolgreich!</strong>
+              <strong><FontAwesomeIcon icon={faCheck} /> Import erfolgreich!</strong>
               <br />
               <br />
-              📦 <strong>Lieferschein:</strong>{" "}
+              <FontAwesomeIcon icon={faBox} /> <strong>Lieferschein:</strong>{" "}
               {sumupResult.lieferschein.Nummer}
               <br />
-              📊 <strong>Artikel:</strong> {sumupResult.artikel.gesamt} gesamt (
+              <FontAwesomeIcon icon={faChartBar} /> <strong>Artikel:</strong> {sumupResult.artikel.gesamt} gesamt (
               {sumupResult.artikel.marina} Marina, {sumupResult.artikel.saskia}{" "}
               Saskia)
               <br />
               {sumupResult.rechnungen.marina && (
                 <>
-                  💰 <strong>Rechnung Marina:</strong>{" "}
+                  <FontAwesomeIcon icon={faEuroSign} /> <strong>Rechnung Marina:</strong>{" "}
                   {sumupResult.rechnungen.marina.Nummer}
                   <br />
                 </>
               )}
               {sumupResult.rechnungen.saskia && (
                 <>
-                  💰 <strong>Rechnung Saskia:</strong>{" "}
+                  <FontAwesomeIcon icon={faEuroSign} /> <strong>Rechnung Saskia:</strong>{" "}
                   {sumupResult.rechnungen.saskia.Nummer}
                 </>
               )}
@@ -165,14 +180,14 @@ export default function Sumup() {
                 padding: "16px 20px",
                 display: "block",
               }}>
-              <strong>❌ Fehler:</strong> {sumupError}
+              <strong><FontAwesomeIcon icon={faTimes} /> Fehler:</strong> {sumupError}
               {sumupError.includes("Spalten") && (
                 <>
                   <br />
                   <br />
                   <details style={{ cursor: "pointer", marginTop: "12px" }}>
                     <summary style={{ fontWeight: "bold" }}>
-                      👉 Klicken für Hilfe zur Fehlersuche
+                      <FontAwesomeIcon icon={faHandPointRight} /> Klicken für Hilfe zur Fehlersuche
                     </summary>
                     <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid currentColor" }}>
                       <p><strong>Tipps:</strong></p>
@@ -193,7 +208,7 @@ export default function Sumup() {
             htmlFor="sumup-import-file"
             className={`btn btn-primary${sumupImporting ? " disabled" : ""}`}
             style={{ cursor: sumupImporting ? "not-allowed" : "pointer" }}>
-            {sumupImporting ? "⏳ Importiere…" : "📂 SumUp CSV-Datei wählen"}
+            {sumupImporting ? <><FontAwesomeIcon icon={faSpinner} spin /> Importiere…</> : <><FontAwesomeIcon icon={faFolderOpen} /> SumUp CSV-Datei wählen</>}
           </label>
           <input
             id="sumup-import-file"
