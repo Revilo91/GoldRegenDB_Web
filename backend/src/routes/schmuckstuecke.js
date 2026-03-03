@@ -11,6 +11,19 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Hilfsfunktion: Prüfe ob eine Fotodatei mit der Artikelnummer (base) existiert
+const findPhotoForArtikel = (artikelnummer) => {
+  const baseArtikelnummer = artikelnummer.split("_")[0]; // z.B. "MXO002" aus "MXO002_1"
+  const files = fs.readdirSync(uploadsDir);
+  for (const file of files) {
+    const fileNameWithoutExt = path.parse(file).name;
+    if (fileNameWithoutExt === baseArtikelnummer) {
+      return file; // z.B. "MXO002.jpg"
+    }
+  }
+  return null;
+};
+
 // Multer-Konfiguration für Foto-Upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -220,12 +233,21 @@ router.get("/", async (req, res) => {
       `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset],
     );
-    const processedRows = rows.map((row) => ({
-      ...row,
-      Grundmaterial: row.Artikelnummer
-        ? GRUNDMATERIAL[row.Artikelnummer[1]?.toUpperCase()] || "Unbekannt"
-        : "Keine Nummer",
-    }));
+    const processedRows = rows.map((row) => {
+      // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
+      if (!row.Foto || row.Foto.trim() === "") {
+        const photoFile = findPhotoForArtikel(row.Artikelnummer);
+        if (photoFile) {
+          row.Foto = photoFile;
+        }
+      }
+      return {
+        ...row,
+        Grundmaterial: row.Artikelnummer
+          ? GRUNDMATERIAL[row.Artikelnummer[1]?.toUpperCase()] || "Unbekannt"
+          : "Keine Nummer",
+      };
+    });
 
     res.json({
       data: processedRows,
@@ -324,7 +346,17 @@ router.get("/:artikelnummer", async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "Schmuckstück nicht gefunden" });
     }
-    res.json(rows[0]);
+    const result = rows[0];
+
+    // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
+    if (!result.Foto || result.Foto.trim() === "") {
+      const photoFile = findPhotoForArtikel(req.params.artikelnummer);
+      if (photoFile) {
+        result.Foto = photoFile;
+      }
+    }
+
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Fehler beim Laden des Schmuckstücks" });
@@ -483,6 +515,17 @@ router.post("/", async (req, res) => {
 router.put("/:artikelnummer", async (req, res) => {
   try {
     const b = req.body;
+
+    // Foto-Handling: Wenn ein neues Foto hochgeladen wurde, speichere nur den Dateinamen
+    // Ansonsten: Prüfe ob eine Datei existiert
+    let fotoValue = b.Foto || "";
+    if (!fotoValue || fotoValue.trim() === "") {
+      const photoFile = findPhotoForArtikel(req.params.artikelnummer);
+      if (photoFile) {
+        fotoValue = photoFile;
+      }
+    }
+
     const { rows } = await db.query(
       `UPDATE "Schmuckstück" SET
         "Name" = $1, "Foto" = $2, "Art" = $3, "Form" = $4, "Länge" = $5,
@@ -498,7 +541,7 @@ router.put("/:artikelnummer", async (req, res) => {
        WHERE "Artikelnummer" = $32 RETURNING *`,
       [
         b.Name,
-        b.Foto,
+        fotoValue,
         b.Art,
         b.Form,
         b.Länge,

@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../api";
 
 export default function PhotoUpload({ artikelnummer, onPhotoSelected, initialPhoto }) {
-  const [preview, setPreview] = useState(initialPhoto ? api.getPhotoUrl(initialPhoto) : null);
+  const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    if (initialPhoto) {
+      api.loadPhotoAsDataUrl(initialPhoto).then((dataUrl) => {
+        if (dataUrl) {
+          setPreview(dataUrl);
+        }
+      });
+    }
+  }, [initialPhoto]);
 
   const handleFile = async (file) => {
     if (!file) return;
