@@ -6,6 +6,22 @@ import {
   NavLink,
   Navigate,
 } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faChartBar,
+  faGem,
+  faUsers,
+  faBox,
+  faFileInvoice,
+  faCreditCard,
+  faClipboardList,
+  faWrench,
+  faUserLock,
+  faDatabase,
+  faUser,
+  faTimes,
+  faBars,
+} from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -54,7 +70,7 @@ function AppLayout() {
           className="menu-toggle"
           onClick={toggleMobileMenu}
           aria-label="Menu">
-          {isMobileMenuOpen ? "✕" : "☰"}
+          <FontAwesomeIcon icon={isMobileMenuOpen ? faTimes : faBars} />
         </button>
       </header>
 
@@ -77,42 +93,42 @@ function AppLayout() {
             end
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}>
-            <span className="nav-icon">📊</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faChartBar} /></span>
             <span>Dashboard</span>
           </NavLink>
           <NavLink
             to="/schmuckstuecke"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}>
-            <span className="nav-icon">💍</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faGem} /></span>
             <span>Schmuckstücke</span>
           </NavLink>
           <NavLink
             to="/kunden"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}>
-            <span className="nav-icon">👥</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faUsers} /></span>
             <span>Kunden</span>
           </NavLink>
           <NavLink
             to="/lieferscheine"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}>
-            <span className="nav-icon">📦</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faBox} /></span>
             <span>Lieferscheine</span>
           </NavLink>
           <NavLink
             to="/rechnungen"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}>
-            <span className="nav-icon">🧾</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faFileInvoice} /></span>
             <span>Rechnungen</span>
           </NavLink>
           <NavLink
             to="/sumup"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}>
-            <span className="nav-icon">💳</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faCreditCard} /></span>
             <span>SumUp</span>
           </NavLink>
           {isAdmin && (
@@ -124,7 +140,7 @@ function AppLayout() {
                   `nav-link ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}>
-                <span className="nav-icon">📋</span>
+                <span className="nav-icon"><FontAwesomeIcon icon={faClipboardList} /></span>
                 <span>Audit Log</span>
               </NavLink>
               <NavLink
@@ -133,7 +149,7 @@ function AppLayout() {
                   `nav-link ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}>
-                <span className="nav-icon">🛠️</span>
+                <span className="nav-icon"><FontAwesomeIcon icon={faWrench} /></span>
                 <span>Debug</span>
               </NavLink>
               <NavLink
@@ -142,7 +158,7 @@ function AppLayout() {
                   `nav-link ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}>
-                <span className="nav-icon">🔐</span>
+                <span className="nav-icon"><FontAwesomeIcon icon={faUserLock} /></span>
                 <span>Benutzerverwaltung</span>
               </NavLink>
               <NavLink
@@ -151,7 +167,7 @@ function AppLayout() {
                   `nav-link ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}>
-                <span className="nav-icon">💾</span>
+                <span className="nav-icon"><FontAwesomeIcon icon={faDatabase} /></span>
                 <span>Datensicherung</span>
               </NavLink>
             </>
@@ -159,7 +175,7 @@ function AppLayout() {
         </nav>
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <span className="nav-icon">👤</span>
+            <span className="nav-icon"><FontAwesomeIcon icon={faUser} /></span>
             <span className="sidebar-username">{user.username}</span>
             <span className={`role-badge role-${user.role}`}>{user.role}</span>
           </div>

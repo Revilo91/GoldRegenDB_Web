@@ -1,4 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
+import {
+  faGem,
+  faPen,
+  faTrash,
+  faPlus,
+  faBoxOpen,
+  faMagnifyingGlass,
+  faEuroSign,
+  faPaperclip
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import PhotoUpload from "../components/PhotoUpload";
 
@@ -158,7 +170,7 @@ export default function Schmuckstuecke() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="🔍 Suche nach Artikelnummer, Name, Art, Material..."
+          placeholder="Suche nach Artikelnummer, Name, Art, Material..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -348,7 +360,7 @@ export default function Schmuckstuecke() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                💍 {selected.Artikelnummer}{" "}
+                <FontAwesomeIcon icon={faGem} /> {selected.Artikelnummer}{" "}
                 {selected.Verkauft === 1 ? (
                   <span className="badge success">Verkauft</span>
                 ) : selected.Ausschuss === 1 ? (
@@ -366,12 +378,12 @@ export default function Schmuckstuecke() {
                   className="btn btn-secondary btn-sm"
                   style={{ marginRight: 8 }}
                   onClick={() => openEdit(selected)}>
-                  ✏️ Bearbeiten
+                  <FontAwesomeIcon icon={faPen} /> Bearbeiten
                 </button>
                 <button
                   className="btn btn-danger btn-sm"
                   onClick={() => handleDelete(selected.Artikelnummer)}>
-                  🗑️ Löschen
+                  <FontAwesomeIcon icon={faTrash} /> Löschen
                 </button>
               </div>
               <button className="modal-close" onClick={() => setSelected(null)}>
@@ -464,8 +476,8 @@ export default function Schmuckstuecke() {
             <div className="modal-header">
               <h3>
                 {editing === "new"
-                  ? "🆕 Neues Schmuckstück"
-                  : `✏️ ${editing} bearbeiten`}
+                  ? <><FontAwesomeIcon icon={faPlus} /> Neues Schmuckstück</>
+                  : <><FontAwesomeIcon icon={faPen} /> {editing} bearbeiten</>}
               </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
@@ -473,7 +485,7 @@ export default function Schmuckstuecke() {
             </div>
             <div className="modal-body">
               <div className="form-section">
-                <h4>📦 Basis-Informationen</h4>
+                <h4><FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Artikelnummer*</label>
@@ -579,7 +591,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>�🔍 Details (Hauptstück)</h4>
+                <h4><FontAwesomeIcon icon={faMagnifyingGlass} /> Details (Hauptstück)</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Form</label>
@@ -641,7 +653,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>✨ Inhalt</h4>
+                <h4><FontAwesomeIcon icon={faRegularStar} /> Inhalt</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Inhalt Material</label>
@@ -714,7 +726,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>📎 Anhänger / Attachment</h4>
+                <h4><FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Anhänger Fassung</label>
@@ -913,7 +925,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>💰 Inventar & Preise</h4>
+                <h4><FontAwesomeIcon icon={faEuroSign} /> Inventar & Preise</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Verkaufspreis (€)</label>
