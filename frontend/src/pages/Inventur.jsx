@@ -293,7 +293,7 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
           )}
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+        <div className="modal-footer inventur-modal-footer" style={{ justifyContent: "space-between" }}>
           <button
             className="btn btn-warning"
             onClick={handleRestock}
@@ -303,7 +303,7 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
             <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
             {restocking ? "Lagere zurück…" : `Zurücklagern (${selectedItems.size})`}
           </button>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="inventur-modal-actions" style={{ display: "flex", gap: 8 }}>
             <button
               className="btn btn-primary"
               onClick={handleExcel}

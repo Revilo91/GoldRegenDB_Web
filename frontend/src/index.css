@@ -319,6 +319,9 @@ body {
   background: var(--bg-input);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .data-table td {
@@ -610,7 +613,9 @@ select.form-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1400;
+  padding: 16px;
+  overflow-y: auto;
   animation: fadeIn 0.2s;
 }
 
@@ -620,8 +625,10 @@ select.form-control {
   border: 1px solid var(--border);
   width: 90%;
   max-width: 700px;
-  max-height: 85vh;
-  overflow-y: auto;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.25s ease;
 }
@@ -632,6 +639,11 @@ select.form-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .modal-header h3 {
@@ -650,6 +662,9 @@ select.form-control {
 
 .modal-body {
   padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -658,6 +673,8 @@ select.form-control {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
+  background: var(--bg-card);
 }
 
 /* ============ LOADING ============ */
@@ -928,10 +945,20 @@ select.form-control {
   /* Toolbar filters stack and fill width */
   .toolbar {
     gap: 8px;
+    flex-direction: column;
+  }
+  .toolbar > * {
+    flex: 1;
   }
   .search-input {
     min-width: 0;
     width: 100%;
+    flex: 1;
+  }
+  .toolbar select,
+  .toolbar input:not(.search-input) {
+    flex: 1;
+    min-width: 0;
   }
 
   /* Buttons wrap on small screens */
@@ -942,7 +969,7 @@ select.form-control {
   /* Modal sizing for mobile */
   .modal {
     width: 96%;
-    max-height: 90vh;
+    max-height: calc(100dvh - 24px);
   }
   .modal-header {
     padding: 16px;
@@ -984,6 +1011,12 @@ select.form-control {
   .form-row {
     grid-template-columns: 1fr;
   }
+  .toolbar {
+    flex-direction: column;
+  }
+  .toolbar > * {
+    flex: 1;
+  }
 }
 
 @media (max-width: 480px) {
@@ -994,7 +1027,7 @@ select.form-control {
   }
   .modal {
     width: 100%;
-    max-height: 92vh;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
     border-radius: var(--radius) var(--radius) 0 0;
     margin: 0;
   }
@@ -1004,6 +1037,37 @@ select.form-control {
     flex-direction: column;
   }
   .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-footer .btn-group,
+  .modal-footer .modal-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .modal-footer .btn-group .btn,
+  .modal-footer .modal-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .inventur-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inventur-modal-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .inventur-modal-actions .btn {
     width: 100%;
     justify-content: center;
   }
@@ -1038,6 +1102,11 @@ select.form-control {
   .pagination button {
     padding: 6px 10px;
     font-size: 12px;
+  }
+
+  /* Stats grid in modals: 2 columns on small phones */
+  .modal-body > div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr 1fr !important;
   }
 }
 

@@ -404,7 +404,7 @@ export default function Benutzerverwaltung() {
                   <FontAwesomeIcon icon={faTrash} /> Löschen
                 </button>
               )}
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div className="modal-actions" style={{ display: "flex", gap: "10px" }}>
                 {selected.id !== "new" && editing === null && (
                   <>
                     {showPasswordReset ? (

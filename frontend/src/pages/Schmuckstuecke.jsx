@@ -187,7 +187,6 @@ export default function Schmuckstuecke() {
         />
         <select
           className="form-control"
-          style={{ width: "auto", minWidth: 150 }}
           value={filters.artikelnummer_art ?? ""}
           onChange={(e) => {
             const { artikelnummer_art, ...rest } = filters;
@@ -205,7 +204,6 @@ export default function Schmuckstuecke() {
         </select>
         <select
           className="form-control"
-          style={{ width: "auto", minWidth: 130 }}
           value={filters.ausgelagert ?? ""}
           onChange={(e) => {
             const { ausgelagert, ...rest } = filters;
@@ -226,7 +224,6 @@ export default function Schmuckstuecke() {
         </select>
         <select
           className="form-control"
-          style={{ width: "auto", minWidth: 130 }}
           value={filters.verkauft ?? ""}
           onChange={(e) => {
             const { verkauft, ...rest } = filters;

@@ -59,8 +59,9 @@ const DebugTable = ({ tableName }) => {
     setLoading(true);
     setError(null);
     try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
       const response = await fetch(
-        `http://localhost:3001/api/debug/tables/${tableName}`,
+        `${apiUrl}/debug/tables/${tableName}`,
       );
       if (!response.ok) throw new Error("Failed to fetch table data");
       const result = await response.json();
