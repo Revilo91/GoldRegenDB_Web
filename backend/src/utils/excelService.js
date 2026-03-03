@@ -530,4 +530,163 @@ async function generateExcel(type, data, logoPath) {
   return await workbook.xlsx.writeBuffer();
 }
 
-module.exports = { generateExcel };
+/**
+ * Generate an inventory (Inventur) Excel workbook for a single customer.
+ * Groups items into three sheets: Aktiv (nicht verkauft), Verkauft, Ausschuss.
+ */
+async function generateInventurExcel(kunde, items) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.defaultFont = { name: 'Calibri', size: 10 };
+
+  const today = new Date().toLocaleDateString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+
+  const COLUMNS = [
+    { header: 'Artikelnummer', key: 'Artikelnummer', width: 18 },
+    { header: 'Name',          key: 'Name',          width: 25 },
+    { header: 'Art',           key: 'Art',            width: 16 },
+    { header: 'Farbe',         key: 'Farbe',          width: 16 },
+    { header: 'Material',      key: 'Material',       width: 16 },
+    { header: 'Verkaufspreis', key: 'Verkaufspreis',  width: 16 },
+    { header: 'Erstelldatum',  key: 'Erstelldatum',   width: 16 },
+  ];
+
+  const HEADER_FILL = {
+    type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' },
+  };
+  const THIN_BORDER = {
+    top:    { style: 'thin', color: { argb: 'FFBCBCBC' } },
+    left:   { style: 'thin', color: { argb: 'FFBCBCBC' } },
+    bottom: { style: 'thin', color: { argb: 'FFBCBCBC' } },
+    right:  { style: 'thin', color: { argb: 'FFBCBCBC' } },
+  };
+
+  const addSheet = (sheetName, sheetItems, accentArgb) => {
+    const ws = workbook.addWorksheet(sheetName);
+    ws.pageSetup.paperSize = 9;
+    ws.pageSetup.orientation = 'landscape';
+    ws.pageSetup.fitToPage = true;
+    ws.pageSetup.fitToWidth = 1;
+    ws.pageSetup.fitToHeight = 0;
+
+    // Title rows
+    ws.mergeCells('A1:G1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = `Inventur – ${kunde.Name}`;
+    titleCell.font = { name: 'Calibri', bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'left' };
+
+    ws.mergeCells('A2:G2');
+    const subCell = ws.getCell('A2');
+    subCell.value = `${sheetName}  •  Stand: ${today}  •  ${sheetItems.length} Artikel`;
+    subCell.font = { name: 'Calibri', size: 10, color: { argb: 'FF6B7280' } };
+
+    ws.addRow([]); // spacer
+
+    // Column headers
+    ws.columns = COLUMNS;
+    const headerRow = ws.addRow(COLUMNS.map(c => c.header));
+    headerRow.eachCell(cell => {
+      cell.font = { name: 'Calibri', bold: true, size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentArgb } };
+      cell.border = THIN_BORDER;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    // Data rows
+    let totalValue = 0;
+    sheetItems.forEach(item => {
+      const price = Number(item.Verkaufspreis) || 0;
+      totalValue += price;
+      const row = ws.addRow([
+        item.Artikelnummer,
+        item.Name || '',
+        item.Art || '',
+        item.Farbe || '',
+        item.Material || '',
+        price,
+        item.Erstelldatum
+          ? new Date(item.Erstelldatum).toLocaleDateString('de-DE')
+          : '',
+      ]);
+      row.getCell(6).numFmt = '#,##0.00 €';
+      row.eachCell(cell => {
+        cell.font = { name: 'Calibri', size: 10 };
+        cell.border = THIN_BORDER;
+      });
+    });
+
+    // Totals row
+    ws.addRow([]);
+    const totalRow = ws.addRow(['', '', '', '', 'Gesamtwert:', totalValue, '']);
+    totalRow.getCell(5).font = { name: 'Calibri', bold: true, size: 10 };
+    totalRow.getCell(6).numFmt = '#,##0.00 €';
+    totalRow.getCell(6).font = { name: 'Calibri', bold: true, size: 10 };
+
+    // Re-apply column widths (columns are already set via ws.columns)
+    autoFitColumns(ws);
+  };
+
+  const aktiv     = items.filter(i => Number(i.Verkauft)  === 0 && Number(i.Ausschuss) === 0);
+  const verkauft  = items.filter(i => Number(i.Verkauft)  === 1);
+  const ausschuss = items.filter(i => Number(i.Ausschuss) === 1);
+
+  addSheet('Nicht verkauft', aktiv,     'FFD4EDDA'); // light green
+  addSheet('Verkauft',       verkauft,  'FFCCE5FF'); // light blue
+  addSheet('Ausschuss',      ausschuss, 'FFFFEEBA'); // light yellow
+
+  // Summary sheet
+  const ws = workbook.addWorksheet('Übersicht');
+  ws.pageSetup.paperSize = 9;
+  ws.pageSetup.orientation = 'portrait';
+
+  ws.mergeCells('A1:C1');
+  const titleCell = ws.getCell('A1');
+  titleCell.value = `Inventur – ${kunde.Name}`;
+  titleCell.font = { name: 'Calibri', bold: true, size: 14 };
+
+  ws.mergeCells('A2:C2');
+  ws.getCell('A2').value = `Stand: ${today}`;
+  ws.getCell('A2').font = { name: 'Calibri', size: 10, color: { argb: 'FF6B7280' } };
+
+  ws.addRow([]);
+
+  const summaryHeaders = ws.addRow(['Status', 'Anzahl', 'Gesamtwert']);
+  summaryHeaders.eachCell(cell => {
+    cell.font = { name: 'Calibri', bold: true, size: 10 };
+    cell.fill = HEADER_FILL;
+    cell.border = THIN_BORDER;
+    cell.alignment = { horizontal: 'center' };
+  });
+
+  const addSummaryRow = (label, arr, argb) => {
+    const total = arr.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+    const row = ws.addRow([label, arr.length, total]);
+    row.getCell(3).numFmt = '#,##0.00 €';
+    row.eachCell(cell => {
+      cell.font = { name: 'Calibri', size: 10 };
+      cell.border = THIN_BORDER;
+      if (argb) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+    });
+  };
+
+  addSummaryRow('Nicht verkauft', aktiv,     'FFD4EDDA');
+  addSummaryRow('Verkauft',       verkauft,  'FFCCE5FF');
+  addSummaryRow('Ausschuss',      ausschuss, 'FFFFEEBA');
+
+  // Total row
+  const allTotal = items.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+  const totalRow = ws.addRow(['Gesamt', items.length, allTotal]);
+  totalRow.getCell(3).numFmt = '#,##0.00 €';
+  totalRow.eachCell(cell => {
+    cell.font = { name: 'Calibri', bold: true, size: 10 };
+    cell.border = THIN_BORDER;
+  });
+
+  ws.columns = [{ width: 20 }, { width: 10 }, { width: 16 }];
+
+  return await workbook.xlsx.writeBuffer();
+}
+
+module.exports = { generateExcel, generateInventurExcel };
