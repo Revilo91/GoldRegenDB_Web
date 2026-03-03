@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faKey } from "@fortawesome/free-solid-svg-icons";
 import "./../index.css"; // Make sure styles are loaded
 
 const EditableCell = ({ value, onSave, onCancel }) => {
@@ -203,7 +205,7 @@ const DebugTable = ({ tableName }) => {
                   style={{ cursor: "pointer" }}
                 >
                   {col.column_name}
-                  {primaryKeys.includes(col.column_name) && " 🔑"}{" "}
+                  {primaryKeys.includes(col.column_name) && <> <FontAwesomeIcon icon={faKey} /></>}{" "}
                   {getSortIcon(col.column_name)}
                 </th>
               ))}

@@ -1,4 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faUser,
+  faFileInvoice,
+  faTrash,
+  faTimes,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 export default function Rechnungen() {
@@ -278,7 +285,7 @@ export default function Rechnungen() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="🔍 Suche nach Nummer, Kunde, ID..."
+          placeholder="Suche nach Nummer, Kunde, ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -383,7 +390,7 @@ export default function Rechnungen() {
                           <span style={{ marginRight: 8 }}>
                             {isExpanded ? "▼" : "▶"}
                           </span>
-                          👤 {group.name}{" "}
+                          <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
                           <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
                             ({group.items.length})
                           </span>
@@ -435,7 +442,7 @@ export default function Rechnungen() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                🧾 Rechnung {detail.Nummer} ({detail.ID})
+                <FontAwesomeIcon icon={faFileInvoice} /> Rechnung {detail.Nummer} ({detail.ID})
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -449,7 +456,7 @@ export default function Rechnungen() {
                 style={{ marginRight: 16 }}
                 onClick={() => handleDelete(detail.ID)}
               >
-                🗑️ Löschen
+                <FontAwesomeIcon icon={faTrash} /> Löschen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×
@@ -718,7 +725,7 @@ export default function Rechnungen() {
                     <input
                       className="form-control"
                       style={{ width: "200px", marginBottom: 8 }}
-                      placeholder="🔍 Suchen..."
+                      placeholder="Suchen..."
                       value={pieceSearch}
                       onChange={(e) => setPieceSearch(e.target.value)}
                       disabled={!form.Kundennummer}
@@ -843,7 +850,7 @@ export default function Rechnungen() {
                                       className="btn btn-danger btn-sm"
                                       title="Entfernen"
                                       onClick={() => togglePiece(nr)}>
-                                      ✕
+                                      <FontAwesomeIcon icon={faTimes} />
                                     </button>
                                   </td>
                                 </tr>
