@@ -38,7 +38,9 @@ services:
     volumes:
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
+      - ./backend/scripts:/app/scripts
       - backend_node_modules:/app/node_modules
+    command: ["sh", "/app/scripts/dev-start.sh"]
     ports:
       - "${PORT}:${PORT}"
     healthcheck:
