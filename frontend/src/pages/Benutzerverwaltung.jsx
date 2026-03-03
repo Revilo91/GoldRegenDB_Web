@@ -1,4 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faPlus,
+  faPen,
+  faUser,
+  faCrown,
+  faCheckCircle,
+  faTimesCircle,
+  faTrash,
+  faTimes,
+  faKey,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 const ROLES = [
@@ -185,7 +197,7 @@ export default function Benutzerverwaltung() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="🔍 Suche nach Benutzername, E-Mail, Rolle..."
+          placeholder="Suche nach Benutzername, E-Mail, Rolle..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -199,12 +211,12 @@ export default function Benutzerverwaltung() {
         <div className="modal-overlay" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
             <div className="modal-header">
-              <h3>{editing === "new" ? "➕ Neuer Benutzer" : editing === selected.id ? "📝 Benutzer bearbeiten" : "👤 " + selected.username}</h3>
+              <h3>{editing === "new" ? <><FontAwesomeIcon icon={faPlus} /> Neuer Benutzer</> : editing === selected.id ? <><FontAwesomeIcon icon={faPen} /> Benutzer bearbeiten</> : <><FontAwesomeIcon icon={faUser} /> {selected.username}</>}</h3>
               <button
                 className="modal-close"
                 onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}
               >
-                ✕
+                <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
 
@@ -311,13 +323,13 @@ export default function Benutzerverwaltung() {
                       <strong>Rolle:</strong>
                       <span>
                         <span className={`badge ${selected.role === "admin" ? "gold" : "info"}`}>
-                          {selected.role === "admin" ? "👑 Admin" : "👤 Benutzer"}
+                          {selected.role === "admin" ? <><FontAwesomeIcon icon={faCrown} /> Admin</> : <><FontAwesomeIcon icon={faUser} /> Benutzer</>}
                         </span>
                       </span>
                       <strong>Status:</strong>
                       <span>
                         <span className={`badge ${selected.active ? "success" : "danger"}`}>
-                          {selected.active ? "✅ Aktiv" : "❌ Inaktiv"}
+                          {selected.active ? <><FontAwesomeIcon icon={faCheckCircle} /> Aktiv</> : <><FontAwesomeIcon icon={faTimesCircle} /> Inaktiv</>}
                         </span>
                       </span>
                     </div>
@@ -389,7 +401,7 @@ export default function Benutzerverwaltung() {
                   onClick={handleDelete}
                   style={{ marginRight: "auto" }}
                 >
-                  🗑️ Löschen
+                  <FontAwesomeIcon icon={faTrash} /> Löschen
                 </button>
               )}
               <div style={{ display: "flex", gap: "10px" }}>
@@ -398,7 +410,7 @@ export default function Benutzerverwaltung() {
                     {showPasswordReset ? (
                       <>
                         <button className="btn btn-secondary" onClick={() => { setNewPassword(""); setShowNewPassword(false); setShowPasswordReset(false); }}>
-                          ✕ Passwort-Reset abbrechen
+                          <FontAwesomeIcon icon={faTimes} /> Passwort-Reset abbrechen
                         </button>
                         <button className="btn btn-success" onClick={handleResetPassword} disabled={!newPassword}>
                           ✓ Passwort jetzt zurücksetzen
@@ -406,7 +418,7 @@ export default function Benutzerverwaltung() {
                       </>
                     ) : (
                       <button className="btn btn-secondary" onClick={() => setShowPasswordReset(true)}>
-                        🔑 Passwort zurücksetzen
+                        <FontAwesomeIcon icon={faKey} /> Passwort zurücksetzen
                       </button>
                     )}
                   </>
@@ -424,7 +436,7 @@ export default function Benutzerverwaltung() {
                 )}
                 {editing === null && selected.id !== "new" && (
                   <button className="btn btn-primary" onClick={() => setEditing(selected.id)}>
-                    ✏️ Bearbeiten
+                    <FontAwesomeIcon icon={faPen} /> Bearbeiten
                   </button>
                 )}
               </div>
@@ -476,12 +488,12 @@ export default function Benutzerverwaltung() {
                     <td>{u.email || "–"}</td>
                     <td>
                       <span className={`badge ${u.role === "admin" ? "gold" : "info"}`}>
-                        {u.role === "admin" ? "👑 Admin" : "👤 Benutzer"}
+                        {u.role === "admin" ? <><FontAwesomeIcon icon={faCrown} /> Admin</> : <><FontAwesomeIcon icon={faUser} /> Benutzer</>}
                       </span>
                     </td>
                     <td>
                       <span className={`badge ${u.active ? "success" : "danger"}`}>
-                        {u.active ? "✅ Aktiv" : "❌ Inaktiv"}
+                        {u.active ? <><FontAwesomeIcon icon={faCheckCircle} /> Aktiv</> : <><FontAwesomeIcon icon={faTimesCircle} /> Inaktiv</>}
                       </span>
                     </td>
                     <td>

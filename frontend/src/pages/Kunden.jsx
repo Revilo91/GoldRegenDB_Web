@@ -147,7 +147,7 @@ export default function Kunden() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="🔍 Suche nach Name, Ort, Email, ID..."
+          placeholder="Suche nach Name, Ort, Email, ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
