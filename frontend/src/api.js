@@ -99,7 +99,10 @@ export const api = {
     if (!fileName) return null;
     try {
       console.log('🔍 Versuche Foto zu laden:', fileName);
-      const blob = await downloadBlob(`/schmuckstuecke/foto/${fileName}`);
+      // Entferne "uploads/" Prefix falls vorhanden (für alte DB-Einträge)
+      const cleanFileName = fileName.replace(/^uploads[\\\/]/, '');
+      console.log('📝 Bereinigter Dateiname:', cleanFileName);
+      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
       console.log('✅ Foto erfolgreich heruntergeladen, Größe:', blob.size);
       return new Promise((resolve) => {
         const reader = new FileReader();
