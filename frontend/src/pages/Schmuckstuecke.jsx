@@ -25,6 +25,7 @@ export default function Schmuckstuecke() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
     direction: "asc",
@@ -98,6 +99,19 @@ export default function Schmuckstuecke() {
   useEffect(() => {
     load();
   }, [page, search, filters]);
+
+  useEffect(() => {
+    if (selected && selected.Foto) {
+      console.log('📷 Selected Schmuckstück mit Foto:', selected.Artikelnummer, selected.Foto);
+      api.loadPhotoAsDataUrl(selected.Foto).then((dataUrl) => {
+        console.log('📸 Photo DataUrl geladen:', dataUrl ? 'Ja' : 'Nein');
+        setSelectedPhoto(dataUrl);
+      }).catch(console.error);
+    } else {
+      console.log('📷 Kein Foto vorhanden für:', selected?.Artikelnummer);
+      setSelectedPhoto(null);
+    }
+  }, [selected]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -392,16 +406,53 @@ export default function Schmuckstuecke() {
             </div>
 
             {/* Photo Display */}
-            {selected.Foto && (
-              <div style={{ textAlign: "center", padding: "16px 0", borderBottom: "1px solid #ddd" }}>
+            <div style={{ textAlign: "center", padding: "16px 0", borderBottom: "1px solid #ddd", backgroundColor: "#f9f9f9" }}>
+              {selectedPhoto ? (
                 <img
-                  src={api.getPhotoUrl(selected.Foto)}
+                  src={selectedPhoto}
                   alt={selected.Artikelnummer}
                   style={{ maxWidth: "200px", maxHeight: "200px", borderRadius: "8px" }}
-                  onError={(e) => { e.target.style.display = "none"; }}
                 />
-              </div>
-            )}
+              ) : selected.Foto ? (
+                <div style={{
+                  width: "200px",
+                  height: "200px",
+                  margin: "0 auto",
+                  borderRadius: "8px",
+                  backgroundColor: "#e0e0e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#999",
+                  fontSize: "14px",
+                  border: "2px dashed #ccc"
+                }}>
+                  <div>
+                    <div style={{ marginBottom: "8px" }}>⏳</div>
+                    Bild wird geladen...
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  width: "200px",
+                  height: "200px",
+                  margin: "0 auto",
+                  borderRadius: "8px",
+                  backgroundColor: "#f0f0f0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#bbb",
+                  fontSize: "14px",
+                  border: "2px dashed #ddd"
+                }}>
+                  <div>
+                    <div style={{ marginBottom: "8px", fontSize: "24px" }}>📷</div>
+                    Kein Bild vorhanden
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="detail-grid">
               {[

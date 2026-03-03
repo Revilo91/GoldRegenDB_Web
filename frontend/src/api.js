@@ -95,6 +95,25 @@ export const api = {
     return requestFormData(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
+  loadPhotoAsDataUrl: async (fileName) => {
+    if (!fileName) return null;
+    try {
+      console.log('🔍 Versuche Foto zu laden:', fileName);
+      const blob = await downloadBlob(`/schmuckstuecke/foto/${fileName}`);
+      console.log('✅ Foto erfolgreich heruntergeladen, Größe:', blob.size);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          console.log('✅ Foto zu DataURL konvertiert');
+          resolve(e.target.result);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.error('❌ Fehler beim Laden des Fotos:', fileName, err);
+      return null;
+    }
+  },
 
   // Lieferscheine
   getLieferscheine: () => request('/lieferscheine'),
