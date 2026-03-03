@@ -77,6 +77,8 @@ export const api = {
   createKunde: (data) => request('/kunden', { method: 'POST', body: JSON.stringify(data) }),
   updateKunde: (id, data) => request(`/kunden/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteKunde: (id) => request(`/kunden/${id}`, { method: 'DELETE' }),
+  restockKunde: (id) => request(`/kunden/${id}/restock`, { method: 'PUT', body: JSON.stringify({}) }),
+  restockKundeSelective: (id, artikelnummern) => request(`/kunden/${id}/restock-selective`, { method: 'PUT', body: JSON.stringify({ artikelnummern }) }),
 
   // Schmuckstücke
   getSchmuckstuecke: (params) => {

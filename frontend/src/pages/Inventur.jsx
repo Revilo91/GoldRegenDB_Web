@@ -5,6 +5,7 @@ import {
   faTimes,
   faChevronDown,
   faChevronRight,
+  faBox,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
@@ -22,16 +23,28 @@ function formatEur(value) {
   });
 }
 
-function ItemsTable({ items }) {
+function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
   if (items.length === 0) {
     return <p style={{ color: "var(--text-muted)", padding: "16px 0" }}>Keine Artikel.</p>;
   }
   const total = items.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+  const allSelected = selectedItems && items.length > 0 && selectedItems.size === items.length;
+
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="data-table">
         <thead>
           <tr>
+            {selectedItems && (
+              <th style={{ width: 40, textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={selectAll}
+                  title={allSelected ? "Alle abwählen" : "Alle auswählen"}
+                />
+              </th>
+            )}
             <th>Artikelnummer</th>
             <th>Name</th>
             <th>Art</th>
@@ -43,7 +56,16 @@ function ItemsTable({ items }) {
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.Artikelnummer}>
+            <tr key={item.Artikelnummer} style={selectedItems && selectedItems.has(item.Artikelnummer) ? { background: "var(--bg-hover)" } : {}}>
+              {selectedItems && (
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.has(item.Artikelnummer)}
+                    onChange={() => toggleItemSelection(item.Artikelnummer)}
+                  />
+                </td>
+              )}
               <td><code>{item.Artikelnummer}</code></td>
               <td>{item.Name || "–"}</td>
               <td>{item.Art || "–"}</td>
@@ -60,7 +82,8 @@ function ItemsTable({ items }) {
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={5} style={{ fontWeight: 600, textAlign: "right", padding: "8px 12px" }}>
+            {selectedItems && <td />}
+            <td colSpan={selectedItems ? 4 : 5} style={{ fontWeight: 600, textAlign: "right", padding: "8px 12px" }}>
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
@@ -72,11 +95,13 @@ function ItemsTable({ items }) {
   );
 }
 
-function DetailModal({ kundeId, kundeName, onClose }) {
+function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("aktiv");
   const [exporting, setExporting] = useState(false);
+  const [restocking, setRestocking] = useState(false);
+  const [selectedItems, setSelectedItems] = useState(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -113,6 +138,50 @@ function DetailModal({ kundeId, kundeName, onClose }) {
       alert(err.message);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleRestock = async () => {
+    if (selectedItems.size === 0) {
+      alert('Bitte wähle mindestens einen Artikel aus');
+      return;
+    }
+
+    const confirm_msg = `Möchtest du ${selectedItems.size} Artikel von "${kundeName}" zurück ins Lager lagern (Ausgelagert = 0)?`;
+    if (!window.confirm(confirm_msg)) return;
+
+    setRestocking(true);
+    try {
+      await api.restockKundeSelective(kundeId, Array.from(selectedItems));
+      alert('Artikel erfolgreich zurückgelagert!');
+      onRestock?.();
+      onClose();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setRestocking(false);
+    }
+  };
+
+  const toggleItemSelection = (artikelnummer) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(artikelnummer)) {
+        next.delete(artikelnummer);
+      } else {
+        next.add(artikelnummer);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (tabItems.length > 0) {
+      if (selectedItems.size === tabItems.length) {
+        setSelectedItems(new Set());
+      } else {
+        setSelectedItems(new Set(tabItems.map((i) => i.Artikelnummer)));
+      }
     }
   };
 
@@ -213,24 +282,40 @@ function DetailModal({ kundeId, kundeName, onClose }) {
                   ))}
                 </div>
 
-                <ItemsTable items={tabItems} />
+                <ItemsTable
+                  items={tabItems}
+                  selectedItems={selectedItems}
+                  toggleItemSelection={toggleItemSelection}
+                  selectAll={selectAll}
+                />
               </>
             )
           )}
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: "flex-end" }}>
+        <div className="modal-footer" style={{ justifyContent: "space-between" }}>
           <button
-            className="btn btn-primary"
-            onClick={handleExcel}
-            disabled={exporting || loading}
+            className="btn btn-warning"
+            onClick={handleRestock}
+            disabled={restocking || loading || selectedItems.size === 0}
+            title={selectedItems.size === 0 ? "Wähle Artikel aus um zurückzulagern" : `${selectedItems.size} Artikel zurücklagern`}
           >
-            <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: 6 }} />
-            {exporting ? "Exportiere…" : "Excel Export"}
+            <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
+            {restocking ? "Lagere zurück…" : `Zurücklagern (${selectedItems.size})`}
           </button>
-          <button className="btn btn-secondary" onClick={onClose} style={{ marginLeft: 8 }}>
-            Schließen
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleExcel}
+              disabled={exporting || loading}
+            >
+              <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: 6 }} />
+              {exporting ? "Exportiere…" : "Excel Export"}
+            </button>
+            <button className="btn btn-secondary" onClick={onClose}>
+              Schließen
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -242,7 +327,6 @@ export default function Inventur() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedKunde, setSelectedKunde] = useState(null);
-  const [expandedRows, setExpandedRows] = useState(new Set());
 
   const load = () => {
     setLoading(true);
@@ -283,14 +367,7 @@ export default function Inventur() {
     [summary]
   );
 
-  const toggleExpand = (id) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+
 
   return (
     <div>
@@ -355,7 +432,6 @@ export default function Inventur() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: 32 }}></th>
                   <th>Kunde</th>
                   <th>Ort</th>
                   <th style={{ textAlign: "right" }}>Gesamt</th>
@@ -364,7 +440,6 @@ export default function Inventur() {
                   <th style={{ textAlign: "right" }}>Ausschuss</th>
                   <th style={{ textAlign: "right" }}>Warenwert (aktiv)</th>
                   <th style={{ textAlign: "right" }}>Warenwert (verk.)</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -375,17 +450,6 @@ export default function Inventur() {
                       style={{ cursor: "pointer" }}
                       onClick={() => setSelectedKunde(k)}
                     >
-                      <td
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleExpand(k.ID);
-                        }}
-                        style={{ textAlign: "center", color: "var(--text-muted)" }}
-                      >
-                        <FontAwesomeIcon
-                          icon={expandedRows.has(k.ID) ? faChevronDown : faChevronRight}
-                        />
-                      </td>
                       <td>
                         <strong>{k.Name}</strong>
                         {!k.Aktiv && (
@@ -414,39 +478,20 @@ export default function Inventur() {
                       <td style={{ textAlign: "right" }}>
                         {formatEur(k.wert_verkauft)}
                       </td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedKunde(k);
-                          }}
-                          title="Details anzeigen"
-                        >
-                          Details
-                        </button>
-                      </td>
                     </tr>
-                    {expandedRows.has(k.ID) && (
-                      <tr key={`${k.ID}-expanded`}>
-                        <td colSpan={10} style={{ padding: "0 0 8px 40px", background: "var(--bg-hover)" }}>
-                          <InlineItems kundeId={k.ID} />
-                        </td>
-                      </tr>
-                    )}
+
                   </>
                 ))}
               </tbody>
               <tfoot>
                 <tr style={{ fontWeight: 600, background: "var(--bg-hover)" }}>
-                  <td colSpan={3} style={{ padding: "8px 12px" }}>Gesamt</td>
+                  <td colSpan={2} style={{ padding: "8px 12px" }}>Gesamt</td>
                   <td style={{ textAlign: "right" }}>{totals.gesamt}</td>
                   <td style={{ textAlign: "right", color: "var(--success)" }}>{totals.aktiv}</td>
                   <td style={{ textAlign: "right", color: "var(--info)" }}>{totals.verkauft}</td>
                   <td style={{ textAlign: "right", color: "var(--warning)" }}>{totals.ausschuss}</td>
                   <td style={{ textAlign: "right" }}>{formatEur(totals.wert_aktiv)}</td>
                   <td style={{ textAlign: "right" }}>{formatEur(totals.wert_verkauft)}</td>
-                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -459,6 +504,7 @@ export default function Inventur() {
           kundeId={selectedKunde.ID}
           kundeName={selectedKunde.Name}
           onClose={() => setSelectedKunde(null)}
+          onRestock={load}
         />
       )}
     </div>
@@ -499,31 +545,6 @@ function InlineItems({ kundeId }) {
           {" "}Ausschuss
         </span>
       </div>
-      {aktiv.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <strong style={{ fontSize: 12, color: "var(--text-muted)" }}>Nicht verkauft:</strong>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-            {aktiv.slice(0, 20).map((i) => (
-              <code
-                key={i.Artikelnummer}
-                style={{
-                  background: "var(--bg-secondary)",
-                  padding: "2px 6px",
-                  borderRadius: 4,
-                  fontSize: 11,
-                }}
-              >
-                {i.Artikelnummer}
-              </code>
-            ))}
-            {aktiv.length > 20 && (
-              <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
-                +{aktiv.length - 20} weitere…
-              </span>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
