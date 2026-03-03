@@ -21,6 +21,7 @@ import {
   faUser,
   faTimes,
   faBars,
+  faWarehouse,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -35,6 +36,7 @@ import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import Datensicherung from "./pages/Datensicherung";
+import Inventur from "./pages/Inventur";
 import "./index.css";
 
 function AppLayout() {
@@ -130,6 +132,13 @@ function AppLayout() {
             onClick={closeMobileMenu}>
             <span className="nav-icon"><FontAwesomeIcon icon={faCreditCard} /></span>
             <span>SumUp</span>
+          </NavLink>
+          <NavLink
+            to="/inventur"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}>
+            <span className="nav-icon"><FontAwesomeIcon icon={faWarehouse} /></span>
+            <span>Inventur</span>
           </NavLink>
           {isAdmin && (
             <>
@@ -235,6 +244,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Sumup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventur"
+            element={
+              <ProtectedRoute>
+                <Inventur />
               </ProtectedRoute>
             }
           />

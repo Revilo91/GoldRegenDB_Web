@@ -13,6 +13,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const sumupRoutes = require('./routes/sumup');
+const inventurRoutes = require('./routes/inventur');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,6 +58,9 @@ app.use('/api/users', apiLimiter, authenticate, requireAdmin, usersRoutes);
 
 // SumUp routes (authentifiziert)
 app.use('/api/sumup', apiLimiter, authenticate, sumupRoutes);
+
+// Inventur route (authentifiziert)
+app.use('/api/inventur', apiLimiter, authenticate, inventurRoutes);
 
 // Admin-only routes
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);
