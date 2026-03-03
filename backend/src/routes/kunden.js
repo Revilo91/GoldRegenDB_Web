@@ -83,6 +83,40 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// PUT restock all items for a customer (set Ausgelagert = 0)
+router.put('/:id/restock', async (req, res) => {
+  try {
+    const { rowCount } = await db.query(
+      'UPDATE "Schmuckstück" SET "Ausgelagert" = 0 WHERE "Ausgelagert" = $1',
+      [req.params.id]
+    );
+    res.json({ message: `${rowCount} Artikel zurückgelagert` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Fehler beim Zurücklagern der Artikel' });
+  }
+});
+
+// PUT restock specific items for a customer (set Ausgelagert = 0)
+router.put('/:id/restock-selective', async (req, res) => {
+  try {
+    const { artikelnummern } = req.body;
+    if (!Array.isArray(artikelnummern) || artikelnummern.length === 0) {
+      return res.status(400).json({ error: 'Keine Artikelnummern angegeben' });
+    }
+
+    // Use parameterized query with ANY for IN clause
+    const { rowCount } = await db.query(
+      'UPDATE "Schmuckstück" SET "Ausgelagert" = 0 WHERE "Artikelnummer" = ANY($1) AND "Ausgelagert" = $2',
+      [artikelnummern, req.params.id]
+    );
+    res.json({ message: `${rowCount} Artikel zurückgelagert` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Fehler beim Zurücklagern der Artikel' });
+  }
+});
+
 // DELETE customer
 router.delete('/:id', async (req, res) => {
   try {
