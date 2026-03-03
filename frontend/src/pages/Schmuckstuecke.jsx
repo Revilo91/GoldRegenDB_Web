@@ -163,13 +163,7 @@ export default function Schmuckstuecke() {
 
   return (
     <div>
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}>
+      <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
           <p>{p.total || 0} Stücke insgesamt</p>
