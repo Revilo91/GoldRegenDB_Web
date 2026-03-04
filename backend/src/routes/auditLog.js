@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    logger.error('AUDIT-LOG', 'Fehler beim Laden des Audit-Logs (paginiert)', { message: err.message, page, search });
     res.status(500).json({ error: 'Fehler beim Laden des Audit-Logs' });
   }
 });
