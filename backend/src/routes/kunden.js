@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 // GET all customers
 router.get('/', async (req, res) => {
@@ -8,9 +9,10 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       'SELECT * FROM "Kunde" ORDER BY "Name"'
     );
+    logger.info('KUNDEN', `${rows.length} Kunden geladen`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', 'Fehler beim Laden der Kunden', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Kunden' });
   }
 });
@@ -23,11 +25,12 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
     if (rows.length === 0) {
+      logger.warn('KUNDEN', `Kunde nicht gefunden: ID=${req.params.id}`);
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', `Fehler beim Laden des Kunden ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Kunden' });
   }
 });
@@ -41,7 +44,7 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', 'Fehler beim Laden der Schmuckstücke für Kunde', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Schmuckstücke' });
   }
 });
@@ -55,9 +58,10 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision || 0, Aktiv || false, Artikelnummern_Erforderlich || false]
     );
+    logger.info('KUNDEN', `Kunde erstellt: ${rows[0].Name} (ID=${rows[0].ID})`);
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { name: Name, message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Kunden' });
   }
 });
@@ -76,9 +80,10 @@ router.put('/:id', async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
+    logger.info('KUNDEN', `Kunde aktualisiert: ID=${req.params.id}`);
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', `Fehler beim Aktualisieren des Kunden ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Kunden' });
   }
 });
@@ -90,9 +95,10 @@ router.put('/:id/restock', async (req, res) => {
       'UPDATE "Schmuckstück" SET "Ausgelagert" = 0 WHERE "Ausgelagert" = $1',
       [req.params.id]
     );
+    logger.info('KUNDEN', `${rowCount} Artikel zurückgelagert für Kunde ID=${req.params.id}`);
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', `Fehler beim Zurücklagern für Kunde ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Zurücklagern der Artikel' });
   }
 });
@@ -110,9 +116,10 @@ router.put('/:id/restock-selective', async (req, res) => {
       'UPDATE "Schmuckstück" SET "Ausgelagert" = 0 WHERE "Artikelnummer" = ANY($1) AND "Ausgelagert" = $2',
       [artikelnummern, req.params.id]
     );
+    logger.info('KUNDEN', `${rowCount} Artikel selektiv zurückgelagert für Kunde ID=${req.params.id}`, { anzahl: artikelnummern.length });
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', `Fehler beim selektiven Zurücklagern für Kunde ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Zurücklagern der Artikel' });
   }
 });
@@ -127,9 +134,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
+    logger.info('KUNDEN', `Kunde gelöscht: ID=${req.params.id}`);
     res.json({ message: 'Kunde gelöscht' });
   } catch (err) {
-    console.error(err);
+    logger.error('KUNDEN', `Fehler beim Löschen des Kunden ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen des Kunden' });
   }
 });
