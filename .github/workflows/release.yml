@@ -135,6 +135,8 @@ jobs:
                 timeout: 5s
                 retries: 5
                 start_period: 1m
+              networks:
+                - goldregendb_net
 
             backend:
               image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb-backend:${VERSION}
@@ -147,8 +149,12 @@ jobs:
                 NODE_ENV: production
                 PORT: \${PORT}
                 JWT_SECRET: \${JWT_SECRET}
+              volumes:
+                - /volume1/docker/goldregendb/uploads:/app/src/assets/uploads
               ports:
                 - "\${PORT}:\${PORT}"
+              networks:
+                - goldregendb_net
 
             frontend:
               image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb-frontend:${VERSION}
@@ -157,6 +163,12 @@ jobs:
                 - backend
               ports:
                 - "3000:80"
+              networks:
+                - goldregendb_net
+
+          networks:
+            goldregendb_net:
+              driver: bridge
           EOF
 
           # DB-Skripte kopieren
@@ -166,34 +178,70 @@ jobs:
           cp db/restore.sh "${PACKAGE_DIR}/db/"
           cp db/load_seed.sh "${PACKAGE_DIR}/db/"
 
-          # .env.example kopieren
-          cp .env.example "${PACKAGE_DIR}/.env.example"
+          # .env für Synology erstellen (ohne VITE_API_URL, das ist ins Image eingebettet)
+          cat > "${PACKAGE_DIR}/.env.example" <<'ENVEOF'
+          # Datenbank
+          DB_PASSWORD=changeme
+          POSTGRES_DB=goldregendb
+          POSTGRES_USER=goldregen
+
+          # Backend
+          NODE_ENV=production
+          PORT=3001
+          DATABASE_URL=postgresql://goldregen:changeme@db:5432/goldregendb
+          JWT_SECRET=change-this-to-a-long-random-secret
+          ENVEOF
 
           # README für Synology-Deployment erstellen
           cat > "${PACKAGE_DIR}/README.md" <<'README'
           # GoldRegenDB – Synology Deployment
 
           ## Voraussetzungen
-          - Synology NAS mit Docker/Container Manager
+          - Synology NAS mit Docker/Container Manager (DSM 7+)
           - SSH-Zugang zur Synology
 
           ## Installation
 
-          1. Dieses Paket nach `/volume1/docker/goldregendb/` entpacken
-          2. `.env.example` nach `.env` kopieren und anpassen:
+          1. Dieses Paket nach `/volume1/docker/goldregendb/` entpacken:
              ```
-             cp .env.example .env
-             nano .env
+             mkdir -p /volume1/docker/goldregendb
+             unzip goldregendb-synology-*.zip -d /tmp/goldregendb_pkg
+             cp -r /tmp/goldregendb_pkg/goldregendb-synology-*/. /volume1/docker/goldregendb/
              ```
-          3. Container starten:
+          2. `.env.example` nach `.env` kopieren und **alle Passwörter/Secrets anpassen**:
              ```
+             cp /volume1/docker/goldregendb/.env.example /volume1/docker/goldregendb/.env
+             nano /volume1/docker/goldregendb/.env
+             ```
+             Wichtig: `DB_PASSWORD` und `JWT_SECRET` auf sichere Werte setzen.
+             `DATABASE_URL` muss denselben Wert wie `DB_PASSWORD` enthalten.
+
+          3. Uploads-Ordner anlegen (für Fotos):
+             ```
+             mkdir -p /volume1/docker/goldregendb/uploads
+             ```
+
+          4. Container starten:
+             ```
+             cd /volume1/docker/goldregendb
              docker compose up -d
+             ```
+
+          5. Logs prüfen (optional):
+             ```
+             docker compose logs -f
              ```
 
           ## Zugriff
           - Frontend: http://<synology-ip>:3000
-          - Backend API: http://<synology-ip>:<PORT>
-          - Standard-Login: admin / admin123 (bitte nach dem ersten Login ändern)
+          - Standard-Login: admin / admin123 (bitte nach dem ersten Login ändern!)
+
+          ## Hinweise
+          - VITE_API_URL muss **nicht** gesetzt werden – ist bereits ins Image eingebettet.
+          - Die Images werden automatisch aus GitHub Container Registry (ghcr.io) gezogen.
+          - Datenbankdaten liegen unter `/volume1/docker/goldregendb/data/`.
+          - Backups liegen unter `/volume1/docker/goldregendb/backups/`.
+          - Hochgeladene Fotos liegen unter `/volume1/docker/goldregendb/uploads/`.
           README
 
           zip -r "${PACKAGE_DIR}.zip" "${PACKAGE_DIR}/"

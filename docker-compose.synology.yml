@@ -27,9 +27,9 @@ services:
       - goldregendb_net
 
   backend:
-    build:
-      context: /volume1/docker/goldregendb/backend
-      dockerfile: Dockerfile
+    # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
+    # Kompatibel mit Synology Container Manager (DSM).
+    image: ghcr.io/revilo91/goldregendb-backend:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -39,20 +39,18 @@ services:
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      # Hochgeladene Fotos dauerhaft speichern
+      - /volume1/docker/goldregendb/uploads:/app/src/assets/uploads
     ports:
       - "${PORT}:${PORT}"
     networks:
       - goldregendb_net
 
   frontend:
-    build:
-      context: /volume1/docker/goldregendb/frontend
-      dockerfile: Dockerfile
-      args:
-        # Build-Zeit-Argument: Wird beim Build in die React-App eingebettet.
-        # Relative URL: API-Anfragen laufen über den nginx-Proxy im Frontend-Container.
-        # Dadurch funktioniert die Verbindung unabhängig von der IP-Adresse der Synology.
-        VITE_API_URL: /api
+    # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
+    # VITE_API_URL=/api ist bereits im Image eingebettet; nginx leitet /api an den Backend-Container weiter.
+    image: ghcr.io/revilo91/goldregendb-frontend:latest
     restart: unless-stopped
     depends_on:
       - backend
