@@ -4,6 +4,7 @@ const db = require("../config/db");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const logger = require("../utils/logger");
 
 // Erstelle uploads-Verzeichnis falls nicht vorhanden
 const uploadsDir = path.join(__dirname, "../assets/uploads");
@@ -98,7 +99,7 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
       originalName: req.file.originalname,
     });
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', 'Fehler beim Upload des Fotos', { message: err.message });
     if (err.message.includes("Nur") || err.message.includes("erlaubt")) {
       res.status(400).json({ error: err.message });
     } else {
@@ -124,7 +125,7 @@ router.get("/foto/:fileName", (req, res) => {
       res.status(404).json({ error: "Foto nicht gefunden" });
     }
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, { message: err.message });
     res.status(500).json({ error: "Fehler beim Abrufen des Fotos" });
   }
 });
@@ -147,7 +148,7 @@ router.delete("/foto/:fileName", async (req, res) => {
       res.status(404).json({ error: "Foto nicht gefunden" });
     }
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', `Fehler beim Löschen des Fotos: ${req.params.fileName}`, { message: err.message });
     res.status(500).json({ error: "Fehler beim Löschen des Fotos" });
   }
 });
@@ -258,7 +259,7 @@ router.get("/", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', 'Fehler beim Laden der Schmuckstücke', { message: err.message });
     res.status(500).json({ error: "Fehler beim Laden der Schmuckstücke" });
   }
 });
@@ -329,7 +330,7 @@ router.get("/filter-options", async (req, res) => {
       anhaenger: anhaenger.rows.map(r => r.Anhänger),
     });
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', 'Fehler beim Laden der Filter-Optionen', { message: err.message });
     res.status(500).json({ error: "Fehler beim Laden der Filter-Optionen" });
   }
 });
@@ -357,7 +358,7 @@ router.get("/:artikelnummer", async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', `Fehler beim Laden des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
     res.status(500).json({ error: "Fehler beim Laden des Schmuckstücks" });
   }
 });
@@ -501,7 +502,7 @@ router.post("/", async (req, res) => {
     res.status(201).json(quantity === 1 ? createdItems[0] : createdItems);
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error(err);
+    logger.error('SCHMUCK', 'Fehler beim Erstellen des Schmuckstücks', { message: err.message });
     res.status(500).json({
       error: "Fehler beim Erstellen des Schmuckstücks: " + err.message,
     });
@@ -578,7 +579,7 @@ router.put("/:artikelnummer", async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
     res
       .status(500)
       .json({ error: "Fehler beim Aktualisieren des Schmuckstücks" });
@@ -597,7 +598,7 @@ router.delete("/:artikelnummer", async (req, res) => {
     }
     res.json({ message: "Schmuckstück gelöscht" });
   } catch (err) {
-    console.error(err);
+    logger.error('SCHMUCK', `Fehler beim Löschen des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
   }
 });
