@@ -22,8 +22,13 @@ router.post('/login', async (req, res) => {
     const user = rows[0];
     // Always compare to prevent timing attacks that reveal whether a username exists
     const dummyHash = '$2b$10$invalidhashvaluethatisusedfordummycomparison000000000';
-    const hashToCheck = user ? user.password_hash : dummyHash;
-    const valid = await bcrypt.compare(password, hashToCheck);
+    const hashToCheck = user && user.password_hash ? user.password_hash : dummyHash;
+    let valid = false;
+    try {
+      valid = await bcrypt.compare(password, hashToCheck);
+    } catch (bcryptErr) {
+      logger.error('AUTH', `bcrypt.compare Fehler für Benutzer: ${username}`, { message: bcryptErr.message });
+    }
     if (!user || !valid) {
       logger.warn('AUTH', `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten`);
       return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
@@ -42,7 +47,12 @@ router.post('/login', async (req, res) => {
     logger.info('AUTH', `Login erfolgreich: ${username} (Rolle: ${user.role})`);
     res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
-    logger.error('AUTH', `Login-Fehler für Benutzer: ${username}`, { message: err.message });
+    logger.error('AUTH', `Login-Fehler für Benutzer: ${username}`, { message: err.message, code: err.code, stack: err.stack });
+    // Differentiate database connectivity errors from other errors
+    // ECONNREFUSED = DB server unreachable, 57P03 = DB shutting down, 42P01 = table does not exist
+    if (err.code === 'ECONNREFUSED' || err.code === '57P03' || err.code === '42P01') {
+      return res.status(503).json({ error: 'Datenbank nicht erreichbar – bitte später erneut versuchen' });
+    }
     res.status(500).json({ error: 'Anmeldefehler' });
   }
 });
