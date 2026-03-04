@@ -38,7 +38,7 @@ async function ensureAppUsersTable() {
         CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
       )
     `);
-    // Seed default admin if table is empty (password: admin)
+    // Seed default admin if table is empty (same hash as in db/init.sql)
     const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM app_users');
     if (parseInt(rows[0].cnt, 10) === 0) {
       await pool.query(
@@ -46,7 +46,7 @@ async function ensureAppUsersTable() {
          VALUES ('admin', '$2b$10$PEPpBG.7g5QFmj8p0XXU6u2/IfVwLCXPlvRnnDPCqSXuTX5uFt/zq', 'admin@goldregen.local', 'admin', TRUE)
          ON CONFLICT (username) DO NOTHING`
       );
-      logger.info('DB', 'Standard-Admin-Benutzer angelegt (Benutzername: admin, Passwort: admin)');
+      logger.info('DB', 'Standard-Admin-Benutzer angelegt – Passwort nach erstem Login ändern!');
     }
     logger.info('DB', 'app_users Tabelle verifiziert');
   } catch (err) {

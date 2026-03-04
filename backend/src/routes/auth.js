@@ -49,6 +49,7 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     logger.error('AUTH', `Login-Fehler für Benutzer: ${username}`, { message: err.message, code: err.code, stack: err.stack });
     // Differentiate database connectivity errors from other errors
+    // ECONNREFUSED = DB server unreachable, 57P03 = DB shutting down, 42P01 = table does not exist
     if (err.code === 'ECONNREFUSED' || err.code === '57P03' || err.code === '42P01') {
       return res.status(503).json({ error: 'Datenbank nicht erreichbar – bitte später erneut versuchen' });
     }
