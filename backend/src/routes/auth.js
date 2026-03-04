@@ -47,7 +47,11 @@ router.post('/login', async (req, res) => {
     logger.info('AUTH', `Login erfolgreich: ${username} (Rolle: ${user.role})`);
     res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
-    logger.error('AUTH', `Login-Fehler für Benutzer: ${username}`, { message: err.message, stack: err.stack });
+    logger.error('AUTH', `Login-Fehler für Benutzer: ${username}`, { message: err.message, code: err.code, stack: err.stack });
+    // Differentiate database connectivity errors from other errors
+    if (err.code === 'ECONNREFUSED' || err.code === '57P03' || err.code === '42P01') {
+      return res.status(503).json({ error: 'Datenbank nicht erreichbar – bitte später erneut versuchen' });
+    }
     res.status(500).json({ error: 'Anmeldefehler' });
   }
 });
