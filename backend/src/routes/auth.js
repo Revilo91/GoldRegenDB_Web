@@ -4,14 +4,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { authenticate, JWT_SECRET } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
+    logger.warn('AUTH', 'Login-Versuch ohne Benutzername oder Passwort');
     return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
   }
   try {
+    logger.info('AUTH', `Login-Versuch für Benutzer: ${username}`);
     const { rows } = await db.query(
       'SELECT id, username, password_hash, role, active FROM app_users WHERE username = $1',
       [username]
@@ -22,9 +25,11 @@ router.post('/login', async (req, res) => {
     const hashToCheck = user ? user.password_hash : dummyHash;
     const valid = await bcrypt.compare(password, hashToCheck);
     if (!user || !valid) {
+      logger.warn('AUTH', `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten`);
       return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
     }
     if (!user.active) {
+      logger.warn('AUTH', `Login fehlgeschlagen für Benutzer: ${username} – Konto deaktiviert`);
       return res.status(403).json({ error: 'Benutzerkonto ist deaktiviert' });
     }
     // Update last login timestamp
@@ -34,15 +39,17 @@ router.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '8h' }
     );
+    logger.info('AUTH', `Login erfolgreich: ${username} (Rolle: ${user.role})`);
     res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
-    console.error(err);
+    logger.error('AUTH', `Login-Fehler für Benutzer: ${username}`, { message: err.message });
     res.status(500).json({ error: 'Anmeldefehler' });
   }
 });
 
 // GET /api/auth/me – verify token and return current user
 router.get('/me', authenticate, (req, res) => {
+  logger.info('AUTH', `Token-Validierung erfolgreich: ${req.user.username}`);
   res.json({ user: req.user });
 });
 

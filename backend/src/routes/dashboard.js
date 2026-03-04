@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 // GET dashboard statistics
 router.get('/', async (req, res) => {
@@ -57,7 +58,7 @@ router.get('/', async (req, res) => {
       piecesByKunde: piecesByKunde.rows,
     });
   } catch (err) {
-    console.error(err);
+    logger.error('DASHBOARD', 'Fehler beim Laden des Dashboards', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Dashboards' });
   }
 });

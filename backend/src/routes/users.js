@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
+const logger = require('../utils/logger');
 
 const SALT_ROUNDS = 10;
 const VALID_ROLES = ['admin', 'user'];
@@ -13,9 +14,10 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       'SELECT id, username, email, role, active, created_at, last_login FROM app_users ORDER BY username'
     );
+    logger.info('USERS', `${rows.length} Benutzer geladen`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    logger.error('USERS', 'Fehler beim Laden der Benutzer', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Benutzer' });
   }
 });
@@ -32,7 +34,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
+    logger.error('USERS', `Fehler beim Laden des Benutzers ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Benutzers' });
   }
 });
@@ -56,12 +58,14 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, role, active, created_at`,
       [username, password_hash, email || null, role || 'user', active !== false]
     );
+    logger.info('USERS', `Benutzer erstellt: ${username} (Rolle: ${role})`);
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error(err);
     if (err.code === '23505') {
+      logger.warn('USERS', `Benutzer-Erstellung fehlgeschlagen: ${req.body.username} – Name bereits vergeben`);
       return res.status(409).json({ error: 'Benutzername bereits vergeben' });
     }
+    logger.error('USERS', 'Fehler beim Erstellen des Benutzers', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Benutzers' });
   }
 });
@@ -81,12 +85,14 @@ router.put('/:id', async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
+    logger.info('USERS', `Benutzer aktualisiert: ID=${req.params.id} (${username})`);
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
     if (err.code === '23505') {
+      logger.warn('USERS', `Benutzer-Update fehlgeschlagen: ID=${req.params.id} – Name bereits vergeben`);
       return res.status(409).json({ error: 'Benutzername bereits vergeben' });
     }
+    logger.error('USERS', `Fehler beim Aktualisieren des Benutzers ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Benutzers' });
   }
 });
@@ -106,9 +112,10 @@ router.post('/:id/reset-password', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
+    logger.info('USERS', `Passwort zurückgesetzt für Benutzer ID=${req.params.id}`);
     res.json({ message: 'Passwort erfolgreich zurückgesetzt' });
   } catch (err) {
-    console.error(err);
+    logger.error('USERS', `Fehler beim Zurücksetzen des Passworts für ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Zurücksetzen des Passworts' });
   }
 });
@@ -123,9 +130,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
+    logger.info('USERS', `Benutzer gelöscht: ID=${req.params.id}`);
     res.json({ message: 'Benutzer gelöscht' });
   } catch (err) {
-    console.error(err);
+    logger.error('USERS', `Fehler beim Löschen des Benutzers ID=${req.params.id}`, { message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen des Benutzers' });
   }
 });

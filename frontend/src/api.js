@@ -1,5 +1,17 @@
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+const LOG_PREFIX = '[FRONTEND/API]';
+
+function logInfo(message, meta) {
+  console.log(`${new Date().toISOString()} ${LOG_PREFIX} ${message}`, meta !== undefined ? meta : '');
+}
+
+function logError(message, meta) {
+  console.error(`${new Date().toISOString()} ${LOG_PREFIX} ${message}`, meta !== undefined ? meta : '');
+}
+
+logInfo(`API-Client initialisiert. API_URL=${API_URL}`);
+
 function getToken() {
   return localStorage.getItem('token');
 }
@@ -10,23 +22,38 @@ async function request(url, options = {}) {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const res = await fetch(`${API_URL}${url}`, { headers, ...options });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+  const method = options.method || 'GET';
+  logInfo(`→ ${method} ${url}`);
+  const startTime = Date.now();
+  try {
+    const res = await fetch(`${API_URL}${url}`, { headers, ...options });
+    const duration = Date.now() - startTime;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+      logError(`← ${method} ${url} → ${res.status} (${duration}ms): ${errorMessage}`);
 
-    // Bei SumUp-Import Debug-Infos in Console loggen
-    if (url.includes('/sumup/import') && err.verfuegbareSpalten) {
-      console.error('SumUp Import Fehler-Details:', {
-        verfuegbareSpalten: err.verfuegbareSpalten,
-        beispieldaten: err.beispieldaten,
-        hinweis: err.hinweis
-      });
+      // Bei SumUp-Import Debug-Infos in Console loggen
+      if (url.includes('/sumup/import') && err.verfuegbareSpalten) {
+        logError('SumUp Import Fehler-Details:', {
+          verfuegbareSpalten: err.verfuegbareSpalten,
+          beispieldaten: err.beispieldaten,
+          hinweis: err.hinweis
+        });
+      }
+
+      throw new Error(errorMessage);
     }
-
-    throw new Error(errorMessage);
+    logInfo(`← ${method} ${url} → ${res.status} (${duration}ms)`);
+    return res.json();
+  } catch (err) {
+    if (!err.message || err.message === 'Failed to fetch') {
+      const duration = Date.now() - startTime;
+      logError(`← ${method} ${url} → Netzwerkfehler (${duration}ms): Backend nicht erreichbar`);
+      throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
+    }
+    throw err;
   }
-  return res.json();
 }
 
 async function requestFormData(url, options = {}) {
@@ -35,13 +62,28 @@ async function requestFormData(url, options = {}) {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const res = await fetch(`${API_URL}${url}`, { headers, ...options });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    const errorMessage = err.error || err.message || res.statusText || 'Request failed';
-    throw new Error(errorMessage);
+  const method = options.method || 'GET';
+  logInfo(`→ ${method} ${url} (FormData)`);
+  const startTime = Date.now();
+  try {
+    const res = await fetch(`${API_URL}${url}`, { headers, ...options });
+    const duration = Date.now() - startTime;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const errorMessage = err.error || err.message || res.statusText || 'Request failed';
+      logError(`← ${method} ${url} → ${res.status} (${duration}ms): ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+    logInfo(`← ${method} ${url} → ${res.status} (${duration}ms)`);
+    return res.json();
+  } catch (err) {
+    if (!err.message || err.message === 'Failed to fetch') {
+      const duration = Date.now() - startTime;
+      logError(`← ${method} ${url} → Netzwerkfehler (${duration}ms): Backend nicht erreichbar`);
+      throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
+    }
+    throw err;
   }
-  return res.json();
 }
 
 async function downloadBlob(url) {
@@ -51,13 +93,26 @@ async function downloadBlob(url) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${url}`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || err.message || res.statusText || 'Download fehlgeschlagen');
+  logInfo(`→ GET ${url} (Download)`);
+  const startTime = Date.now();
+  try {
+    const res = await fetch(`${API_URL}${url}`, { headers });
+    const duration = Date.now() - startTime;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      logError(`← GET ${url} → ${res.status} (${duration}ms): Download fehlgeschlagen`);
+      throw new Error(err.error || err.message || res.statusText || 'Download fehlgeschlagen');
+    }
+    logInfo(`← GET ${url} → ${res.status} (${duration}ms)`);
+    return res.blob();
+  } catch (err) {
+    if (!err.message || err.message === 'Failed to fetch') {
+      const duration = Date.now() - startTime;
+      logError(`← GET ${url} → Netzwerkfehler (${duration}ms): Backend nicht erreichbar`);
+      throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
+    }
+    throw err;
   }
-
-  return res.blob();
 }
 
 export const authApi = {
@@ -102,7 +157,7 @@ export const api = {
     try {
       console.log('🔍 Versuche Foto zu laden:', fileName);
       // Entferne "uploads/" Prefix falls vorhanden (für alte DB-Einträge)
-      const cleanFileName = fileName.replace(/^uploads[\\\/]/, '');
+      const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
       console.log('📝 Bereinigter Dateiname:', cleanFileName);
       const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
       console.log('✅ Foto erfolgreich heruntergeladen, Größe:', blob.size);
