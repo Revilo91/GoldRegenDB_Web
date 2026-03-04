@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 // Tables to export/import (in FK-safe order for import)
 const EXPORT_TABLES = ['Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
@@ -26,7 +27,7 @@ router.get('/export', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json(exportData);
   } catch (err) {
-    console.error('Backup export error:', err);
+    logger.error('BACKUP', 'Fehler beim Exportieren der Daten', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Exportieren der Daten' });
   }
 });
@@ -77,6 +78,7 @@ router.post('/import', async (req, res) => {
   }
 
   const { tables, version } = normalized;
+  logger.info('BACKUP', `Import gestartet (Version: ${version})`, { tabellen: Object.keys(tables) });
 
   const client = await db.pool.connect();
   try {
@@ -117,7 +119,7 @@ router.post('/import', async (req, res) => {
         const columnsToInsert = backupColumns.filter((col) => validColumns.includes(col));
 
         if (columnsToInsert.length === 0) {
-          console.warn(`No matching columns found for table ${tableName}`);
+          logger.warn('BACKUP', `Keine passenden Spalten gefunden für Tabelle ${tableName}`);
           continue;
         }
 
@@ -164,9 +166,10 @@ router.post('/import', async (req, res) => {
     }
 
     res.json({ success: true, message: 'Import erfolgreich', counts });
+    logger.info('BACKUP', 'Import erfolgreich abgeschlossen', counts);
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Backup import error:', err);
+    logger.error('BACKUP', 'Fehler beim Importieren', { message: err.message });
     res.status(500).json({ error: `Fehler beim Importieren: ${err.message}` });
   } finally {
     client.release();

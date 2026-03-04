@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 // GET audit log with pagination
 router.get('/', async (req, res) => {
@@ -54,7 +55,7 @@ router.get('/artikel/:artikelnummer', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    logger.error('AUDIT-LOG', 'Fehler beim Laden des Audit-Logs', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Audit-Logs' });
   }
 });

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 // Get all table names in the public schema
 router.get('/tables', async (req, res) => {
@@ -14,7 +15,7 @@ router.get('/tables', async (req, res) => {
     );
     res.json(result.rows.map(row => row.table_name));
   } catch (err) {
-    console.error('Error fetching tables:', err);
+    logger.error('DEBUG', 'Fehler beim Laden der Tabellen', { message: err.message });
     res.status(500).json({ error: 'Failed to fetch tables' });
   }
 });
@@ -72,7 +73,7 @@ router.get('/tables/:tableName', async (req, res) => {
         primaryKeys: primaryKeys
     });
   } catch (err) {
-    console.error(`Error fetching data for ${tableName}:`, err);
+    logger.error('DEBUG', `Fehler beim Laden der Daten für Tabelle ${tableName}`, { message: err.message });
     res.status(500).json({ error: `Failed to fetch data for ${tableName}` });
   }
 });
@@ -101,7 +102,7 @@ router.put('/tables/:tableName', async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(`Error updating data for ${tableName}:`, err);
+    logger.error('DEBUG', `Fehler beim Aktualisieren der Daten für Tabelle ${tableName}`, { message: err.message, field });
     res.status(500).json({ error: `Failed to update data for ${tableName}` });
   }
 });
