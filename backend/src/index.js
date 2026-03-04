@@ -74,9 +74,15 @@ const apiLimiter = rateLimit({
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', apiLimiter, authRoutes);
 
-// Health check (public)
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check (public) – includes database connectivity test
+app.get('/api/health', async (req, res) => {
+  try {
+    await require('./config/db').query('SELECT 1 AS ok');
+    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (err) {
+    logger.error('SERVER', 'Health-Check: Datenbankverbindung fehlgeschlagen', { message: err.message });
+    res.status(503).json({ status: 'error', database: 'disconnected', error: err.message, timestamp: new Date().toISOString() });
+  }
 });
 
 // Protected routes – all authenticated users
