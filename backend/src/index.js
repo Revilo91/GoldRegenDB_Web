@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
+const db = require('./config/db');
 
 const { authenticate, requireAdmin } = require('./middleware/auth');
 const kundenRoutes = require('./routes/kunden');
@@ -77,11 +78,11 @@ app.use('/api/auth', apiLimiter, authRoutes);
 // Health check (public) – includes database connectivity test
 app.get('/api/health', async (req, res) => {
   try {
-    await require('./config/db').query('SELECT 1 AS ok');
+    await db.query('SELECT 1 AS ok');
     res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
   } catch (err) {
     logger.error('SERVER', 'Health-Check: Datenbankverbindung fehlgeschlagen', { message: err.message });
-    res.status(503).json({ status: 'error', database: 'disconnected', error: err.message, timestamp: new Date().toISOString() });
+    res.status(503).json({ status: 'error', database: 'disconnected', timestamp: new Date().toISOString() });
   }
 });
 
