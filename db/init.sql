@@ -100,6 +100,7 @@ CREATE INDEX idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
 CREATE TABLE "Schmuckstück" (
     "Artikelnummer" VARCHAR(20) NOT NULL,
     "Name" TEXT DEFAULT NULL,
+    "Foto" TEXT DEFAULT NULL,
     "Art" TEXT DEFAULT NULL,
     "Form" TEXT DEFAULT NULL,
     "Länge" DOUBLE PRECISION DEFAULT 0,
