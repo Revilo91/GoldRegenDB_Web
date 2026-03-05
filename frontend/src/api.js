@@ -123,8 +123,11 @@ export const authApi = {
     return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password: hashedPassword }) });
   },
   me: () => request('/auth/me'),
-  changePassword: (currentPassword, newPassword) =>
-    request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
+  changePassword: async (currentPassword, newPassword) => {
+    const hashedCurrentPassword = await hashPassword(currentPassword);
+    const hashedNewPassword = await hashPassword(newPassword);
+    return request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: hashedCurrentPassword, newPassword: hashedNewPassword }) });
+  },
 };
 
 export const api = {
