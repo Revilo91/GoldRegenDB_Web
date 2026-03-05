@@ -63,4 +63,52 @@ router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });
 });
 
+// PUT /api/auth/change-password – change own password (authenticated)
+router.put('/change-password', authenticate, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+  const username = req.user.username;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Aktuelles und neues Passwort erforderlich' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Neues Passwort muss mindestens 8 Zeichen lang sein' });
+  }
+
+  try {
+    logger.info('AUTH', `Passwortänderung angefordert von Benutzer: ${username}`);
+    const { rows } = await db.query(
+      'SELECT id, password_hash FROM app_users WHERE id = $1',
+      [userId]
+    );
+    const user = rows[0];
+    if (!user) {
+      logger.warn('AUTH', `Passwortänderung fehlgeschlagen – Benutzer nicht gefunden: ${username}`);
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    let valid = false;
+    try {
+      valid = await bcrypt.compare(currentPassword, user.password_hash);
+    } catch (bcryptErr) {
+      logger.error('AUTH', `bcrypt.compare Fehler bei Passwortänderung für: ${username}`, { message: bcryptErr.message });
+    }
+
+    if (!valid) {
+      logger.warn('AUTH', `Passwortänderung fehlgeschlagen – falsches aktuelles Passwort: ${username}`);
+      return res.status(401).json({ error: 'Aktuelles Passwort ist falsch' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [hash, userId]);
+
+    logger.info('AUTH', `Passwort erfolgreich geändert für Benutzer: ${username}`);
+    res.json({ message: 'Passwort erfolgreich geändert' });
+  } catch (err) {
+    logger.error('AUTH', `Fehler bei Passwortänderung für: ${username}`, { message: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Fehler bei der Passwortänderung' });
+  }
+});
+
 module.exports = router;

@@ -119,6 +119,8 @@ export const authApi = {
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
+  changePassword: (currentPassword, newPassword) =>
+    request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
 };
 
 export const api = {
