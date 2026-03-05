@@ -71,7 +71,6 @@ CREATE TABLE "Kunde" (
     "Telefonnummer" TEXT DEFAULT NULL,
     "Provision" INTEGER NOT NULL DEFAULT 0,
     "Aktiv" BOOLEAN NOT NULL DEFAULT FALSE,
-    "Artikelnummern_Erforderlich" BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY ("Name"),
     UNIQUE ("ID")
 );
@@ -81,7 +80,6 @@ CREATE TABLE "Lieferschein" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "Datei" TEXT DEFAULT NULL,
     PRIMARY KEY ("Nummer"),
     UNIQUE ("ID"),
     CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
@@ -92,7 +90,6 @@ CREATE TABLE "Rechnung" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "Datei" TEXT DEFAULT NULL,
     PRIMARY KEY ("Nummer"),
     CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
@@ -103,7 +100,6 @@ CREATE INDEX idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
 CREATE TABLE "Schmuckstück" (
     "Artikelnummer" VARCHAR(20) NOT NULL,
     "Name" TEXT DEFAULT NULL,
-    "Foto" TEXT DEFAULT NULL,
     "Art" TEXT DEFAULT NULL,
     "Form" TEXT DEFAULT NULL,
     "Länge" DOUBLE PRECISION DEFAULT 0,
