@@ -171,9 +171,10 @@ CREATE TABLE IF NOT EXISTS app_users (
 );
 
 -- Default admin user (password: admin – must be changed after first login)
--- Password is stored as SHA-256("admin") since the frontend hashes passwords before sending
+-- Password is stored as bcrypt(SHA-256("admin")): frontend hashes with SHA-256,
+-- backend hashes again with bcrypt before storing.
 INSERT INTO app_users (username, password_hash, email, role, active)
-VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin@goldregen.local', 'admin', TRUE)
+VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================
