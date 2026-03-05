@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const logger = require('../utils/logger');
 
@@ -55,7 +56,7 @@ router.post('/', async (req, res) => {
     if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: 'Ungültige Rolle' });
     }
-    const password_hash = password;
+    const password_hash = await bcrypt.hash(password, 10);
     const { rows } = await db.query(
       `INSERT INTO app_users (username, password_hash, email, role, active)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, role, active, created_at`,
@@ -107,9 +108,10 @@ router.post('/:id/reset-password', async (req, res) => {
     if (!newPassword || !isValidSHA256(newPassword)) {
       return res.status(400).json({ error: 'Ungültiges Passwort-Format' });
     }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     const { rowCount } = await db.query(
       'UPDATE app_users SET password_hash = $1 WHERE id = $2',
-      [newPassword, req.params.id]
+      [hashedPassword, req.params.id]
     );
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
