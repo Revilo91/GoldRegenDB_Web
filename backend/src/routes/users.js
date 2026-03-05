@@ -1,12 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 
-const SALT_ROUNDS = 10;
 const VALID_ROLES = ['admin', 'user'];
-const MIN_PASSWORD_LENGTH = 8;
+
+// A SHA-256 hash is always a 64-character lowercase hex string
+const SHA256_REGEX = /^[0-9a-f]{64}$/;
+function isValidSHA256(value) {
+  return typeof value === 'string' && SHA256_REGEX.test(value);
+}
 
 // GET all users (without password_hash)
 router.get('/', async (req, res) => {
@@ -46,13 +49,13 @@ router.post('/', async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ error: 'Benutzername und Passwort sind erforderlich' });
     }
+    if (!isValidSHA256(password)) {
+      return res.status(400).json({ error: 'Ungültiges Passwort-Format' });
+    }
     if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: 'Ungültige Rolle' });
     }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      return res.status(400).json({ error: `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben` });
-    }
-    const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const password_hash = password;
     const { rows } = await db.query(
       `INSERT INTO app_users (username, password_hash, email, role, active)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, role, active, created_at`,
@@ -101,13 +104,12 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/reset-password', async (req, res) => {
   try {
     const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
-      return res.status(400).json({ error: `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen haben` });
+    if (!newPassword || !isValidSHA256(newPassword)) {
+      return res.status(400).json({ error: 'Ungültiges Passwort-Format' });
     }
-    const password_hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     const { rowCount } = await db.query(
       'UPDATE app_users SET password_hash = $1 WHERE id = $2',
-      [password_hash, req.params.id]
+      [newPassword, req.params.id]
     );
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
