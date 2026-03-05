@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { authenticate, JWT_SECRET } = require('../middleware/auth');
@@ -11,20 +11,6 @@ const SHA256_REGEX = /^[0-9a-f]{64}$/;
 function isValidSHA256(value) {
   return typeof value === 'string' && SHA256_REGEX.test(value);
 }
-
-// Constant-time string comparison to prevent timing attacks.
-// Both arguments must be the same length (validated before calling).
-function safeCompare(a, b) {
-  try {
-    return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
-  } catch {
-    return false;
-  }
-}
-
-// Realistic dummy hash used when a user is not found, to prevent username-enumeration
-// via timing differences. Value = SHA-256("goldregen_dummy").
-const DUMMY_HASH = 'd0cc7cb66f1906854afc654abd8453c00b676b91712a5615432e0d99a6818fb5';
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -44,9 +30,17 @@ router.post('/login', async (req, res) => {
       [username]
     );
     const user = rows[0];
-    // Always compare to prevent timing attacks that reveal whether a username exists
-    const hashToCheck = user && isValidSHA256(user.password_hash) ? user.password_hash : DUMMY_HASH;
-    const valid = safeCompare(password, hashToCheck);
+    // Always run bcrypt.compare (even for non-existent users) to prevent timing-based
+    // username enumeration. Use a valid dummy bcrypt hash when no user is found.
+    // This hash is bcrypt("goldregen_dummy_password", 10) – never matches any real password.
+    const DUMMY_HASH = '$2b$10$R.TDJCrjRGLI2JqsouPWpegc/JtNCODKyAbCawKH/moXb.jOmDY1u';
+    const hashToCheck = user ? user.password_hash : DUMMY_HASH;
+    let valid = false;
+    try {
+      valid = await bcrypt.compare(password, hashToCheck);
+    } catch {
+      valid = false;
+    }
     if (!user || !valid) {
       logger.warn('AUTH', `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten`);
       return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
@@ -106,14 +100,20 @@ router.put('/change-password', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
 
-    const valid = safeCompare(currentPassword, user.password_hash || '');
+    let valid = false;
+    try {
+      valid = await bcrypt.compare(currentPassword, user.password_hash || '');
+    } catch {
+      valid = false;
+    }
 
     if (!valid) {
       logger.warn('AUTH', `Passwortänderung fehlgeschlagen – falsches aktuelles Passwort: ${username}`);
       return res.status(401).json({ error: 'Aktuelles Passwort ist falsch' });
     }
 
-    await db.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [newPassword, userId]);
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [newHash, userId]);
 
     logger.info('AUTH', `Passwort erfolgreich geändert für Benutzer: ${username}`);
     res.json({ message: 'Passwort erfolgreich geändert' });
