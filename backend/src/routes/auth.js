@@ -1,10 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { authenticate, JWT_SECRET } = require('../middleware/auth');
 const logger = require('../utils/logger');
+
+// A SHA-256 hash is always a 64-character lowercase hex string
+const SHA256_REGEX = /^[0-9a-f]{64}$/;
+function isValidSHA256(value) {
+  return typeof value === 'string' && SHA256_REGEX.test(value);
+}
+
+// Constant-time string comparison to prevent timing attacks.
+// Both arguments must be the same length (validated before calling).
+function safeCompare(a, b) {
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+// Realistic dummy hash used when a user is not found, to prevent username-enumeration
+// via timing differences. Value = SHA-256("goldregen_dummy").
+const DUMMY_HASH = 'd0cc7cb66f1906854afc654abd8453c00b676b91712a5615432e0d99a6818fb5';
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -12,6 +32,10 @@ router.post('/login', async (req, res) => {
   if (!username || !password) {
     logger.warn('AUTH', 'Login-Versuch ohne Benutzername oder Passwort');
     return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+  }
+  if (!isValidSHA256(password)) {
+    logger.warn('AUTH', `Login-Versuch mit ungültigem Passwort-Format für Benutzer: ${username}`);
+    return res.status(400).json({ error: 'Ungültiges Passwort-Format' });
   }
   try {
     logger.info('AUTH', `Login-Versuch für Benutzer: ${username}`);
@@ -21,14 +45,8 @@ router.post('/login', async (req, res) => {
     );
     const user = rows[0];
     // Always compare to prevent timing attacks that reveal whether a username exists
-    const dummyHash = '$2b$10$invalidhashvaluethatisusedfordummycomparison000000000';
-    const hashToCheck = user && user.password_hash ? user.password_hash : dummyHash;
-    let valid = false;
-    try {
-      valid = await bcrypt.compare(password, hashToCheck);
-    } catch (bcryptErr) {
-      logger.error('AUTH', `bcrypt.compare Fehler für Benutzer: ${username}`, { message: bcryptErr.message });
-    }
+    const hashToCheck = user && isValidSHA256(user.password_hash) ? user.password_hash : DUMMY_HASH;
+    const valid = safeCompare(password, hashToCheck);
     if (!user || !valid) {
       logger.warn('AUTH', `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten`);
       return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
@@ -72,8 +90,8 @@ router.put('/change-password', authenticate, async (req, res) => {
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Aktuelles und neues Passwort erforderlich' });
   }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'Neues Passwort muss mindestens 8 Zeichen lang sein' });
+  if (!isValidSHA256(currentPassword) || !isValidSHA256(newPassword)) {
+    return res.status(400).json({ error: 'Ungültiges Passwort-Format' });
   }
 
   try {
@@ -88,20 +106,14 @@ router.put('/change-password', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Benutzer nicht gefunden' });
     }
 
-    let valid = false;
-    try {
-      valid = await bcrypt.compare(currentPassword, user.password_hash);
-    } catch (bcryptErr) {
-      logger.error('AUTH', `bcrypt.compare Fehler bei Passwortänderung für: ${username}`, { message: bcryptErr.message });
-    }
+    const valid = safeCompare(currentPassword, user.password_hash || '');
 
     if (!valid) {
       logger.warn('AUTH', `Passwortänderung fehlgeschlagen – falsches aktuelles Passwort: ${username}`);
       return res.status(401).json({ error: 'Aktuelles Passwort ist falsch' });
     }
 
-    const hash = await bcrypt.hash(newPassword, 10);
-    await db.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [hash, userId]);
+    await db.query('UPDATE app_users SET password_hash = $1 WHERE id = $2', [newPassword, userId]);
 
     logger.info('AUTH', `Passwort erfolgreich geändert für Benutzer: ${username}`);
     res.json({ message: 'Passwort erfolgreich geändert' });

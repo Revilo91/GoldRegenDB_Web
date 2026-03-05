@@ -38,12 +38,12 @@ async function ensureAppUsersTable() {
         CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
       )
     `);
-    // Seed default admin if table is empty (hash = bcrypt(SHA-256("admin")))
+    // Seed default admin if table is empty (hash = SHA-256("admin"))
     const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM app_users');
     if (parseInt(rows[0].cnt, 10) === 0) {
       await pool.query(
         `INSERT INTO app_users (username, password_hash, email, role, active)
-         VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE)
+         VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin@goldregen.local', 'admin', TRUE)
          ON CONFLICT (username) DO NOTHING`
       );
       logger.info('DB', 'Standard-Admin-Benutzer angelegt – Passwort nach erstem Login ändern!');
