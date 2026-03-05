@@ -1,7 +1,7 @@
 /**
  * Hashes a password using SHA-256 via the Web Crypto API.
  * The resulting hex string is sent to the backend instead of the plaintext password.
- * The backend then applies bcrypt on this hash for storage.
+ * The backend then applies bcrypt on this SHA-256 hash for secure storage and comparison.
  *
  * @param {string} password - The plaintext password
  * @returns {Promise<string>} - The SHA-256 hex digest (64 characters)

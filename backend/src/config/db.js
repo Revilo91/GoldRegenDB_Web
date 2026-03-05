@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 
 const connectionString = process.env.DATABASE_URL;
@@ -38,13 +39,18 @@ async function ensureAppUsersTable() {
         CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
       )
     `);
-    // Seed default admin if table is empty (hash = SHA-256("admin"))
+    // Seed default admin if table is empty
+    // Password: admin (SHA-256 hashed on frontend, then bcrypt-hashed on backend)
+    // Hash = bcrypt(SHA-256("admin")) – generated with 10 rounds
     const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM app_users');
     if (parseInt(rows[0].cnt, 10) === 0) {
+      const sha256ofAdmin = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+      const adminHash = await bcrypt.hash(sha256ofAdmin, 10);
       await pool.query(
         `INSERT INTO app_users (username, password_hash, email, role, active)
-         VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin@goldregen.local', 'admin', TRUE)
-         ON CONFLICT (username) DO NOTHING`
+         VALUES ('admin', $1, 'admin@goldregen.local', 'admin', TRUE)
+         ON CONFLICT (username) DO NOTHING`,
+        [adminHash]
       );
       logger.info('DB', 'Standard-Admin-Benutzer angelegt – Passwort nach erstem Login ändern!');
     }
