@@ -13,7 +13,7 @@ ALTER TABLE "Schmuckstück" DISABLE TRIGGER ALL;
 -- Tabelle: app_users (1 Zeilen)
 
 INSERT INTO "app_users" ("id", "username", "password_hash", "email", "role", "active", "created_at", "last_login") VALUES
-  (1, 'admin', '$2b$10$PEPpBG.7g5QFmj8p0XXU6u2/IfVwLCXPlvRnnDPCqSXuTX5uFt/zq', 'admin@goldregen.local', 'admin', TRUE, '2026-03-03T06:26:13.476Z', '2026-03-05T06:02:07.410Z');
+  (1, 'admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE, '2026-03-03T06:26:13.476Z', '2026-03-05T06:02:07.410Z');
 
 -- Tabelle: audit_log (4339 Zeilen)
 

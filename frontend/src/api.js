@@ -1,3 +1,5 @@
+import { hashPassword } from './utils/hashPassword';
+
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const LOG_PREFIX = '[FRONTEND/API]';
@@ -116,8 +118,10 @@ async function downloadBlob(url) {
 }
 
 export const authApi = {
-  login: (username, password) =>
-    request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  login: async (username, password) => {
+    const hashedPassword = await hashPassword(password);
+    return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password: hashedPassword }) });
+  },
   me: () => request('/auth/me'),
   changePassword: (currentPassword, newPassword) =>
     request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
@@ -213,10 +217,19 @@ export const api = {
   // Benutzerverwaltung
   getUsers: () => request('/users'),
   getUser: (id) => request(`/users/${id}`),
-  createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
+  createUser: async (data) => {
+    const payload = { ...data };
+    if (payload.password) {
+      payload.password = await hashPassword(payload.password);
+    }
+    return request('/users', { method: 'POST', body: JSON.stringify(payload) });
+  },
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
-  resetUserPassword: (id, newPassword) => request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+  resetUserPassword: async (id, newPassword) => {
+    const hashedPassword = await hashPassword(newPassword);
+    return request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: hashedPassword }) });
+  },
 
   // Datensicherung (Backup / Restore)
   exportBackup: () => downloadBlob('/backup/export'),
