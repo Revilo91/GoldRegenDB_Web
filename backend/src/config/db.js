@@ -39,9 +39,13 @@ async function connect() {
   const username = getCurrentDbUsername();
 
   // Make authenticated app user available in SQL context (e.g. audit trigger).
-  await client.query('SELECT set_config($1, $2, false)', ['app.current_user', username]);
-
-  return client;
+  try {
+    await client.query('SELECT set_config($1, $2, false)', ['app.current_user', username]);
+    return client;
+  } catch (err) {
+    client.release();
+    throw err;
+  }
 }
 
 async function query(text, params) {
