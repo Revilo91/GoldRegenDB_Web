@@ -232,12 +232,14 @@ function AppLayout() {
             <span>Inventur</span>
           </NavLink>
           {isAdmin && (
-            <>
-              <div className="nav-section">Admin</div>
+            <div className="nav-section-admin">
+              <div className="nav-section nav-section-admin-title">
+                <FontAwesomeIcon icon={faUserLock} /> Admin
+              </div>
               <NavLink
                 to="/audit-log"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -249,7 +251,7 @@ function AppLayout() {
               <NavLink
                 to="/debug"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -261,7 +263,7 @@ function AppLayout() {
               <NavLink
                 to="/benutzerverwaltung"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -273,7 +275,7 @@ function AppLayout() {
               <NavLink
                 to="/datensicherung"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -282,7 +284,7 @@ function AppLayout() {
                 </span>
                 <span>Datensicherung</span>
               </NavLink>
-            </>
+            </div>
           )}
         </nav>
         <div className="sidebar-footer">
