@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS app_users (
     email TEXT DEFAULT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     active BOOLEAN NOT NULL DEFAULT TRUE,
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT NULL,
     CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
@@ -173,8 +174,8 @@ CREATE TABLE IF NOT EXISTS app_users (
 -- Default admin user (password: admin – must be changed after first login)
 -- Password is stored as bcrypt(SHA-256("admin")): frontend hashes with SHA-256,
 -- backend hashes again with bcrypt before storing.
-INSERT INTO app_users (username, password_hash, email, role, active)
-VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE)
+INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
+VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================
