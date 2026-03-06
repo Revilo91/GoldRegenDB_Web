@@ -1292,6 +1292,23 @@ select.form-control {
   gap: 10px;
 }
 
+.user-menu-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  justify-content: flex-start;
+  transition: var(--transition);
+}
+
+.user-menu-btn:hover {
+  background: var(--bg-hover);
+  transform: translateX(2px);
+}
+
 .sidebar-user {
   display: flex;
   align-items: center;
@@ -1307,6 +1324,7 @@ select.form-control {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .role-badge {
@@ -1333,20 +1351,62 @@ select.form-control {
   justify-content: center;
 }
 
+/* User Menu Modal */
+.user-menu-modal {
+  max-width: 400px;
+  width: 90%;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.user-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.user-info-row strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.user-info-row span {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.user-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
 @media (max-width: 1024px) {
   .sidebar-footer {
     align-items: center;
   }
-  .sidebar-user {
+  .user-menu-btn {
     justify-content: center;
   }
-  .sidebar-username,
-  .role-badge,
-  .logout-btn span {
+  .user-menu-btn .sidebar-username,
+  .user-menu-btn .role-badge {
     display: none;
-  }
-  .logout-btn {
-    padding: 10px;
   }
 }
 /* ============ GROUP HEADER ROW ============ */
