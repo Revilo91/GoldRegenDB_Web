@@ -1,6 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileExcel, faTimes, faBox } from "@fortawesome/free-solid-svg-icons";
+import {
+  faFileExcel,
+  faTimes,
+  faBox,
+  faGem,
+  faCheckCircle,
+  faTimesCircle,
+  faUsers,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 const TABS = [
@@ -45,12 +53,12 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
               </th>
             )}
             <th>Artikelnummer</th>
-            <th>Name</th>
-            <th>Art</th>
-            <th>Farbe</th>
-            <th>Material</th>
+            <th className="hide-on-mobile">Name</th>
+            <th className="hide-on-mobile">Art</th>
+            <th className="hide-on-mobile">Farbe</th>
+            <th className="hide-on-mobile">Material</th>
             <th>Verkaufspreis</th>
-            <th>Erstellt</th>
+            <th className="hide-on-mobile">Erstellt</th>
           </tr>
         </thead>
         <tbody>
@@ -75,12 +83,12 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
               <td>
                 <code>{item.Artikelnummer}</code>
               </td>
-              <td>{item.Name || "–"}</td>
-              <td>{item.Art || "–"}</td>
-              <td>{item.Farbe || "–"}</td>
-              <td>{item.Material || "–"}</td>
+              <td className="hide-on-mobile">{item.Name || "–"}</td>
+              <td className="hide-on-mobile">{item.Art || "–"}</td>
+              <td className="hide-on-mobile">{item.Farbe || "–"}</td>
+              <td className="hide-on-mobile">{item.Material || "–"}</td>
               <td>{formatEur(item.Verkaufspreis)}</td>
-              <td>
+              <td className="hide-on-mobile">
                 {item.Erstelldatum
                   ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
                   : "–"}
@@ -92,7 +100,7 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
           <tr>
             {selectedItems && <td />}
             <td
-              colSpan={selectedItems ? 4 : 5}
+              colSpan={selectedItems ? 1 : 2}
               style={{
                 fontWeight: 600,
                 textAlign: "right",
@@ -102,7 +110,7 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
-            <td />
+            <td className="hide-on-mobile" />
           </tr>
         </tfoot>
       </table>
@@ -519,10 +527,10 @@ export default function Inventur() {
                   <th className="hide-on-mobile">Ort</th>
                   <th style={{ textAlign: "right" }}>Gesamt</th>
                   <th style={{ textAlign: "right" }}>Nicht verkauft</th>
-                  <th style={{ textAlign: "right" }}>Verkauft</th>
-                  <th style={{ textAlign: "right" }}>Ausschuss</th>
-                  <th style={{ textAlign: "right" }}>Warenwert (aktiv)</th>
-                  <th style={{ textAlign: "right" }}>Warenwert (verk.)</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Verkauft</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Ausschuss</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Warenwert (aktiv)</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Warenwert (verk.)</th>
                 </tr>
               </thead>
               <tbody>
@@ -551,20 +559,20 @@ export default function Inventur() {
                           {k.aktiv}
                         </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                         <span style={{ color: "var(--info)" }}>
                           {k.verkauft}
                         </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                         <span style={{ color: "var(--warning)" }}>
                           {k.ausschuss}
                         </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                         {formatEur(k.wert_aktiv)}
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                         {formatEur(k.wert_verkauft)}
                       </td>
                     </tr>
@@ -580,16 +588,16 @@ export default function Inventur() {
                   <td style={{ textAlign: "right", color: "var(--success)" }}>
                     {totals.aktiv}
                   </td>
-                  <td style={{ textAlign: "right", color: "var(--info)" }}>
+                  <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--info)" }}>
                     {totals.verkauft}
                   </td>
-                  <td style={{ textAlign: "right", color: "var(--warning)" }}>
+                  <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--warning)" }}>
                     {totals.ausschuss}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                     {formatEur(totals.wert_aktiv)}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                     {formatEur(totals.wert_verkauft)}
                   </td>
                 </tr>
