@@ -365,7 +365,13 @@ router.get("/:artikelnummer", async (req, res) => {
 
 // POST create piece
 router.post("/", async (req, res) => {
-  const client = await db.connect();
+  let client;
+  try {
+    client = await db.connect();
+  } catch (err) {
+    logger.error('SCHMUCK', 'Fehler beim Herstellen der DB-Verbindung', { message: err.message });
+    return res.status(500).json({ error: "Fehler beim Herstellen der Datenbankverbindung" });
+  }
   try {
     const b = req.body;
     const quantity = parseInt(b.Anzahl) || 1;
