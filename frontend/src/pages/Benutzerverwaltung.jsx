@@ -403,7 +403,8 @@ export default function Benutzerverwaltung() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "150px 1fr",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(200px, 1fr))",
                         gap: "12px 20px",
                       }}
                     >
@@ -475,7 +476,8 @@ export default function Benutzerverwaltung() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "150px 1fr",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(200px, 1fr))",
                         gap: "12px 20px",
                       }}
                     >
@@ -563,7 +565,10 @@ export default function Benutzerverwaltung() {
                   <FontAwesomeIcon icon={faTrash} /> Löschen
                 </button>
               )}
-              <div className="modal-actions" style={{ display: "flex", gap: "10px" }}>
+              <div
+                className="modal-actions"
+                style={{ display: "flex", gap: "10px" }}
+              >
                 {selected.id !== "new" && editing === null && (
                   <>
                     {showPasswordReset ? (
@@ -655,6 +660,7 @@ export default function Benutzerverwaltung() {
                     Benutzername {getSortIcon("username")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("email")}
                     style={{ cursor: "pointer" }}
                   >
@@ -673,18 +679,21 @@ export default function Benutzerverwaltung() {
                     Status {getSortIcon("active")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("must_change_password")}
                     style={{ cursor: "pointer" }}
                   >
                     PW-Status {getSortIcon("must_change_password")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("created_at")}
                     style={{ cursor: "pointer" }}
                   >
                     Erstellt {getSortIcon("created_at")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("last_login")}
                     style={{ cursor: "pointer" }}
                   >
@@ -703,7 +712,7 @@ export default function Benutzerverwaltung() {
                     <td>
                       <strong>{u.username}</strong>
                     </td>
-                    <td>{u.email || "–"}</td>
+                    <td className="hide-on-mobile">{u.email || "–"}</td>
                     <td>
                       <span
                         className={`badge ${u.role === "admin" ? "gold" : "info"}`}
@@ -734,7 +743,7 @@ export default function Benutzerverwaltung() {
                         )}
                       </span>
                     </td>
-                    <td>
+                    <td className="hide-on-mobile">
                       <span
                         className={`badge ${u.must_change_password ? "gold" : "success"}`}
                       >
@@ -747,12 +756,12 @@ export default function Benutzerverwaltung() {
                         )}
                       </span>
                     </td>
-                    <td>
+                    <td className="hide-on-mobile">
                       {u.created_at
                         ? new Date(u.created_at).toLocaleString("de-DE")
                         : "–"}
                     </td>
-                    <td>
+                    <td className="hide-on-mobile">
                       {u.last_login
                         ? new Date(u.last_login).toLocaleString("de-DE")
                         : "–"}

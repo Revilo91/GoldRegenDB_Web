@@ -38,42 +38,58 @@ export default function Dashboard() {
     <div>
       <div className="stats-grid">
         <div className="stat-card gold">
-          <div className="stat-icon"><FontAwesomeIcon icon={faGem} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faGem} />
+          </div>
           <div className="stat-value">{s.totalPieces}</div>
           <div className="stat-label">Gesamt Stücke</div>
         </div>
         <div className="stat-card info">
-          <div className="stat-icon"><FontAwesomeIcon icon={faWarehouse} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faWarehouse} />
+          </div>
           <div className="stat-value">{s.inStockPieces}</div>
           <div className="stat-label">Im Lager</div>
         </div>
         <div className="stat-card warning">
-          <div className="stat-icon"><FontAwesomeIcon icon={faBox} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faBox} />
+          </div>
           <div className="stat-value">{s.outsourcedPieces}</div>
           <div className="stat-label">Ausgelagert</div>
         </div>
         <div className="stat-card success">
-          <div className="stat-icon"><FontAwesomeIcon icon={faCheckCircle} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faCheckCircle} />
+          </div>
           <div className="stat-value">{s.soldPieces}</div>
           <div className="stat-label">Verkauft</div>
         </div>
         <div className="stat-card info">
-          <div className="stat-icon"><FontAwesomeIcon icon={faGlobe} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faGlobe} />
+          </div>
           <div className="stat-value">{s.onlinePieces}</div>
           <div className="stat-label">Online</div>
         </div>
         <div className="stat-card danger">
-          <div className="stat-icon"><FontAwesomeIcon icon={faTimesCircle} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faTimesCircle} />
+          </div>
           <div className="stat-value">{s.rejectPieces}</div>
           <div className="stat-label">Ausschuss</div>
         </div>
         <div className="stat-card gold">
-          <div className="stat-icon"><FontAwesomeIcon icon={faEuroSign} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faEuroSign} />
+          </div>
           <div className="stat-value">{s.totalRevenue.toFixed(0)}€</div>
           <div className="stat-label">Umsatz (verkauft)</div>
         </div>
         <div className="stat-card info">
-          <div className="stat-icon"><FontAwesomeIcon icon={faUsers} /></div>
+          <div className="stat-icon">
+            <FontAwesomeIcon icon={faUsers} />
+          </div>
           <div className="stat-value">
             {s.activeCustomers}/{s.totalCustomers}
           </div>
@@ -81,9 +97,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}
-      >
+      <div className="responsive-grid-2">
         <div className="card">
           <div className="card-header">
             <h3>Stücke nach Art</h3>

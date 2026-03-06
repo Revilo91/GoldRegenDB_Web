@@ -70,7 +70,7 @@ export default function Rechnungen() {
       const blob = await api.exportRechnungExcel(id);
       const url = window.URL.createObjectURL(blob);
       const safeNummer = String(nummer || id).replace(/[\\/:*?"<>|]+/g, "_");
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `Rechnung_${safeNummer}.xlsx`;
       document.body.appendChild(a);
@@ -100,7 +100,11 @@ export default function Rechnungen() {
       }
     });
     const nextNr = String(maxNr + 1).padStart(3, "0");
-    setForm({ Nummer: `${year}-${nextNr}`, Kundennummer: "", Artikelnummern: [] });
+    setForm({
+      Nummer: `${year}-${nextNr}`,
+      Kundennummer: "",
+      Artikelnummern: [],
+    });
     setArtikelnummerInput("");
     setAvailablePieces([]);
     setEditing("new");
@@ -156,14 +160,19 @@ export default function Rechnungen() {
     const nr = artikelnummerInput.trim();
     if (!nr) return;
     const piece = availablePieces.find(
-      (p) => p.Artikelnummer.toUpperCase() === nr.toUpperCase()
+      (p) => p.Artikelnummer.toUpperCase() === nr.toUpperCase(),
     );
     if (!piece) {
-      alert(`Artikelnummer "${nr}" nicht gefunden oder nicht beim Kunden ausgelagert.`);
+      alert(
+        `Artikelnummer "${nr}" nicht gefunden oder nicht beim Kunden ausgelagert.`,
+      );
       return;
     }
     if (!form.Artikelnummern.includes(piece.Artikelnummer)) {
-      setForm({ ...form, Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer] });
+      setForm({
+        ...form,
+        Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer],
+      });
     }
     setArtikelnummerInput("");
   };
@@ -321,7 +330,16 @@ export default function Rechnungen() {
           ))}
         </select>
         <label
-          style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14, color: "var(--text-secondary)", userSelect: "none" }}>
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontSize: 14,
+            color: "var(--text-secondary)",
+            userSelect: "none",
+          }}
+        >
           <input
             type="checkbox"
             checked={groupByKunde}
@@ -348,6 +366,7 @@ export default function Rechnungen() {
                     ID {getSortIcon("ID")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Nummer")}
                     style={{ cursor: "pointer" }}
                   >
@@ -360,6 +379,7 @@ export default function Rechnungen() {
                     Kunde {getSortIcon("KundenName")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Datum")}
                     style={{ cursor: "pointer" }}
                   >
@@ -370,46 +390,63 @@ export default function Rechnungen() {
               <tbody>
                 {groupByKunde
                   ? groupedData.flatMap((group) => {
-                    const isExpanded = expandedGroups.has(group.key);
-                    return [
-                      <tr
-                        key={`group-${group.key}`}
-                        className="group-header-row"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => toggleGroup(group.key)}
-                        aria-label={`Kundengruppe: ${group.name}`}
-                      >
-                        <td colSpan={4}>
-                          <span style={{ marginRight: 8 }}>
-                            {isExpanded ? "▼" : "▶"}
-                          </span>
-                          <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
-                          <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>
-                            ({group.items.length})
-                          </span>
-                        </td>
-                      </tr>,
-                      ...(isExpanded
-                        ? group.items.map((r) => (
-                            <tr
-                              key={r.ID}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openDetail(r.ID);
+                      const isExpanded = expandedGroups.has(group.key);
+                      return [
+                        <tr
+                          key={`group-${group.key}`}
+                          className="group-header-row"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => toggleGroup(group.key)}
+                          aria-label={`Kundengruppe: ${group.name}`}
+                        >
+                          <td colSpan={4}>
+                            <span style={{ marginRight: 8 }}>
+                              {isExpanded ? "▼" : "▶"}
+                            </span>
+                            <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
+                            <span
+                              style={{
+                                fontWeight: "normal",
+                                color: "var(--text-muted)",
+                                fontSize: "0.9em",
                               }}
-                              style={{ cursor: "pointer" }}
                             >
-                              <td>{r.ID}</td>
-                              <td>
-                                <strong>{r.Nummer}</strong>
-                              </td>
-                              <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                              <td>{new Date(r.Datum).toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
-                            </tr>
-                          ))
-                        : [])
-                    ];
-                  })
+                              ({group.items.length})
+                            </span>
+                          </td>
+                        </tr>,
+                        ...(isExpanded
+                          ? group.items.map((r) => (
+                              <tr
+                                key={r.ID}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openDetail(r.ID);
+                                }}
+                                style={{ cursor: "pointer" }}
+                              >
+                                <td>{r.ID}</td>
+                                <td className="hide-on-mobile">
+                                  <strong>{r.Nummer}</strong>
+                                </td>
+                                <td>
+                                  {r.KundenName || `Kunde ${r.Kundennummer}`}
+                                </td>
+                                <td className="hide-on-mobile">
+                                  {new Date(r.Datum).toLocaleDateString(
+                                    "de-DE",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    },
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          : []),
+                      ];
+                    })
                   : sortedData.map((r) => (
                       <tr
                         key={r.ID}
@@ -417,11 +454,17 @@ export default function Rechnungen() {
                         style={{ cursor: "pointer" }}
                       >
                         <td>{r.ID}</td>
-                        <td>
+                        <td className="hide-on-mobile">
                           <strong>{r.Nummer}</strong>
                         </td>
                         <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                        <td>{new Date(r.Datum).toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+                        <td className="hide-on-mobile">
+                          {new Date(r.Datum).toLocaleDateString("de-DE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
+                        </td>
                       </tr>
                     ))}
               </tbody>
@@ -435,7 +478,8 @@ export default function Rechnungen() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <FontAwesomeIcon icon={faFileInvoice} /> Rechnung {detail.Nummer} ({detail.ID})
+                <FontAwesomeIcon icon={faFileInvoice} /> Rechnung{" "}
+                {detail.Nummer} ({detail.ID})
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -465,7 +509,11 @@ export default function Rechnungen() {
                 <div className="detail-item">
                   <label>Datum</label>
                   <div className="detail-value">
-                    {new Date(detail.Datum).toLocaleDateString("de-DE", { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    {new Date(detail.Datum).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
                   </div>
                 </div>
                 <div className="detail-item">
@@ -696,7 +744,11 @@ export default function Rechnungen() {
                     className="form-control"
                     value={form.Kundennummer}
                     onChange={(e) =>
-                      setForm({ ...form, Kundennummer: e.target.value, Artikelnummern: [] })
+                      setForm({
+                        ...form,
+                        Kundennummer: e.target.value,
+                        Artikelnummern: [],
+                      })
                     }
                   >
                     <option value="">Bitte wählen...</option>
@@ -710,8 +762,9 @@ export default function Rechnungen() {
               </div>
 
               <div className="piece-selection" style={{ marginTop: 24 }}>
-
-                <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+                <div
+                  style={{ display: "flex", gap: 24, alignItems: "flex-start" }}
+                >
                   {/* Linke Seite: Beim Kunden ausgelagerte Schmuckstücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h5>Beim Kunden ausgelagerte Schmuckstücke</h5>
@@ -732,7 +785,9 @@ export default function Rechnungen() {
                       }}
                     >
                       <table className="data-table">
-                        <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
+                        <thead
+                          style={{ position: "sticky", top: 0, zIndex: 1 }}
+                        >
                           <tr>
                             <th style={{ width: "40px" }}></th>
                             <th>Artikelnr.</th>
@@ -741,40 +796,44 @@ export default function Rechnungen() {
                           </tr>
                         </thead>
                         <tbody>
-                          {form.Kundennummer && availablePieces
-                            .filter((p) => {
-                              if (!pieceSearch) return true;
-                              const s = pieceSearch.toUpperCase();
-                              return (
-                                p.Artikelnummer?.toUpperCase().includes(s) ||
-                                p.Art?.toUpperCase().includes(s) ||
-                                p.Name?.toUpperCase().includes(s)
-                              );
-                            })
-                            .map((p) => (
-                              <tr
-                                key={p.Artikelnummer}
-                                draggable
-                                onDragStart={(e) =>
-                                  e.dataTransfer.setData("artikelnummer", p.Artikelnummer)
-                                }
-                                onClick={() => togglePiece(p.Artikelnummer)}
-                                style={{ cursor: "grab" }}
-                              >
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={form.Artikelnummern.includes(
+                          {form.Kundennummer &&
+                            availablePieces
+                              .filter((p) => {
+                                if (!pieceSearch) return true;
+                                const s = pieceSearch.toUpperCase();
+                                return (
+                                  p.Artikelnummer?.toUpperCase().includes(s) ||
+                                  p.Art?.toUpperCase().includes(s) ||
+                                  p.Name?.toUpperCase().includes(s)
+                                );
+                              })
+                              .map((p) => (
+                                <tr
+                                  key={p.Artikelnummer}
+                                  draggable
+                                  onDragStart={(e) =>
+                                    e.dataTransfer.setData(
+                                      "artikelnummer",
                                       p.Artikelnummer,
-                                    )}
-                                    readOnly
-                                  />
-                                </td>
-                                <td>{p.Artikelnummer}</td>
-                                <td>{p.Art}</td>
-                                <td>{p.Verkaufspreis}€</td>
-                              </tr>
-                            ))}
+                                    )
+                                  }
+                                  onClick={() => togglePiece(p.Artikelnummer)}
+                                  style={{ cursor: "grab" }}
+                                >
+                                  <td>
+                                    <input
+                                      type="checkbox"
+                                      checked={form.Artikelnummern.includes(
+                                        p.Artikelnummer,
+                                      )}
+                                      readOnly
+                                    />
+                                  </td>
+                                  <td>{p.Artikelnummer}</td>
+                                  <td>{p.Art}</td>
+                                  <td>{p.Verkaufspreis}€</td>
+                                </tr>
+                              ))}
                         </tbody>
                       </table>
                     </div>
@@ -791,13 +850,16 @@ export default function Rechnungen() {
                         placeholder="Artikelnummer eingeben..."
                         value={artikelnummerInput}
                         onChange={(e) => setArtikelnummerInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && addByArtikelnummer()}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && addByArtikelnummer()
+                        }
                         disabled={!form.Kundennummer}
                       />
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={addByArtikelnummer}
-                        disabled={!form.Kundennummer}>
+                        disabled={!form.Kundennummer}
+                      >
                         Hinzufügen
                       </button>
                     </div>
@@ -813,7 +875,10 @@ export default function Rechnungen() {
                         e.preventDefault();
                         const nr = e.dataTransfer.getData("artikelnummer");
                         if (nr && !form.Artikelnummern.includes(nr)) {
-                          setForm({ ...form, Artikelnummern: [...form.Artikelnummern, nr] });
+                          setForm({
+                            ...form,
+                            Artikelnummern: [...form.Artikelnummern, nr],
+                          });
                         }
                       }}
                     >
@@ -827,10 +892,10 @@ export default function Rechnungen() {
                           </tr>
                         </thead>
                         <tbody>
-                          {form.Kundennummer && form.Artikelnummern
-                            .map((nr) => {
+                          {form.Kundennummer &&
+                            form.Artikelnummern.map((nr) => {
                               const piece = availablePieces.find(
-                                (p) => p.Artikelnummer === nr
+                                (p) => p.Artikelnummer === nr,
                               );
                               if (!piece) return null;
                               return (
@@ -842,7 +907,8 @@ export default function Rechnungen() {
                                     <button
                                       className="btn btn-danger btn-sm"
                                       title="Entfernen"
-                                      onClick={() => togglePiece(nr)}>
+                                      onClick={() => togglePiece(nr)}
+                                    >
                                       <FontAwesomeIcon icon={faTimes} />
                                     </button>
                                   </td>

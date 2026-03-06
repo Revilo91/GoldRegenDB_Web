@@ -183,18 +183,21 @@ export default function Kunden() {
                     Name {getSortIcon("Name")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Ort")}
                     style={{ cursor: "pointer" }}
                   >
                     Ort {getSortIcon("Ort")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("PLZ")}
                     style={{ cursor: "pointer" }}
                   >
                     PLZ {getSortIcon("PLZ")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Provision")}
                     style={{ cursor: "pointer" }}
                   >
@@ -219,9 +222,9 @@ export default function Kunden() {
                     <td>
                       <strong>{k.Name}</strong>
                     </td>
-                    <td>{k.Ort}</td>
-                    <td>{k.PLZ || "–"}</td>
-                    <td>{k.Provision}%</td>
+                    <td className="hide-on-mobile">{k.Ort}</td>
+                    <td className="hide-on-mobile">{k.PLZ || "–"}</td>
+                    <td className="hide-on-mobile">{k.Provision}%</td>
                     <td>
                       {k.Aktiv ? (
                         <span className="badge success">Aktiv</span>
