@@ -1,12 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faFileExcel,
-  faTimes,
-  faChevronDown,
-  faChevronRight,
-  faBox,
-} from "@fortawesome/free-solid-svg-icons";
+import { faFileExcel, faTimes, faBox } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 const TABS = [
@@ -237,57 +231,39 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
             data && (
               <>
                 {/* Stats */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                    gap: 12,
-                    marginBottom: 20,
-                  }}
-                >
+                <div className="stats-grid" style={{ marginBottom: 20 }}>
                   {[
                     {
                       label: "Gesamt",
                       value: data.stats.gesamt,
-                      color: "var(--text-primary)",
+                      icon: faGem,
+                      colorClass: "gold",
                     },
                     {
                       label: "Nicht verkauft",
                       value: data.stats.aktiv,
-                      color: "var(--success)",
+                      icon: faBox,
+                      colorClass: "success",
                     },
                     {
                       label: "Verkauft",
                       value: data.stats.verkauft,
-                      color: "var(--info)",
+                      icon: faCheckCircle,
+                      colorClass: "info",
                     },
                     {
                       label: "Ausschuss",
                       value: data.stats.ausschuss,
-                      color: "var(--warning)",
+                      icon: faTimesCircle,
+                      colorClass: "danger",
                     },
                   ].map((s) => (
-                    <div
-                      key={s.label}
-                      style={{
-                        background: "var(--bg-hover)",
-                        borderRadius: "var(--radius-sm)",
-                        padding: "12px 16px",
-                        textAlign: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 22,
-                          fontWeight: 700,
-                          color: s.color,
-                        }}
-                      >
-                        {s.value}
+                    <div key={s.label} className={`stat-card ${s.colorClass}`}>
+                      <div className="stat-icon">
+                        <FontAwesomeIcon icon={s.icon} />
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                        {s.label}
-                      </div>
+                      <div className="stat-value">{s.value}</div>
+                      <div className="stat-label">{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -470,44 +446,45 @@ export default function Inventur() {
 
       {/* Summary stats */}
       {!loading && summary.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
+        <div className="stats-grid">
           {[
-            { label: "Kunden", value: summary.length, color: "var(--accent)" },
+            {
+              label: "Kunden",
+              value: summary.length,
+              colorClass: "info",
+              icon: faUsers,
+            },
             {
               label: "Artikel gesamt",
               value: totals.gesamt,
-              color: "var(--text-primary)",
+              colorClass: "gold",
+              icon: faGem,
             },
             {
               label: "Nicht verkauft",
               value: totals.aktiv,
-              color: "var(--success)",
+              colorClass: "success",
+              icon: faBox,
             },
-            { label: "Verkauft", value: totals.verkauft, color: "var(--info)" },
+            {
+              label: "Verkauft",
+              value: totals.verkauft,
+              colorClass: "info",
+              icon: faCheckCircle,
+            },
             {
               label: "Ausschuss",
               value: totals.ausschuss,
-              color: "var(--warning)",
+              colorClass: "danger",
+              icon: faTimesCircle,
             },
           ].map((s) => (
-            <div
-              key={s.label}
-              className="card"
-              style={{ padding: "16px", textAlign: "center" }}
-            >
-              <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>
-                {s.value}
+            <div key={s.label} className={`stat-card ${s.colorClass}`}>
+              <div className="stat-icon">
+                <FontAwesomeIcon icon={s.icon} />
               </div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {s.label}
-              </div>
+              <div className="stat-value">{s.value}</div>
+              <div className="stat-label">{s.label}</div>
             </div>
           ))}
         </div>
