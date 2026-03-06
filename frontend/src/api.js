@@ -44,7 +44,10 @@ async function request(url, options = {}) {
         });
       }
 
-      throw new Error(errorMessage);
+      const requestError = new Error(errorMessage);
+      requestError.status = res.status;
+      requestError.payload = err;
+      throw requestError;
     }
     logInfo(`← ${method} ${url} → ${res.status} (${duration}ms)`);
     return res.json();
@@ -204,6 +207,15 @@ export const api = {
     return request(`/audit-log?${qs}`);
   },
   getAuditLogForArtikel: (nr) => request(`/audit-log/artikel/${nr}`),
+
+  // Debug (Admin)
+  getDebugTables: () => request('/debug/tables'),
+  getDebugTableData: (tableName) => request(`/debug/tables/${tableName}`),
+  updateDebugCell: (tableName, payload) =>
+    request(`/debug/tables/${tableName}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 
   // Excel Export
   exportLieferscheinExcel: (id) => downloadBlob(`/lieferscheine/${id}/excel`),

@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faKey } from "@fortawesome/free-solid-svg-icons";
+import { api } from "../api";
 import "./../index.css"; // Make sure styles are loaded
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+const formatDebugError = (err) => {
+  if (err?.status === 401) {
+    return "Nicht angemeldet oder Sitzung abgelaufen. Bitte erneut einloggen.";
+  }
+  if (err?.status === 403) {
+    return "Kein Zugriff auf die Debug-Ansicht. Admin-Rechte erforderlich.";
+  }
+  return err?.message || "Unbekannter Fehler";
+};
 
 const EditableCell = ({ value, onSave, onCancel }) => {
   const [editingValue, setEditingValue] = useState(value === null ? "" : value);
@@ -61,16 +70,12 @@ const DebugTable = ({ tableName }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `${API_URL}/debug/tables/${tableName}`,
-      );
-      if (!response.ok) throw new Error("Failed to fetch table data");
-      const result = await response.json();
+      const result = await api.getDebugTableData(tableName);
       setData(result.data);
       setColumns(result.columns);
       setPrimaryKeys(result.primaryKeys);
     } catch (err) {
-      setError(err.message);
+      setError(formatDebugError(err));
     } finally {
       setLoading(false);
       setHasFetched(true);
@@ -101,25 +106,12 @@ const DebugTable = ({ tableName }) => {
     }
 
     try {
-      const response = await fetch(
-        `${API_URL}/debug/tables/${tableName}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            primaryKey: pk,
-            id: row[pk],
-            field: columnName,
-            value: newValue,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to update value");
-      }
-
-      const updatedRow = await response.json();
+      const updatedRow = await api.updateDebugCell(tableName, {
+        primaryKey: pk,
+        id: row[pk],
+        field: columnName,
+        value: newValue,
+      });
 
       // Update local state
       const newData = [...data];
@@ -301,12 +293,10 @@ const Debug = () => {
   useEffect(() => {
     const fetchTables = async () => {
       try {
-        const response = await fetch(`${API_URL}/debug/tables`);
-        if (!response.ok) throw new Error("Failed to fetch tables");
-        const data = await response.json();
+        const data = await api.getDebugTables();
         setTables(data);
       } catch (err) {
-        setError(err.message);
+        setError(formatDebugError(err));
       } finally {
         setLoading(false);
       }
