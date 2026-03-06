@@ -1150,7 +1150,7 @@ select.form-control {
   }
 
   /* Stats grid in modals: 2 columns on small phones */
-  .modal-body > div[style*="gridTemplateColumns"] {
+  .modal-body > div[style*="grid-template-columns"] {
     grid-template-columns: 1fr 1fr !important;
   }
 }
