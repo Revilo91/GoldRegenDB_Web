@@ -452,7 +452,7 @@ export default function Inventur() {
         </div>
       </div>
 
-      {/* Summary stats */}
+      {/* Summary stats
       {!loading && summary.length > 0 && (
         <div className="stats-grid">
           {[
@@ -497,7 +497,7 @@ export default function Inventur() {
           ))}
         </div>
       )}
-
+      */}
       <div className="toolbar">
         <input
           className="form-control search-input"
