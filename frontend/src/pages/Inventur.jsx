@@ -3,17 +3,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faFileExcel,
   faTimes,
-  faChevronDown,
-  faChevronRight,
   faBox,
+  faGem,
+  faCheckCircle,
+  faTimesCircle,
+  faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 const TABS = [
-  { id: "aktiv",     label: "Nicht verkauft" },
-  { id: "verkauft",  label: "Verkauft" },
+  { id: "aktiv", label: "Nicht verkauft" },
+  { id: "verkauft", label: "Verkauft" },
   { id: "ausschuss", label: "Ausschuss" },
-  { id: "alle",      label: "Alle" },
+  { id: "alle", label: "Alle" },
 ];
 
 function formatEur(value) {
@@ -25,10 +27,15 @@ function formatEur(value) {
 
 function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
   if (items.length === 0) {
-    return <p style={{ color: "var(--text-muted)", padding: "16px 0" }}>Keine Artikel.</p>;
+    return (
+      <p style={{ color: "var(--text-muted)", padding: "16px 0" }}>
+        Keine Artikel.
+      </p>
+    );
   }
   const total = items.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
-  const allSelected = selectedItems && items.length > 0 && selectedItems.size === items.length;
+  const allSelected =
+    selectedItems && items.length > 0 && selectedItems.size === items.length;
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -46,17 +53,24 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
               </th>
             )}
             <th>Artikelnummer</th>
-            <th>Name</th>
-            <th>Art</th>
-            <th>Farbe</th>
-            <th>Material</th>
+            <th className="hide-on-mobile">Name</th>
+            <th className="hide-on-mobile">Art</th>
+            <th className="hide-on-mobile">Farbe</th>
+            <th className="hide-on-mobile">Material</th>
             <th>Verkaufspreis</th>
-            <th>Erstellt</th>
+            <th className="hide-on-mobile">Erstellt</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.Artikelnummer} style={selectedItems && selectedItems.has(item.Artikelnummer) ? { background: "var(--bg-hover)" } : {}}>
+            <tr
+              key={item.Artikelnummer}
+              style={
+                selectedItems && selectedItems.has(item.Artikelnummer)
+                  ? { background: "var(--bg-hover)" }
+                  : {}
+              }
+            >
               {selectedItems && (
                 <td style={{ textAlign: "center" }}>
                   <input
@@ -66,13 +80,15 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
                   />
                 </td>
               )}
-              <td><code>{item.Artikelnummer}</code></td>
-              <td>{item.Name || "–"}</td>
-              <td>{item.Art || "–"}</td>
-              <td>{item.Farbe || "–"}</td>
-              <td>{item.Material || "–"}</td>
-              <td>{formatEur(item.Verkaufspreis)}</td>
               <td>
+                <code>{item.Artikelnummer}</code>
+              </td>
+              <td className="hide-on-mobile">{item.Name || "–"}</td>
+              <td className="hide-on-mobile">{item.Art || "–"}</td>
+              <td className="hide-on-mobile">{item.Farbe || "–"}</td>
+              <td className="hide-on-mobile">{item.Material || "–"}</td>
+              <td>{formatEur(item.Verkaufspreis)}</td>
+              <td className="hide-on-mobile">
                 {item.Erstelldatum
                   ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
                   : "–"}
@@ -83,11 +99,18 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
         <tfoot>
           <tr>
             {selectedItems && <td />}
-            <td colSpan={selectedItems ? 4 : 5} style={{ fontWeight: 600, textAlign: "right", padding: "8px 12px" }}>
+            <td
+              colSpan={5}
+              style={{
+                fontWeight: 600,
+                textAlign: "right",
+                padding: "8px 12px",
+              }}
+            >
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
-            <td />
+            <td className="hide-on-mobile" />
           </tr>
         </tfoot>
       </table>
@@ -115,9 +138,14 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
   const tabItems = useMemo(() => {
     if (!data) return [];
     const { items } = data;
-    if (tab === "aktiv")     return items.filter((i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0);
-    if (tab === "verkauft")  return items.filter((i) => Number(i.Verkauft) === 1);
-    if (tab === "ausschuss") return items.filter((i) => Number(i.Ausschuss) === 1);
+    if (tab === "aktiv")
+      return items.filter(
+        (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+      );
+    if (tab === "verkauft")
+      return items.filter((i) => Number(i.Verkauft) === 1);
+    if (tab === "ausschuss")
+      return items.filter((i) => Number(i.Ausschuss) === 1);
     return items;
   }, [data, tab]);
 
@@ -128,7 +156,10 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const safeName = String(kundeName || kundeId).replace(/[\\/:*?"<>|]+/g, "_");
+      const safeName = String(kundeName || kundeId).replace(
+        /[\\/:*?"<>|]+/g,
+        "_",
+      );
       a.download = `Inventur_${safeName}.xlsx`;
       document.body.appendChild(a);
       a.click();
@@ -143,7 +174,7 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
 
   const handleRestock = async () => {
     if (selectedItems.size === 0) {
-      alert('Bitte wähle mindestens einen Artikel aus');
+      alert("Bitte wähle mindestens einen Artikel aus");
       return;
     }
 
@@ -153,7 +184,7 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
     setRestocking(true);
     try {
       await api.restockKundeSelective(kundeId, Array.from(selectedItems));
-      alert('Artikel erfolgreich zurückgelagert!');
+      alert("Artikel erfolgreich zurückgelagert!");
       onRestock?.();
       onClose();
     } catch (err) {
@@ -208,31 +239,39 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
             data && (
               <>
                 {/* Stats */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                    gap: 12,
-                    marginBottom: 20,
-                  }}
-                >
+                <div className="stats-grid" style={{ marginBottom: 20 }}>
                   {[
-                    { label: "Gesamt",         value: data.stats.gesamt,    color: "var(--text-primary)" },
-                    { label: "Nicht verkauft", value: data.stats.aktiv,     color: "var(--success)" },
-                    { label: "Verkauft",       value: data.stats.verkauft,  color: "var(--info)" },
-                    { label: "Ausschuss",      value: data.stats.ausschuss, color: "var(--warning)" },
+                    {
+                      label: "Gesamt",
+                      value: data.stats.gesamt,
+                      icon: faGem,
+                      colorClass: "gold",
+                    },
+                    {
+                      label: "Nicht verkauft",
+                      value: data.stats.aktiv,
+                      icon: faBox,
+                      colorClass: "success",
+                    },
+                    {
+                      label: "Verkauft",
+                      value: data.stats.verkauft,
+                      icon: faCheckCircle,
+                      colorClass: "info",
+                    },
+                    {
+                      label: "Ausschuss",
+                      value: data.stats.ausschuss,
+                      icon: faTimesCircle,
+                      colorClass: "danger",
+                    },
                   ].map((s) => (
-                    <div
-                      key={s.label}
-                      style={{
-                        background: "var(--bg-hover)",
-                        borderRadius: "var(--radius-sm)",
-                        padding: "12px 16px",
-                        textAlign: "center",
-                      }}
-                    >
-                      <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.label}</div>
+                    <div key={s.label} className={`stat-card ${s.colorClass}`}>
+                      <div className="stat-icon">
+                        <FontAwesomeIcon icon={s.icon} />
+                      </div>
+                      <div className="stat-value">{s.value}</div>
+                      <div className="stat-label">{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -246,16 +285,33 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
                     flexWrap: "wrap",
                   }}
                 >
-                  <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>
-                    Warenwert (aktiv): <strong style={{ color: "var(--success)" }}>{formatEur(data.stats.wert_aktiv)}</strong>
+                  <span
+                    style={{ color: "var(--text-secondary)", fontSize: 13 }}
+                  >
+                    Warenwert (aktiv):{" "}
+                    <strong style={{ color: "var(--success)" }}>
+                      {formatEur(data.stats.wert_aktiv)}
+                    </strong>
                   </span>
-                  <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>
-                    Warenwert (verkauft): <strong style={{ color: "var(--info)" }}>{formatEur(data.stats.wert_verkauft)}</strong>
+                  <span
+                    style={{ color: "var(--text-secondary)", fontSize: 13 }}
+                  >
+                    Warenwert (verkauft):{" "}
+                    <strong style={{ color: "var(--info)" }}>
+                      {formatEur(data.stats.wert_verkauft)}
+                    </strong>
                   </span>
                 </div>
 
                 {/* Tabs */}
-                <div style={{ display: "flex", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 4,
+                    marginBottom: 16,
+                    flexWrap: "wrap",
+                  }}
+                >
                   {TABS.map((t) => (
                     <button
                       key={t.id}
@@ -273,9 +329,11 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
                             fontSize: 11,
                           }}
                         >
-                          {t.id === "aktiv"     ? data.stats.aktiv
-                           : t.id === "verkauft" ? data.stats.verkauft
-                           : data.stats.ausschuss}
+                          {t.id === "aktiv"
+                            ? data.stats.aktiv
+                            : t.id === "verkauft"
+                              ? data.stats.verkauft
+                              : data.stats.ausschuss}
                         </span>
                       )}
                     </button>
@@ -293,17 +351,29 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
           )}
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+        <div
+          className="modal-footer inventur-modal-footer"
+          style={{ justifyContent: "space-between" }}
+        >
           <button
             className="btn btn-warning"
             onClick={handleRestock}
             disabled={restocking || loading || selectedItems.size === 0}
-            title={selectedItems.size === 0 ? "Wähle Artikel aus um zurückzulagern" : `${selectedItems.size} Artikel zurücklagern`}
+            title={
+              selectedItems.size === 0
+                ? "Wähle Artikel aus um zurückzulagern"
+                : `${selectedItems.size} Artikel zurücklagern`
+            }
           >
             <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
-            {restocking ? "Lagere zurück…" : `Zurücklagern (${selectedItems.size})`}
+            {restocking
+              ? "Lagere zurück…"
+              : `Zurücklagern (${selectedItems.size})`}
           </button>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div
+            className="inventur-modal-actions"
+            style={{ display: "flex", gap: 8 }}
+          >
             <button
               className="btn btn-primary"
               onClick={handleExcel}
@@ -346,8 +416,7 @@ export default function Inventur() {
     const s = search.toUpperCase();
     return summary.filter(
       (k) =>
-        k.Name?.toUpperCase().includes(s) ||
-        k.Ort?.toUpperCase().includes(s)
+        k.Name?.toUpperCase().includes(s) || k.Ort?.toUpperCase().includes(s),
     );
   }, [summary, search]);
 
@@ -355,19 +424,24 @@ export default function Inventur() {
     () =>
       summary.reduce(
         (acc, k) => ({
-          gesamt:       acc.gesamt       + (k.gesamt    || 0),
-          aktiv:        acc.aktiv        + (k.aktiv     || 0),
-          verkauft:     acc.verkauft     + (k.verkauft  || 0),
-          ausschuss:    acc.ausschuss    + (k.ausschuss || 0),
-          wert_aktiv:   acc.wert_aktiv   + (Number(k.wert_aktiv)   || 0),
-          wert_verkauft:acc.wert_verkauft+ (Number(k.wert_verkauft)|| 0),
+          gesamt: acc.gesamt + (k.gesamt || 0),
+          aktiv: acc.aktiv + (k.aktiv || 0),
+          verkauft: acc.verkauft + (k.verkauft || 0),
+          ausschuss: acc.ausschuss + (k.ausschuss || 0),
+          wert_aktiv: acc.wert_aktiv + (Number(k.wert_aktiv) || 0),
+          wert_verkauft: acc.wert_verkauft + (Number(k.wert_verkauft) || 0),
         }),
-        { gesamt: 0, aktiv: 0, verkauft: 0, ausschuss: 0, wert_aktiv: 0, wert_verkauft: 0 }
+        {
+          gesamt: 0,
+          aktiv: 0,
+          verkauft: 0,
+          ausschuss: 0,
+          wert_aktiv: 0,
+          wert_verkauft: 0,
+        },
       ),
-    [summary]
+    [summary],
   );
-
-
 
   return (
     <div>
@@ -377,35 +451,6 @@ export default function Inventur() {
           <p>Ausgelagerte Schmuckstücke pro Kunde</p>
         </div>
       </div>
-
-      {/* Summary stats */}
-      {!loading && summary.length > 0 && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 12,
-            marginBottom: 24,
-          }}
-        >
-          {[
-            { label: "Kunden",           value: summary.length,      color: "var(--accent)"  },
-            { label: "Artikel gesamt",   value: totals.gesamt,       color: "var(--text-primary)" },
-            { label: "Nicht verkauft",   value: totals.aktiv,        color: "var(--success)" },
-            { label: "Verkauft",         value: totals.verkauft,     color: "var(--info)"    },
-            { label: "Ausschuss",        value: totals.ausschuss,    color: "var(--warning)" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="card"
-              style={{ padding: "16px", textAlign: "center" }}
-            >
-              <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="toolbar">
         <input
@@ -433,13 +478,13 @@ export default function Inventur() {
               <thead>
                 <tr>
                   <th>Kunde</th>
-                  <th>Ort</th>
+                  <th className="hide-on-mobile">Ort</th>
                   <th style={{ textAlign: "right" }}>Gesamt</th>
                   <th style={{ textAlign: "right" }}>Nicht verkauft</th>
-                  <th style={{ textAlign: "right" }}>Verkauft</th>
-                  <th style={{ textAlign: "right" }}>Ausschuss</th>
-                  <th style={{ textAlign: "right" }}>Warenwert (aktiv)</th>
-                  <th style={{ textAlign: "right" }}>Warenwert (verk.)</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Verkauft</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Ausschuss</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Warenwert (aktiv)</th>
+                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Warenwert (verk.)</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,37 +506,54 @@ export default function Inventur() {
                           </span>
                         )}
                       </td>
-                      <td>{k.Ort || "–"}</td>
+                      <td className="hide-on-mobile">{k.Ort || "–"}</td>
                       <td style={{ textAlign: "right" }}>{k.gesamt}</td>
                       <td style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--success)" }}>{k.aktiv}</span>
+                        <span style={{ color: "var(--success)" }}>
+                          {k.aktiv}
+                        </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--info)" }}>{k.verkauft}</span>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                        <span style={{ color: "var(--info)" }}>
+                          {k.verkauft}
+                        </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--warning)" }}>{k.ausschuss}</span>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                        <span style={{ color: "var(--warning)" }}>
+                          {k.ausschuss}
+                        </span>
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                         {formatEur(k.wert_aktiv)}
                       </td>
-                      <td style={{ textAlign: "right" }}>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
                         {formatEur(k.wert_verkauft)}
                       </td>
                     </tr>
-
                   </>
                 ))}
               </tbody>
               <tfoot>
                 <tr style={{ fontWeight: 600, background: "var(--bg-hover)" }}>
-                  <td colSpan={2} style={{ padding: "8px 12px" }}>Gesamt</td>
+                  <td colSpan={2} style={{ padding: "8px 12px" }}>
+                    Gesamt
+                  </td>
                   <td style={{ textAlign: "right" }}>{totals.gesamt}</td>
-                  <td style={{ textAlign: "right", color: "var(--success)" }}>{totals.aktiv}</td>
-                  <td style={{ textAlign: "right", color: "var(--info)" }}>{totals.verkauft}</td>
-                  <td style={{ textAlign: "right", color: "var(--warning)" }}>{totals.ausschuss}</td>
-                  <td style={{ textAlign: "right" }}>{formatEur(totals.wert_aktiv)}</td>
-                  <td style={{ textAlign: "right" }}>{formatEur(totals.wert_verkauft)}</td>
+                  <td style={{ textAlign: "right", color: "var(--success)" }}>
+                    {totals.aktiv}
+                  </td>
+                  <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--info)" }}>
+                    {totals.verkauft}
+                  </td>
+                  <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--warning)" }}>
+                    {totals.ausschuss}
+                  </td>
+                  <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                    {formatEur(totals.wert_aktiv)}
+                  </td>
+                  <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                    {formatEur(totals.wert_verkauft)}
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -525,24 +587,38 @@ function InlineItems({ kundeId }) {
       .finally(() => setLoading(false));
   }, [kundeId]);
 
-  if (loading) return <div style={{ padding: 8 }}><div className="spinner" style={{ width: 20, height: 20 }}></div></div>;
-  if (error) return <p style={{ color: "var(--danger)", padding: 8 }}>{error}</p>;
+  if (loading)
+    return (
+      <div style={{ padding: 8 }}>
+        <div className="spinner" style={{ width: 20, height: 20 }}></div>
+      </div>
+    );
+  if (error)
+    return <p style={{ color: "var(--danger)", padding: 8 }}>{error}</p>;
   if (!data) return null;
 
-  const aktiv     = data.items.filter((i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0);
-  const verkauft  = data.items.filter((i) => Number(i.Verkauft) === 1);
+  const aktiv = data.items.filter(
+    (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+  );
+  const verkauft = data.items.filter((i) => Number(i.Verkauft) === 1);
   const ausschuss = data.items.filter((i) => Number(i.Ausschuss) === 1);
 
   return (
     <div style={{ padding: "8px 0", fontSize: 13 }}>
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         <span>
-          <span style={{ color: "var(--success)", fontWeight: 600 }}>{aktiv.length}</span>
-          {" "}nicht verkauft &nbsp;|&nbsp;
-          <span style={{ color: "var(--info)", fontWeight: 600 }}>{verkauft.length}</span>
-          {" "}verkauft &nbsp;|&nbsp;
-          <span style={{ color: "var(--warning)", fontWeight: 600 }}>{ausschuss.length}</span>
-          {" "}Ausschuss
+          <span style={{ color: "var(--success)", fontWeight: 600 }}>
+            {aktiv.length}
+          </span>{" "}
+          nicht verkauft &nbsp;|&nbsp;
+          <span style={{ color: "var(--info)", fontWeight: 600 }}>
+            {verkauft.length}
+          </span>{" "}
+          verkauft &nbsp;|&nbsp;
+          <span style={{ color: "var(--warning)", fontWeight: 600 }}>
+            {ausschuss.length}
+          </span>{" "}
+          Ausschuss
         </span>
       </div>
     </div>
