@@ -80,7 +80,7 @@ router.post('/import', async (req, res) => {
   const { tables, version } = normalized;
   logger.info('BACKUP', `Import gestartet (Version: ${version})`, { tabellen: Object.keys(tables) });
 
-  const client = await db.pool.connect();
+  const client = await db.connect();
   try {
     await client.query('BEGIN');
 
