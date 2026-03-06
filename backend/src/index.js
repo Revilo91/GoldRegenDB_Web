@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const logger = require('./utils/logger');
+const db = require('./config/db');
 
 const { authenticate, requireAdmin } = require('./middleware/auth');
 const kundenRoutes = require('./routes/kunden');
@@ -18,9 +20,39 @@ const inventurRoutes = require('./routes/inventur');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Startup logging
+logger.info('SERVER', '=== GoldRegenDB Backend startet ===');
+logger.info('SERVER', `Umgebung: ${process.env.NODE_ENV || 'development'}`);
+logger.info('SERVER', `Port: ${PORT}`);
+logger.info('SERVER', `DATABASE_URL: ${process.env.DATABASE_URL ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const { method, originalUrl } = req;
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    const user = req.user ? req.user.username : 'anonym';
+    const logLine = `${method} ${originalUrl} → ${status} (${duration}ms) [User: ${user}]`;
+
+    if (status >= 500) {
+      logger.error('HTTP', logLine);
+    } else if (status >= 400) {
+      logger.warn('HTTP', logLine);
+    } else {
+      logger.info('HTTP', logLine);
+    }
+  });
+
+  next();
+});
 
 // Rate limiters
 const loginLimiter = rateLimit({
@@ -43,9 +75,15 @@ const apiLimiter = rateLimit({
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', apiLimiter, authRoutes);
 
-// Health check (public)
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check (public) – includes database connectivity test
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1 AS ok');
+    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+  } catch (err) {
+    logger.error('SERVER', 'Health-Check: Datenbankverbindung fehlgeschlagen', { message: err.message });
+    res.status(503).json({ status: 'error', database: 'disconnected', timestamp: new Date().toISOString() });
+  }
 });
 
 // Protected routes – all authenticated users
@@ -67,6 +105,18 @@ app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes
 app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/debug'));
 app.use('/api/backup', apiLimiter, authenticate, requireAdmin, require('./routes/backup'));
 
+logger.info('SERVER', 'Alle Routen registriert');
+
+// Global error handler
+app.use((err, req, res, _next) => {
+  logger.error('SERVER', `Unbehandelter Fehler: ${req.method} ${req.originalUrl}`, {
+    message: err.message,
+    stack: err.stack,
+  });
+  res.status(500).json({ error: 'Interner Serverfehler' });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`GoldRegenDB Backend running on port ${PORT}`);
+  logger.info('SERVER', `GoldRegenDB Backend läuft auf Port ${PORT}`);
+  logger.info('SERVER', '=== Backend bereit ===');
 });

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
+const logger = require('../utils/logger');
 
 // Tables to export/import (in FK-safe order for import)
-const EXPORT_TABLES = ['Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
+const EXPORT_TABLES = ['app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
 
 // GET /api/backup/export – Export all main tables as a JSON file
 router.get('/export', async (req, res) => {
@@ -26,7 +27,7 @@ router.get('/export', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json(exportData);
   } catch (err) {
-    console.error('Backup export error:', err);
+    logger.error('BACKUP', 'Fehler beim Exportieren der Daten', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Exportieren der Daten' });
   }
 });
@@ -77,6 +78,7 @@ router.post('/import', async (req, res) => {
   }
 
   const { tables, version } = normalized;
+  logger.info('BACKUP', `Import gestartet (Version: ${version})`, { tabellen: Object.keys(tables) });
 
   const client = await db.pool.connect();
   try {
@@ -84,7 +86,7 @@ router.post('/import', async (req, res) => {
 
     // Truncate in reverse FK order; RESTART IDENTITY resets sequences
     await client.query(
-      `TRUNCATE TABLE "Schmuckstück", "Rechnung", "Lieferschein", "Kunde" RESTART IDENTITY CASCADE`
+      `TRUNCATE TABLE "Schmuckstück", "Rechnung", "Lieferschein", "Kunde", "audit_log", "app_users" RESTART IDENTITY CASCADE`
     );
 
     // Helper: Get actual column names from database schema
@@ -117,7 +119,7 @@ router.post('/import', async (req, res) => {
         const columnsToInsert = backupColumns.filter((col) => validColumns.includes(col));
 
         if (columnsToInsert.length === 0) {
-          console.warn(`No matching columns found for table ${tableName}`);
+          logger.warn('BACKUP', `Keine passenden Spalten gefunden für Tabelle ${tableName}`);
           continue;
         }
 
@@ -141,6 +143,8 @@ router.post('/import', async (req, res) => {
       }
     };
 
+    await insertRows('app_users', tables['app_users']);
+    await insertRows('audit_log', tables['audit_log']);
     await insertRows('Kunde', tables['Kunde']);
     await insertRows('Lieferschein', tables['Lieferschein']);
     await insertRows('Rechnung', tables['Rechnung']);
@@ -148,6 +152,8 @@ router.post('/import', async (req, res) => {
 
     // Reset SERIAL sequences to avoid PK conflicts on future inserts
     const seqResets = [
+      `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
+      `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
       `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,
       `SELECT setval(pg_get_serial_sequence('"Lieferschein"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Lieferschein"), 0) + 1, false)`,
       `SELECT setval(pg_get_serial_sequence('"Rechnung"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Rechnung"), 0) + 1, false)`,
@@ -164,9 +170,10 @@ router.post('/import', async (req, res) => {
     }
 
     res.json({ success: true, message: 'Import erfolgreich', counts });
+    logger.info('BACKUP', 'Import erfolgreich abgeschlossen', counts);
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Backup import error:', err);
+    logger.error('BACKUP', 'Fehler beim Importieren', { message: err.message });
     res.status(500).json({ error: `Fehler beim Importieren: ${err.message}` });
   } finally {
     client.release();

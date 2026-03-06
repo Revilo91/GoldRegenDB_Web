@@ -72,14 +72,25 @@ export default function Benutzerverwaltung() {
           alert("Benutzername darf nicht leer sein");
           return;
         }
-        const createData = { username: form.username, password: form.password, email: form.email, role: form.role, active: form.active };
+        const createData = {
+          username: form.username,
+          password: form.password,
+          email: form.email,
+          role: form.role,
+          active: form.active,
+        };
         await api.createUser(createData);
       } else {
         if (!form.username.trim()) {
           alert("Benutzername darf nicht leer sein");
           return;
         }
-        const updateData = { username: form.username, email: form.email, role: form.role, active: form.active };
+        const updateData = {
+          username: form.username,
+          email: form.email,
+          role: form.role,
+          active: form.active,
+        };
         await api.updateUser(selected.id, updateData);
       }
       setEditing(null);
@@ -89,10 +100,12 @@ export default function Benutzerverwaltung() {
       let errorMessage = "Fehler beim Speichern";
 
       if (err.message === "Failed to fetch") {
-        errorMessage = "Backend-Server nicht erreichbar. Bitte stelle sicher, dass der Server läuft (http://localhost:3001).";
+        errorMessage =
+          "Backend-Server nicht erreichbar. Bitte stelle sicher, dass der Server läuft (http://localhost:3001).";
       } else if (err.message === "Request failed") {
         // Versuche Details aus der Axios-Response zu bekommen
-        errorMessage = "Backend-Fehler: " + (err.message || "Unbekannter Fehler");
+        errorMessage =
+          "Backend-Fehler: " + (err.message || "Unbekannter Fehler");
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -136,7 +149,13 @@ export default function Benutzerverwaltung() {
 
   const openNew = () => {
     setForm({ ...EMPTY_FORM });
-    setSelected({ id: "new", username: "", email: "", role: "user", active: true });
+    setSelected({
+      id: "new",
+      username: "",
+      email: "",
+      role: "user",
+      active: true,
+    });
     setEditing("new");
   };
 
@@ -208,13 +227,50 @@ export default function Benutzerverwaltung() {
 
       {/* User Detail Modal */}
       {selected && (
-        <div className="modal-overlay" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setSelected(null);
+            setEditing(null);
+            setNewPassword("");
+            setShowPassword(false);
+            setShowPasswordConfirm(false);
+            setShowNewPassword(false);
+            setShowPasswordReset(false);
+          }}
+        >
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "600px" }}
+          >
             <div className="modal-header">
-              <h3>{editing === "new" ? <><FontAwesomeIcon icon={faPlus} /> Neuer Benutzer</> : editing === selected.id ? <><FontAwesomeIcon icon={faPen} /> Benutzer bearbeiten</> : <><FontAwesomeIcon icon={faUser} /> {selected.username}</>}</h3>
+              <h3>
+                {editing === "new" ? (
+                  <>
+                    <FontAwesomeIcon icon={faPlus} /> Neuer Benutzer
+                  </>
+                ) : editing === selected.id ? (
+                  <>
+                    <FontAwesomeIcon icon={faPen} /> Benutzer bearbeiten
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon={faUser} /> {selected.username}
+                  </>
+                )}
+              </h3>
               <button
                 className="modal-close"
-                onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}
+                onClick={() => {
+                  setSelected(null);
+                  setEditing(null);
+                  setNewPassword("");
+                  setShowPassword(false);
+                  setShowPasswordConfirm(false);
+                  setShowNewPassword(false);
+                  setShowPasswordReset(false);
+                }}
               >
                 <FontAwesomeIcon icon={faTimes} />
               </button>
@@ -229,7 +285,9 @@ export default function Benutzerverwaltung() {
                     <input
                       className="form-control"
                       value={form.username}
-                      onChange={(e) => setForm({ ...form, username: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, username: e.target.value })
+                      }
                     />
                   </div>
                   {editing === "new" && (
@@ -240,7 +298,9 @@ export default function Benutzerverwaltung() {
                           type={showPassword ? "text" : "password"}
                           className="form-control"
                           value={form.password}
-                          onChange={(e) => setForm({ ...form, password: e.target.value })}
+                          onChange={(e) =>
+                            setForm({ ...form, password: e.target.value })
+                          }
                           placeholder="Mindestens 8 Zeichen"
                         />
                         <button
@@ -256,19 +316,28 @@ export default function Benutzerverwaltung() {
                   )}
                   {editing === "new" && (
                     <div className="form-group">
-                      <label className="form-label">Passwort bestätigen *</label>
+                      <label className="form-label">
+                        Passwort bestätigen *
+                      </label>
                       <div style={{ display: "flex", gap: 8 }}>
                         <input
                           type={showPasswordConfirm ? "text" : "password"}
                           className="form-control"
                           value={form.passwordConfirm}
-                          onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              passwordConfirm: e.target.value,
+                            })
+                          }
                           placeholder="Passwort wiederholen"
                         />
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                          onClick={() =>
+                            setShowPasswordConfirm(!showPasswordConfirm)
+                          }
                           style={{ padding: "6px 12px", minWidth: "40px" }}
                         >
                           {showPasswordConfirm ? "🙈" : "👁️"}
@@ -282,7 +351,9 @@ export default function Benutzerverwaltung() {
                       type="email"
                       className="form-control"
                       value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, email: e.target.value })
+                      }
                     />
                   </div>
                   <div className="form-group">
@@ -290,7 +361,9 @@ export default function Benutzerverwaltung() {
                     <select
                       className="form-control"
                       value={form.role}
-                      onChange={(e) => setForm({ ...form, role: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, role: e.target.value })
+                      }
                     >
                       {ROLES.map((r) => (
                         <option key={r.value} value={r.value}>
@@ -300,11 +373,16 @@ export default function Benutzerverwaltung() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <label
+                      className="form-label"
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
                       <input
                         type="checkbox"
                         checked={form.active}
-                        onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                        onChange={(e) =>
+                          setForm({ ...form, active: e.target.checked })
+                        }
                       />
                       Aktiv
                     </label>
@@ -314,40 +392,107 @@ export default function Benutzerverwaltung() {
                 // View Mode
                 <>
                   <div style={{ marginBottom: "20px" }}>
-                    <h4 style={{ marginBottom: "10px", color: "var(--text-secondary)" }}>Grundinformationen</h4>
-                    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "12px 20px" }}>
+                    <h4
+                      style={{
+                        marginBottom: "10px",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      Grundinformationen
+                    </h4>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "150px 1fr",
+                        gap: "12px 20px",
+                      }}
+                    >
                       <strong>Benutzername:</strong>
                       <span>{selected.username}</span>
                       <strong>E-Mail:</strong>
                       <span>{selected.email || "–"}</span>
                       <strong>Rolle:</strong>
                       <span>
-                        <span className={`badge ${selected.role === "admin" ? "gold" : "info"}`}>
-                          {selected.role === "admin" ? <><FontAwesomeIcon icon={faCrown} /> Admin</> : <><FontAwesomeIcon icon={faUser} /> Benutzer</>}
+                        <span
+                          className={`badge ${selected.role === "admin" ? "gold" : "info"}`}
+                        >
+                          {selected.role === "admin" ? (
+                            <>
+                              <FontAwesomeIcon icon={faCrown} /> Admin
+                            </>
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faUser} /> Benutzer
+                            </>
+                          )}
                         </span>
                       </span>
                       <strong>Status:</strong>
                       <span>
-                        <span className={`badge ${selected.active ? "success" : "danger"}`}>
-                          {selected.active ? <><FontAwesomeIcon icon={faCheckCircle} /> Aktiv</> : <><FontAwesomeIcon icon={faTimesCircle} /> Inaktiv</>}
+                        <span
+                          className={`badge ${selected.active ? "success" : "danger"}`}
+                        >
+                          {selected.active ? (
+                            <>
+                              <FontAwesomeIcon icon={faCheckCircle} /> Aktiv
+                            </>
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faTimesCircle} /> Inaktiv
+                            </>
+                          )}
+                        </span>
+                      </span>
+                      <strong>Passwort:</strong>
+                      <span>
+                        <span
+                          className={`badge ${selected.must_change_password ? "gold" : "success"}`}
+                        >
+                          {selected.must_change_password ? (
+                            <>
+                              <FontAwesomeIcon icon={faKey} /> Einmalpasswort
+                            </>
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faCheckCircle} /> Eigenes
+                              Passwort
+                            </>
+                          )}
                         </span>
                       </span>
                     </div>
                   </div>
 
                   <div>
-                    <h4 style={{ marginBottom: "10px", color: "var(--text-secondary)" }}>Audit-Informationen</h4>
-                    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr", gap: "12px 20px" }}>
+                    <h4
+                      style={{
+                        marginBottom: "10px",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      Audit-Informationen
+                    </h4>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "150px 1fr",
+                        gap: "12px 20px",
+                      }}
+                    >
                       <strong>Erstellt:</strong>
                       <span>
                         {selected.created_at
-                          ? new Date(selected.created_at).toLocaleString("de-DE")
+                          ? new Date(selected.created_at).toLocaleString(
+                              "de-DE",
+                            )
                           : "–"}
                       </span>
                       <strong>Letzter Login:</strong>
                       <span>
                         {selected.last_login
-                          ? new Date(selected.last_login).toLocaleString("de-DE")
+                          ? new Date(selected.last_login).toLocaleString(
+                              "de-DE",
+                            )
                           : "Noch nicht angemeldet"}
                       </span>
                     </div>
@@ -355,8 +500,20 @@ export default function Benutzerverwaltung() {
 
                   {showPasswordReset && (
                     <>
-                      <hr style={{ margin: "20px 0", borderColor: "var(--border)" }} />
-                      <h4 style={{ marginBottom: "10px", color: "var(--text-secondary)" }}>Passwort zurücksetzen</h4>
+                      <hr
+                        style={{
+                          margin: "20px 0",
+                          borderColor: "var(--border)",
+                        }}
+                      />
+                      <h4
+                        style={{
+                          marginBottom: "10px",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        Passwort zurücksetzen
+                      </h4>
                       <div style={{ display: "grid", gap: "10px" }}>
                         <div className="form-group">
                           <label className="form-label">Neues Passwort *</label>
@@ -371,7 +528,9 @@ export default function Benutzerverwaltung() {
                             <button
                               type="button"
                               className="btn btn-secondary"
-                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              onClick={() =>
+                                setShowNewPassword(!showNewPassword)
+                              }
                               style={{ padding: "6px 12px", minWidth: "40px" }}
                             >
                               {showNewPassword ? "🙈" : "👁️"}
@@ -409,15 +568,30 @@ export default function Benutzerverwaltung() {
                   <>
                     {showPasswordReset ? (
                       <>
-                        <button className="btn btn-secondary" onClick={() => { setNewPassword(""); setShowNewPassword(false); setShowPasswordReset(false); }}>
-                          <FontAwesomeIcon icon={faTimes} /> Passwort-Reset abbrechen
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            setNewPassword("");
+                            setShowNewPassword(false);
+                            setShowPasswordReset(false);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimes} /> Passwort-Reset
+                          abbrechen
                         </button>
-                        <button className="btn btn-success" onClick={handleResetPassword} disabled={!newPassword}>
+                        <button
+                          className="btn btn-success"
+                          onClick={handleResetPassword}
+                          disabled={!newPassword}
+                        >
                           ✓ Passwort jetzt zurücksetzen
                         </button>
                       </>
                     ) : (
-                      <button className="btn btn-secondary" onClick={() => setShowPasswordReset(true)}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setShowPasswordReset(true)}
+                      >
                         <FontAwesomeIcon icon={faKey} /> Passwort zurücksetzen
                       </button>
                     )}
@@ -425,9 +599,19 @@ export default function Benutzerverwaltung() {
                 )}
                 <button
                   className="btn btn-secondary"
-                  onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowPassword(false); setShowPasswordConfirm(false); setShowNewPassword(false); setShowPasswordReset(false); }}
+                  onClick={() => {
+                    setSelected(null);
+                    setEditing(null);
+                    setNewPassword("");
+                    setShowPassword(false);
+                    setShowPasswordConfirm(false);
+                    setShowNewPassword(false);
+                    setShowPasswordReset(false);
+                  }}
                 >
-                  {editing === "new" || editing === selected.id ? "Abbrechen" : "Schließen"}
+                  {editing === "new" || editing === selected.id
+                    ? "Abbrechen"
+                    : "Schließen"}
                 </button>
                 {(editing === "new" || editing === selected.id) && (
                   <button className="btn btn-primary" onClick={handleSave}>
@@ -435,7 +619,10 @@ export default function Benutzerverwaltung() {
                   </button>
                 )}
                 {editing === null && selected.id !== "new" && (
-                  <button className="btn btn-primary" onClick={() => setEditing(selected.id)}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setEditing(selected.id)}
+                  >
                     <FontAwesomeIcon icon={faPen} /> Bearbeiten
                   </button>
                 )}
@@ -455,45 +642,109 @@ export default function Benutzerverwaltung() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th onClick={() => requestSort("id")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("id")}
+                    style={{ cursor: "pointer" }}
+                  >
                     ID {getSortIcon("id")}
                   </th>
-                  <th onClick={() => requestSort("username")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("username")}
+                    style={{ cursor: "pointer" }}
+                  >
                     Benutzername {getSortIcon("username")}
                   </th>
-                  <th onClick={() => requestSort("email")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("email")}
+                    style={{ cursor: "pointer" }}
+                  >
                     E-Mail {getSortIcon("email")}
                   </th>
-                  <th onClick={() => requestSort("role")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("role")}
+                    style={{ cursor: "pointer" }}
+                  >
                     Rolle {getSortIcon("role")}
                   </th>
-                  <th onClick={() => requestSort("active")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("active")}
+                    style={{ cursor: "pointer" }}
+                  >
                     Status {getSortIcon("active")}
                   </th>
-                  <th onClick={() => requestSort("created_at")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("must_change_password")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    PW-Status {getSortIcon("must_change_password")}
+                  </th>
+                  <th
+                    onClick={() => requestSort("created_at")}
+                    style={{ cursor: "pointer" }}
+                  >
                     Erstellt {getSortIcon("created_at")}
                   </th>
-                  <th onClick={() => requestSort("last_login")} style={{ cursor: "pointer" }}>
+                  <th
+                    onClick={() => requestSort("last_login")}
+                    style={{ cursor: "pointer" }}
+                  >
                     Letzter Login {getSortIcon("last_login")}
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.map((u) => (
-                  <tr key={u.id} onClick={() => openEdit(u)} style={{ cursor: "pointer" }}>
+                  <tr
+                    key={u.id}
+                    onClick={() => openEdit(u)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>{u.id}</td>
                     <td>
                       <strong>{u.username}</strong>
                     </td>
                     <td>{u.email || "–"}</td>
                     <td>
-                      <span className={`badge ${u.role === "admin" ? "gold" : "info"}`}>
-                        {u.role === "admin" ? <><FontAwesomeIcon icon={faCrown} /> Admin</> : <><FontAwesomeIcon icon={faUser} /> Benutzer</>}
+                      <span
+                        className={`badge ${u.role === "admin" ? "gold" : "info"}`}
+                      >
+                        {u.role === "admin" ? (
+                          <>
+                            <FontAwesomeIcon icon={faCrown} /> Admin
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faUser} /> Benutzer
+                          </>
+                        )}
                       </span>
                     </td>
                     <td>
-                      <span className={`badge ${u.active ? "success" : "danger"}`}>
-                        {u.active ? <><FontAwesomeIcon icon={faCheckCircle} /> Aktiv</> : <><FontAwesomeIcon icon={faTimesCircle} /> Inaktiv</>}
+                      <span
+                        className={`badge ${u.active ? "success" : "danger"}`}
+                      >
+                        {u.active ? (
+                          <>
+                            <FontAwesomeIcon icon={faCheckCircle} /> Aktiv
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faTimesCircle} /> Inaktiv
+                          </>
+                        )}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${u.must_change_password ? "gold" : "success"}`}
+                      >
+                        {u.must_change_password ? (
+                          <>
+                            <FontAwesomeIcon icon={faKey} /> Einmal
+                          </>
+                        ) : (
+                          "✓"
+                        )}
                       </span>
                     </td>
                     <td>
@@ -510,7 +761,13 @@ export default function Benutzerverwaltung() {
                 ))}
                 {filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                    <td
+                      colSpan={8}
+                      style={{
+                        textAlign: "center",
+                        color: "var(--text-muted)",
+                      }}
+                    >
                       Keine Benutzer gefunden
                     </td>
                   </tr>

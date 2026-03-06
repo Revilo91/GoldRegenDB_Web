@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "sync:fotos": "node scripts/sync-photo-column.js",
+    "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

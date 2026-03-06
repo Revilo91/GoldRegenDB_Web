@@ -71,7 +71,6 @@ CREATE TABLE "Kunde" (
     "Telefonnummer" TEXT DEFAULT NULL,
     "Provision" INTEGER NOT NULL DEFAULT 0,
     "Aktiv" BOOLEAN NOT NULL DEFAULT FALSE,
-    "Artikelnummern_Erforderlich" BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY ("Name"),
     UNIQUE ("ID")
 );
@@ -81,7 +80,6 @@ CREATE TABLE "Lieferschein" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "Datei" TEXT DEFAULT NULL,
     PRIMARY KEY ("Nummer"),
     UNIQUE ("ID"),
     CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
@@ -92,7 +90,6 @@ CREATE TABLE "Rechnung" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "Datei" TEXT DEFAULT NULL,
     PRIMARY KEY ("Nummer"),
     CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
@@ -168,14 +165,17 @@ CREATE TABLE IF NOT EXISTS app_users (
     email TEXT DEFAULT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
     active BOOLEAN NOT NULL DEFAULT TRUE,
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT NULL,
     CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
 );
 
 -- Default admin user (password: admin – must be changed after first login)
-INSERT INTO app_users (username, password_hash, email, role, active)
-VALUES ('admin', '$2b$10$PEPpBG.7g5QFmj8p0XXU6u2/IfVwLCXPlvRnnDPCqSXuTX5uFt/zq', 'admin@goldregen.local', 'admin', TRUE)
+-- Password is stored as bcrypt(SHA-256("admin")): frontend hashes with SHA-256,
+-- backend hashes again with bcrypt before storing.
+INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
+VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- ============================================================

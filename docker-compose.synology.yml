@@ -23,11 +23,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 1m
+    networks:
+      - goldregendb_net
 
   backend:
-    build:
-      context: /volume1/docker/goldregendb/backend
-      dockerfile: Dockerfile
+    # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
+    # Kompatibel mit Synology Container Manager (DSM).
+    image: ghcr.io/revilo91/goldregendb-backend:latest
     restart: unless-stopped
     depends_on:
       db:
@@ -36,19 +38,29 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      # Hochgeladene Fotos dauerhaft speichern
+      - /volume1/docker/goldregendb/uploads:/app/src/assets/uploads
     ports:
       - "${PORT}:${PORT}"
+    networks:
+      - goldregendb_net
 
   frontend:
-    build:
-      context: /volume1/docker/goldregendb/frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL}
+    # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
+    # VITE_API_URL=/api ist bereits im Image eingebettet; nginx leitet /api an den Backend-Container weiter.
+    image: ghcr.io/revilo91/goldregendb-frontend:latest
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "3000:80"
+    networks:
+      - goldregendb_net
+
+networks:
+  goldregendb_net:
+    driver: bridge
 
 # Keine named volumes nötig bei absoluten Pfaden
