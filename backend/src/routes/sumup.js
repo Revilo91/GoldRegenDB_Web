@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const logger = require("../utils/logger");
 
 // Produktart-Mapping basierend auf dem dritten Zeichen der Artikelnummer
 const PRODUKTART = {
@@ -52,22 +53,18 @@ router.post("/import", async (req, res) => {
 
     // Relevante Spalten für Artikelnummern (explizit definierte Liste)
 
-    console.log("Processing rows:", rows.length);
-    console.log(
-      "Available fields in first row:",
-      rows.length > 0 ? Object.keys(rows[0]) : "No rows",
-    );
+    logger.info('SUMUP', `Import: ${rows.length} CSV-Zeilen werden verarbeitet`, {
+      verfuegbareFelder: rows.length > 0 ? Object.keys(rows[0]) : [],
+    });
     rows.forEach((row, idx) => {
       // Durchsuche zuerst die explizit definierten Felder
-      console.log(row);
+      logger.debug('SUMUP', `CSV-Zeile ${idx}`, row);
 
       const value = row["Beschreibung"];
       if (value) {
         const extracted = extractArtikelnummer(value);
         if (extracted) {
-          console.log(
-            `Row ${idx}: Found "${extracted}" in field "Beschreibung" from value "${value}"`,
-          );
+          logger.debug('SUMUP', `Zeile ${idx}: "${extracted}" gefunden in Beschreibung "${value}"`);
           artikelnummern.add(extracted.toUpperCase());
         }
       }
@@ -77,11 +74,7 @@ router.post("/import", async (req, res) => {
     if (artikelnummern.size === 0) {
       const availableFields = rows.length > 0 ? Object.keys(rows[0]) : [];
       const firstRowData = rows.length > 0 ? rows[0] : {};
-      console.log(
-        "No article numbers found. Available fields:",
-        availableFields,
-      );
-      console.log("First row data:", firstRowData);
+      logger.warn('SUMUP', 'Import: Keine gültigen Artikelnummern gefunden', { verfuegbareSpalten: availableFields });
 
       return res.status(400).json({
         error: "Keine gültigen Artikelnummern gefunden",
@@ -124,8 +117,7 @@ router.post("/import", async (req, res) => {
       }
     }
 
-    console.log(artikelnummernArray);
-    console.log(existingItems);
+    logger.info('SUMUP', `Import: ${artikelnummernArray.length} Artikelnummern extrahiert, ${existingItems.length} in DB gefunden`);
 
     if (existingItems.length === 0) {
       return res.status(400).json({
@@ -282,7 +274,7 @@ router.post("/import", async (req, res) => {
       throw err;
     }
   } catch (err) {
-    console.error("SumUp Import Error:", err);
+    logger.error('SUMUP', 'Import-Fehler', { message: err.message });
     res.status(500).json({
       error: "Fehler beim Importieren der SumUp-Daten",
       details: err.message,
@@ -496,7 +488,7 @@ router.get("/export", async (req, res) => {
     );
     res.send("\uFEFF" + csv); // BOM for Excel compatibility
   } catch (err) {
-    console.error(err);
+    logger.error('SUMUP', 'Fehler beim Erstellen des Exports', { message: err.message });
     res.status(500).json({ error: "Fehler beim Erstellen des Sumup-Exports" });
   }
 });
@@ -561,7 +553,7 @@ function extractArtikelnummer(text) {
 
   // Suche nach Artikelnummer-Muster: M/S + Buchstabe + Buchstabe + Zahlen + optional _Zahl
   const match = text.match(/([MS][A-Z]{2}\d{3}(?:_\d+)?)/i);
-  console.log(`Extracting from "${text}" =>`, match ? match[1] : "No match");
+  logger.debug('SUMUP', `Artikelnummer-Extraktion: "${text}" => ${match ? match[1] : 'kein Treffer'}`);
   return match ? match[1] : null;
 }
 

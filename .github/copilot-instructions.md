@@ -186,6 +186,7 @@ erDiagram
 | **Authentifizierung** | JWT (`jsonwebtoken`) + `bcryptjs`    |
 | **Rate Limiting** | `express-rate-limit`                     |
 | **Excel-Export**  | `exceljs`                                |
+| **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
 | **Frontend**      | React 19 + Vite + React Router v7        |
 | **Container**     | Docker + Docker Compose                  |
 | **Dev-Umgebung**  | Docker Compose (dev) mit Hot-Reload      |
@@ -199,10 +200,10 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ### Rollen
 
-| Rolle   | Seiten / Berechtigungen                                                        |
-| ------- | ------------------------------------------------------------------------------ |
-| `user`  | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp             |
-| `admin` | Alles wie `user` + Audit Log, Debug, Benutzerverwaltung                        |
+| Rolle   | Seiten / Berechtigungen                                                                      |
+| ------- | -------------------------------------------------------------------------------------------- |
+| `user`  | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp, Inventur                 |
+| `admin` | Alles wie `user` + Audit Log, Debug, Benutzerverwaltung, Datensicherung                      |
 
 ### Technische Details
 
@@ -253,16 +254,18 @@ GoldRegenDB_Web_new/
 │       │   ├── users.js            # Benutzerverwaltung (Admin)
 │       │   ├── dashboard.js        # Statistiken
 │       │   ├── kunden.js           # Kunden CRUD
-│       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD
+│       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD + Foto-Upload
 │       │   ├── lieferscheine.js    # Lieferscheine CRUD
 │       │   ├── rechnungen.js       # Rechnungen CRUD
 │       │   ├── sumup.js            # SumUp CSV Import/Export
+│       │   ├── inventur.js         # Inventurübersicht pro Kunde + Excel-Export
+│       │   ├── backup.js           # Datensicherung Export/Import (Admin)
 │       │   ├── auditLog.js         # Audit-Log (Admin)
 │       │   └── debug.js            # Debug-Endpunkte (Admin)
 │       ├── middleware/
 │       │   └── auth.js             # JWT-Middleware (authenticate, requireAdmin)
 │       └── utils/
-│           └── excelService.js     # Excel-Export (generateExcel)
+│           └── excelService.js     # Excel-Export (generateExcel, generateInventurExcel)
 │
 ├── frontend/
 │   ├── Dockerfile                  # Multi-Stage-Build (Node → Nginx)
@@ -279,6 +282,7 @@ GoldRegenDB_Web_new/
 │       ├── context/
 │       │   └── AuthContext.jsx     # Authentifizierungs-Context
 │       ├── components/
+│       │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Preview)
 │       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly prop)
 │       └── pages/
 │           ├── Login.jsx           # Anmeldeseite
@@ -288,9 +292,11 @@ GoldRegenDB_Web_new/
 │           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung
 │           ├── Rechnungen.jsx      # Rechnungs-Verwaltung
 │           ├── Sumup.jsx           # SumUp CSV-Import/-Export
+│           ├── Inventur.jsx        # Inventurübersicht pro Kunde (user)
 │           ├── AuditLog.jsx        # Änderungsprotokoll (Admin)
 │           ├── Debug.jsx           # Debug-Oberfläche (Admin)
-│           └── Benutzerverwaltung.jsx  # Benutzerverwaltung (Admin)
+│           ├── Benutzerverwaltung.jsx  # Benutzerverwaltung (Admin)
+│           └── Datensicherung.jsx  # Backup & Restore (Admin)
 │
 ├── GoldRegenDB_data.sql            # Original MySQL/MariaDB Datenexport
 └── GoldRegenDB_structure.sql       # Original MySQL/MariaDB Struktur-Dump
@@ -315,10 +321,16 @@ GoldRegenDB_Web_new/
 | GET     | `/api/dashboard`        | Statistiken (Bestände, Umsatz etc.)    |
 | GET/POST/PUT/DELETE | `/api/kunden` | Kunden CRUD                   |
 | GET/POST/PUT/DELETE | `/api/schmuckstuecke` | Schmuckstücke CRUD       |
+| POST    | `/api/schmuckstuecke/upload` | Foto hochladen (multer, max. 5 MB, jpg/png/gif) |
+| GET     | `/api/schmuckstuecke/foto/:fileName` | Foto abrufen                |
+| DELETE  | `/api/schmuckstuecke/foto/:fileName` | Foto löschen                |
 | GET/POST/PUT/DELETE | `/api/lieferscheine` | Lieferscheine CRUD        |
 | GET/POST/PUT/DELETE | `/api/rechnungen` | Rechnungen CRUD              |
 | POST    | `/api/sumup/import`    | SumUp-Verkaufsbericht importieren (CSV) |
 | GET     | `/api/sumup/export`    | Verfügbare Schmuckstücke als SumUp-CSV exportieren |
+| GET     | `/api/inventur`        | Inventurübersicht aller Kunden mit ausgelagerten Stücken |
+| GET     | `/api/inventur/:kundeId` | Inventurdetail für einen Kunden      |
+| GET     | `/api/inventur/:kundeId/excel` | Inventur als Excel-Datei herunterladen |
 
 ### Admin-Only
 
@@ -421,6 +433,8 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
 
 Die Funktion `generateExcel(type, data, logoPath?)` in `backend/src/utils/excelService.js` erzeugt Excel-Dateien für verschiedene Datentypen. Standard-Logo: `backend/src/assets/Logo trasparent weißer Kreis.png`.
 
+Die Funktion `generateInventurExcel(kunde, items)` erzeugt eine Inventur-Excel-Datei für einen einzelnen Kunden mit seinen ausgelagerten Schmuckstücken.
+
 ---
 
 ## MySQL → PostgreSQL Migration
@@ -509,10 +523,11 @@ VITE_API_URL=http://localhost:3001/api
 - [x] Export-Funktionen (Excel via exceljs)
 - [x] SumUp CSV-Export verfügbarer Schmuckstücke
 - [x] SumUp CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
-- [ ] Foto-Upload für Schmuckstücke (statt Netzwerk-Pfaden)
+- [x] Foto-Upload für Schmuckstücke (Drag & Drop, Vorschau; gespeichert in `backend/src/assets/uploads/`)
+- [x] Inventur-Übersicht: ausgelagerte Stücke pro Kunde mit Statistiken und Excel-Export
+- [x] Datensicherung: Datenbank-Backup als JSON exportieren und importieren (Admin)
 - [ ] PDF-Generierung für Lieferscheine und Rechnungen
 - [ ] Barcode-/QR-Code-Scanner für Artikelnummern
-- [ ] Filterable Bestandsübersicht pro Kunde
 
 ### Phase 3: Fortgeschritten ✅ (teilweise)
 

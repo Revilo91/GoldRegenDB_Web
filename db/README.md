@@ -167,3 +167,50 @@ Hilfe zu SQL-Befehlen:
 
 
 # oder `pgAdmin` nutzen
+
+---
+
+## JSON zu SQL konvertieren (`db/json_to_sql.py`)
+
+Das Skript wandelt Backup-JSON-Dateien in PostgreSQL-`INSERT`-Statements um.
+Es unterstützt:
+
+- Standard-Backup-Format mit `tables`
+- Array-Export-Format mit `type: "table"`
+- direktes Tabellen-Dictionary
+
+### Beispiele
+
+```bash
+# JSON automatisch nach <datei>.sql konvertieren
+python3 db/json_to_sql.py /pfad/zum/backup.json
+
+# Mit expliziter Zieldatei
+python3 db/json_to_sql.py /pfad/zum/backup.json ./seed_from_backup.sql
+
+# Nur bestimmte Tabelle konvertieren
+python3 db/json_to_sql.py /pfad/zum/backup.json ./kunde.sql --table Kunde
+
+# Tabelle ausschließen
+python3 db/json_to_sql.py /pfad/zum/backup.json ./ohne_audit.sql --exclude-table audit_log
+
+# Vor Import Zieltabellen leeren
+python3 db/json_to_sql.py /pfad/zum/backup.json ./full.sql --truncate-first
+```
+
+### Nützliche Optionen
+
+- `--batch-size 500` (Default): Anzahl Zeilen pro `INSERT`
+- `--no-transaction`: erzeugt kein `BEGIN/COMMIT`
+- `--no-header`: unterdrückt SQL-Kommentar-Header
+- `--disable-triggers`: erzeugt bei Tabelle `Schmuckstück` vor dem Import `DISABLE TRIGGER ALL` und danach `ENABLE TRIGGER ALL`
+- `--reset-sequences`: erzeugt am Ende `setval(...)` für bekannte `SERIAL`-Spalten (`Kunde`, `Lieferschein`, `Rechnung`, `audit_log`, `app_users`)
+
+### Import-nahe Ausgabe wie in `seed_old.sql`
+
+```bash
+python3 db/json_to_sql.py /pfad/zum/backup.json ./seed_from_backup.sql \
+  --truncate-first \
+  --disable-triggers \
+  --reset-sequences
+```

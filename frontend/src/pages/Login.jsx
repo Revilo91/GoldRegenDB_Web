@@ -16,8 +16,11 @@ export default function Login() {
     setError(null);
     setLoading(true);
     try {
-      const { token, user } = await authApi.login(username, password);
-      login(token, user);
+      const { token, user, mustChangePassword } = await authApi.login(
+        username,
+        password,
+      );
+      login(token, user, mustChangePassword);
       navigate("/");
     } catch (err) {
       setError(err.message || "Anmeldung fehlgeschlagen");
