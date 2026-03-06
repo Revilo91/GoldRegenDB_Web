@@ -30,6 +30,7 @@ logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NI
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
+app.use(db.requestContextMiddleware);
 
 // Request logging middleware
 app.use((req, res, next) => {

@@ -365,7 +365,13 @@ router.get("/:artikelnummer", async (req, res) => {
 
 // POST create piece
 router.post("/", async (req, res) => {
-  const client = await db.pool.connect();
+  let client;
+  try {
+    client = await db.connect();
+  } catch (err) {
+    logger.error('SCHMUCK', 'Fehler beim Herstellen der DB-Verbindung', { message: err.message });
+    return res.status(500).json({ error: "Fehler beim Herstellen der Datenbankverbindung" });
+  }
   try {
     const b = req.body;
     const quantity = parseInt(b.Anzahl) || 1;
@@ -493,7 +499,7 @@ router.post("/", async (req, res) => {
       createdItems.push(rows[0]);
       await client.query(
         `INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
-           VALUES ('Schmuckstück', $1, 'Erstellung', NULL, $2, 'INSERT', current_user)`,
+           VALUES ('Schmuckstück', $1, 'Erstellung', NULL, $2, 'INSERT', COALESCE(current_setting('app.current_user', true), current_user))`,
         [fullArtNr, JSON.stringify(rows[0])],
       );
     }
