@@ -3,6 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faKey } from "@fortawesome/free-solid-svg-icons";
 import "./../index.css"; // Make sure styles are loaded
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 const EditableCell = ({ value, onSave, onCancel }) => {
   const [editingValue, setEditingValue] = useState(value === null ? "" : value);
   const inputRef = useRef(null);
@@ -60,7 +62,7 @@ const DebugTable = ({ tableName }) => {
     setError(null);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/debug/tables/${tableName}`,
+        `${API_URL}/debug/tables/${tableName}`,
       );
       if (!response.ok) throw new Error("Failed to fetch table data");
       const result = await response.json();
@@ -100,7 +102,7 @@ const DebugTable = ({ tableName }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/debug/tables/${tableName}`,
+        `${API_URL}/debug/tables/${tableName}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -299,7 +301,7 @@ const Debug = () => {
   useEffect(() => {
     const fetchTables = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/debug/tables");
+        const response = await fetch(`${API_URL}/debug/tables`);
         if (!response.ok) throw new Error("Failed to fetch tables");
         const data = await response.json();
         setTables(data);

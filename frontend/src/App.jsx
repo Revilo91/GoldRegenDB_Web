@@ -23,6 +23,7 @@ import {
   faBars,
   faWarehouse,
   faKey,
+  faSignOutAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
@@ -45,6 +46,7 @@ function AppLayout() {
   const { user, logout, mustChangePassword, clearMustChangePassword } =
     useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -57,6 +59,9 @@ function AppLayout() {
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
+  const toggleUserMenu = () => setShowUserMenu(!showUserMenu);
+  const closeUserMenu = () => setShowUserMenu(false);
+
   const openPasswordModal = () => {
     setShowPasswordModal(true);
     setCurrentPassword("");
@@ -66,6 +71,7 @@ function AppLayout() {
     setShowNewPasswordField(false);
     setPasswordError("");
     setPasswordSuccess("");
+    closeUserMenu();
     closeMobileMenu();
   };
 
@@ -232,12 +238,14 @@ function AppLayout() {
             <span>Inventur</span>
           </NavLink>
           {isAdmin && (
-            <>
-              <div className="nav-section">Admin</div>
+            <div className="nav-section-admin">
+              <div className="nav-section nav-section-admin-title">
+                <FontAwesomeIcon icon={faUserLock} /> Admin
+              </div>
               <NavLink
                 to="/audit-log"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -249,7 +257,7 @@ function AppLayout() {
               <NavLink
                 to="/debug"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -261,7 +269,7 @@ function AppLayout() {
               <NavLink
                 to="/benutzerverwaltung"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -273,7 +281,7 @@ function AppLayout() {
               <NavLink
                 to="/datensicherung"
                 className={({ isActive }) =>
-                  `nav-link ${isActive ? "active" : ""}`
+                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
                 onClick={closeMobileMenu}
               >
@@ -282,33 +290,75 @@ function AppLayout() {
                 </span>
                 <span>Datensicherung</span>
               </NavLink>
-            </>
+            </div>
           )}
         </nav>
         <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faUser} />
-            </span>
+          <button
+            className="btn btn-secondary btn-sm user-menu-btn"
+            onClick={toggleUserMenu}
+            aria-label="Benutzermenü"
+          >
+            <FontAwesomeIcon icon={faUser} />
             <span className="sidebar-username">{user.username}</span>
             <span className={`role-badge role-${user.role}`}>{user.role}</span>
-          </div>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={openPasswordModal}
-            aria-label="Passwort ändern"
-          >
-            <FontAwesomeIcon icon={faKey} /> Passwort ändern
-          </button>
-          <button
-            className="btn btn-secondary btn-sm logout-btn"
-            onClick={logout}
-            aria-label="Abmelden"
-          >
-            Abmelden
           </button>
         </div>
       </aside>
+
+      {/* User Menu Modal */}
+      {showUserMenu && (
+        <div className="modal-overlay" onClick={closeUserMenu}>
+          <div className="modal user-menu-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                <FontAwesomeIcon icon={faUser} /> Benutzerkonto
+              </h3>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={closeUserMenu}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="user-info">
+                <div className="user-info-row">
+                  <strong>Benutzername:</strong>
+                  <span>{user.username}</span>
+                </div>
+                <div className="user-info-row">
+                  <strong>Rolle:</strong>
+                  <span className={`role-badge role-${user.role}`}>{user.role}</span>
+                </div>
+                {user.email && (
+                  <div className="user-info-row">
+                    <strong>E-Mail:</strong>
+                    <span>{user.email}</span>
+                  </div>
+                )}
+              </div>
+              <div className="user-menu-actions">
+                <button
+                  className="btn btn-primary btn-block"
+                  onClick={openPasswordModal}
+                >
+                  <FontAwesomeIcon icon={faKey} /> Passwort ändern
+                </button>
+                <button
+                  className="btn btn-danger btn-block"
+                  onClick={() => {
+                    closeUserMenu();
+                    logout();
+                  }}
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} /> Abmelden
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isPasswordModalVisible && (
         <div className="modal-overlay" onClick={closePasswordModal}>

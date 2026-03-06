@@ -127,14 +127,7 @@ export default function Kunden() {
 
   return (
     <div>
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
+      <div className="page-header">
         <div>
           <h2>Kunden</h2>
           <p>{kunden.length} Kunden / Händler</p>
@@ -153,7 +146,6 @@ export default function Kunden() {
         />
         <select
           className="form-control"
-          style={{ width: "auto", minWidth: 150 }}
           value={filters.aktiv ?? ""}
           onChange={(e) => {
             const { aktiv, ...rest } = filters;
@@ -191,18 +183,21 @@ export default function Kunden() {
                     Name {getSortIcon("Name")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Ort")}
                     style={{ cursor: "pointer" }}
                   >
                     Ort {getSortIcon("Ort")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("PLZ")}
                     style={{ cursor: "pointer" }}
                   >
                     PLZ {getSortIcon("PLZ")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Provision")}
                     style={{ cursor: "pointer" }}
                   >
@@ -227,9 +222,9 @@ export default function Kunden() {
                     <td>
                       <strong>{k.Name}</strong>
                     </td>
-                    <td>{k.Ort}</td>
-                    <td>{k.PLZ || "–"}</td>
-                    <td>{k.Provision}%</td>
+                    <td className="hide-on-mobile">{k.Ort}</td>
+                    <td className="hide-on-mobile">{k.PLZ || "–"}</td>
+                    <td className="hide-on-mobile">{k.Provision}%</td>
                     <td>
                       {k.Aktiv ? (
                         <span className="badge success">Aktiv</span>

@@ -9,7 +9,7 @@ import {
   faBoxOpen,
   faMagnifyingGlass,
   faEuroSign,
-  faPaperclip
+  faPaperclip,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import PhotoUpload from "../components/PhotoUpload";
@@ -102,13 +102,20 @@ export default function Schmuckstuecke() {
 
   useEffect(() => {
     if (selected && selected.Foto) {
-      console.log('📷 Selected Schmuckstück mit Foto:', selected.Artikelnummer, selected.Foto);
-      api.loadPhotoAsDataUrl(selected.Foto).then((dataUrl) => {
-        console.log('📸 Photo DataUrl geladen:', dataUrl ? 'Ja' : 'Nein');
-        setSelectedPhoto(dataUrl);
-      }).catch(console.error);
+      console.log(
+        "📷 Selected Schmuckstück mit Foto:",
+        selected.Artikelnummer,
+        selected.Foto,
+      );
+      api
+        .loadPhotoAsDataUrl(selected.Foto)
+        .then((dataUrl) => {
+          console.log("📸 Photo DataUrl geladen:", dataUrl ? "Ja" : "Nein");
+          setSelectedPhoto(dataUrl);
+        })
+        .catch(console.error);
     } else {
-      console.log('📷 Kein Foto vorhanden für:', selected?.Artikelnummer);
+      console.log("📷 Kein Foto vorhanden für:", selected?.Artikelnummer);
       setSelectedPhoto(null);
     }
   }, [selected]);
@@ -163,13 +170,7 @@ export default function Schmuckstuecke() {
 
   return (
     <div>
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}>
+      <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
           <p>{p.total || 0} Stücke insgesamt</p>
@@ -191,62 +192,64 @@ export default function Schmuckstuecke() {
             setPage(1);
           }}
         />
-        <select
-          className="form-control"
-          style={{ width: "auto", minWidth: 150 }}
-          value={filters.artikelnummer_art ?? ""}
-          onChange={(e) => {
-            const { artikelnummer_art, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, artikelnummer_art: e.target.value }
-                : rest,
-            );
-            setPage(1);
-          }}>
-          <option value="">Alle Arten</option>
-          <option value="H">Halskette</option>
-          <option value="O">Ohrring</option>
-          <option value="A">Armband</option>
-        </select>
-        <select
-          className="form-control"
-          style={{ width: "auto", minWidth: 130 }}
-          value={filters.ausgelagert ?? ""}
-          onChange={(e) => {
-            const { ausgelagert, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, ausgelagert: e.target.value }
-                : rest,
-            );
-            setPage(1);
-          }}>
-          <option value="">Alle Standorte</option>
-          <option value="0">Lager</option>
-          {kunden.map((k) => (
-            <option key={k.ID} value={k.ID}>
-              {k.Name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-control"
-          style={{ width: "auto", minWidth: 130 }}
-          value={filters.verkauft ?? ""}
-          onChange={(e) => {
-            const { verkauft, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, verkauft: e.target.value }
-                : rest,
-            );
-            setPage(1);
-          }}>
-          <option value="">Status</option>
-          <option value="0">Nicht verkauft</option>
-          <option value="1">Verkauft</option>
-        </select>
+        <div className="filter-group">
+          <select
+            className="form-control"
+            value={filters.artikelnummer_art ?? ""}
+            onChange={(e) => {
+              const { artikelnummer_art, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, artikelnummer_art: e.target.value }
+                  : rest,
+              );
+              setPage(1);
+            }}
+          >
+            <option value="">Alle Arten</option>
+            <option value="H">Halskette</option>
+            <option value="O">Ohrring</option>
+            <option value="A">Armband</option>
+          </select>
+          <select
+            className="form-control"
+            value={filters.ausgelagert ?? ""}
+            onChange={(e) => {
+              const { ausgelagert, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, ausgelagert: e.target.value }
+                  : rest,
+              );
+              setPage(1);
+            }}
+          >
+            <option value="">Alle Standorte</option>
+            <option value="0">Lager</option>
+            {kunden.map((k) => (
+              <option key={k.ID} value={k.ID}>
+                {k.Name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.verkauft ?? ""}
+            onChange={(e) => {
+              const { verkauft, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, verkauft: e.target.value }
+                  : rest,
+              );
+              setPage(1);
+            }}
+          >
+            <option value="">Status</option>
+            <option value="0">Nicht verkauft</option>
+            <option value="1">Verkauft</option>
+          </select>
+        </div>
       </div>
 
       <div className="card">
@@ -261,42 +264,54 @@ export default function Schmuckstuecke() {
                 <tr>
                   <th
                     onClick={() => requestSort("Artikelnummer")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Artikelnr. {getSortIcon("Artikelnummer")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Grundmaterial")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Grundmaterial {getSortIcon("Grundmaterial")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Art")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Art {getSortIcon("Art")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Material")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Material {getSortIcon("Material")}
                   </th>
                   <th
+                    className="hide-on-mobile"
                     onClick={() => requestSort("Farbe")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Farbe {getSortIcon("Farbe")}
                   </th>
                   <th
                     onClick={() => requestSort("Verkaufspreis")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Preis {getSortIcon("Verkaufspreis")}
                   </th>
                   <th
                     onClick={() => requestSort("Verkauft")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Status {getSortIcon("Verkauft")}
                   </th>
                   <th
                     onClick={() => requestSort("Ausgelagert")}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     Ausgelagert {getSortIcon("Ausgelagert")}
                   </th>
                 </tr>
@@ -306,7 +321,8 @@ export default function Schmuckstuecke() {
                   <tr
                     key={s.Artikelnummer}
                     onClick={() => setSelected(s)}
-                    style={{ cursor: "pointer" }}>
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>
                       <strong>{s.Artikelnummer.split("_")[0]}</strong>
                       {s.Artikelnummer.split("_")[1] > 0 && (
@@ -315,10 +331,10 @@ export default function Schmuckstuecke() {
                         </span>
                       )}
                     </td>
-                    <td>{s.Grundmaterial}</td>
-                    <td>{s.Art}</td>
-                    <td>{s.Material}</td>
-                    <td>{s.Farbe}</td>
+                    <td className="hide-on-mobile">{s.Grundmaterial}</td>
+                    <td className="hide-on-mobile">{s.Art}</td>
+                    <td className="hide-on-mobile">{s.Material}</td>
+                    <td className="hide-on-mobile">{s.Farbe}</td>
                     <td>{s.Verkaufspreis > 0 ? `${s.Verkaufspreis}€` : "-"}</td>
                     <td>
                       {s.Verkauft === 1 && (
@@ -362,7 +378,8 @@ export default function Schmuckstuecke() {
             </span>
             <button
               disabled={page >= p.totalPages}
-              onClick={() => setPage(page + 1)}>
+              onClick={() => setPage(page + 1)}
+            >
               Weiter →
             </button>
           </div>
@@ -391,12 +408,14 @@ export default function Schmuckstuecke() {
                 <button
                   className="btn btn-secondary btn-sm"
                   style={{ marginRight: 8 }}
-                  onClick={() => openEdit(selected)}>
+                  onClick={() => openEdit(selected)}
+                >
                   <FontAwesomeIcon icon={faPen} /> Bearbeiten
                 </button>
                 <button
                   className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(selected.Artikelnummer)}>
+                  onClick={() => handleDelete(selected.Artikelnummer)}
+                >
                   <FontAwesomeIcon icon={faTrash} /> Löschen
                 </button>
               </div>
@@ -406,48 +425,65 @@ export default function Schmuckstuecke() {
             </div>
 
             {/* Photo Display */}
-            <div style={{ textAlign: "center", padding: "16px 0", borderBottom: "1px solid #ddd", backgroundColor: "#f9f9f9" }}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "16px 0",
+                borderBottom: "1px solid #ddd",
+                backgroundColor: "#f9f9f9",
+              }}
+            >
               {selectedPhoto ? (
                 <img
                   src={selectedPhoto}
                   alt={selected.Artikelnummer}
-                  style={{ maxWidth: "200px", maxHeight: "200px", borderRadius: "8px" }}
+                  style={{
+                    maxWidth: "200px",
+                    maxHeight: "200px",
+                    borderRadius: "8px",
+                  }}
                 />
               ) : selected.Foto ? (
-                <div style={{
-                  width: "200px",
-                  height: "200px",
-                  margin: "0 auto",
-                  borderRadius: "8px",
-                  backgroundColor: "#e0e0e0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#999",
-                  fontSize: "14px",
-                  border: "2px dashed #ccc"
-                }}>
+                <div
+                  style={{
+                    width: "200px",
+                    height: "200px",
+                    margin: "0 auto",
+                    borderRadius: "8px",
+                    backgroundColor: "#e0e0e0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#999",
+                    fontSize: "14px",
+                    border: "2px dashed #ccc",
+                  }}
+                >
                   <div>
                     <div style={{ marginBottom: "8px" }}>⏳</div>
                     Bild wird geladen...
                   </div>
                 </div>
               ) : (
-                <div style={{
-                  width: "200px",
-                  height: "200px",
-                  margin: "0 auto",
-                  borderRadius: "8px",
-                  backgroundColor: "#f0f0f0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#bbb",
-                  fontSize: "14px",
-                  border: "2px dashed #ddd"
-                }}>
+                <div
+                  style={{
+                    width: "200px",
+                    height: "200px",
+                    margin: "0 auto",
+                    borderRadius: "8px",
+                    backgroundColor: "#f0f0f0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#bbb",
+                    fontSize: "14px",
+                    border: "2px dashed #ddd",
+                  }}
+                >
                   <div>
-                    <div style={{ marginBottom: "8px", fontSize: "24px" }}>📷</div>
+                    <div style={{ marginBottom: "8px", fontSize: "24px" }}>
+                      📷
+                    </div>
                     Kein Bild vorhanden
                   </div>
                 </div>
@@ -523,12 +559,19 @@ export default function Schmuckstuecke() {
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "900px" }}>
+            style={{ maxWidth: "900px" }}
+          >
             <div className="modal-header">
               <h3>
-                {editing === "new"
-                  ? <><FontAwesomeIcon icon={faPlus} /> Neues Schmuckstück</>
-                  : <><FontAwesomeIcon icon={faPen} /> {editing} bearbeiten</>}
+                {editing === "new" ? (
+                  <>
+                    <FontAwesomeIcon icon={faPlus} /> Neues Schmuckstück
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon={faPen} /> {editing} bearbeiten
+                  </>
+                )}
               </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
@@ -536,7 +579,9 @@ export default function Schmuckstuecke() {
             </div>
             <div className="modal-body">
               <div className="form-section">
-                <h4><FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen</h4>
+                <h4>
+                  <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
+                </h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Artikelnummer*</label>
@@ -642,7 +687,10 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4><FontAwesomeIcon icon={faMagnifyingGlass} /> Details (Hauptstück)</h4>
+                <h4>
+                  <FontAwesomeIcon icon={faMagnifyingGlass} /> Details
+                  (Hauptstück)
+                </h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Form</label>
@@ -704,7 +752,9 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4><FontAwesomeIcon icon={faRegularStar} /> Inhalt</h4>
+                <h4>
+                  <FontAwesomeIcon icon={faRegularStar} /> Inhalt
+                </h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Inhalt Material</label>
@@ -777,7 +827,9 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4><FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment</h4>
+                <h4>
+                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment
+                </h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Anhänger Fassung</label>
@@ -976,7 +1028,9 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4><FontAwesomeIcon icon={faEuroSign} /> Inventar & Preise</h4>
+                <h4>
+                  <FontAwesomeIcon icon={faEuroSign} /> Inventar & Preise
+                </h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Verkaufspreis (€)</label>
@@ -1019,7 +1073,8 @@ export default function Schmuckstuecke() {
                           ...form,
                           Ausgelagert: parseInt(e.target.value),
                         })
-                      }>
+                      }
+                    >
                       <option value="0">Lager</option>
                       {kunden.map((k) => (
                         <option key={k.ID} value={k.ID}>
@@ -1032,7 +1087,8 @@ export default function Schmuckstuecke() {
                 <div className="form-row" style={{ marginTop: "16px" }}>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
                     <input
                       type="checkbox"
                       id="form-verkauft"
@@ -1049,7 +1105,8 @@ export default function Schmuckstuecke() {
                   </div>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
                     <input
                       type="checkbox"
                       id="form-online"
@@ -1066,7 +1123,8 @@ export default function Schmuckstuecke() {
                   </div>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
+                    style={{ display: "flex", alignItems: "center" }}
+                  >
                     <input
                       type="checkbox"
                       id="form-ausschuss"
@@ -1090,7 +1148,8 @@ export default function Schmuckstuecke() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setEditing(null)}>
+                onClick={() => setEditing(null)}
+              >
                 Abbrechen
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
