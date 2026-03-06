@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { AsyncLocalStorage } = require('async_hooks');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 
@@ -13,6 +14,44 @@ logger.info('DB', `Verbindung wird hergestellt zu: ${maskedUrl}`);
 const pool = new Pool({
   connectionString,
 });
+
+const requestContext = new AsyncLocalStorage();
+
+function requestContextMiddleware(req, res, next) {
+  requestContext.run({ username: 'anonym' }, next);
+}
+
+function setCurrentDbUsername(username) {
+  const store = requestContext.getStore();
+  if (!store) {
+    return;
+  }
+  store.username = username || 'anonym';
+}
+
+function getCurrentDbUsername() {
+  const store = requestContext.getStore();
+  return store?.username || 'anonym';
+}
+
+async function connect() {
+  const client = await pool.connect();
+  const username = getCurrentDbUsername();
+
+  // Make authenticated app user available in SQL context (e.g. audit trigger).
+  await client.query('SELECT set_config($1, $2, false)', ['app.current_user', username]);
+
+  return client;
+}
+
+async function query(text, params) {
+  const client = await connect();
+  try {
+    return await client.query(text, params);
+  } finally {
+    client.release();
+  }
+}
 
 pool.on('error', (err) => {
   logger.error('DB', 'Unerwarteter Fehler auf Idle-Client', { message: err.message, code: err.code });
@@ -60,17 +99,63 @@ async function ensureAppUsersTable() {
   }
 }
 
+// Keep audit trigger compatible with app-level users in existing deployments.
+async function ensureAuditUserContextFunction() {
+  try {
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION audit_schmuckstueck_changes()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          IF TG_OP = 'UPDATE' THEN
+              IF OLD."Verkauft" IS DISTINCT FROM NEW."Verkauft" THEN
+                  INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Verkauft', OLD."Verkauft"::TEXT, NEW."Verkauft"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+              END IF;
+              IF OLD."Ausgelagert" IS DISTINCT FROM NEW."Ausgelagert" THEN
+                  INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausgelagert', OLD."Ausgelagert"::TEXT, NEW."Ausgelagert"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+              END IF;
+              IF OLD."Ausschuss" IS DISTINCT FROM NEW."Ausschuss" THEN
+                  INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausschuss', OLD."Ausschuss"::TEXT, NEW."Ausschuss"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+              END IF;
+              IF OLD."Lieferschein_ID" IS DISTINCT FROM NEW."Lieferschein_ID" THEN
+                  INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Lieferschein_ID', OLD."Lieferschein_ID"::TEXT, NEW."Lieferschein_ID"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+              END IF;
+              IF OLD."Rechnung_ID" IS DISTINCT FROM NEW."Rechnung_ID" THEN
+                  INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Rechnung_ID', OLD."Rechnung_ID"::TEXT, NEW."Rechnung_ID"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+              END IF;
+              IF OLD."Online" IS DISTINCT FROM NEW."Online" THEN
+                  INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Online', OLD."Online"::TEXT, NEW."Online"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+              END IF;
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+    logger.info('DB', 'Audit-Trigger-Funktion auf app.current_user aktualisiert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Aktualisieren der Audit-Trigger-Funktion', { message: err.message });
+  }
+}
+
 // Test connection and ensure schema on startup
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
     logger.info('DB', `Verbindung erfolgreich hergestellt. Server-Zeit: ${res.rows[0].server_time}`);
-    return ensureAppUsersTable();
+    return ensureAppUsersTable().then(() => ensureAuditUserContextFunction());
   })
   .catch((err) => {
     logger.error('DB', 'Verbindung zur Datenbank fehlgeschlagen', { message: err.message, code: err.code });
   });
 
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query,
+  connect,
+  setCurrentDbUsername,
+  requestContextMiddleware,
   pool,
 };
