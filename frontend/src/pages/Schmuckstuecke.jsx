@@ -192,62 +192,64 @@ export default function Schmuckstuecke() {
             setPage(1);
           }}
         />
-        <select
-          className="form-control"
-          value={filters.artikelnummer_art ?? ""}
-          onChange={(e) => {
-            const { artikelnummer_art, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, artikelnummer_art: e.target.value }
-                : rest,
-            );
-            setPage(1);
-          }}
-        >
-          <option value="">Alle Arten</option>
-          <option value="H">Halskette</option>
-          <option value="O">Ohrring</option>
-          <option value="A">Armband</option>
-        </select>
-        <select
-          className="form-control"
-          value={filters.ausgelagert ?? ""}
-          onChange={(e) => {
-            const { ausgelagert, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, ausgelagert: e.target.value }
-                : rest,
-            );
-            setPage(1);
-          }}
-        >
-          <option value="">Alle Standorte</option>
-          <option value="0">Lager</option>
-          {kunden.map((k) => (
-            <option key={k.ID} value={k.ID}>
-              {k.Name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-control"
-          value={filters.verkauft ?? ""}
-          onChange={(e) => {
-            const { verkauft, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, verkauft: e.target.value }
-                : rest,
-            );
-            setPage(1);
-          }}
-        >
-          <option value="">Status</option>
-          <option value="0">Nicht verkauft</option>
-          <option value="1">Verkauft</option>
-        </select>
+        <div className="filter-group">
+          <select
+            className="form-control"
+            value={filters.artikelnummer_art ?? ""}
+            onChange={(e) => {
+              const { artikelnummer_art, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, artikelnummer_art: e.target.value }
+                  : rest,
+              );
+              setPage(1);
+            }}
+          >
+            <option value="">Alle Arten</option>
+            <option value="H">Halskette</option>
+            <option value="O">Ohrring</option>
+            <option value="A">Armband</option>
+          </select>
+          <select
+            className="form-control"
+            value={filters.ausgelagert ?? ""}
+            onChange={(e) => {
+              const { ausgelagert, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, ausgelagert: e.target.value }
+                  : rest,
+              );
+              setPage(1);
+            }}
+          >
+            <option value="">Alle Standorte</option>
+            <option value="0">Lager</option>
+            {kunden.map((k) => (
+              <option key={k.ID} value={k.ID}>
+                {k.Name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.verkauft ?? ""}
+            onChange={(e) => {
+              const { verkauft, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, verkauft: e.target.value }
+                  : rest,
+              );
+              setPage(1);
+            }}
+          >
+            <option value="">Status</option>
+            <option value="0">Nicht verkauft</option>
+            <option value="1">Verkauft</option>
+          </select>
+        </div>
       </div>
 
       <div className="card">

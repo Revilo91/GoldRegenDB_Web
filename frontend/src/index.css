@@ -489,6 +489,18 @@ select.form-control {
   min-width: 250px;
 }
 
+.filter-group {
+  display: flex;
+  gap: 12px;
+  flex: 2;
+  min-width: 320px;
+}
+
+.filter-group select {
+  flex: 1;
+  min-width: 0;
+}
+
 .form-section {
   margin-bottom: 32px;
   padding-bottom: 16px;

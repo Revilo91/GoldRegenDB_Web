@@ -284,62 +284,66 @@ export default function Lieferscheine() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select
-          className="form-control"
-          style={{ width: "auto", minWidth: 150 }}
-          value={filters.kundennummer ?? ""}
-          onChange={(e) => {
-            const { kundennummer, ...rest } = filters;
-            setFilters(
-              e.target.value !== ""
-                ? { ...rest, kundennummer: e.target.value }
-                : rest,
-            );
-          }}
-        >
-          <option value="">Alle Kunden</option>
-          {kunden.map((k) => (
-            <option key={k.ID} value={k.ID}>
-              {k.Name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-control"
-          style={{ width: "auto" }}
-          value={filters.jahr ?? ""}
-          onChange={(e) => {
-            const { jahr, ...rest } = filters;
-            setFilters(
-              e.target.value !== "" ? { ...rest, jahr: e.target.value } : rest,
-            );
-          }}
-        >
-          <option value="">Alle Jahre</option>
-          {years.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            cursor: "pointer",
-            fontSize: 14,
-            color: "var(--text-secondary)",
-            userSelect: "none",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={groupByKunde}
-            onChange={(e) => setGroupByKunde(e.target.checked)}
-          />
-          Nach Kunde gruppieren
-        </label>
+        <div className="filter-group">
+          <select
+            className="form-control"
+            style={{ width: "auto", minWidth: 150 }}
+            value={filters.kundennummer ?? ""}
+            onChange={(e) => {
+              const { kundennummer, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, kundennummer: e.target.value }
+                  : rest,
+              );
+            }}
+          >
+            <option value="">Alle Kunden</option>
+            {kunden.map((k) => (
+              <option key={k.ID} value={k.ID}>
+                {k.Name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            style={{ width: "auto" }}
+            value={filters.jahr ?? ""}
+            onChange={(e) => {
+              const { jahr, ...rest } = filters;
+              setFilters(
+                e.target.value !== ""
+                  ? { ...rest, jahr: e.target.value }
+                  : rest,
+              );
+            }}
+          >
+            <option value="">Alle Jahre</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              cursor: "pointer",
+              fontSize: 14,
+              color: "var(--text-secondary)",
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={groupByKunde}
+              onChange={(e) => setGroupByKunde(e.target.checked)}
+            />
+            Nach Kunde gruppieren
+          </label>
+        </div>
       </div>
 
       <div className="card">
