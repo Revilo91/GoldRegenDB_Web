@@ -80,8 +80,9 @@ router.post('/import', async (req, res) => {
   const { tables, version } = normalized;
   logger.info('BACKUP', `Import gestartet (Version: ${version})`, { tabellen: Object.keys(tables) });
 
-  const client = await db.connect();
+  let client;
   try {
+    client = await db.connect();
     await client.query('BEGIN');
 
     // Truncate in reverse FK order; RESTART IDENTITY resets sequences
@@ -172,11 +173,11 @@ router.post('/import', async (req, res) => {
     res.json({ success: true, message: 'Import erfolgreich', counts });
     logger.info('BACKUP', 'Import erfolgreich abgeschlossen', counts);
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (client) await client.query('ROLLBACK');
     logger.error('BACKUP', 'Fehler beim Importieren', { message: err.message });
     res.status(500).json({ error: `Fehler beim Importieren: ${err.message}` });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
