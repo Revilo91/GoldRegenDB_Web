@@ -18,7 +18,29 @@ const pool = new Pool({
 const requestContext = new AsyncLocalStorage();
 
 function requestContextMiddleware(req, res, next) {
-  requestContext.run({ username: 'anonym' }, next);
+  const store = { username: 'anonym', client: null, clientPromise: null };
+
+  // Release the request-scoped client once the response is fully done.
+  // Both 'finish' and 'close' are registered; the null-check ensures the
+  // client is released at most once even if both events fire.
+  const releaseClient = () => {
+    const { client, clientPromise } = store;
+    store.client = null;
+    store.clientPromise = null;
+    if (client) {
+      client.release();
+    } else if (clientPromise) {
+      // Acquisition still in flight – release whenever it settles.
+      clientPromise.then((c) => c.release()).catch((err) => {
+        logger.error('DB', 'Fehler beim Freigeben des Request-Clients', { message: err.message });
+      });
+    }
+  };
+
+  res.on('finish', releaseClient);
+  res.on('close', releaseClient);
+
+  requestContext.run(store, next);
 }
 
 function setCurrentDbUsername(username) {
@@ -34,11 +56,15 @@ function getCurrentDbUsername() {
   return store?.username || 'anonym';
 }
 
+// Returns a fresh pool client with app.current_user set.
+// Used for explicit transaction management (e.g. backup import).
+// Caller is responsible for releasing the returned client.
 async function connect() {
   const client = await pool.connect();
   const username = getCurrentDbUsername();
 
   // Make authenticated app user available in SQL context (e.g. audit trigger).
+  // false = session-local (persists for the connection lifetime, not just the current transaction).
   try {
     await client.query('SELECT set_config($1, $2, false)', ['app.current_user', username]);
     return client;
@@ -49,12 +75,36 @@ async function connect() {
 }
 
 async function query(text, params) {
-  const client = await connect();
-  try {
-    return await client.query(text, params);
-  } finally {
-    client.release();
+  const store = requestContext.getStore();
+
+  // Outside a request context (e.g. startup queries): use the pool directly.
+  if (!store) {
+    return pool.query(text, params);
   }
+
+  // Lazy acquisition of the request-scoped client.
+  // set_config is called exactly once per request; all subsequent queries
+  // reuse the same client, avoiding an extra roundtrip per query.
+  if (!store.clientPromise) {
+    store.clientPromise = pool.connect().then(async (client) => {
+      try {
+        // false = session-local (persists for the connection lifetime, not just the current transaction).
+        await client.query('SELECT set_config($1, $2, false)', ['app.current_user', store.username]);
+        store.client = client;
+        return client;
+      } catch (err) {
+        client.release();
+        throw err;
+      }
+    }).catch((err) => {
+      // Allow a retry on the next query call if acquisition failed.
+      store.clientPromise = null;
+      throw err;
+    });
+  }
+
+  const client = await store.clientPromise;
+  return client.query(text, params);
 }
 
 pool.on('error', (err) => {
