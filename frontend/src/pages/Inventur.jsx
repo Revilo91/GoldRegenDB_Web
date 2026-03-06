@@ -100,7 +100,7 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
           <tr>
             {selectedItems && <td />}
             <td
-              colSpan={selectedItems ? 1 : 2}
+              colSpan={5}
               style={{
                 fontWeight: 600,
                 textAlign: "right",
