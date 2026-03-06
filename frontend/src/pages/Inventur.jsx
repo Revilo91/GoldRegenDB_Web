@@ -452,52 +452,6 @@ export default function Inventur() {
         </div>
       </div>
 
-      {/* Summary stats
-      {!loading && summary.length > 0 && (
-        <div className="stats-grid">
-          {[
-            {
-              label: "Kunden",
-              value: summary.length,
-              colorClass: "info",
-              icon: faUsers,
-            },
-            {
-              label: "Artikel gesamt",
-              value: totals.gesamt,
-              colorClass: "gold",
-              icon: faGem,
-            },
-            {
-              label: "Nicht verkauft",
-              value: totals.aktiv,
-              colorClass: "success",
-              icon: faBox,
-            },
-            {
-              label: "Verkauft",
-              value: totals.verkauft,
-              colorClass: "info",
-              icon: faCheckCircle,
-            },
-            {
-              label: "Ausschuss",
-              value: totals.ausschuss,
-              colorClass: "danger",
-              icon: faTimesCircle,
-            },
-          ].map((s) => (
-            <div key={s.label} className={`stat-card ${s.colorClass}`}>
-              <div className="stat-icon">
-                <FontAwesomeIcon icon={s.icon} />
-              </div>
-              <div className="stat-value">{s.value}</div>
-              <div className="stat-label">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      */}
       <div className="toolbar">
         <input
           className="form-control search-input"
