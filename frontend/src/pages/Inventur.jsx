@@ -651,13 +651,12 @@ export default function Inventur() {
   }, [summary, search]);
 
   const sorted = useMemo(() => {
-    let sortableData = [...filtered];
+    const sortableData = [...filtered];
     if (sortConfig.key !== null) {
       sortableData.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
 
-        // Sort numerically for numeric fields
         if (
           sortConfig.key.includes("wert") ||
           ["gesamt", "aktiv", "verkauft", "ausschuss"].includes(sortConfig.key)
@@ -665,7 +664,6 @@ export default function Inventur() {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
         } else {
-          // Case-insensitive string comparison
           if (typeof aValue === "string") aValue = aValue.toUpperCase();
           if (typeof bValue === "string") bValue = bValue.toUpperCase();
         }
@@ -797,54 +795,38 @@ export default function Inventur() {
               </thead>
               <tbody>
                 {sorted.map((k) => (
-                  <>
-                    <tr
-                      key={k.ID}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setSelectedKunde(k)}>
-                      <td>
-                        <strong>{k.Name}</strong>
-                        {!k.Aktiv && (
-                          <span
-                            className="badge danger"
-                            style={{ marginLeft: 8, fontSize: 10 }}>
-                            Inaktiv
-                          </span>
-                        )}
-                      </td>
-                      <td className="hide-on-mobile">{k.Ort || "–"}</td>
-                      <td style={{ textAlign: "right" }}>{k.gesamt}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--success)" }}>
-                          {k.aktiv}
+                  <tr
+                    key={k.ID}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelectedKunde(k)}>
+                    <td>
+                      <strong>{k.Name}</strong>
+                      {!k.Aktiv && (
+                        <span
+                          className="badge danger"
+                          style={{ marginLeft: 8, fontSize: 10 }}>
+                          Inaktiv
                         </span>
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--info)" }}>
-                          {k.verkauft}
-                        </span>
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--warning)" }}>
-                          {k.ausschuss}
-                        </span>
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        {formatEur(k.wert_aktiv)}
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        {formatEur(k.wert_verkauft)}
-                      </td>
-                    </tr>
-                  </>
+                      )}
+                    </td>
+                    <td className="hide-on-mobile">{k.Ort || "–"}</td>
+                    <td style={{ textAlign: "right" }}>{k.gesamt}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--success)" }}>{k.aktiv}</span>
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--info)" }}>{k.verkauft}</span>
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--warning)" }}>{k.ausschuss}</span>
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      {formatEur(k.wert_aktiv)}
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      {formatEur(k.wert_verkauft)}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
               <tfoot>
