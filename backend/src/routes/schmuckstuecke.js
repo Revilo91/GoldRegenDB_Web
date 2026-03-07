@@ -162,28 +162,50 @@ router.get("/", async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
-    const art = req.query.art || "";
     const verkauft = req.query.verkauft;
     const ausgelagert = req.query.ausgelagert;
     const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
-    const ohne_lieferschein = req.query.ohne_lieferschein;
-    const ohne_rechnung = req.query.ohne_rechnung;
 
     let where = [];
     let params = [];
     let paramIdx = 1;
 
     if (search) {
-      where.push(
-        `("Artikelnummer" ILIKE $${paramIdx} OR "Name" ILIKE $${paramIdx} OR "Art" ILIKE $${paramIdx} OR "Material" ILIKE $${paramIdx})`,
-      );
-      params.push(`%${search}%`);
-      paramIdx++;
+      // Überprüfe ob das Suchfeld ein Material-NAME ist (z.B. "Perle") oder ein Code (z.B. "P")
+      const searchUpper = search.toUpperCase();
+      let materialCode = null;
+
+      // Versuch 1: Direct lookup (z.B. "P" -> Perle)
+      if (GRUNDMATERIAL[searchUpper]) {
+        materialCode = searchUpper;
+      } else {
+        // Versuch 2: Nach Material-Name suchen (z.B. "Perle" -> P)
+        for (const [code, name] of Object.entries(GRUNDMATERIAL)) {
+          if (name.toUpperCase() === searchUpper) {
+            materialCode = code;
+            break;
+          }
+        }
+      }
+
+      if (materialCode) {
+        // Wenn das Suchfeld einem Material entspricht, suche nach dem Code
+        where.push(`SUBSTRING("Artikelnummer", 2, 1) = $${paramIdx}`);
+        params.push(materialCode);
+        paramIdx++;
+      } else {
+        // Normale Textsuche (nach Artikelnummer, Name,  Material)
+        where.push(
+          `("Artikelnummer" ILIKE $${paramIdx} OR "Name" ILIKE $${paramIdx} OR "Material" ILIKE $${paramIdx})`,
+        );
+        params.push(`%${search}%`);
+        paramIdx++;
+      }
     }
-    if (art) {
-      where.push(`"Art" = $${paramIdx}`);
-      params.push(art);
+    if (req.query.grundmaterial) {
+      where.push(`SUBSTRING("Artikelnummer", 2, 1) = $${paramIdx}`);
+      params.push(req.query.grundmaterial.toUpperCase());
       paramIdx++;
     }
     if (artikelnummer_art) {
@@ -206,12 +228,7 @@ router.get("/", async (req, res) => {
       params.push(parseInt(ausschuss));
       paramIdx++;
     }
-    if (ohne_lieferschein === "1") {
-      where.push('"Lieferschein_ID" = 0');
-    }
-    if (ohne_rechnung === "1") {
-      where.push('"Rechnung_ID" = 0');
-    }
+
 
     const whereClause = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
 
