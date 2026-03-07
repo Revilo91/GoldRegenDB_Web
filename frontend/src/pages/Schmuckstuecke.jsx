@@ -167,6 +167,54 @@ export default function Schmuckstuecke() {
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
 
+  function TablePhoto({ foto, artikelnummer }) {
+    const [photoSrc, setPhotoSrc] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+      let isCancelled = false;
+
+      if (!foto) {
+        setPhotoSrc(null);
+        setIsLoading(false);
+        return () => {
+          isCancelled = true;
+        };
+      }
+
+      setIsLoading(true);
+      api.loadPhotoAsDataUrl(foto).then((dataUrl) => {
+        if (isCancelled) return;
+        setPhotoSrc(dataUrl);
+        setIsLoading(false);
+      });
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [foto]);
+
+    if (!photoSrc) {
+      return (
+        <span
+          className="table-photo-placeholder"
+          title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}
+        >
+          <FontAwesomeIcon icon={faGem} />
+        </span>
+      );
+    }
+
+    return (
+      <img
+        className="table-photo-thumb"
+        src={photoSrc}
+        alt={`Foto ${artikelnummer}`}
+        loading="lazy"
+      />
+    );
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -262,6 +310,7 @@ export default function Schmuckstuecke() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th className="photo-col">Foto</th>
                   <th
                     onClick={() => requestSort("Artikelnummer")}
                     style={{ cursor: "pointer" }}
@@ -323,6 +372,12 @@ export default function Schmuckstuecke() {
                     onClick={() => setSelected(s)}
                     style={{ cursor: "pointer" }}
                   >
+                    <td className="photo-col">
+                      <TablePhoto
+                        foto={s.Foto}
+                        artikelnummer={s.Artikelnummer}
+                      />
+                    </td>
                     <td>
                       <strong>{s.Artikelnummer.split("_")[0]}</strong>
                       {s.Artikelnummer.split("_")[1] > 0 && (
