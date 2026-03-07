@@ -24,7 +24,7 @@ function formatEur(value) {
 
 function ItemsTable({
   items,
-  selectedItems,
+  selectedItems: selectedForReturn,
   toggleItemSelection,
   selectAll,
   selectedForRechnung,
@@ -82,7 +82,9 @@ function ItemsTable({
   }
   const total = sorted.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
   const allSelected =
-    selectedItems && sorted.length > 0 && selectedItems.size === sorted.length;
+    selectedForReturn &&
+    sorted.length > 0 &&
+    selectedForReturn.size === sorted.length;
   const allSelectedForRechnung =
     selectedForRechnung &&
     items.length > 0 &&
@@ -93,13 +95,11 @@ function ItemsTable({
       <table className="data-table inventur-items-table">
         <thead>
           <tr>
-            {selectedItems && (
+            {selectedForReturn && (
               <th
                 style={{ width: 40, textAlign: "center" }}
-                title="Zurücklagern"
-                aria-label="Zurücklagern auswählen"
-              >
-                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">↩</div>
+                title="Zurücklagern">
+                <div style={{ fontSize: 8 }}>Zurück</div>
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -111,10 +111,8 @@ function ItemsTable({
             {selectedForRechnung && (
               <th
                 style={{ width: 40, textAlign: "center" }}
-                title="Rechnung erstellen"
-                aria-label="Für Rechnung auswählen"
-              >
-                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">🧾</div>
+                title="Rechnung erstellen">
+                <div style={{ fontSize: 8 }}>Rechnung</div>
                 <input
                   type="checkbox"
                   checked={allSelectedForRechnung}
@@ -131,30 +129,6 @@ function ItemsTable({
               style={{ cursor: "pointer" }}
               onClick={() => requestSort("Artikelnummer")}>
               Artikelnummer {getSortIcon("Artikelnummer")}
-            </th>
-            <th
-              className="hide-on-mobile"
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Name")}>
-              Name {getSortIcon("Name")}
-            </th>
-            <th
-              className="hide-on-mobile"
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Art")}>
-              Art {getSortIcon("Art")}
-            </th>
-            <th
-              className="hide-on-mobile"
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Farbe")}>
-              Farbe {getSortIcon("Farbe")}
-            </th>
-            <th
-              className="hide-on-mobile"
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Material")}>
-              Material {getSortIcon("Material")}
             </th>
             <th
               style={{ cursor: "pointer" }}
@@ -177,15 +151,16 @@ function ItemsTable({
                 selectedForRechnung &&
                 selectedForRechnung.has(item.Artikelnummer)
                   ? { background: "var(--bg-hover)" }
-                  : selectedItems && selectedItems.has(item.Artikelnummer)
+                  : selectedForReturn &&
+                      selectedForReturn.has(item.Artikelnummer)
                     ? { background: "var(--bg-hover)" }
                     : {}
               }>
-              {selectedItems && (
+              {selectedForReturn && (
                 <td style={{ textAlign: "center" }}>
                   <input
                     type="checkbox"
-                    checked={selectedItems.has(item.Artikelnummer)}
+                    checked={selectedForReturn.has(item.Artikelnummer)}
                     onChange={() => toggleItemSelection(item.Artikelnummer)}
                   />
                 </td>
@@ -202,14 +177,14 @@ function ItemsTable({
               <td>
                 <code>{item.Artikelnummer}</code>
               </td>
-              <td className="hide-on-mobile">{item.Name || "–"}</td>
-              <td className="hide-on-mobile">{item.Art || "–"}</td>
-              <td className="hide-on-mobile">{item.Farbe || "–"}</td>
-              <td className="hide-on-mobile">{item.Material || "–"}</td>
               <td>{formatEur(item.Verkaufspreis)}</td>
               <td className="hide-on-mobile">
                 {item.Erstelldatum
-                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
+                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })
                   : "–"}
               </td>
             </tr>
@@ -217,7 +192,7 @@ function ItemsTable({
         </tbody>
         <tfoot>
           <tr>
-            {selectedItems && <td />}
+            {selectedForReturn && <td />}
             {selectedForRechnung && <td />}
             <td
               colSpan={5}
@@ -496,8 +471,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                         setTab(t.id);
                         setSelectedItems(new Set());
                         setSelectedForRechnung(new Set());
-                      }}
-                    >
+                      }}>
                       {t.label}
                       {t.id !== "alle" && (
                         <span
@@ -537,8 +511,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
         <div
           className="modal-footer inventur-modal-footer"
-          style={{ justifyContent: "space-between" }}
-        >
+          style={{ justifyContent: "space-between" }}>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               className="btn btn-warning"
@@ -548,8 +521,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                 selectedItems.size === 0
                   ? "Wähle Artikel (↩) aus um zurückzulagern"
                   : `${selectedItems.size} Artikel zurücklagern`
-              }
-            >
+              }>
               <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
               {restocking
                 ? "Lagere zurück…"
@@ -565,8 +537,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                 selectedForRechnung.size === 0
                   ? "Wähle Artikel (🧾) aus um eine Rechnung zu erstellen"
                   : `Rechnung für ${selectedForRechnung.size} Artikel erstellen`
-              }
-            >
+              }>
               <FontAwesomeIcon
                 icon={faFileInvoice}
                 style={{ marginRight: 6 }}
@@ -578,13 +549,11 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
           </div>
           <div
             className="inventur-modal-actions"
-            style={{ display: "flex", gap: 8 }}
-          >
+            style={{ display: "flex", gap: 8 }}>
             <button
               className="btn btn-primary"
               onClick={handleExcel}
-              disabled={exporting || loading}
-            >
+              disabled={exporting || loading}>
               <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: 6 }} />
               {exporting ? "Exportiere…" : "Excel Export"}
             </button>
@@ -801,16 +770,26 @@ export default function Inventur() {
                     <td style={{ textAlign: "right" }}>
                       <span style={{ color: "var(--success)" }}>{k.aktiv}</span>
                     </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                    <td
+                      className="hide-on-mobile"
+                      style={{ textAlign: "right" }}>
                       <span style={{ color: "var(--info)" }}>{k.verkauft}</span>
                     </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
-                      <span style={{ color: "var(--warning)" }}>{k.ausschuss}</span>
+                    <td
+                      className="hide-on-mobile"
+                      style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--warning)" }}>
+                        {k.ausschuss}
+                      </span>
                     </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                    <td
+                      className="hide-on-mobile"
+                      style={{ textAlign: "right" }}>
                       {formatEur(k.wert_aktiv)}
                     </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                    <td
+                      className="hide-on-mobile"
+                      style={{ textAlign: "right" }}>
                       {formatEur(k.wert_verkauft)}
                     </td>
                   </tr>
@@ -818,7 +797,9 @@ export default function Inventur() {
               </tbody>
               <tfoot>
                 <tr style={{ fontWeight: 600, background: "var(--bg-hover)" }}>
-                  <td colSpan={isMobile ? 1 : 2} style={{ padding: "8px 12px" }}>
+                  <td
+                    colSpan={isMobile ? 1 : 2}
+                    style={{ padding: "8px 12px" }}>
                     Gesamt
                   </td>
 
