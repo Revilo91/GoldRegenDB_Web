@@ -81,6 +81,20 @@ const PRODUKTART = {
   S: "Schlüsselanhänger",
 };
 
+const AUSSCHUSS_GRUND_CONSTRAINT =
+  "schmuckstueck_ausschuss_grund_required_chk";
+
+function resolveAusschussGrund(ausschuss, ausschussGrund) {
+  const ausschussValue = Number(ausschuss) === 1 ? 1 : 0;
+  const normalizedGrund =
+    typeof ausschussGrund === "string" ? ausschussGrund.trim() : "";
+
+  if (ausschussValue === 1) {
+    return normalizedGrund || "Defekt";
+  }
+  return normalizedGrund || null;
+}
+
 // ========== SPECIAL ROUTES (MUST BE BEFORE /:artikelnummer) ==========
 
 // POST upload photo
@@ -387,6 +401,10 @@ router.post("/", async (req, res) => {
   }
   try {
     const b = req.body;
+    const ausschussGrundValue = resolveAusschussGrund(
+      b.Ausschuss,
+      b.Ausschuss_Grund,
+    );
     const quantity = parseInt(b.Anzahl) || 1;
     let baseArtikelnummer = b.Artikelnummer.trim();
     let startSuffix = 1;
@@ -506,7 +524,7 @@ router.post("/", async (req, res) => {
           b.Ausgelagert || 0,
           b.Verkauft || 0,
           b.Ausschuss || 0,
-          b.Ausschuss_Grund || null,
+          ausschussGrundValue,
         ],
       );
       createdItems.push(rows[0]);
@@ -521,6 +539,15 @@ router.post("/", async (req, res) => {
     res.status(201).json(quantity === 1 ? createdItems[0] : createdItems);
   } catch (err) {
     await client.query("ROLLBACK");
+    if (
+      err.code === "23514" &&
+      err.constraint === AUSSCHUSS_GRUND_CONSTRAINT
+    ) {
+      return res.status(400).json({
+        error:
+          "Wenn ein Schmuckstueck als Ausschuss markiert ist, muss ein Ausschuss Grund angegeben werden.",
+      });
+    }
     logger.error('SCHMUCK', 'Fehler beim Erstellen des Schmuckstücks', { message: err.message });
     res.status(500).json({
       error: "Fehler beim Erstellen des Schmuckstücks: " + err.message,
@@ -534,6 +561,10 @@ router.post("/", async (req, res) => {
 router.put("/:artikelnummer", async (req, res) => {
   try {
     const b = req.body;
+    const ausschussGrundValue = resolveAusschussGrund(
+      b.Ausschuss,
+      b.Ausschuss_Grund,
+    );
 
     // Foto-Handling: Wenn ein neues Foto hochgeladen wurde, speichere nur den Dateinamen
     // Ansonsten: Prüfe ob eine Datei existiert
@@ -587,7 +618,7 @@ router.put("/:artikelnummer", async (req, res) => {
         b.Ausgelagert,
         b.Verkauft,
         b.Ausschuss,
-        b.Ausschuss_Grund,
+        ausschussGrundValue,
         b.Lieferschein_ID,
         b.Rechnung_ID,
         req.params.artikelnummer,
@@ -598,6 +629,15 @@ router.put("/:artikelnummer", async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
+    if (
+      err.code === "23514" &&
+      err.constraint === AUSSCHUSS_GRUND_CONSTRAINT
+    ) {
+      return res.status(400).json({
+        error:
+          "Wenn ein Schmuckstueck als Ausschuss markiert ist, muss ein Ausschuss Grund angegeben werden.",
+      });
+    }
     logger.error('SCHMUCK', `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
     res
       .status(500)

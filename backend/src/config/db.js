@@ -196,11 +196,46 @@ async function ensureAuditUserContextFunction() {
   }
 }
 
+// Enforce business rule at DB level:
+// If a piece is marked as Ausschuss, a non-empty Ausschuss_Grund is required.
+// Added as NOT VALID to keep existing legacy rows compatible while still
+// enforcing the rule for all new inserts/updates.
+async function ensureAusschussGrundConstraint() {
+  const constraintName = 'schmuckstueck_ausschuss_grund_required_chk';
+  try {
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück'
+            AND c.conname = '${constraintName}'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+          ADD CONSTRAINT ${constraintName}
+          CHECK (
+            COALESCE("Ausschuss", 0) = 0
+            OR LENGTH(BTRIM(COALESCE("Ausschuss_Grund", ''))) > 0
+          ) NOT VALID;
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Constraint für Ausschuss_Grund verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren der Ausschuss_Grund-Constraint', { message: err.message });
+  }
+}
+
 // Test connection and ensure schema on startup
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
     logger.info('DB', `Verbindung erfolgreich hergestellt. Server-Zeit: ${res.rows[0].server_time}`);
-    return ensureAppUsersTable().then(() => ensureAuditUserContextFunction());
+    return ensureAppUsersTable()
+      .then(() => ensureAuditUserContextFunction())
+      .then(() => ensureAusschussGrundConstraint());
   })
   .catch((err) => {
     logger.error('DB', 'Verbindung zur Datenbank fehlgeschlagen', { message: err.message, code: err.code });
