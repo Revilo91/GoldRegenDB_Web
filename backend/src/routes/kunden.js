@@ -52,11 +52,11 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
 // POST create customer
 router.post('/', async (req, res) => {
   try {
-    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, Artikelnummern_Erforderlich } = req.body;
+    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Email", "Telefonnummer", "Provision", "Aktiv", "Artikelnummern_Erforderlich")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision || 0, Aktiv || false, Artikelnummern_Erforderlich || false]
+      `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Email", "Telefonnummer", "Provision", "Aktiv")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision || 0, Aktiv || false]
     );
     logger.info('KUNDEN', `Kunde erstellt: ${rows[0].Name} (ID=${rows[0].ID})`);
     res.status(201).json(rows[0]);
@@ -69,13 +69,13 @@ router.post('/', async (req, res) => {
 // PUT update customer
 router.put('/:id', async (req, res) => {
   try {
-    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, Artikelnummern_Erforderlich } = req.body;
+    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
     const { rows } = await db.query(
       `UPDATE "Kunde" SET "Name" = $1, "Strasse" = $2, "Hausnummer" = $3, "Ort" = $4,
        "PLZ" = $5, "Email" = $6, "Telefonnummer" = $7, "Provision" = $8,
-       "Aktiv" = $9, "Artikelnummern_Erforderlich" = $10
-       WHERE "ID" = $11 RETURNING *`,
-      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, Artikelnummern_Erforderlich, req.params.id]
+       "Aktiv" = $9
+       WHERE "ID" = $10 RETURNING *`,
+      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, req.params.id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
