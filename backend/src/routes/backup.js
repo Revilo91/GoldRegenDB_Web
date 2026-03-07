@@ -6,16 +6,27 @@ const logger = require('../utils/logger');
 // Tables to export/import (in FK-safe order for import)
 const EXPORT_TABLES = ['app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
 
-// GET /api/backup/export – Export all main tables as a JSON file
+// GET /api/backup/export – Export selected (or all) tables as a JSON file
+// Optional query param: ?tables=Kunde,Lieferschein,... (comma-separated)
 router.get('/export', async (req, res) => {
   try {
+    // Determine which tables to export
+    let tablesToExport;
+    if (req.query.tables) {
+      const requested = req.query.tables.split(',').map((t) => t.trim()).filter(Boolean);
+      // Only allow tables that are in the known EXPORT_TABLES list
+      tablesToExport = EXPORT_TABLES.filter((t) => requested.includes(t));
+    } else {
+      tablesToExport = EXPORT_TABLES;
+    }
+
     const exportData = {
       version: '1.0',
       timestamp: new Date().toISOString(),
       tables: {},
     };
 
-    for (const table of EXPORT_TABLES) {
+    for (const table of tablesToExport) {
       const result = await db.query(`SELECT * FROM "${table}"`);
       exportData.tables[table] = result.rows;
     }
@@ -67,9 +78,26 @@ function normalizeBackupData(data) {
 }
 
 // POST /api/backup/import – Import data from a previously exported JSON backup
+// Optional body param: selectedTables (array) – if provided, only those tables are truncated and reimported
 router.post('/import', async (req, res) => {
+  let rawData;
+  let selectedTables;
+
+  const body = req.body;
+
+  if (body && typeof body === 'object' && !Array.isArray(body) && 'backupData' in body) {
+    // New wrapper format sent by the updated frontend:
+    // { backupData: <backup payload>, selectedTables: [...] | null }
+    rawData = body.backupData;
+    selectedTables = Array.isArray(body.selectedTables) ? body.selectedTables : null;
+  } else {
+    // Legacy direct format (backward compat for direct API calls)
+    rawData = body;
+    selectedTables = null;
+  }
+
   // Try to normalize the incoming data (supports multiple formats)
-  const normalized = normalizeBackupData(req.body);
+  const normalized = normalizeBackupData(rawData);
 
   if (!normalized || !normalized.tables || !normalized.version) {
     return res.status(400).json({
@@ -78,17 +106,35 @@ router.post('/import', async (req, res) => {
   }
 
   const { tables, version } = normalized;
-  logger.info('BACKUP', `Import gestartet (Version: ${version})`, { tabellen: Object.keys(tables) });
+
+  // Determine which tables to actually import
+  // FK-safe truncation/insertion order (children before parents)
+  const FK_SAFE_ORDER = ['Schmuckstück', 'Rechnung', 'Lieferschein', 'Kunde', 'audit_log', 'app_users'];
+
+  let tablesToImport;
+  if (Array.isArray(selectedTables) && selectedTables.length > 0) {
+    // Only allow known tables; keep FK-safe order.
+    // Use a Set for O(1) lookup. Table names are already whitelisted via FK_SAFE_ORDER.
+    const selectedSet = new Set(selectedTables);
+    tablesToImport = FK_SAFE_ORDER.filter((t) => selectedSet.has(t) && Object.prototype.hasOwnProperty.call(tables, t));
+  } else {
+    // Default: import all tables present in the backup (in FK-safe order)
+    tablesToImport = FK_SAFE_ORDER.filter((t) => Object.prototype.hasOwnProperty.call(tables, t));
+  }
+
+  logger.info('BACKUP', `Import gestartet (Version: ${version})`, { tabellen: tablesToImport });
 
   let client;
   try {
     client = await db.connect();
     await client.query('BEGIN');
 
-    // Truncate in reverse FK order; RESTART IDENTITY resets sequences
-    await client.query(
-      `TRUNCATE TABLE "Schmuckstück", "Rechnung", "Lieferschein", "Kunde", "audit_log", "app_users" RESTART IDENTITY CASCADE`
-    );
+    // Truncate only the selected tables; table names are validated against FK_SAFE_ORDER whitelist above.
+    // CASCADE satisfies any remaining FK constraints (e.g. when a parent table is truncated).
+    if (tablesToImport.length > 0) {
+      const truncateList = tablesToImport.map((t) => `"${t}"`).join(', ');
+      await client.query(`TRUNCATE TABLE ${truncateList} RESTART IDENTITY CASCADE`);
+    }
 
     // Helper: Get actual column names from database schema
     const getTableColumns = async (tableName) => {
@@ -144,29 +190,32 @@ router.post('/import', async (req, res) => {
       }
     };
 
-    await insertRows('app_users', tables['app_users']);
-    await insertRows('audit_log', tables['audit_log']);
-    await insertRows('Kunde', tables['Kunde']);
-    await insertRows('Lieferschein', tables['Lieferschein']);
-    await insertRows('Rechnung', tables['Rechnung']);
-    await insertRows('Schmuckstück', tables['Schmuckstück']);
+    // Insert rows in FK-safe order (parents before children)
+    const INSERT_ORDER = ['app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
+    for (const tableName of INSERT_ORDER) {
+      if (tablesToImport.includes(tableName)) {
+        await insertRows(tableName, tables[tableName]);
+      }
+    }
 
     // Reset SERIAL sequences to avoid PK conflicts on future inserts
-    const seqResets = [
-      `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
-      `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
-      `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,
-      `SELECT setval(pg_get_serial_sequence('"Lieferschein"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Lieferschein"), 0) + 1, false)`,
-      `SELECT setval(pg_get_serial_sequence('"Rechnung"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Rechnung"), 0) + 1, false)`,
-    ];
-    for (const sql of seqResets) {
-      await client.query(sql);
+    const allSeqResets = {
+      app_users: `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
+      audit_log: `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
+      Kunde: `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,
+      Lieferschein: `SELECT setval(pg_get_serial_sequence('"Lieferschein"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Lieferschein"), 0) + 1, false)`,
+      Rechnung: `SELECT setval(pg_get_serial_sequence('"Rechnung"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Rechnung"), 0) + 1, false)`,
+    };
+    for (const tableName of tablesToImport) {
+      if (allSeqResets[tableName]) {
+        await client.query(allSeqResets[tableName]);
+      }
     }
 
     await client.query('COMMIT');
 
     const counts = {};
-    for (const t of EXPORT_TABLES) {
+    for (const t of tablesToImport) {
       counts[t] = (tables[t] || []).length;
     }
 

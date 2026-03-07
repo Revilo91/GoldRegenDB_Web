@@ -247,9 +247,14 @@ export const api = {
   },
 
   // Datensicherung (Backup / Restore)
-  exportBackup: () => downloadBlob('/backup/export'),
-  importBackup: (data) =>
-    request('/backup/import', { method: 'POST', body: JSON.stringify(data) }),
+  exportBackup: (tables) => {
+    const query = tables && tables.length ? `?tables=${tables.map(encodeURIComponent).join(',')}` : '';
+    return downloadBlob(`/backup/export${query}`);
+  },
+  importBackup: (data, selectedTables) => {
+    const payload = { backupData: data, selectedTables: selectedTables || null };
+    return request('/backup/import', { method: 'POST', body: JSON.stringify(payload) });
+  },
 
   // Inventur
   getInventur: () => request('/inventur'),
