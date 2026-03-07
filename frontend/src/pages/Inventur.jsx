@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFileExcel, faTimes, faBox } from "@fortawesome/free-solid-svg-icons";
+import {
+  faFileExcel,
+  faFileInvoice,
+  faTimes,
+  faBox,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 const TABS = [
@@ -17,7 +22,15 @@ function formatEur(value) {
   });
 }
 
-function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
+function ItemsTable({
+  items,
+  selectedItems,
+  toggleItemSelection,
+  selectAll,
+  selectedForRechnung,
+  toggleForRechnung,
+  selectAllForRechnung,
+}) {
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
     direction: "asc",
@@ -70,6 +83,10 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
   const total = sorted.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
   const allSelected =
     selectedItems && sorted.length > 0 && selectedItems.size === sorted.length;
+  const allSelectedForRechnung =
+    selectedForRechnung &&
+    items.length > 0 &&
+    selectedForRechnung.size === items.length;
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -77,12 +94,36 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
         <thead>
           <tr>
             {selectedItems && (
-              <th style={{ width: 40, textAlign: "center" }}>
+              <th
+                style={{ width: 40, textAlign: "center" }}
+                title="Zurücklagern"
+                aria-label="Zurücklagern auswählen"
+              >
+                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">↩</div>
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={selectAll}
                   title={allSelected ? "Alle abwählen" : "Alle auswählen"}
+                />
+              </th>
+            )}
+            {selectedForRechnung && (
+              <th
+                style={{ width: 40, textAlign: "center" }}
+                title="Rechnung erstellen"
+                aria-label="Für Rechnung auswählen"
+              >
+                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">🧾</div>
+                <input
+                  type="checkbox"
+                  checked={allSelectedForRechnung}
+                  onChange={selectAllForRechnung}
+                  title={
+                    allSelectedForRechnung
+                      ? "Alle abwählen"
+                      : "Alle für Rechnung auswählen"
+                  }
                 />
               </th>
             )}
@@ -133,9 +174,12 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
             <tr
               key={item.Artikelnummer}
               style={
-                selectedItems && selectedItems.has(item.Artikelnummer)
+                selectedForRechnung &&
+                selectedForRechnung.has(item.Artikelnummer)
                   ? { background: "var(--bg-hover)" }
-                  : {}
+                  : selectedItems && selectedItems.has(item.Artikelnummer)
+                    ? { background: "var(--bg-hover)" }
+                    : {}
               }>
               {selectedItems && (
                 <td style={{ textAlign: "center" }}>
@@ -143,6 +187,15 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
                     type="checkbox"
                     checked={selectedItems.has(item.Artikelnummer)}
                     onChange={() => toggleItemSelection(item.Artikelnummer)}
+                  />
+                </td>
+              )}
+              {selectedForRechnung && (
+                <td style={{ textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedForRechnung.has(item.Artikelnummer)}
+                    onChange={() => toggleForRechnung(item.Artikelnummer)}
                   />
                 </td>
               )}
@@ -165,6 +218,7 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
         <tfoot>
           <tr>
             {selectedItems && <td />}
+            {selectedForRechnung && <td />}
             <td
               colSpan={5}
               style={{
@@ -190,6 +244,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const [exporting, setExporting] = useState(false);
   const [restocking, setRestocking] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const [selectedForRechnung, setSelectedForRechnung] = useState(new Set());
+  const [creatingRechnung, setCreatingRechnung] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -278,6 +334,63 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       } else {
         setSelectedItems(new Set(tabItems.map((i) => i.Artikelnummer)));
       }
+    }
+  };
+
+  const toggleForRechnung = (artikelnummer) => {
+    setSelectedForRechnung((prev) => {
+      const next = new Set(prev);
+      if (next.has(artikelnummer)) {
+        next.delete(artikelnummer);
+      } else {
+        next.add(artikelnummer);
+      }
+      return next;
+    });
+  };
+
+  const selectAllForRechnung = () => {
+    if (tabItems.length > 0) {
+      if (selectedForRechnung.size === tabItems.length) {
+        setSelectedForRechnung(new Set());
+      } else {
+        setSelectedForRechnung(new Set(tabItems.map((i) => i.Artikelnummer)));
+      }
+    }
+  };
+
+  const handleCreateRechnung = async () => {
+    if (selectedForRechnung.size === 0) {
+      alert("Bitte wähle mindestens einen Artikel für die Rechnung aus");
+      return;
+    }
+
+    const nummer = window.prompt(
+      `Rechnungsnummer für ${selectedForRechnung.size} Artikel von "${kundeName}" eingeben:`,
+    );
+    if (!nummer || !nummer.trim()) return;
+
+    const totalValue = tabItems
+      .filter((i) => selectedForRechnung.has(i.Artikelnummer))
+      .reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+
+    const confirmMsg = `Rechnung "${nummer.trim()}" für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) von "${kundeName}" erstellen?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setCreatingRechnung(true);
+    try {
+      await api.createRechnung({
+        Nummer: nummer.trim(),
+        Kundennummer: kundeId,
+        Artikelnummern: Array.from(selectedForRechnung),
+      });
+      alert(`Rechnung "${nummer.trim()}" erfolgreich erstellt!`);
+      onRestock?.();
+      onClose();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCreatingRechnung(false);
     }
   };
 
@@ -379,7 +492,12 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                     <button
                       key={t.id}
                       className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setTab(t.id)}>
+                      onClick={() => {
+                        setTab(t.id);
+                        setSelectedItems(new Set());
+                        setSelectedForRechnung(new Set());
+                      }}
+                    >
                       {t.label}
                       {t.id !== "alle" && (
                         <span
@@ -403,9 +521,14 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
                 <ItemsTable
                   items={tabItems}
-                  selectedItems={selectedItems}
+                  selectedItems={tab === "aktiv" ? selectedItems : undefined}
                   toggleItemSelection={toggleItemSelection}
                   selectAll={selectAll}
+                  selectedForRechnung={
+                    tab === "aktiv" ? selectedForRechnung : undefined
+                  }
+                  toggleForRechnung={toggleForRechnung}
+                  selectAllForRechnung={selectAllForRechnung}
                 />
               </>
             )
@@ -414,21 +537,45 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
         <div
           className="modal-footer inventur-modal-footer"
-          style={{ justifyContent: "space-between" }}>
-          <button
-            className="btn btn-warning"
-            onClick={handleRestock}
-            disabled={restocking || loading || selectedItems.size === 0}
-            title={
-              selectedItems.size === 0
-                ? "Wähle Artikel aus um zurückzulagern"
-                : `${selectedItems.size} Artikel zurücklagern`
-            }>
-            <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
-            {restocking
-              ? "Lagere zurück…"
-              : `Zurücklagern (${selectedItems.size})`}
-          </button>
+          style={{ justifyContent: "space-between" }}
+        >
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-warning"
+              onClick={handleRestock}
+              disabled={restocking || loading || selectedItems.size === 0}
+              title={
+                selectedItems.size === 0
+                  ? "Wähle Artikel (↩) aus um zurückzulagern"
+                  : `${selectedItems.size} Artikel zurücklagern`
+              }
+            >
+              <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
+              {restocking
+                ? "Lagere zurück…"
+                : `Zurücklagern (${selectedItems.size})`}
+            </button>
+            <button
+              className="btn btn-success"
+              onClick={handleCreateRechnung}
+              disabled={
+                creatingRechnung || loading || selectedForRechnung.size === 0
+              }
+              title={
+                selectedForRechnung.size === 0
+                  ? "Wähle Artikel (🧾) aus um eine Rechnung zu erstellen"
+                  : `Rechnung für ${selectedForRechnung.size} Artikel erstellen`
+              }
+            >
+              <FontAwesomeIcon
+                icon={faFileInvoice}
+                style={{ marginRight: 6 }}
+              />
+              {creatingRechnung
+                ? "Erstelle Rechnung…"
+                : `Rechnung erstellen (${selectedForRechnung.size})`}
+            </button>
+          </div>
           <div
             className="inventur-modal-actions"
             style={{ display: "flex", gap: 8 }}>
