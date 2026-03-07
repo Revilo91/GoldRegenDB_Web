@@ -5,6 +5,7 @@ import {
   faFileInvoice,
   faTimes,
   faBox,
+  faGem,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
@@ -22,9 +23,57 @@ function formatEur(value) {
   });
 }
 
+function TablePhoto({ foto, artikelnummer }) {
+  const [photoSrc, setPhotoSrc] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!foto) {
+      setPhotoSrc(null);
+      setIsLoading(false);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    setIsLoading(true);
+    api.loadPhotoAsDataUrl(foto).then((dataUrl) => {
+      if (isCancelled) return;
+      setPhotoSrc(dataUrl);
+      setIsLoading(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [foto]);
+
+  if (!photoSrc) {
+    return (
+      <span
+        className="table-photo-placeholder"
+        title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}
+      >
+        <FontAwesomeIcon icon={faGem} />
+      </span>
+    );
+  }
+
+  return (
+    <img
+      className="table-photo-thumb"
+      src={photoSrc}
+      alt={`Foto ${artikelnummer}`}
+      loading="lazy"
+    />
+  );
+}
+
 function ItemsTable({
   items,
-  selectedItems: selectedForReturn,
+  selectedItems,
   toggleItemSelection,
   selectAll,
   selectedForRechnung,
@@ -47,6 +96,14 @@ function ItemsTable({
         if (sortConfig.key === "Verkaufspreis") {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
+        } else if (sortConfig.key === "Artikelnummer") {
+          return sortConfig.direction === "asc"
+            ? String(aValue || "").localeCompare(String(bValue || ""), undefined, {
+                numeric: true,
+              })
+            : String(bValue || "").localeCompare(String(aValue || ""), undefined, {
+                numeric: true,
+              });
         } else {
           // Case-insensitive string comparison
           if (typeof aValue === "string") aValue = aValue.toUpperCase();
@@ -82,9 +139,7 @@ function ItemsTable({
   }
   const total = sorted.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
   const allSelected =
-    selectedForReturn &&
-    sorted.length > 0 &&
-    selectedForReturn.size === sorted.length;
+    selectedItems && sorted.length > 0 && selectedItems.size === sorted.length;
   const allSelectedForRechnung =
     selectedForRechnung &&
     items.length > 0 &&
@@ -95,11 +150,13 @@ function ItemsTable({
       <table className="data-table inventur-items-table">
         <thead>
           <tr>
-            {selectedForReturn && (
+            {selectedItems && (
               <th
                 style={{ width: 40, textAlign: "center" }}
-                title="Zurücklagern">
-                <div style={{ fontSize: 8 }}>Zurück</div>
+                title="Zurücklagern"
+                aria-label="Zurücklagern auswählen"
+              >
+                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">↩</div>
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -111,8 +168,10 @@ function ItemsTable({
             {selectedForRechnung && (
               <th
                 style={{ width: 40, textAlign: "center" }}
-                title="Rechnung erstellen">
-                <div style={{ fontSize: 8 }}>Rechnung</div>
+                title="Rechnung erstellen"
+                aria-label="Für Rechnung auswählen"
+              >
+                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">🧾</div>
                 <input
                   type="checkbox"
                   checked={allSelectedForRechnung}
@@ -125,20 +184,24 @@ function ItemsTable({
                 />
               </th>
             )}
+            <th className="photo-col">Foto</th>
             <th
               style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Artikelnummer")}>
+              onClick={() => requestSort("Artikelnummer")}
+            >
               Artikelnummer {getSortIcon("Artikelnummer")}
             </th>
             <th
               style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Verkaufspreis")}>
+              onClick={() => requestSort("Verkaufspreis")}
+            >
               Verkaufspreis {getSortIcon("Verkaufspreis")}
             </th>
             <th
               className="hide-on-mobile"
               style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Erstelldatum")}>
+              onClick={() => requestSort("Erstelldatum")}
+            >
               Erstellt {getSortIcon("Erstelldatum")}
             </th>
           </tr>
@@ -151,16 +214,17 @@ function ItemsTable({
                 selectedForRechnung &&
                 selectedForRechnung.has(item.Artikelnummer)
                   ? { background: "var(--bg-hover)" }
-                  : selectedForReturn &&
-                      selectedForReturn.has(item.Artikelnummer)
+                  : selectedItems &&
+                      selectedItems.has(item.Artikelnummer)
                     ? { background: "var(--bg-hover)" }
                     : {}
-              }>
-              {selectedForReturn && (
+              }
+            >
+              {selectedItems && (
                 <td style={{ textAlign: "center" }}>
                   <input
                     type="checkbox"
-                    checked={selectedForReturn.has(item.Artikelnummer)}
+                    checked={selectedItems.has(item.Artikelnummer)}
                     onChange={() => toggleItemSelection(item.Artikelnummer)}
                   />
                 </td>
@@ -174,17 +238,21 @@ function ItemsTable({
                   />
                 </td>
               )}
+              <td className="photo-col">
+                <TablePhoto foto={item.Foto} artikelnummer={item.Artikelnummer} />
+              </td>
               <td>
-                <code>{item.Artikelnummer}</code>
+                <strong>{String(item.Artikelnummer || "").split("_")[0]}</strong>
+                {Number(String(item.Artikelnummer || "").split("_")[1]) > 0 && (
+                  <span className="badge warning">
+                    {String(item.Artikelnummer || "").split("_")[1]}
+                  </span>
+                )}
               </td>
               <td>{formatEur(item.Verkaufspreis)}</td>
               <td className="hide-on-mobile">
                 {item.Erstelldatum
-                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
+                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
                   : "–"}
               </td>
             </tr>
@@ -192,15 +260,17 @@ function ItemsTable({
         </tbody>
         <tfoot>
           <tr>
-            {selectedForReturn && <td />}
+            {selectedItems && <td />}
             {selectedForRechnung && <td />}
+            <td className="photo-col" />
             <td
-              colSpan={5}
+              colSpan={1}
               style={{
                 fontWeight: 600,
                 textAlign: "right",
                 padding: "8px 12px",
-              }}>
+              }}
+            >
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
