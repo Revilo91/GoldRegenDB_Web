@@ -118,7 +118,7 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
   );
 }
 
-function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
+function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("aktiv");
@@ -224,7 +224,18 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3>Inventur – {kundeName}</h3>
+          <h3>
+            Inventur – {kundeName}
+            {!kundeAktiv && (
+              <span
+                className="badge danger"
+                style={{ marginLeft: 8, fontSize: 12 }}
+              >
+                Inaktiv
+              </span>
+            )}
+          </h3>
+
           <button className="modal-close" onClick={onClose}>
             <FontAwesomeIcon icon={faTimes} />
           </button>
@@ -239,37 +250,30 @@ function DetailModal({ kundeId, kundeName, onClose, onRestock }) {
             data && (
               <>
                 {/* Stats */}
-                <div className="stats-grid" style={{ marginBottom: 20 }}>
+                <div className="stats-grid" style={{ marginBottom: 10 }}>
                   {[
                     {
                       label: "Gesamt",
                       value: data.stats.gesamt,
-                      icon: faGem,
                       colorClass: "gold",
                     },
                     {
                       label: "Nicht verkauft",
                       value: data.stats.aktiv,
-                      icon: faBox,
                       colorClass: "success",
                     },
                     {
                       label: "Verkauft",
                       value: data.stats.verkauft,
-                      icon: faCheckCircle,
                       colorClass: "info",
                     },
                     {
                       label: "Ausschuss",
                       value: data.stats.ausschuss,
-                      icon: faTimesCircle,
                       colorClass: "danger",
                     },
                   ].map((s) => (
                     <div key={s.label} className={`stat-card ${s.colorClass}`}>
-                      <div className="stat-icon">
-                        <FontAwesomeIcon icon={s.icon} />
-                      </div>
                       <div className="stat-value">{s.value}</div>
                       <div className="stat-label">{s.label}</div>
                     </div>
@@ -565,6 +569,7 @@ export default function Inventur() {
         <DetailModal
           kundeId={selectedKunde.ID}
           kundeName={selectedKunde.Name}
+          kundeAktiv={selectedKunde.Aktiv}
           onClose={() => setSelectedKunde(null)}
           onRestock={load}
         />
