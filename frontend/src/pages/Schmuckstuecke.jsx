@@ -206,9 +206,10 @@ export default function Schmuckstuecke() {
             }}
           >
             <option value="">Alle Arten</option>
+            <option value="A">Armband</option>
             <option value="H">Halskette</option>
             <option value="O">Ohrring</option>
-            <option value="A">Armband</option>
+            <option value="S">Schlüsselanhänger</option>
           </select>
           <select
             className="form-control"
