@@ -343,6 +343,14 @@ body {
   border-bottom: none;
 }
 
+.data-table.inventur-table td {
+  max-width: none;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .data-table th.photo-col,
 .data-table td.photo-col {
   width: 56px;
