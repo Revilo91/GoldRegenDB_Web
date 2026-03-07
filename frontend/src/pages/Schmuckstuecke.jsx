@@ -81,12 +81,16 @@ export default function Schmuckstuecke() {
       Ausgelagert: 0,
       Verkauft: 0,
       Ausschuss: 0,
+      Ausschuss_Grund: "",
     });
     setEditing("new");
   };
 
   const openEdit = (s) => {
-    setForm({ ...s });
+    setForm({
+      ...s,
+      Ausschuss_Grund: s.Ausschuss_Grund || "",
+    });
     setEditing(s.Artikelnummer);
   };
 
@@ -1167,6 +1171,9 @@ export default function Schmuckstuecke() {
                         setForm({
                           ...form,
                           Ausschuss: e.target.checked ? 1 : 0,
+                          Ausschuss_Grund: e.target.checked
+                            ? form.Ausschuss_Grund || "Defekt"
+                            : "",
                         })
                       }
                       style={{ marginRight: "8px" }}
@@ -1176,6 +1183,30 @@ export default function Schmuckstuecke() {
                     </label>
                   </div>
                 </div>
+                {form.Ausschuss === 1 && (
+                  <div className="form-row" style={{ marginTop: "12px" }}>
+                    <div className="form-group" style={{ flex: 1 }}>
+                      <label>Ausschuss Grund</label>
+                      <input
+                        list="ausschussgruende-list"
+                        className="form-control"
+                        value={form.Ausschuss_Grund || ""}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            Ausschuss_Grund: e.target.value,
+                          })
+                        }
+                        placeholder="z.B. Defekt"
+                      />
+                      <datalist id="ausschussgruende-list">
+                        {filterOptions.ausschussgruende?.map((g) => (
+                          <option key={g} value={g} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
