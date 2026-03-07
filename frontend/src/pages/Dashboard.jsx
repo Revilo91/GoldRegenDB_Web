@@ -5,7 +5,6 @@ import {
   faWarehouse,
   faBox,
   faCheckCircle,
-  faGlobe,
   faTimesCircle,
   faEuroSign,
   faUsers,
@@ -64,13 +63,6 @@ export default function Dashboard() {
           </div>
           <div className="stat-value">{s.soldPieces}</div>
           <div className="stat-label">Verkauft</div>
-        </div>
-        <div className="stat-card info">
-          <div className="stat-icon">
-            <FontAwesomeIcon icon={faGlobe} />
-          </div>
-          <div className="stat-value">{s.onlinePieces}</div>
-          <div className="stat-label">Online</div>
         </div>
         <div className="stat-card danger">
           <div className="stat-icon">

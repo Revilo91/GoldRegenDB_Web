@@ -166,7 +166,6 @@ router.get("/", async (req, res) => {
     const verkauft = req.query.verkauft;
     const ausgelagert = req.query.ausgelagert;
     const ausschuss = req.query.ausschuss;
-    const online = req.query.online;
     const artikelnummer_art = req.query.artikelnummer_art;
     const ohne_lieferschein = req.query.ohne_lieferschein;
     const ohne_rechnung = req.query.ohne_rechnung;
@@ -205,11 +204,6 @@ router.get("/", async (req, res) => {
     if (ausschuss !== undefined) {
       where.push(`"Ausschuss" = $${paramIdx}`);
       params.push(parseInt(ausschuss));
-      paramIdx++;
-    }
-    if (online !== undefined) {
-      where.push(`"Online" = $${paramIdx}`);
-      params.push(parseInt(online));
       paramIdx++;
     }
     if (ohne_lieferschein === "1") {
@@ -427,7 +421,6 @@ router.post("/", async (req, res) => {
         b.Herstellungskosten = rows[0].Herstellungskosten;
         b.Ausgelagert = 0;
         b.Verkauft = 0;
-        b.Online = 0;
         b.Ausschuss = 0;
         b.Ausschuss_Grund = rows[0].Ausschuss_Grund;
         b.Länge = rows[0].Länge;
@@ -462,9 +455,9 @@ router.post("/", async (req, res) => {
             "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
             "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
             "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
-            "Herstellungskosten", "Verkaufspreis", "Online", "Ausgelagert", "Verkauft", "Ausschuss", "Ausschuss_Grund"
+            "Herstellungskosten", "Verkaufspreis", "Ausgelagert", "Verkauft", "Ausschuss", "Ausschuss_Grund"
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
           ) RETURNING *`,
         [
           fullArtNr,
@@ -493,7 +486,6 @@ router.post("/", async (req, res) => {
           b.Zwischenstück,
           b.Herstellungskosten || 0,
           b.Verkaufspreis || 0,
-          b.Online || 0,
           b.Ausgelagert || 0,
           b.Verkauft || 0,
           b.Ausschuss || 0,
@@ -546,9 +538,9 @@ router.put("/:artikelnummer", async (req, res) => {
         "Anhänger_Inhalt_Farbe" = $17, "Anhänger_Inhalt_Farbakzente" = $18,
         "Anhänger_Inhalt_Zusatzmaterial" = $19, "Material" = $20, "Grösse" = $21,
         "Anhänger" = $22, "Zwischenstück" = $23, "Herstellungskosten" = $24,
-        "Verkaufspreis" = $25, "Online" = $26, "Ausgelagert" = $27,
-        "Verkauft" = $28, "Ausschuss" = $29, "Ausschuss_Grund" = $30, "Lieferschein_ID" = $31, "Rechnung_ID" = $32
-             WHERE "Artikelnummer" = $33 RETURNING *`,
+        "Verkaufspreis" = $25, "Ausgelagert" = $26,
+        "Verkauft" = $27, "Ausschuss" = $28, "Ausschuss_Grund" = $29, "Lieferschein_ID" = $30, "Rechnung_ID" = $31
+             WHERE "Artikelnummer" = $32 RETURNING *`,
       [
         b.Name,
         fotoValue,
@@ -575,7 +567,6 @@ router.put("/:artikelnummer", async (req, res) => {
         b.Zwischenstück,
         b.Herstellungskosten,
         b.Verkaufspreis,
-        b.Online,
         b.Ausgelagert,
         b.Verkauft,
         b.Ausschuss,

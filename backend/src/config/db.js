@@ -181,9 +181,9 @@ async function ensureAuditUserContextFunction() {
                   INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
                   VALUES ('Schmuckstück', NEW."Artikelnummer", 'Rechnung_ID', OLD."Rechnung_ID"::TEXT, NEW."Rechnung_ID"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
               END IF;
-              IF OLD."Online" IS DISTINCT FROM NEW."Online" THEN
+                IF OLD."Ausschuss_Grund" IS DISTINCT FROM NEW."Ausschuss_Grund" THEN
                   INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
-                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Online', OLD."Online"::TEXT, NEW."Online"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+                  VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausschuss_Grund', OLD."Ausschuss_Grund", NEW."Ausschuss_Grund", 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
               END IF;
           END IF;
           RETURN NEW;

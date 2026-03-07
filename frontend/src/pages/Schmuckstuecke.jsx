@@ -80,7 +80,6 @@ export default function Schmuckstuecke() {
       Herstellungskosten: 0,
       Ausgelagert: 0,
       Verkauft: 0,
-      Online: 0,
       Ausschuss: 0,
     });
     setEditing("new");
@@ -343,12 +342,8 @@ export default function Schmuckstuecke() {
                       {s.Ausschuss === 1 && (
                         <span className="badge danger">Ausschuss</span>
                       )}
-                      {s.Online === 1 && (
-                        <span className="badge info">Online</span>
-                      )}
                       {s.Verkauft === 0 &&
                         s.Ausschuss === 0 &&
-                        s.Online === 0 &&
                         s.Ausgelagert === 0 && (
                           <span className="badge gold">Lager</span>
                         )}
@@ -1101,24 +1096,6 @@ export default function Schmuckstuecke() {
                     />
                     <label htmlFor="form-verkauft" style={{ marginBottom: 0 }}>
                       Verkauft
-                    </label>
-                  </div>
-                  <div
-                    className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
-                    <input
-                      type="checkbox"
-                      id="form-online"
-                      checked={form.Online === 1}
-                      disabled={editing === "new"}
-                      onChange={(e) =>
-                        setForm({ ...form, Online: e.target.checked ? 1 : 0 })
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                    <label htmlFor="form-online" style={{ marginBottom: 0 }}>
-                      Online
                     </label>
                   </div>
                   <div
