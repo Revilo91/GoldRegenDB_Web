@@ -84,11 +84,11 @@ router.get('/:id/excel', async (req, res) => {
 // POST create
 router.post('/', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer, Datei } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datei")
-       VALUES ($1, $2, $3) RETURNING *`,
-      [Nummer, Kundennummer, Datei]
+      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer")
+       VALUES ($1, $2) RETURNING *`,
+      [Nummer, Kundennummer]
     );
 
     const lieferscheinId = rows[0].ID;
@@ -112,11 +112,11 @@ router.post('/', async (req, res) => {
 // PUT update
 router.put('/:id', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer, Datei } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer } = req.body;
     const { rows } = await db.query(
-      `UPDATE "Lieferschein" SET "Nummer" = $1, "Kundennummer" = $2, "Datei" = $3
-       WHERE "ID" = $4 RETURNING *`,
-      [Nummer, Kundennummer, Datei, req.params.id]
+      `UPDATE "Lieferschein" SET "Nummer" = $1, "Kundennummer" = $2
+       WHERE "ID" = $3 RETURNING *`,
+      [Nummer, Kundennummer, req.params.id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });

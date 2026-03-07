@@ -143,8 +143,8 @@ router.post("/import", async (req, res) => {
     if (kundenResult.length === 0) {
       // Erstelle Messe-Kunde falls nicht vorhanden
       const { rows: newKunde } = await db.query(
-        `INSERT INTO "Kunde" ("Name", "Strasse", "Ort", "Aktiv")
-         VALUES ('Messe', '', '', true)
+        `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Provision", "Aktiv")
+         VALUES ('Messe', '', 0, '', 0, 0, true)
          RETURNING "ID", "Name"`,
       );
       messeKunde = newKunde[0];

@@ -272,7 +272,7 @@ router.get("/filter-options", async (req, res) => {
       anhaenger_fassungen, anhaenger_formen, anhaenger_farben, anhaenger_groessen,
       anhaenger_inhalt_materialien, anhaenger_inhalt_farben, anhaenger_inhalt_farbakzente, anhaenger_inhalt_zusatzmaterialien,
       inhalt_materialien, inhalt_farben, inhalt_farbakzente, inhalt_zusatzmaterialien,
-      zwischenstuecke, fassungen, laengen, groessen, fotos, namen, verkaufspreise, herstellungskosten, ausschuesse, anhaenger
+      zwischenstuecke, fassungen, laengen, groessen, fotos, namen, verkaufspreise, herstellungskosten, ausschuesse, anhaenger, ausschussgruende
     ] = await Promise.all([
       db.query("SELECT DISTINCT \"Art\" FROM \"Schmuckstück\" WHERE \"Art\" IS NOT NULL AND \"Art\" != '' ORDER BY \"Art\""),
       db.query("SELECT DISTINCT \"Farbe\" FROM \"Schmuckstück\" WHERE \"Farbe\" IS NOT NULL AND \"Farbe\" != '' ORDER BY \"Farbe\""),
@@ -300,6 +300,7 @@ router.get("/filter-options", async (req, res) => {
       db.query("SELECT DISTINCT \"Herstellungskosten\" FROM \"Schmuckstück\" WHERE \"Herstellungskosten\" IS NOT NULL ORDER BY \"Herstellungskosten\""),
       db.query("SELECT DISTINCT \"Ausschuss\" FROM \"Schmuckstück\" WHERE \"Ausschuss\" IS NOT NULL ORDER BY \"Ausschuss\""),
       db.query("SELECT DISTINCT \"Anhänger\" FROM \"Schmuckstück\" WHERE \"Anhänger\" IS NOT NULL AND \"Anhänger\" != '' ORDER BY \"Anhänger\""),
+      db.query("SELECT DISTINCT \"Ausschuss_Grund\" FROM \"Schmuckstück\" WHERE \"Ausschuss_Grund\" IS NOT NULL AND \"Ausschuss_Grund\" != '' ORDER BY \"Ausschuss_Grund\""),
     ]);
     res.json({
       arten: arten.rows.map(r => r.Art),
@@ -328,6 +329,7 @@ router.get("/filter-options", async (req, res) => {
       herstellungskosten: herstellungskosten.rows.map(r => r.Herstellungskosten),
       ausschuesse: ausschuesse.rows.map(r => r.Ausschuss),
       anhaenger: anhaenger.rows.map(r => r.Anhänger),
+      ausschussgruende: ausschussgruende.rows.map(r => r.Ausschuss_Grund),
     });
   } catch (err) {
     logger.error('SCHMUCK', 'Fehler beim Laden der Filter-Optionen', { message: err.message });
@@ -427,6 +429,7 @@ router.post("/", async (req, res) => {
         b.Verkauft = 0;
         b.Online = 0;
         b.Ausschuss = 0;
+        b.Ausschuss_Grund = rows[0].Ausschuss_Grund;
         b.Länge = rows[0].Länge;
         b.Fassung = rows[0].Fassung;
         b.Farbe = rows[0].Farbe;
@@ -459,9 +462,9 @@ router.post("/", async (req, res) => {
             "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
             "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
             "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
-            "Herstellungskosten", "Verkaufspreis", "Online", "Ausgelagert", "Verkauft", "Ausschuss"
+            "Herstellungskosten", "Verkaufspreis", "Online", "Ausgelagert", "Verkauft", "Ausschuss", "Ausschuss_Grund"
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31
           ) RETURNING *`,
         [
           fullArtNr,
@@ -494,6 +497,7 @@ router.post("/", async (req, res) => {
           b.Ausgelagert || 0,
           b.Verkauft || 0,
           b.Ausschuss || 0,
+          b.Ausschuss_Grund || null,
         ],
       );
       createdItems.push(rows[0]);
@@ -543,8 +547,8 @@ router.put("/:artikelnummer", async (req, res) => {
         "Anhänger_Inhalt_Zusatzmaterial" = $19, "Material" = $20, "Grösse" = $21,
         "Anhänger" = $22, "Zwischenstück" = $23, "Herstellungskosten" = $24,
         "Verkaufspreis" = $25, "Online" = $26, "Ausgelagert" = $27,
-        "Verkauft" = $28, "Ausschuss" = $29, "Lieferschein_ID" = $30, "Rechnung_ID" = $31
-       WHERE "Artikelnummer" = $32 RETURNING *`,
+        "Verkauft" = $28, "Ausschuss" = $29, "Ausschuss_Grund" = $30, "Lieferschein_ID" = $31, "Rechnung_ID" = $32
+             WHERE "Artikelnummer" = $33 RETURNING *`,
       [
         b.Name,
         fotoValue,
@@ -575,6 +579,7 @@ router.put("/:artikelnummer", async (req, res) => {
         b.Ausgelagert,
         b.Verkauft,
         b.Ausschuss,
+        b.Ausschuss_Grund,
         b.Lieferschein_ID,
         b.Rechnung_ID,
         req.params.artikelnummer,
