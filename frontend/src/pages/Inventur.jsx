@@ -4,10 +4,6 @@ import {
   faFileExcel,
   faTimes,
   faBox,
-  faGem,
-  faCheckCircle,
-  faTimesCircle,
-  faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
@@ -26,6 +22,48 @@ function formatEur(value) {
 }
 
 function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
+  const [sortConfig, setSortConfig] = useState({
+    key: "Artikelnummer",
+    direction: "asc",
+  });
+
+  const sorted = useMemo(() => {
+    let sortableData = [...items];
+    if (sortConfig.key !== null) {
+      sortableData.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Numeric sort for prices
+        if (sortConfig.key === "Verkaufspreis") {
+          aValue = Number(aValue) || 0;
+          bValue = Number(bValue) || 0;
+        } else {
+          // Case-insensitive string comparison
+          if (typeof aValue === "string") aValue = aValue.toUpperCase();
+          if (typeof bValue === "string") bValue = bValue.toUpperCase();
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableData;
+  }, [items, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return "↕️";
+    return sortConfig.direction === "asc" ? "🔼" : "🔽";
+  };
   if (items.length === 0) {
     return (
       <p style={{ color: "var(--text-muted)", padding: "16px 0" }}>
@@ -33,13 +71,13 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
       </p>
     );
   }
-  const total = items.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+  const total = sorted.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
   const allSelected =
-    selectedItems && items.length > 0 && selectedItems.size === items.length;
+    selectedItems && sorted.length > 0 && selectedItems.size === sorted.length;
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table className="data-table">
+      <table className="data-table inventur-items-table">
         <thead>
           <tr>
             {selectedItems && (
@@ -52,25 +90,57 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
                 />
               </th>
             )}
-            <th>Artikelnummer</th>
-            <th className="hide-on-mobile">Name</th>
-            <th className="hide-on-mobile">Art</th>
-            <th className="hide-on-mobile">Farbe</th>
-            <th className="hide-on-mobile">Material</th>
-            <th>Verkaufspreis</th>
-            <th className="hide-on-mobile">Erstellt</th>
+            <th
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Artikelnummer")}>
+              Artikelnummer {getSortIcon("Artikelnummer")}
+            </th>
+            <th
+              className="hide-on-mobile"
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Name")}>
+              Name {getSortIcon("Name")}
+            </th>
+            <th
+              className="hide-on-mobile"
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Art")}>
+              Art {getSortIcon("Art")}
+            </th>
+            <th
+              className="hide-on-mobile"
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Farbe")}>
+              Farbe {getSortIcon("Farbe")}
+            </th>
+            <th
+              className="hide-on-mobile"
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Material")}>
+              Material {getSortIcon("Material")}
+            </th>
+            <th
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Verkaufspreis")}>
+              Verkaufspreis {getSortIcon("Verkaufspreis")}
+            </th>
+            <th
+              className="hide-on-mobile"
+              style={{ cursor: "pointer" }}
+              onClick={() => requestSort("Erstelldatum")}>
+              Erstellt {getSortIcon("Erstelldatum")}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
+          {sorted.map((item) => (
             <tr
               key={item.Artikelnummer}
               style={
                 selectedItems && selectedItems.has(item.Artikelnummer)
                   ? { background: "var(--bg-hover)" }
                   : {}
-              }
-            >
+              }>
               {selectedItems && (
                 <td style={{ textAlign: "center" }}>
                   <input
@@ -105,8 +175,7 @@ function ItemsTable({ items, selectedItems, toggleItemSelection, selectAll }) {
                 fontWeight: 600,
                 textAlign: "right",
                 padding: "8px 12px",
-              }}
-            >
+              }}>
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
@@ -221,16 +290,14 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       <div
         className="modal"
         style={{ maxWidth: 960, width: "95%" }}
-        onClick={(e) => e.stopPropagation()}
-      >
+        onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
             Inventur – {kundeName}
             {!kundeAktiv && (
               <span
                 className="badge danger"
-                style={{ marginLeft: 8, fontSize: 12 }}
-              >
+                style={{ marginLeft: 8, fontSize: 12 }}>
                 Inaktiv
               </span>
             )}
@@ -287,19 +354,16 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                     gap: 12,
                     marginBottom: 20,
                     flexWrap: "wrap",
-                  }}
-                >
+                  }}>
                   <span
-                    style={{ color: "var(--text-secondary)", fontSize: 13 }}
-                  >
+                    style={{ color: "var(--text-secondary)", fontSize: 13 }}>
                     Warenwert (aktiv):{" "}
                     <strong style={{ color: "var(--success)" }}>
                       {formatEur(data.stats.wert_aktiv)}
                     </strong>
                   </span>
                   <span
-                    style={{ color: "var(--text-secondary)", fontSize: 13 }}
-                  >
+                    style={{ color: "var(--text-secondary)", fontSize: 13 }}>
                     Warenwert (verkauft):{" "}
                     <strong style={{ color: "var(--info)" }}>
                       {formatEur(data.stats.wert_verkauft)}
@@ -314,14 +378,12 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                     gap: 4,
                     marginBottom: 16,
                     flexWrap: "wrap",
-                  }}
-                >
+                  }}>
                   {TABS.map((t) => (
                     <button
                       key={t.id}
                       className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => setTab(t.id)}
-                    >
+                      onClick={() => setTab(t.id)}>
                       {t.label}
                       {t.id !== "alle" && (
                         <span
@@ -331,8 +393,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                             borderRadius: 10,
                             padding: "1px 6px",
                             fontSize: 11,
-                          }}
-                        >
+                          }}>
                           {t.id === "aktiv"
                             ? data.stats.aktiv
                             : t.id === "verkauft"
@@ -357,8 +418,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
         <div
           className="modal-footer inventur-modal-footer"
-          style={{ justifyContent: "space-between" }}
-        >
+          style={{ justifyContent: "space-between" }}>
           <button
             className="btn btn-warning"
             onClick={handleRestock}
@@ -367,8 +427,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
               selectedItems.size === 0
                 ? "Wähle Artikel aus um zurückzulagern"
                 : `${selectedItems.size} Artikel zurücklagern`
-            }
-          >
+            }>
             <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
             {restocking
               ? "Lagere zurück…"
@@ -376,13 +435,11 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
           </button>
           <div
             className="inventur-modal-actions"
-            style={{ display: "flex", gap: 8 }}
-          >
+            style={{ display: "flex", gap: 8 }}>
             <button
               className="btn btn-primary"
               onClick={handleExcel}
-              disabled={exporting || loading}
-            >
+              disabled={exporting || loading}>
               <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: 6 }} />
               {exporting ? "Exportiere…" : "Excel Export"}
             </button>
@@ -401,6 +458,10 @@ export default function Inventur() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedKunde, setSelectedKunde] = useState(null);
+  const [sortConfig, setSortConfig] = useState({
+    key: "Name",
+    direction: "asc",
+  });
 
   const load = () => {
     setLoading(true);
@@ -423,6 +484,49 @@ export default function Inventur() {
         k.Name?.toUpperCase().includes(s) || k.Ort?.toUpperCase().includes(s),
     );
   }, [summary, search]);
+
+  const sorted = useMemo(() => {
+    let sortableData = [...filtered];
+    if (sortConfig.key !== null) {
+      sortableData.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Sort numerically for numeric fields
+        if (
+          sortConfig.key.includes("wert") ||
+          ["gesamt", "aktiv", "verkauft", "ausschuss"].includes(
+            sortConfig.key,
+          )
+        ) {
+          aValue = Number(aValue) || 0;
+          bValue = Number(bValue) || 0;
+        } else {
+          // Case-insensitive string comparison
+          if (typeof aValue === "string") aValue = aValue.toUpperCase();
+          if (typeof bValue === "string") bValue = bValue.toUpperCase();
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableData;
+  }, [filtered, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return "↕️";
+    return sortConfig.direction === "asc" ? "🔼" : "🔽";
+  };
 
   const totals = useMemo(
     () =>
@@ -478,34 +582,69 @@ export default function Inventur() {
                 : "Keine Ergebnisse für diese Suche."}
             </p>
           ) : (
-            <table className="data-table">
+            <table className="data-table inventur-table">
               <thead>
                 <tr>
-                  <th>Kunde</th>
-                  <th className="hide-on-mobile">Ort</th>
-                  <th style={{ textAlign: "right" }}>Gesamt</th>
-                  <th style={{ textAlign: "right" }}>Nicht verkauft</th>
-                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Verkauft</th>
-                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Ausschuss</th>
-                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Warenwert (aktiv)</th>
-                  <th className="hide-on-mobile" style={{ textAlign: "right" }}>Warenwert (verk.)</th>
+                  <th
+                    onClick={() => requestSort("Name")}
+                    style={{ cursor: "pointer" }}>
+                    Kunde {getSortIcon("Name")}
+                  </th>
+                  <th
+                    className="hide-on-mobile"
+                    onClick={() => requestSort("Ort")}
+                    style={{ cursor: "pointer" }}>
+                    Ort {getSortIcon("Ort")}
+                  </th>
+                  <th
+                    style={{ textAlign: "right", cursor: "pointer" }}
+                    onClick={() => requestSort("gesamt")}>
+                    Gesamt {getSortIcon("gesamt")}
+                  </th>
+                  <th
+                    style={{ textAlign: "right", cursor: "pointer" }}
+                    onClick={() => requestSort("aktiv")}>
+                    Nicht verkauft {getSortIcon("aktiv")}
+                  </th>
+                  <th
+                    className="hide-on-mobile"
+                    style={{ textAlign: "right", cursor: "pointer" }}
+                    onClick={() => requestSort("verkauft")}>
+                    Verkauft {getSortIcon("verkauft")}
+                  </th>
+                  <th
+                    className="hide-on-mobile"
+                    style={{ textAlign: "right", cursor: "pointer" }}
+                    onClick={() => requestSort("ausschuss")}>
+                    Ausschuss {getSortIcon("ausschuss")}
+                  </th>
+                  <th
+                    className="hide-on-mobile"
+                    style={{ textAlign: "right", cursor: "pointer" }}
+                    onClick={() => requestSort("wert_aktiv")}>
+                    Warenwert (aktiv) {getSortIcon("wert_aktiv")}
+                  </th>
+                  <th
+                    className="hide-on-mobile"
+                    style={{ textAlign: "right", cursor: "pointer" }}
+                    onClick={() => requestSort("wert_verkauft")}>
+                    Warenwert (verk.) {getSortIcon("wert_verkauft")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((k) => (
+                {sorted.map((k) => (
                   <>
                     <tr
                       key={k.ID}
                       style={{ cursor: "pointer" }}
-                      onClick={() => setSelectedKunde(k)}
-                    >
+                      onClick={() => setSelectedKunde(k)}>
                       <td>
                         <strong>{k.Name}</strong>
                         {!k.Aktiv && (
                           <span
                             className="badge danger"
-                            style={{ marginLeft: 8, fontSize: 10 }}
-                          >
+                            style={{ marginLeft: 8, fontSize: 10 }}>
                             Inaktiv
                           </span>
                         )}
@@ -517,20 +656,28 @@ export default function Inventur() {
                           {k.aktiv}
                         </span>
                       </td>
-                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <td
+                        className="hide-on-mobile"
+                        style={{ textAlign: "right" }}>
                         <span style={{ color: "var(--info)" }}>
                           {k.verkauft}
                         </span>
                       </td>
-                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <td
+                        className="hide-on-mobile"
+                        style={{ textAlign: "right" }}>
                         <span style={{ color: "var(--warning)" }}>
                           {k.ausschuss}
                         </span>
                       </td>
-                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <td
+                        className="hide-on-mobile"
+                        style={{ textAlign: "right" }}>
                         {formatEur(k.wert_aktiv)}
                       </td>
-                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <td
+                        className="hide-on-mobile"
+                        style={{ textAlign: "right" }}>
                         {formatEur(k.wert_verkauft)}
                       </td>
                     </tr>
@@ -546,10 +693,14 @@ export default function Inventur() {
                   <td style={{ textAlign: "right", color: "var(--success)" }}>
                     {totals.aktiv}
                   </td>
-                  <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--info)" }}>
+                  <td
+                    className="hide-on-mobile"
+                    style={{ textAlign: "right", color: "var(--info)" }}>
                     {totals.verkauft}
                   </td>
-                  <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--warning)" }}>
+                  <td
+                    className="hide-on-mobile"
+                    style={{ textAlign: "right", color: "var(--warning)" }}>
                     {totals.ausschuss}
                   </td>
                   <td className="hide-on-mobile" style={{ textAlign: "right" }}>
