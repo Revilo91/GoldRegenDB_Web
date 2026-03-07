@@ -601,11 +601,6 @@ export default function Inventur() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedKunde, setSelectedKunde] = useState(null);
-  const [sortConfig, setSortConfig] = useState({
-    key: "Name",
-    direction: "asc",
-  });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const load = () => {
     setLoading(true);
@@ -634,47 +629,6 @@ export default function Inventur() {
         k.Name?.toUpperCase().includes(s) || k.Ort?.toUpperCase().includes(s),
     );
   }, [summary, search]);
-
-  const sorted = useMemo(() => {
-    let sortableData = [...filtered];
-    if (sortConfig.key !== null) {
-      sortableData.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        // Sort numerically for numeric fields
-        if (
-          sortConfig.key.includes("wert") ||
-          ["gesamt", "aktiv", "verkauft", "ausschuss"].includes(sortConfig.key)
-        ) {
-          aValue = Number(aValue) || 0;
-          bValue = Number(bValue) || 0;
-        } else {
-          // Case-insensitive string comparison
-          if (typeof aValue === "string") aValue = aValue.toUpperCase();
-          if (typeof bValue === "string") bValue = bValue.toUpperCase();
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableData;
-  }, [filtered, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
 
   const totals = useMemo(
     () =>
