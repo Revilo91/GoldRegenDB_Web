@@ -46,10 +46,10 @@ BEGIN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Rechnung_ID', OLD."Rechnung_ID"::TEXT, NEW."Rechnung_ID"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
-        -- Online
-        IF OLD."Online" IS DISTINCT FROM NEW."Online" THEN
+            -- Ausschuss_Grund
+        IF OLD."Ausschuss_Grund" IS DISTINCT FROM NEW."Ausschuss_Grund" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
-            VALUES ('Schmuckstück', NEW."Artikelnummer", 'Online', OLD."Online"::TEXT, NEW."Online"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
+            VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausschuss_Grund', OLD."Ausschuss_Grund", NEW."Ausschuss_Grund", 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
     END IF;
     RETURN NEW;
@@ -124,7 +124,6 @@ CREATE TABLE "Schmuckstück" (
     "Zwischenstück" TEXT DEFAULT NULL,
     "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
     "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
-    "Online" SMALLINT DEFAULT 0,
     "Ausgelagert" INTEGER DEFAULT 0,
     "Verkauft" SMALLINT DEFAULT 0,
     "Ausschuss" SMALLINT DEFAULT 0,
