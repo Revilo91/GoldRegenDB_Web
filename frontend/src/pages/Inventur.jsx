@@ -1,10 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faFileExcel,
-  faTimes,
-  faBox,
-} from "@fortawesome/free-solid-svg-icons";
+import { faFileExcel, faTimes, faBox } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 const TABS = [
@@ -462,6 +458,7 @@ export default function Inventur() {
     key: "Name",
     direction: "asc",
   });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const load = () => {
     setLoading(true);
@@ -474,6 +471,12 @@ export default function Inventur() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const filtered = useMemo(() => {
@@ -495,9 +498,7 @@ export default function Inventur() {
         // Sort numerically for numeric fields
         if (
           sortConfig.key.includes("wert") ||
-          ["gesamt", "aktiv", "verkauft", "ausschuss"].includes(
-            sortConfig.key,
-          )
+          ["gesamt", "aktiv", "verkauft", "ausschuss"].includes(sortConfig.key)
         ) {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
@@ -686,9 +687,10 @@ export default function Inventur() {
               </tbody>
               <tfoot>
                 <tr style={{ fontWeight: 600, background: "var(--bg-hover)" }}>
-                  <td colSpan={2} style={{ padding: "8px 12px" }}>
+                  <td colSpan={isMobile ? 1 : 2} style={{ padding: "8px 12px" }}>
                     Gesamt
                   </td>
+
                   <td style={{ textAlign: "right" }}>{totals.gesamt}</td>
                   <td style={{ textAlign: "right", color: "var(--success)" }}>
                     {totals.aktiv}
