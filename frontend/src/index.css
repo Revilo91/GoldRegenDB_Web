@@ -342,6 +342,37 @@ body {
   border-bottom: none;
 }
 
+.data-table th.photo-col,
+.data-table td.photo-col {
+  width: 56px;
+  min-width: 56px;
+  padding-left: 14px;
+  padding-right: 8px;
+}
+
+.table-photo-thumb,
+.table-photo-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-photo-thumb {
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+}
+
+.table-photo-placeholder {
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  background: var(--bg-input);
+  font-size: 13px;
+}
+
 /* ============ BADGES ============ */
 .badge {
   display: inline-flex;
