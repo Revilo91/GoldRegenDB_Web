@@ -601,6 +601,11 @@ export default function Inventur() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedKunde, setSelectedKunde] = useState(null);
+  const [sortConfig, setSortConfig] = useState({
+    key: "Name",
+    direction: "asc",
+  });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const load = () => {
     setLoading(true);
@@ -629,6 +634,45 @@ export default function Inventur() {
         k.Name?.toUpperCase().includes(s) || k.Ort?.toUpperCase().includes(s),
     );
   }, [summary, search]);
+
+  const sorted = useMemo(() => {
+    const sortableData = [...filtered];
+    if (sortConfig.key !== null) {
+      sortableData.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        if (
+          sortConfig.key.includes("wert") ||
+          ["gesamt", "aktiv", "verkauft", "ausschuss"].includes(sortConfig.key)
+        ) {
+          aValue = Number(aValue) || 0;
+          bValue = Number(bValue) || 0;
+        } else {
+          if (typeof aValue === "string") aValue = aValue.toUpperCase();
+          if (typeof bValue === "string") bValue = bValue.toUpperCase();
+        }
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableData;
+  }, [filtered, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return "↕️";
+    return sortConfig.direction === "asc" ? "🔼" : "🔽";
+  };
 
   const totals = useMemo(
     () =>
@@ -736,54 +780,38 @@ export default function Inventur() {
               </thead>
               <tbody>
                 {sorted.map((k) => (
-                  <>
-                    <tr
-                      key={k.ID}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setSelectedKunde(k)}>
-                      <td>
-                        <strong>{k.Name}</strong>
-                        {!k.Aktiv && (
-                          <span
-                            className="badge danger"
-                            style={{ marginLeft: 8, fontSize: 10 }}>
-                            Inaktiv
-                          </span>
-                        )}
-                      </td>
-                      <td className="hide-on-mobile">{k.Ort || "–"}</td>
-                      <td style={{ textAlign: "right" }}>{k.gesamt}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--success)" }}>
-                          {k.aktiv}
+                  <tr
+                    key={k.ID}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelectedKunde(k)}>
+                    <td>
+                      <strong>{k.Name}</strong>
+                      {!k.Aktiv && (
+                        <span
+                          className="badge danger"
+                          style={{ marginLeft: 8, fontSize: 10 }}>
+                          Inaktiv
                         </span>
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--info)" }}>
-                          {k.verkauft}
-                        </span>
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        <span style={{ color: "var(--warning)" }}>
-                          {k.ausschuss}
-                        </span>
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        {formatEur(k.wert_aktiv)}
-                      </td>
-                      <td
-                        className="hide-on-mobile"
-                        style={{ textAlign: "right" }}>
-                        {formatEur(k.wert_verkauft)}
-                      </td>
-                    </tr>
-                  </>
+                      )}
+                    </td>
+                    <td className="hide-on-mobile">{k.Ort || "–"}</td>
+                    <td style={{ textAlign: "right" }}>{k.gesamt}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--success)" }}>{k.aktiv}</span>
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--info)" }}>{k.verkauft}</span>
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      <span style={{ color: "var(--warning)" }}>{k.ausschuss}</span>
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      {formatEur(k.wert_aktiv)}
+                    </td>
+                    <td className="hide-on-mobile" style={{ textAlign: "right" }}>
+                      {formatEur(k.wert_verkauft)}
+                    </td>
+                  </tr>
                 ))}
               </tbody>
               <tfoot>
