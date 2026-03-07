@@ -296,8 +296,7 @@ export default function Lieferscheine() {
                   ? { ...rest, kundennummer: e.target.value }
                   : rest,
               );
-            }}
-          >
+            }}>
             <option value="">Alle Kunden</option>
             {kunden.map((k) => (
               <option key={k.ID} value={k.ID}>
@@ -316,8 +315,7 @@ export default function Lieferscheine() {
                   ? { ...rest, jahr: e.target.value }
                   : rest,
               );
-            }}
-          >
+            }}>
             <option value="">Alle Jahre</option>
             {years.map((y) => (
               <option key={y} value={y}>
@@ -334,8 +332,7 @@ export default function Lieferscheine() {
               fontSize: 14,
               color: "var(--text-secondary)",
               userSelect: "none",
-            }}
-          >
+            }}>
             <input
               type="checkbox"
               checked={groupByKunde}
@@ -357,29 +354,19 @@ export default function Lieferscheine() {
               <thead>
                 <tr>
                   <th
-                    onClick={() => requestSort("ID")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    ID {getSortIcon("ID")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
                     onClick={() => requestSort("Nummer")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Nummer {getSortIcon("Nummer")}
                   </th>
                   <th
                     onClick={() => requestSort("KundenName")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Kunde {getSortIcon("KundenName")}
                   </th>
                   <th
                     className="hide-on-mobile"
                     onClick={() => requestSort("Datum")}
-                    style={{ cursor: "pointer" }}
-                  >
+                    style={{ cursor: "pointer" }}>
                     Datum {getSortIcon("Datum")}
                   </th>
                 </tr>
@@ -394,8 +381,7 @@ export default function Lieferscheine() {
                           className="group-header-row"
                           style={{ cursor: "pointer" }}
                           onClick={() => toggleGroup(group.key)}
-                          aria-label={`Kundengruppe: ${group.name}`}
-                        >
+                          aria-label={`Kundengruppe: ${group.name}`}>
                           <td colSpan={4}>
                             <span style={{ marginRight: 8 }}>
                               {isExpanded ? "▼" : "▶"}
@@ -406,8 +392,7 @@ export default function Lieferscheine() {
                                 fontWeight: "normal",
                                 color: "var(--text-muted)",
                                 fontSize: "0.9em",
-                              }}
-                            >
+                              }}>
                               ({group.items.length})
                             </span>
                           </td>
@@ -420,12 +405,8 @@ export default function Lieferscheine() {
                                   e.stopPropagation();
                                   openDetail(l.ID);
                                 }}
-                                style={{ cursor: "pointer" }}
-                              >
-                                <td>{l.ID}</td>
-                                <td className="hide-on-mobile">
-                                  <strong>{l.Nummer}</strong>
-                                </td>
+                                style={{ cursor: "pointer" }}>
+                                <td>{l.Nummer}</td>
                                 <td>
                                   {l.KundenName || `Kunde ${l.Kundennummer}`}
                                 </td>
@@ -448,12 +429,8 @@ export default function Lieferscheine() {
                       <tr
                         key={l.ID}
                         onClick={() => openDetail(l.ID)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <td>{l.ID}</td>
-                        <td className="hide-on-mobile">
-                          <strong>{l.Nummer}</strong>
-                        </td>
+                        style={{ cursor: "pointer" }}>
+                        <td>{l.Nummer}</td>
                         <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
                         <td className="hide-on-mobile">
                           {new Date(l.Datum).toLocaleDateString("de-DE", {
@@ -481,15 +458,13 @@ export default function Lieferscheine() {
               <button
                 className="btn btn-primary btn-sm"
                 style={{ marginLeft: "auto", marginRight: 8 }}
-                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}
-              >
+                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
                 Lieferschein erstellen
               </button>
               <button
                 className="btn btn-danger btn-sm"
                 style={{ marginRight: 16 }}
-                onClick={() => handleDelete(detail.ID)}
-              >
+                onClick={() => handleDelete(detail.ID)}>
                 <FontAwesomeIcon icon={faTrash} /> Löschen
               </button>
               <button className="modal-close" onClick={() => setDetail(null)}>
@@ -530,8 +505,7 @@ export default function Lieferscheine() {
                             display: "flex",
                             flexDirection: "column",
                             gap: "8px",
-                          }}
-                        >
+                          }}>
                           <div>
                             <span style={{ color: "#666", fontSize: "0.9em" }}>
                               Gesamtwert (brutto):
@@ -552,13 +526,11 @@ export default function Lieferscheine() {
                               paddingTop: "8px",
                               borderTop: "1px solid #eee",
                               fontSize: "1.1em",
-                            }}
-                          >
+                            }}>
                             <span>Voraussichtlich:</span>{" "}
                             <strong
                               className="dblUnderlined"
-                              style={{ color: "var(--primary)" }}
-                            >
+                              style={{ color: "var(--primary)" }}>
                               {finalTotal.toFixed(2)} €
                             </strong>
                           </div>
@@ -591,8 +563,7 @@ export default function Lieferscheine() {
                             display: "flex",
                             flexDirection: "column",
                             gap: "8px",
-                          }}
-                        >
+                          }}>
                           <label
                             style={{
                               fontSize: "0.9em",
@@ -600,8 +571,7 @@ export default function Lieferscheine() {
                               display: "block",
                               color: "#888",
                               fontWeight: "600",
-                            }}
-                          >
+                            }}>
                             Aufteilung (Netto nach Provision):
                           </label>
 
@@ -637,8 +607,7 @@ export default function Lieferscheine() {
                                   justifyContent: "space-between",
                                   gap: "12px",
                                   flexWrap: "wrap",
-                                }}
-                              >
+                                }}>
                                 <div>
                                   <strong>Marina:</strong>{" "}
                                   {marinaNetto.toFixed(2)} €
@@ -647,8 +616,7 @@ export default function Lieferscheine() {
                                       fontSize: "0.9em",
                                       color: "#999",
                                       marginLeft: "4px",
-                                    }}
-                                  >
+                                    }}>
                                     ({marinaBrutto.toFixed(2)} brutto)
                                   </span>
                                 </div>
@@ -660,8 +628,7 @@ export default function Lieferscheine() {
                                       fontSize: "0.9em",
                                       color: "#999",
                                       marginLeft: "4px",
-                                    }}
-                                  >
+                                    }}>
                                     ({saskiaBrutto.toFixed(2)} brutto)
                                   </span>
                                 </div>
@@ -720,8 +687,7 @@ export default function Lieferscheine() {
           onClick={() => {
             setEditing(null);
             loadAvailablePieces();
-          }}
-        >
+          }}>
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
@@ -730,8 +696,7 @@ export default function Lieferscheine() {
               height: "95vh",
               maxWidth: "1200px",
               maxHeight: "800px",
-            }}
-          >
+            }}>
             <div className="modal-header">
               <h3>🆕 Neuer Lieferschein ({form.Nummer})</h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
@@ -747,8 +712,7 @@ export default function Lieferscheine() {
                     value={form.Kundennummer}
                     onChange={(e) =>
                       setForm({ ...form, Kundennummer: e.target.value })
-                    }
-                  >
+                    }>
                     <option value="">Bitte wählen...</option>
                     {kunden.map((k) => (
                       <option key={k.ID} value={k.ID}>
@@ -765,8 +729,7 @@ export default function Lieferscheine() {
                     display: "flex",
                     gap: 24,
                     alignItems: "flex-start",
-                  }}
-                >
+                  }}>
                   {/* Linke Seite: Alle verfügbaren Schmuckstücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h5>Alle Schmuckstücke</h5>
@@ -783,12 +746,10 @@ export default function Lieferscheine() {
                         overflowY: "auto",
                         border: "1px solid var(--border)",
                         borderRadius: "var(--radius-sm)",
-                      }}
-                    >
+                      }}>
                       <table className="data-table">
                         <thead
-                          style={{ position: "sticky", top: 0, zIndex: 1 }}
-                        >
+                          style={{ position: "sticky", top: 0, zIndex: 1 }}>
                           <tr>
                             <th style={{ width: "40px" }}></th>
                             <th>Artikelnr.</th>
@@ -823,8 +784,7 @@ export default function Lieferscheine() {
                                   )
                                 }
                                 onClick={() => togglePiece(p.Artikelnummer)}
-                                style={{ cursor: "grab" }}
-                              >
+                                style={{ cursor: "grab" }}>
                                 <td>
                                   <input
                                     type="checkbox"
@@ -861,8 +821,7 @@ export default function Lieferscheine() {
                       />
                       <button
                         className="btn btn-secondary btn-sm"
-                        onClick={addByArtikelnummer}
-                      >
+                        onClick={addByArtikelnummer}>
                         Hinzufügen
                       </button>
                     </div>
@@ -883,8 +842,7 @@ export default function Lieferscheine() {
                             Artikelnummern: [...form.Artikelnummern, nr],
                           });
                         }
-                      }}
-                    >
+                      }}>
                       <table className="data-table">
                         <thead>
                           <tr>
@@ -909,8 +867,7 @@ export default function Lieferscheine() {
                                   <button
                                     className="btn btn-danger btn-sm"
                                     title="Entfernen"
-                                    onClick={() => togglePiece(nr)}
-                                  >
+                                    onClick={() => togglePiece(nr)}>
                                     <FontAwesomeIcon icon={faTimes} />
                                   </button>
                                 </td>
@@ -927,8 +884,7 @@ export default function Lieferscheine() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setEditing(null)}
-              >
+                onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
