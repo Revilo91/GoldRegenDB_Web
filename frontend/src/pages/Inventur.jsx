@@ -576,6 +576,21 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                 : `Rechnung erstellen (${selectedForRechnung.size})`}
             </button>
           </div>
+          style={{ justifyContent: "space-between" }}>
+          <button
+            className="btn btn-warning"
+            onClick={handleRestock}
+            disabled={restocking || loading || selectedItems.size === 0}
+            title={
+              selectedItems.size === 0
+                ? "Wähle Artikel aus um zurückzulagern"
+                : `${selectedItems.size} Artikel zurücklagern`
+            }>
+            <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
+            {restocking
+              ? "Lagere zurück…"
+              : `Zurücklagern (${selectedItems.size})`}
+          </button>
           <div
             className="inventur-modal-actions"
             style={{ display: "flex", gap: 8 }}>
