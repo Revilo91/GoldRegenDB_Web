@@ -128,7 +128,7 @@ CREATE TABLE "Schmuckstück" (
     "Ausgelagert" INTEGER DEFAULT 0,
     "Verkauft" SMALLINT DEFAULT 0,
     "Ausschuss" SMALLINT DEFAULT 0,
-    "Ausschuss_Grund" STEXT DEFAULT NULL,
+    "Ausschuss_Grund" TEXT DEFAULT NULL,
     "Lieferschein_ID" INTEGER DEFAULT 0,
     "Rechnung_ID" INTEGER DEFAULT 0,
     "Erstelldatum" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
