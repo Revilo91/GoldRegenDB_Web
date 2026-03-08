@@ -129,8 +129,23 @@ async function ensureAppUsersTable() {
         active BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP DEFAULT NULL,
-        CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
+        CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
       )
+    `);
+    // Migrate role constraint in existing deployments to support 'bearbeiter'
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'app_users_role_check'
+        ) THEN
+          ALTER TABLE app_users DROP CONSTRAINT app_users_role_check;
+        END IF;
+        ALTER TABLE app_users
+          ADD CONSTRAINT app_users_role_check
+          CHECK (role IN ('admin', 'bearbeiter', 'user'));
+      END
+      $$;
     `);
     // Seed default admin if table is empty
     // Password: admin (SHA-256 hashed on frontend, then bcrypt-hashed on backend)

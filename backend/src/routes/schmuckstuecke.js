@@ -5,6 +5,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const logger = require("../utils/logger");
+const { requireBearbeiter } = require("../middleware/auth");
 
 // Erstelle uploads-Verzeichnis falls nicht vorhanden
 const uploadsDir = path.join(__dirname, "../assets/uploads");
@@ -145,7 +146,7 @@ router.get("/foto/:fileName", (req, res) => {
 });
 
 // DELETE photo endpoint
-router.delete("/foto/:fileName", async (req, res) => {
+router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
   try {
     const fileName = req.params.fileName;
     const filePath = path.join(uploadsDir, fileName);
@@ -558,7 +559,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT update piece
-router.put("/:artikelnummer", async (req, res) => {
+router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
   try {
     const b = req.body;
     const ausschussGrundValue = resolveAusschussGrund(
@@ -646,7 +647,7 @@ router.put("/:artikelnummer", async (req, res) => {
 });
 
 // DELETE piece
-router.delete("/:artikelnummer", async (req, res) => {
+router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
   try {
     const { rowCount } = await db.query(
       'DELETE FROM "Schmuckstück" WHERE "Artikelnummer" = $1',

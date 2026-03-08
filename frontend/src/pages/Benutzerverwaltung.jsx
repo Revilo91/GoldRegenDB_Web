@@ -15,8 +15,31 @@ import { api } from "../api";
 
 const ROLES = [
   { value: "admin", label: "Admin" },
+  { value: "bearbeiter", label: "Bearbeiter" },
   { value: "user", label: "Benutzer" },
 ];
+
+function RoleBadge({ role }) {
+  if (role === "admin") {
+    return (
+      <span className="badge gold">
+        <FontAwesomeIcon icon={faCrown} /> Admin
+      </span>
+    );
+  }
+  if (role === "bearbeiter") {
+    return (
+      <span className="badge warning">
+        <FontAwesomeIcon icon={faPen} /> Bearbeiter
+      </span>
+    );
+  }
+  return (
+    <span className="badge info">
+      <FontAwesomeIcon icon={faUser} /> Benutzer
+    </span>
+  );
+}
 
 const EMPTY_FORM = {
   username: "",
@@ -414,19 +437,7 @@ export default function Benutzerverwaltung() {
                       <span>{selected.email || "–"}</span>
                       <strong>Rolle:</strong>
                       <span>
-                        <span
-                          className={`badge ${selected.role === "admin" ? "gold" : "info"}`}
-                        >
-                          {selected.role === "admin" ? (
-                            <>
-                              <FontAwesomeIcon icon={faCrown} /> Admin
-                            </>
-                          ) : (
-                            <>
-                              <FontAwesomeIcon icon={faUser} /> Benutzer
-                            </>
-                          )}
-                        </span>
+                        <RoleBadge role={selected.role} />
                       </span>
                       <strong>Status:</strong>
                       <span>
@@ -714,19 +725,7 @@ export default function Benutzerverwaltung() {
                     </td>
                     <td className="hide-on-mobile">{u.email || "–"}</td>
                     <td>
-                      <span
-                        className={`badge ${u.role === "admin" ? "gold" : "info"}`}
-                      >
-                        {u.role === "admin" ? (
-                          <>
-                            <FontAwesomeIcon icon={faCrown} /> Admin
-                          </>
-                        ) : (
-                          <>
-                            <FontAwesomeIcon icon={faUser} /> Benutzer
-                          </>
-                        )}
-                      </span>
+                      <RoleBadge role={u.role} />
                     </td>
                     <td>
                       <span

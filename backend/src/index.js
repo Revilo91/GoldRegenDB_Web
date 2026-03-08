@@ -5,7 +5,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 const db = require('./config/db');
 
-const { authenticate, requireAdmin } = require('./middleware/auth');
+const { authenticate, requireAdmin, requireBearbeiter } = require('./middleware/auth');
 const kundenRoutes = require('./routes/kunden');
 const schmuckstueckeRoutes = require('./routes/schmuckstuecke');
 const lieferscheineRoutes = require('./routes/lieferscheine');
@@ -87,19 +87,19 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Protected routes – all authenticated users
-app.use('/api/dashboard', apiLimiter, authenticate, dashboardRoutes);
-app.use('/api/kunden', apiLimiter, authenticate, kundenRoutes);
+// Protected routes – bearbeiter and admin (all non-admin authenticated users with full access)
+app.use('/api/dashboard', apiLimiter, authenticate, requireBearbeiter, dashboardRoutes);
+app.use('/api/kunden', apiLimiter, authenticate, requireBearbeiter, kundenRoutes);
 app.use('/api/schmuckstuecke', apiLimiter, authenticate, schmuckstueckeRoutes);
-app.use('/api/lieferscheine', apiLimiter, authenticate, lieferscheineRoutes);
-app.use('/api/rechnungen', apiLimiter, authenticate, rechnungenRoutes);
+app.use('/api/lieferscheine', apiLimiter, authenticate, requireBearbeiter, lieferscheineRoutes);
+app.use('/api/rechnungen', apiLimiter, authenticate, requireBearbeiter, rechnungenRoutes);
 app.use('/api/users', apiLimiter, authenticate, requireAdmin, usersRoutes);
 
-// SumUp routes (authentifiziert)
-app.use('/api/sumup', apiLimiter, authenticate, sumupRoutes);
+// SumUp routes (Bearbeiter und Admin)
+app.use('/api/sumup', apiLimiter, authenticate, requireBearbeiter, sumupRoutes);
 
-// Inventur route (authentifiziert)
-app.use('/api/inventur', apiLimiter, authenticate, inventurRoutes);
+// Inventur route (Bearbeiter und Admin)
+app.use('/api/inventur', apiLimiter, authenticate, requireBearbeiter, inventurRoutes);
 
 // Admin-only routes
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);

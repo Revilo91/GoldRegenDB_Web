@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS app_users (
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT NULL,
-    CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'user'))
+    CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
 );
 
 -- Default admin user (password: admin – must be changed after first login)

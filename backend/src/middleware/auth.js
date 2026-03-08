@@ -35,4 +35,12 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireAdmin, JWT_SECRET };
+function requireBearbeiter(req, res, next) {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'bearbeiter')) {
+    logger.warn('AUTH', `Bearbeiter-Zugriff verweigert: ${req.method} ${req.originalUrl}`, { user: req.user?.username, role: req.user?.role });
+    return res.status(403).json({ error: 'Zugriff verweigert – Bearbeiter-Berechtigung erforderlich' });
+  }
+  next();
+}
+
+module.exports = { authenticate, requireAdmin, requireBearbeiter, JWT_SECRET };
