@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const logger = require("../utils/logger");
 
-const VALID_ROLES = ["admin", "user"];
+const VALID_ROLES = ["admin", "bearbeiter", "user"];
 
 // A SHA-256 hash is always a 64-character lowercase hex string
 const SHA256_REGEX = /^[0-9a-f]{64}$/;
