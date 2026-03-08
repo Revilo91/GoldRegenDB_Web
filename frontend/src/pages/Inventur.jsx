@@ -54,8 +54,7 @@ function TablePhoto({ foto, artikelnummer }) {
     return (
       <span
         className="table-photo-placeholder"
-        title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}
-      >
+        title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}>
         <FontAwesomeIcon icon={faGem} />
       </span>
     );
@@ -73,7 +72,7 @@ function TablePhoto({ foto, artikelnummer }) {
 
 function ItemsTable({
   items,
-  selectedItems,
+  selectedForReturn,
   toggleItemSelection,
   selectAll,
   selectedForRechnung,
@@ -98,12 +97,20 @@ function ItemsTable({
           bValue = Number(bValue) || 0;
         } else if (sortConfig.key === "Artikelnummer") {
           return sortConfig.direction === "asc"
-            ? String(aValue || "").localeCompare(String(bValue || ""), undefined, {
-                numeric: true,
-              })
-            : String(bValue || "").localeCompare(String(aValue || ""), undefined, {
-                numeric: true,
-              });
+            ? String(aValue || "").localeCompare(
+                String(bValue || ""),
+                undefined,
+                {
+                  numeric: true,
+                },
+              )
+            : String(bValue || "").localeCompare(
+                String(aValue || ""),
+                undefined,
+                {
+                  numeric: true,
+                },
+              );
         } else {
           // Case-insensitive string comparison
           if (typeof aValue === "string") aValue = aValue.toUpperCase();
@@ -139,7 +146,9 @@ function ItemsTable({
   }
   const total = sorted.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
   const allSelected =
-    selectedItems && sorted.length > 0 && selectedItems.size === sorted.length;
+    selectedForReturn &&
+    sorted.length > 0 &&
+    selectedForReturn.size === sorted.length;
   const allSelectedForRechnung =
     selectedForRechnung &&
     items.length > 0 &&
@@ -150,13 +159,11 @@ function ItemsTable({
       <table className="data-table inventur-items-table">
         <thead>
           <tr>
-            {selectedItems && (
+            {selectedForReturn && (
               <th
                 style={{ width: 40, textAlign: "center" }}
-                title="Zurücklagern"
-                aria-label="Zurücklagern auswählen"
-              >
-                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">↩</div>
+                title="Zurücklagern">
+                <div style={{ fontSize: 8 }}>Zurück</div>
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -168,10 +175,8 @@ function ItemsTable({
             {selectedForRechnung && (
               <th
                 style={{ width: 40, textAlign: "center" }}
-                title="Rechnung erstellen"
-                aria-label="Für Rechnung auswählen"
-              >
-                <div style={{ fontSize: 10, marginBottom: 2 }} aria-hidden="true">🧾</div>
+                title="Rechnung erstellen">
+                <div style={{ fontSize: 8 }}>Rechnung</div>
                 <input
                   type="checkbox"
                   checked={allSelectedForRechnung}
@@ -187,21 +192,19 @@ function ItemsTable({
             <th className="photo-col">Foto</th>
             <th
               style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Artikelnummer")}
-            >
+              onClick={() => requestSort("Artikelnummer")}>
               Artikelnummer {getSortIcon("Artikelnummer")}
             </th>
             <th
+            className="hide-on-mobile"
               style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Verkaufspreis")}
-            >
+              onClick={() => requestSort("Verkaufspreis")}>
               Verkaufspreis {getSortIcon("Verkaufspreis")}
             </th>
             <th
-              className="hide-on-mobile"
+
               style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Erstelldatum")}
-            >
+              onClick={() => requestSort("Erstelldatum")}>
               Erstellt {getSortIcon("Erstelldatum")}
             </th>
           </tr>
@@ -214,17 +217,16 @@ function ItemsTable({
                 selectedForRechnung &&
                 selectedForRechnung.has(item.Artikelnummer)
                   ? { background: "var(--bg-hover)" }
-                  : selectedItems &&
-                      selectedItems.has(item.Artikelnummer)
+                  : selectedForReturn &&
+                      selectedForReturn.has(item.Artikelnummer)
                     ? { background: "var(--bg-hover)" }
                     : {}
-              }
-            >
-              {selectedItems && (
+              }>
+              {selectedForReturn && (
                 <td style={{ textAlign: "center" }}>
                   <input
                     type="checkbox"
-                    checked={selectedItems.has(item.Artikelnummer)}
+                    checked={selectedForReturn.has(item.Artikelnummer)}
                     onChange={() => toggleItemSelection(item.Artikelnummer)}
                   />
                 </td>
@@ -239,28 +241,37 @@ function ItemsTable({
                 </td>
               )}
               <td className="photo-col">
-                <TablePhoto foto={item.Foto} artikelnummer={item.Artikelnummer} />
+                <TablePhoto
+                  foto={item.Foto}
+                  artikelnummer={item.Artikelnummer}
+                />
               </td>
               <td>
-                <strong>{String(item.Artikelnummer || "").split("_")[0]}</strong>
+                <strong>
+                  {String(item.Artikelnummer || "").split("_")[0]}
+                </strong>
                 {Number(String(item.Artikelnummer || "").split("_")[1]) > 0 && (
                   <span className="badge warning">
                     {String(item.Artikelnummer || "").split("_")[1]}
                   </span>
                 )}
               </td>
-              <td>{formatEur(item.Verkaufspreis)}</td>
-              <td className="hide-on-mobile">
+              <td className="hide-on-mobile">{formatEur(item.Verkaufspreis)}</td>
+              <td >
                 {item.Erstelldatum
-                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
+                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })
                   : "–"}
               </td>
             </tr>
           ))}
         </tbody>
-        <tfoot>
+        <tfoot className="hide-on-mobile">
           <tr>
-            {selectedItems && <td />}
+            {selectedForReturn && <td />}
             {selectedForRechnung && <td />}
             <td className="photo-col" />
             <td
@@ -269,8 +280,7 @@ function ItemsTable({
                 fontWeight: 600,
                 textAlign: "right",
                 padding: "8px 12px",
-              }}
-            >
+              }}>
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
@@ -288,7 +298,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const [tab, setTab] = useState("aktiv");
   const [exporting, setExporting] = useState(false);
   const [restocking, setRestocking] = useState(false);
-  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [selectedForReturn, setselectedForReturn] = useState(new Set());
   const [selectedForRechnung, setSelectedForRechnung] = useState(new Set());
   const [creatingRechnung, setCreatingRechnung] = useState(false);
 
@@ -339,17 +349,17 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   };
 
   const handleRestock = async () => {
-    if (selectedItems.size === 0) {
+    if (selectedForReturn.size === 0) {
       alert("Bitte wähle mindestens einen Artikel aus");
       return;
     }
 
-    const confirm_msg = `Möchtest du ${selectedItems.size} Artikel von "${kundeName}" zurück ins Lager lagern (Ausgelagert = 0)?`;
+    const confirm_msg = `Möchtest du ${selectedForReturn.size} Artikel von "${kundeName}" zurück ins Lager lagern (Ausgelagert = 0)?`;
     if (!window.confirm(confirm_msg)) return;
 
     setRestocking(true);
     try {
-      await api.restockKundeSelective(kundeId, Array.from(selectedItems));
+      await api.restockKundeSelective(kundeId, Array.from(selectedForReturn));
       alert("Artikel erfolgreich zurückgelagert!");
       onRestock?.();
       onClose();
@@ -361,7 +371,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   };
 
   const toggleItemSelection = (artikelnummer) => {
-    setSelectedItems((prev) => {
+    setselectedForReturn((prev) => {
       const next = new Set(prev);
       if (next.has(artikelnummer)) {
         next.delete(artikelnummer);
@@ -374,10 +384,10 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
   const selectAll = () => {
     if (tabItems.length > 0) {
-      if (selectedItems.size === tabItems.length) {
-        setSelectedItems(new Set());
+      if (selectedForReturn.size === tabItems.length) {
+        setselectedForReturn(new Set());
       } else {
-        setSelectedItems(new Set(tabItems.map((i) => i.Artikelnummer)));
+        setselectedForReturn(new Set(tabItems.map((i) => i.Artikelnummer)));
       }
     }
   };
@@ -539,7 +549,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                       className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-secondary"}`}
                       onClick={() => {
                         setTab(t.id);
-                        setSelectedItems(new Set());
+                        setselectedForReturn(new Set());
                         setSelectedForRechnung(new Set());
                       }}>
                       {t.label}
@@ -565,7 +575,9 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
                 <ItemsTable
                   items={tabItems}
-                  selectedItems={tab === "aktiv" ? selectedItems : undefined}
+                  selectedForReturn={
+                    tab === "aktiv" ? selectedForReturn : undefined
+                  }
                   toggleItemSelection={toggleItemSelection}
                   selectAll={selectAll}
                   selectedForRechnung={
@@ -586,16 +598,16 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
             <button
               className="btn btn-warning"
               onClick={handleRestock}
-              disabled={restocking || loading || selectedItems.size === 0}
+              disabled={restocking || loading || selectedForReturn.size === 0}
               title={
-                selectedItems.size === 0
+                selectedForReturn.size === 0
                   ? "Wähle Artikel (↩) aus um zurückzulagern"
-                  : `${selectedItems.size} Artikel zurücklagern`
+                  : `${selectedForReturn.size} Artikel zurücklagern`
               }>
               <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
               {restocking
                 ? "Lagere zurück…"
-                : `Zurücklagern (${selectedItems.size})`}
+                : `Zurücklagern (${selectedForReturn.size})`}
             </button>
             <button
               className="btn btn-success"
