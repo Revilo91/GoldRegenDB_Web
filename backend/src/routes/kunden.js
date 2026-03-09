@@ -127,8 +127,6 @@ router.put('/:id/restock-selective', async (req, res) => {
       `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
       builder.getParams()
     );
-      [artikelnummern, req.params.id]
-    );
     logger.info('KUNDEN', `${rowCount} Artikel selektiv zurückgelagert für Kunde ID=${req.params.id}`, { anzahl: artikelnummern.length });
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
   } catch (err) {
