@@ -173,3 +173,4 @@ router.put("/change-password", authenticate, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.isValidSHA256 = isValidSHA256;
