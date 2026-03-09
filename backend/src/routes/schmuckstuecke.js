@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const logger = require("../utils/logger");
 const { requireBearbeiter } = require("../middleware/auth");
+const { where } = require("../utils/whereClauseBuilder");
 
 // Erstelle uploads-Verzeichnis falls nicht vorhanden
 const uploadsDir = path.join(__dirname, "../assets/uploads");
@@ -182,9 +183,8 @@ router.get("/", async (req, res) => {
     const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
 
-    let where = [];
-    let params = [];
-    let paramIdx = 1;
+    // Initialisiere WHERE-Builder
+    const builder = where();
 
     if (search) {
       // Überprüfe ob das Suchfeld ein Material-NAME ist (z.B. "Perle") oder ein Code (z.B. "P")
@@ -206,46 +206,40 @@ router.get("/", async (req, res) => {
 
       if (materialCode) {
         // Wenn das Suchfeld einem Material entspricht, suche nach dem Code
-        where.push(`SUBSTRING("Artikelnummer", 2, 1) = $${paramIdx}`);
-        params.push(materialCode);
-        paramIdx++;
+        builder.grundmaterial(materialCode);
       } else {
-        // Normale Textsuche (nach Artikelnummer, Name,  Material)
-        where.push(
+        // Normale Textsuche (nach Artikelnummer, Name, Material)
+        const paramIdx = builder.getNextParamIdx();
+        builder.raw(
           `("Artikelnummer" ILIKE $${paramIdx} OR "Name" ILIKE $${paramIdx} OR "Material" ILIKE $${paramIdx})`,
+          `%${search}%`
         );
-        params.push(`%${search}%`);
-        paramIdx++;
       }
     }
+    
     if (req.query.grundmaterial) {
-      where.push(`SUBSTRING("Artikelnummer", 2, 1) = $${paramIdx}`);
-      params.push(req.query.grundmaterial.toUpperCase());
-      paramIdx++;
+      builder.grundmaterial(req.query.grundmaterial);
     }
+    
     if (artikelnummer_art) {
-      where.push(`SUBSTRING("Artikelnummer", 3, 1) = $${paramIdx}`);
-      params.push(artikelnummer_art);
-      paramIdx++;
+      builder.produktart(artikelnummer_art);
     }
+    
     if (verkauft !== undefined) {
-      where.push(`"Verkauft" = $${paramIdx}`);
-      params.push(parseInt(verkauft));
-      paramIdx++;
+      builder.equals("Verkauft", parseInt(verkauft));
     }
+    
     if (ausgelagert !== undefined) {
-      where.push(`"Ausgelagert" = $${paramIdx}`);
-      params.push(parseInt(ausgelagert));
-      paramIdx++;
+      builder.equals("Ausgelagert", parseInt(ausgelagert));
     }
+    
     if (ausschuss !== undefined) {
-      where.push(`"Ausschuss" = $${paramIdx}`);
-      params.push(parseInt(ausschuss));
-      paramIdx++;
+      builder.equals("Ausschuss", parseInt(ausschuss));
     }
 
-
-    const whereClause = where.length > 0 ? "WHERE " + where.join(" AND ") : "";
+    const whereClause = builder.build();
+    const params = builder.getParams();
+    const nextParamIdx = builder.getNextParamIdx();
 
     // Count total
     const countResult = await db.query(
@@ -256,7 +250,7 @@ router.get("/", async (req, res) => {
 
     // Get page
     const { rows } = await db.query(
-      `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`,
       [...params, limit, offset],
     );
     const processedRows = rows.map((row) => {

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { where } = require('../utils/whereClauseBuilder');
 
 // GET all customers
 router.get('/', async (req, res) => {
@@ -38,9 +39,12 @@ router.get('/:id', async (req, res) => {
 // GET jewelry pieces for a customer (ausgelagert)
 router.get('/:id/schmuckstuecke', async (req, res) => {
   try {
+    const builder = where();
+    builder.ausgelagert(parseInt(req.params.id));
+
     const { rows } = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Ausgelagert" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      `SELECT * FROM "Schmuckstück" ${builder.build()} ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      builder.getParams()
     );
     res.json(rows);
   } catch (err) {
@@ -91,9 +95,12 @@ router.put('/:id', async (req, res) => {
 // PUT restock all items for a customer (set Ausgelagert = 0)
 router.put('/:id/restock', async (req, res) => {
   try {
+    const builder = where();
+    builder.ausgelagert(parseInt(req.params.id));
+
     const { rowCount } = await db.query(
-      'UPDATE "Schmuckstück" SET "Ausgelagert" = 0 WHERE "Ausgelagert" = $1',
-      [req.params.id]
+      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
+      builder.getParams()
     );
     logger.info('KUNDEN', `${rowCount} Artikel zurückgelagert für Kunde ID=${req.params.id}`);
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
@@ -111,9 +118,15 @@ router.put('/:id/restock-selective', async (req, res) => {
       return res.status(400).json({ error: 'Keine Artikelnummern angegeben' });
     }
 
+    const builder = where();
+    builder.artikelnummerIn(artikelnummern);
+    builder.ausgelagert(parseInt(req.params.id));
+
     // Use parameterized query with ANY for IN clause
     const { rowCount } = await db.query(
-      'UPDATE "Schmuckstück" SET "Ausgelagert" = 0 WHERE "Artikelnummer" = ANY($1) AND "Ausgelagert" = $2',
+      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
+      builder.getParams()
+    );
       [artikelnummern, req.params.id]
     );
     logger.info('KUNDEN', `${rowCount} Artikel selektiv zurückgelagert für Kunde ID=${req.params.id}`, { anzahl: artikelnummern.length });
