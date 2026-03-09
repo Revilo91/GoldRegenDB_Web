@@ -127,6 +127,7 @@ function AppLayout() {
   }
 
   const isAdmin = user.role === "admin";
+  const isBearbeiter = user.role === "admin" || user.role === "bearbeiter";
 
   // Determine if we need to show the forced password change modal
   const showForcedPasswordChange = mustChangePassword;
@@ -166,6 +167,7 @@ function AppLayout() {
           />
         </div>
         <nav className="sidebar-nav">
+          {isBearbeiter && (
           <NavLink
             to="/"
             end
@@ -177,6 +179,7 @@ function AppLayout() {
             </span>
             <span>Dashboard</span>
           </NavLink>
+          )}
           <NavLink
             to="/schmuckstuecke"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
@@ -187,6 +190,7 @@ function AppLayout() {
             </span>
             <span>Schmuckstücke</span>
           </NavLink>
+          {isBearbeiter && (
           <NavLink
             to="/kunden"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
@@ -197,6 +201,8 @@ function AppLayout() {
             </span>
             <span>Kunden</span>
           </NavLink>
+          )}
+          {isBearbeiter && (
           <NavLink
             to="/lieferscheine"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
@@ -207,6 +213,8 @@ function AppLayout() {
             </span>
             <span>Lieferscheine</span>
           </NavLink>
+          )}
+          {isBearbeiter && (
           <NavLink
             to="/rechnungen"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
@@ -217,6 +225,8 @@ function AppLayout() {
             </span>
             <span>Rechnungen</span>
           </NavLink>
+          )}
+          {isBearbeiter && (
           <NavLink
             to="/sumup"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
@@ -227,6 +237,8 @@ function AppLayout() {
             </span>
             <span>SumUp</span>
           </NavLink>
+          )}
+          {isBearbeiter && (
           <NavLink
             to="/inventur"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
@@ -237,6 +249,7 @@ function AppLayout() {
             </span>
             <span>Inventur</span>
           </NavLink>
+          )}
           {isAdmin && (
             <div className="nav-section-admin">
               <div className="nav-section nav-section-admin-title">
@@ -301,7 +314,9 @@ function AppLayout() {
           >
             <FontAwesomeIcon icon={faUser} />
             <span className="sidebar-username">{user.username}</span>
-            <span className={`role-badge role-${user.role}`}>{user.role}</span>
+            <span className={`role-badge role-${user.role}`}>
+              {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
+            </span>
           </button>
         </div>
       </aside>
@@ -329,7 +344,9 @@ function AppLayout() {
                 </div>
                 <div className="user-info-row">
                   <strong>Rolle:</strong>
-                  <span className={`role-badge role-${user.role}`}>{user.role}</span>
+                  <span className={`role-badge role-${user.role}`}>
+                    {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
+                  </span>
                 </div>
                 {user.email && (
                   <div className="user-info-row">
@@ -509,9 +526,13 @@ function AppLayout() {
           <Route
             path="/"
             element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
+              isBearbeiter ? (
+                <ProtectedRoute bearbeiterOnly>
+                  <Dashboard />
+                </ProtectedRoute>
+              ) : (
+                <Navigate to="/schmuckstuecke" replace />
+              )
             }
           />
           <Route
@@ -525,7 +546,7 @@ function AppLayout() {
           <Route
             path="/kunden"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute bearbeiterOnly>
                 <Kunden />
               </ProtectedRoute>
             }
@@ -533,7 +554,7 @@ function AppLayout() {
           <Route
             path="/lieferscheine"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute bearbeiterOnly>
                 <Lieferscheine />
               </ProtectedRoute>
             }
@@ -541,7 +562,7 @@ function AppLayout() {
           <Route
             path="/rechnungen"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute bearbeiterOnly>
                 <Rechnungen />
               </ProtectedRoute>
             }
@@ -549,7 +570,7 @@ function AppLayout() {
           <Route
             path="/sumup"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute bearbeiterOnly>
                 <Sumup />
               </ProtectedRoute>
             }
@@ -557,7 +578,7 @@ function AppLayout() {
           <Route
             path="/inventur"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute bearbeiterOnly>
                 <Inventur />
               </ProtectedRoute>
             }
@@ -594,7 +615,7 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
-          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/login" element={<Navigate to={isBearbeiter ? "/" : "/schmuckstuecke"} replace />} />
         </Routes>
       </main>
     </>
