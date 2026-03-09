@@ -7,7 +7,14 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "sync:fotos": "node scripts/sync-photo-column.js",
-    "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run"
+    "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run",
+    "test": "jest --forceExit"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -20,5 +27,9 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.0",
     "pg": "^8.19.0"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2"
   }
 }
