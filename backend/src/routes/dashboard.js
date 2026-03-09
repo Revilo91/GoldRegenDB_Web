@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
                 WHERE s."Ausgelagert" > 0 and s."Verkauft" = 0 and s."Ausschuss" = 0
                 GROUP BY k."Name" ORDER BY count DESC`),
       db.query(`SELECT TO_CHAR(r."Datum", 'YYYY-MM') AS monat,
-                  COUNT(s.*) AS stuecke,
+                  COUNT(*) AS stuecke,
                   COALESCE(SUM(s."Verkaufspreis"), 0) AS umsatz
                 FROM "Schmuckstück" s
                 JOIN "Rechnung" r ON s."Rechnung_ID" = r."ID"

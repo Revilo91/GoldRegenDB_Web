@@ -359,7 +359,7 @@ export default function Dashboard() {
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(v, name) => [
-                      name === "Umsatz" ? `${v.toFixed(2)}€` : v,
+                      name === "Umsatz" ? `${(v ?? 0).toFixed(2)}€` : v,
                       name,
                     ]}
                   />
