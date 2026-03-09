@@ -1,16 +1,103 @@
-[![Release für Synology](https://github.com/Revilo91/GoldRegenDB_Web_new/actions/workflows/release.yml/badge.svg)](https://github.com/Revilo91/GoldRegenDB_Web_new/actions/workflows/release.yml)
+# GoldRegenDB – Schmuckverwaltung
 
-## Synology-Deployment (empfohlen: Release-Paket)
+[![Release für Synology](https://github.com/Revilo91/GoldRegenDB_Web/actions/workflows/release.yml/badge.svg)](https://github.com/Revilo91/GoldRegenDB_Web/actions/workflows/release.yml)
 
-Das einfachste Deployment nutzt die fertigen Docker-Images aus dem Release-Paket.
+Webbasiertes Warenwirtschaftssystem für handgefertigten Schmuck (Beton, Perlen, Holz u. a.).  
+Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – vollständig containerisiert mit Docker.
 
-### Voraussetzungen
-- Synology NAS mit Docker/Container Manager (DSM 7+)
-- SSH-Zugang zur Synology
+---
 
-### Schnellstart
+## Inhaltsverzeichnis
 
-1. Neueste Version von der [Releases-Seite](https://github.com/Revilo91/GoldRegenDB_Web_new/releases) herunterladen: `goldregendb-synology-*.zip`
+- [Features](#features)
+- [Tech-Stack](#tech-stack)
+- [Voraussetzungen](#voraussetzungen)
+- [Schnellstart](#schnellstart)
+  - [Entwicklung (Hot-Reload)](#entwicklung-hot-reload)
+  - [Produktion (lokal)](#produktion-lokal)
+  - [Synology NAS](#synology-nas)
+- [Umgebungsvariablen](#umgebungsvariablen)
+- [Benutzerrollen](#benutzerrollen)
+- [Projektstruktur](#projektstruktur)
+- [Backup & Wiederherstellung](#backup--wiederherstellung)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Features
+
+- **Schmuckstückverwaltung** – Erstellen, Bearbeiten, Filtern und Suchen mit 34 Attributen (Art, Material, Farbe, Maße, Foto, Preise …)
+- **Foto-Upload** – Drag & Drop mit Vorschau; gespeichert in `backend/src/assets/uploads/`
+- **Kundenverwaltung** – Einzelhandelspartner mit Provision und Auslagerungsstatus
+- **Lieferscheine & Rechnungen** – Erstellen und Verknüpfen mit Schmuckstücken
+- **Inventurübersicht** – ausgelagerte Stücke pro Kunde mit Excel-Export
+- **SumUp-Integration** – CSV-Export verfügbarer Stücke; CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
+- **Dashboard** – Statistiken zu Gesamtbestand, Auslagerungen, Verkäufen und Umsatz
+- **Audit-Log** – automatisches Änderungsprotokoll über DB-Trigger
+- **Datensicherung** – JSON-Export und -Import aller Tabellen (Admin)
+- **Benutzerverwaltung** – JWT-Authentifizierung mit drei Rollen (Admin)
+
+---
+
+## Tech-Stack
+
+| Schicht       | Technologie                                          |
+|---------------|------------------------------------------------------|
+| Datenbank     | PostgreSQL 16                                        |
+| Backend       | Node.js · Express.js · `pg` (kein ORM)               |
+| Auth          | JWT (`jsonwebtoken`) · `bcryptjs`                    |
+| Datei-Upload  | `multer` (max. 5 MB, jpg/png/gif)                    |
+| Excel-Export  | `exceljs`                                            |
+| Rate Limiting | `express-rate-limit`                                 |
+| Frontend      | React 19 · Vite · React Router v7 · Font Awesome     |
+| Container     | Docker · Docker Compose · Nginx (Produktion)         |
+
+---
+
+## Voraussetzungen
+
+- [Docker](https://docs.docker.com/get-docker/) ≥ 24 und Docker Compose ≥ 2
+- Git (für den Entwicklungsmodus)
+
+---
+
+## Schnellstart
+
+### Entwicklung (Hot-Reload)
+
+```bash
+git clone https://github.com/Revilo91/GoldRegenDB_Web.git
+cd GoldRegenDB_Web
+
+cp .env.example .env          # Passwörter/Secrets anpassen!
+docker compose -f docker-compose.dev.yml up --build
+```
+
+| Dienst    | URL                       |
+|-----------|---------------------------|
+| Frontend  | http://localhost:5173      |
+| Backend   | http://localhost:3001      |
+| Datenbank | localhost:5432             |
+
+> Backend und Frontend starten mit Hot-Reload. Änderungen an Quell­dateien werden sofort übernommen.
+
+### Produktion (lokal)
+
+```bash
+cp .env.example .env          # Passwörter/Secrets anpassen!
+docker compose up --build -d
+```
+
+| Dienst    | URL                  |
+|-----------|----------------------|
+| Frontend  | http://localhost:3000 |
+| Backend   | http://localhost:3001 |
+
+### Synology NAS
+
+Das einfachste Deployment nutzt das fertige Release-Paket.
+
+1. Neueste Version von der [Releases-Seite](https://github.com/Revilo91/GoldRegenDB_Web/releases) herunterladen: `goldregendb-synology-*.zip`
 
 2. Paket auf die Synology kopieren und entpacken:
    ```bash
@@ -26,12 +113,6 @@ Das einfachste Deployment nutzt die fertigen Docker-Images aus dem Release-Paket
    cp /volume1/docker/goldregendb/.env.example /volume1/docker/goldregendb/.env
    nano /volume1/docker/goldregendb/.env
    ```
-   Mindestens folgende Werte anpassen (Beispiel):
-   ```
-   DB_PASSWORD=sicheres-passwort
-   JWT_SECRET=ein-langer-zufälliger-geheimer-schluessel
-   DATABASE_URL=postgresql://goldregen:sicheres-passwort@db:5432/goldregendb
-   ```
 
 4. Uploads-Ordner erstellen (für Fotos):
    ```bash
@@ -44,27 +125,136 @@ Das einfachste Deployment nutzt die fertigen Docker-Images aus dem Release-Paket
    docker compose up -d
    ```
 
-6. Frontend aufrufen: `http://<synology-ip>:3000`  
-   Standard-Login: **admin** / **admin123** (bitte sofort ändern!)
+6. Frontend aufrufen: `http://<synology-ip>:3000`
 
-> **Hinweis:** `VITE_API_URL` muss **nicht** gesetzt werden – die API-URL ist bereits ins Image eingebettet und wird über den internen nginx-Proxy geleitet.
+> **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet und wird über den internen Nginx-Proxy geleitet.
 
 ---
 
-## Troubleshooting (Docker Compose v1)
+## Umgebungsvariablen
 
-Wenn beim Start/Rebuild der Fehler `KeyError: 'ContainerConfig'` auftritt (häufig bei `docker-compose` v1), hilft ein kompletter Neuaufbau des Stacks:
+Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetzt (Vorlage: `.env.example`).
+
+| Variable        | Beschreibung                                       | Beispielwert                                           |
+|-----------------|----------------------------------------------------|--------------------------------------------------------|
+| `POSTGRES_DB`   | Datenbankname                                      | `goldregendb`                                          |
+| `POSTGRES_USER` | PostgreSQL-Superuser                               | `goldregen`                                            |
+| `DB_PASSWORD`   | Passwort des PostgreSQL-Superusers                 | `changeme`                                             |
+| `DATABASE_URL`  | Verbindungs-URL für das Backend                    | `postgresql://goldregen:changeme@db:5432/goldregendb`  |
+| `PORT`          | Backend-Port                                       | `3001`                                                 |
+| `JWT_SECRET`    | Geheimer Schlüssel für JWT-Tokens (lang & zufällig)| `change-this-to-a-long-random-secret`                  |
+| `NODE_ENV`      | Laufzeit-Umgebung                                  | `production` / `development`                           |
+| `VITE_API_URL`  | API-URL für das Frontend (nur Entwicklung)         | `http://localhost:3001/api`                            |
+
+> ⚠️ **`JWT_SECRET`** und **`DB_PASSWORD`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden.
+
+---
+
+## Benutzerrollen
+
+Standard-Login nach dem ersten Start: **admin** / **admin** (bitte sofort ändern!)
+
+| Rolle        | Berechtigungen                                                                                  |
+|--------------|-------------------------------------------------------------------------------------------------|
+| `admin`      | Vollzugriff: alle Seiten + Audit-Log, Debug, Benutzerverwaltung, Datensicherung                 |
+| `bearbeiter` | Alle Seiten außer Admin-Bereich (Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp, Inventur) |
+| `user`       | Nur Schmuckstücke anlegen                                                                       |
+
+---
+
+## Projektstruktur
+
+```
+GoldRegenDB_Web/
+├── docker-compose.yml              # Produktions-Stack
+├── docker-compose.dev.yml          # Entwicklungs-Stack (Hot-Reload)
+├── docker-compose.synology.yml     # Synology-NAS-spezifisch
+├── .env.example                    # Vorlage für Umgebungsvariablen
+│
+├── db/
+│   ├── init.sql                    # PostgreSQL-Schema (Tabellen + Trigger)
+│   ├── seed.sql                    # Initiale Daten
+│   ├── backup.sh                   # Backup-Skript (täglich/wöchentlich)
+│   ├── restore.sh                  # Wiederherstellungs-Skript
+│   └── README.md                   # Detaillierte Backup/Restore-Doku
+│
+├── backend/
+│   ├── src/
+│   │   ├── index.js                # Express-Einstiegspunkt
+│   │   ├── config/db.js            # PostgreSQL-Verbindung (pg Pool)
+│   │   ├── middleware/auth.js      # JWT-Middleware (authenticate, requireAdmin)
+│   │   ├── routes/                 # REST-API-Routen
+│   │   │   ├── auth.js             # Login, /me
+│   │   │   ├── users.js            # Benutzerverwaltung (Admin)
+│   │   │   ├── dashboard.js        # Statistiken
+│   │   │   ├── kunden.js           # Kunden CRUD
+│   │   │   ├── schmuckstuecke.js   # Schmuckstücke CRUD + Foto-Upload
+│   │   │   ├── lieferscheine.js    # Lieferscheine CRUD
+│   │   │   ├── rechnungen.js       # Rechnungen CRUD
+│   │   │   ├── sumup.js            # SumUp CSV Import/Export
+│   │   │   ├── inventur.js         # Inventurübersicht + Excel-Export
+│   │   │   ├── backup.js           # Datensicherung (Admin)
+│   │   │   └── auditLog.js         # Audit-Log (Admin)
+│   │   └── utils/excelService.js   # Excel-Generierung
+│   └── package.json
+│
+└── frontend/
+    ├── src/
+    │   ├── App.jsx                 # Root-Komponente (Router, Layout, Nav)
+    │   ├── api.js                  # API-Client (alle Backend-Aufrufe)
+    │   ├── context/AuthContext.jsx # Authentifizierungs-Kontext
+    │   ├── components/
+    │   │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Vorschau)
+    │   │   └── ProtectedRoute.jsx  # Routen-Schutz
+    │   └── pages/                  # Seiten-Komponenten
+    │       ├── Login.jsx
+    │       ├── Dashboard.jsx
+    │       ├── Schmuckstuecke.jsx
+    │       ├── Kunden.jsx
+    │       ├── Lieferscheine.jsx
+    │       ├── Rechnungen.jsx
+    │       ├── Sumup.jsx
+    │       ├── Inventur.jsx
+    │       ├── AuditLog.jsx        # Admin
+    │       ├── Benutzerverwaltung.jsx  # Admin
+    │       └── Datensicherung.jsx  # Admin
+    └── package.json
+```
+
+---
+
+## Backup & Wiederherstellung
+
+Detaillierte Dokumentation: [`db/README.md`](db/README.md)
+
+### Manuelles Backup (SQL-Dump via pg_dump)
+
+```bash
+# Produktion
+docker compose exec db /backup.sh
+
+# Entwicklung
+docker compose -f docker-compose.dev.yml exec db /backup.sh
+```
+
+Backups werden im Docker-Volume `pgbackups` unter `/backups/daily/` und `/backups/weekly/` gespeichert (7 tägliche + 4 wöchentliche Dumps).
+
+### JSON-Backup über die Web-Oberfläche (Admin)
+
+Unter **Einstellungen → Datensicherung** können alle Tabellen als JSON exportiert und wieder importiert werden.
+
+---
+
+## Troubleshooting
+
+**`KeyError: 'ContainerConfig'`** (Docker Compose v1)
 
 ```bash
 docker-compose -f docker-compose.dev.yml down
-docker-compose -f docker-compose.dev.yml up -d
-```
-
-Optional bei hartnäckigen Fällen:
-
-```bash
 docker builder prune -f
 docker-compose -f docker-compose.dev.yml up --build -d
 ```
 
-Hinweis: Im Backend sorgt `backend/scripts/dev-start.sh` zusätzlich dafür, dass bei Änderungen an `backend/package.json` Abhängigkeiten automatisch neu installiert werden.
+**Backend-Abhängigkeiten veraltet nach `package.json`-Änderung**
+
+Das Skript `backend/scripts/dev-start.sh` erkennt Änderungen an `package.json` automatisch und führt `npm install` neu aus.
