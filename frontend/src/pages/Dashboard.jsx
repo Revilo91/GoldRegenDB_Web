@@ -95,12 +95,7 @@ export default function Dashboard() {
     Stück: parseInt(item.count),
   }));
 
-  const statusData = data.statusDistribution || [
-    { name: "Im Lager", value: s.inStockPieces },
-    { name: "Ausgelagert", value: s.outsourcedPieces },
-    { name: "Verkauft", value: s.soldPieces },
-    { name: "Ausschuss", value: s.rejectPieces },
-  ];
+  const statusData = data.statusDistribution || [];
 
   const trendData = (data.monthlyRevenueTrend || []).map((item) => ({
     monat: item.monat,

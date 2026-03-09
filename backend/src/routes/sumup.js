@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const logger = require("../utils/logger");
+const { where } = require("../utils/whereClauseBuilder");
 
 // Produktart-Mapping basierend auf dem dritten Zeichen der Artikelnummer
 const PRODUKTART = {
@@ -90,12 +91,16 @@ router.post("/import", async (req, res) => {
     // Prüfe, ob Artikelnummern in DB existieren
     // Nutze LIKE um auch Suffix-Varianten (z.B. SPA425_1, SPA425_2) zu finden
     const likePatterns = artikelnummernArray.map((num) => `${num}%`);
+    const builder = where();
+    builder.verfuegbar(); // Verfügbar = nicht verkauft, kein Ausschuss, im Lager
+    builder.raw('"Artikelnummer" LIKE ANY($' + builder.getNextParamIdx() + '::text[])', likePatterns);
+
     const { rows: matchingItems } = await db.query(
       `SELECT "Artikelnummer", "Verkaufspreis"
        FROM "Schmuckstück"
-       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0 AND "Artikelnummer" LIKE ANY($1::text[])
+       ${builder.build()}
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
-      [likePatterns],
+      builder.getParams(),
     );
 
     // Pro angefragter Artikelnummer nur einen Treffer übernehmen
@@ -179,11 +184,16 @@ router.post("/import", async (req, res) => {
       // Nutze WHERE IN für bessere Performance statt individualer Updates
       const artikelnummernArray = existingItems.map((i) => i.Artikelnummer);
       if (artikelnummernArray.length > 0) {
+        const updateBuilder = where();
+        updateBuilder.artikelnummerIn(artikelnummernArray);
+        updateBuilder.nichtVerkauft();
+        updateBuilder.keinAusschuss();
+
         await db.query(
           `UPDATE "Schmuckstück"
            SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
-           WHERE "Artikelnummer" = ANY($3) AND "Verkauft" = 0 AND "Ausschuss" = 0`,
-          [messeKunde.ID, lieferschein.ID, artikelnummernArray],
+           ${updateBuilder.build()}`,
+          [messeKunde.ID, lieferschein.ID, ...updateBuilder.getParams()],
         );
       }
 
@@ -285,6 +295,9 @@ router.post("/import", async (req, res) => {
 // GET Sumup CSV export (Ausgelagert=0, Ausschuss=0, Verkauft=0)
 router.get("/export", async (req, res) => {
   try {
+    const builder = where();
+    builder.verfuegbar(); // Verfügbar = nicht verkauft, kein Ausschuss, im Lager
+
     // Alle verfügbaren Artikel laden
     const { rows } = await db.query(
       `SELECT "Artikelnummer", "Name", "Art", "Material", "Farbe", "Form", "Fassung",
@@ -295,8 +308,9 @@ router.get("/export", async (req, res) => {
               "Anhänger_Inhalt_Zusatzmaterial",
               "Anhänger", "Zwischenstück", "Grösse"
        FROM "Schmuckstück"
-       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0
+       ${builder.build()}
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      builder.getParams()
     );
 
     // CSV-Escape-Funktion

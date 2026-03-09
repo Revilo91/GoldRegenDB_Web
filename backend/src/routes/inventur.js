@@ -46,14 +46,16 @@ router.get('/:kundeId', async (req, res) => {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
 
-    const itemsRes = await db.query(
+    const builder = where();
+    builder.ausgelagert(kundeId);
+
+    const { rows: items } = await db.query(
       `SELECT * FROM "Schmuckstück"
-       WHERE "Ausgelagert" = $1
+       ${builder.build()}
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
-      [kundeId]
+      builder.getParams()
     );
 
-    const items = itemsRes.rows;
     const stats = {
       gesamt: items.length,
       aktiv: items.filter(i => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0).length,
@@ -87,15 +89,17 @@ router.get('/:kundeId/excel', async (req, res) => {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
 
-    const itemsRes = await db.query(
+    const builder = where();
+    builder.ausgelagert(kundeId);
+
+    const { rows: items } = await db.query(
       `SELECT * FROM "Schmuckstück"
-       WHERE "Ausgelagert" = $1
+       ${builder.build()}
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
-      [kundeId]
+      builder.getParams()
     );
 
     const kunde = kundeRes.rows[0];
-    const items = itemsRes.rows;
 
     const buffer = await generateInventurExcel(kunde, items);
 
