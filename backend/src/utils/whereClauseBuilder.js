@@ -204,6 +204,16 @@ class WhereClauseBuilder {
     return this;
   }
 
+  hersteller_Marina() {
+    this.hersteller("M");
+    return this;
+  }
+
+  hersteller_Saskia() {
+    this.hersteller("S");
+    return this;
+  }
+
   /**
    * FILTER: Grundmaterial (zweite Stelle der Artikelnummer)
    * z.B. 'B' = Beton, 'P' = Perle
