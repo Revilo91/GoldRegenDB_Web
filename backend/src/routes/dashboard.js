@@ -19,6 +19,7 @@ router.get('/', async (req, res) => {
       recentChanges,
       piecesByArt,
       piecesByKunde,
+      monthlyRevenueTrend,
     ] = await Promise.all([
       db.query('SELECT COUNT(*) FROM "Schmuckstück"'),
       db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Verkauft" = 1'),
@@ -36,15 +37,29 @@ router.get('/', async (req, res) => {
                 JOIN "Kunde" k ON s."Ausgelagert" = k."ID" 
                 WHERE s."Ausgelagert" > 0 and s."Verkauft" = 0 and s."Ausschuss" = 0
                 GROUP BY k."Name" ORDER BY count DESC`),
+      db.query(`SELECT TO_CHAR(r."Datum", 'YYYY-MM') AS monat,
+                  COUNT(s.*) AS stuecke,
+                  COALESCE(SUM(s."Verkaufspreis"), 0) AS umsatz
+                FROM "Schmuckstück" s
+                JOIN "Rechnung" r ON s."Rechnung_ID" = r."ID"
+                WHERE s."Verkauft" = 1 AND s."Rechnung_ID" > 0
+                GROUP BY monat
+                ORDER BY monat
+                LIMIT 24`),
     ]);
+
+    const inStockCount = parseInt(inStockPieces.rows[0].count);
+    const outsourcedCount = parseInt(outsourcedPieces.rows[0].count);
+    const soldCount = parseInt(soldPieces.rows[0].count);
+    const rejectCount = parseInt(rejectPieces.rows[0].count);
 
     res.json({
       statistics: {
         totalPieces: parseInt(totalPieces.rows[0].count),
-        soldPieces: parseInt(soldPieces.rows[0].count),
-        outsourcedPieces: parseInt(outsourcedPieces.rows[0].count),
-        rejectPieces: parseInt(rejectPieces.rows[0].count),
-        inStockPieces: parseInt(inStockPieces.rows[0].count),
+        soldPieces: soldCount,
+        outsourcedPieces: outsourcedCount,
+        rejectPieces: rejectCount,
+        inStockPieces: inStockCount,
         totalCustomers: parseInt(totalCustomers.rows[0].count),
         activeCustomers: parseInt(activeCustomers.rows[0].count),
         totalRevenue: parseFloat(totalRevenue.rows[0].total),
@@ -53,6 +68,17 @@ router.get('/', async (req, res) => {
       recentChanges: recentChanges.rows,
       piecesByArt: piecesByArt.rows,
       piecesByKunde: piecesByKunde.rows,
+      statusDistribution: [
+        { name: 'Im Lager', value: inStockCount },
+        { name: 'Ausgelagert', value: outsourcedCount },
+        { name: 'Verkauft', value: soldCount },
+        { name: 'Ausschuss', value: rejectCount },
+      ],
+      monthlyRevenueTrend: monthlyRevenueTrend.rows.map((r) => ({
+        monat: r.monat,
+        stuecke: parseInt(r.stuecke),
+        umsatz: parseFloat(r.umsatz),
+      })),
     });
   } catch (err) {
     logger.error('DASHBOARD', 'Fehler beim Laden des Dashboards', { message: err.message });
