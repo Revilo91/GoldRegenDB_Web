@@ -558,3 +558,5 @@ function extractArtikelnummer(text) {
 }
 
 module.exports = router;
+module.exports.parseCSVLines = parseCSVLines;
+module.exports.extractArtikelnummer = extractArtikelnummer;
