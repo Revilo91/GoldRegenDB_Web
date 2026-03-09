@@ -13,8 +13,11 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import PhotoUpload from "../components/PhotoUpload";
+import { useAuth } from "../context/AuthContext";
 
 export default function Schmuckstuecke() {
+  const { user } = useAuth();
+  const canEdit = user && (user.role === "admin" || user.role === "bearbeiter");
   const [data, setData] = useState({ data: [], pagination: {} });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -460,19 +463,23 @@ export default function Schmuckstuecke() {
                 )}
               </h3>
               <div style={{ marginLeft: "auto", marginRight: 16 }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  style={{ marginRight: 8 }}
-                  onClick={() => openEdit(selected)}
-                >
-                  <FontAwesomeIcon icon={faPen} /> Bearbeiten
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => handleDelete(selected.Artikelnummer)}
-                >
-                  <FontAwesomeIcon icon={faTrash} /> Löschen
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      style={{ marginRight: 8 }}
+                      onClick={() => openEdit(selected)}
+                    >
+                      <FontAwesomeIcon icon={faPen} /> Bearbeiten
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(selected.Artikelnummer)}
+                    >
+                      <FontAwesomeIcon icon={faTrash} /> Löschen
+                    </button>
+                  </>
+                )}
               </div>
               <button className="modal-close" onClick={() => setSelected(null)}>
                 ×
