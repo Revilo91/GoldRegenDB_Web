@@ -68,7 +68,7 @@ class WhereClauseBuilder {
    */
   verfuegbar() {
     this.conditions.push(
-      `"Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0`
+      `"Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0`,
     );
     return this;
   }
@@ -96,13 +96,13 @@ class WhereClauseBuilder {
   aktivAusgelagert(kundeId = null) {
     if (kundeId !== null) {
       this.conditions.push(
-        `"Ausgelagert" = $${this.paramIdx} AND "Verkauft" = 0 AND "Ausschuss" = 0`
+        `"Ausgelagert" = $${this.paramIdx} AND "Verkauft" = 0 AND "Ausschuss" = 0`,
       );
       this.params.push(kundeId);
       this.paramIdx++;
     } else {
       this.conditions.push(
-        `"Ausgelagert" > 0 AND "Verkauft" = 0 AND "Ausschuss" = 0`
+        `"Ausgelagert" > 0 AND "Verkauft" = 0 AND "Ausschuss" = 0`,
       );
     }
     return this;
@@ -196,7 +196,9 @@ class WhereClauseBuilder {
    * z.B. 'M' = Marina, 'S' = Saskia
    */
   hersteller(buchstabe) {
-    this.conditions.push(`SUBSTRING("Artikelnummer", 1, 1) = $${this.paramIdx}`);
+    this.conditions.push(
+      `SUBSTRING("Artikelnummer", 1, 1) = $${this.paramIdx}`,
+    );
     this.params.push(buchstabe.toUpperCase());
     this.paramIdx++;
     return this;
@@ -207,7 +209,9 @@ class WhereClauseBuilder {
    * z.B. 'B' = Beton, 'P' = Perle
    */
   grundmaterial(buchstabe) {
-    this.conditions.push(`SUBSTRING("Artikelnummer", 2, 1) = $${this.paramIdx}`);
+    this.conditions.push(
+      `SUBSTRING("Artikelnummer", 2, 1) = $${this.paramIdx}`,
+    );
     this.params.push(buchstabe.toUpperCase());
     this.paramIdx++;
     return this;
@@ -218,7 +222,9 @@ class WhereClauseBuilder {
    * z.B. 'A' = Armband, 'H' = Halskette, 'O' = Ohrring
    */
   produktart(buchstabe) {
-    this.conditions.push(`SUBSTRING("Artikelnummer", 3, 1) = $${this.paramIdx}`);
+    this.conditions.push(
+      `SUBSTRING("Artikelnummer", 3, 1) = $${this.paramIdx}`,
+    );
     this.params.push(buchstabe.toUpperCase());
     this.paramIdx++;
     return this;
