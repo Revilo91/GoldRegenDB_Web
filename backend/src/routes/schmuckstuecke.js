@@ -664,3 +664,6 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.resolveAusschussGrund = resolveAusschussGrund;
+module.exports.GRUNDMATERIAL = GRUNDMATERIAL;
+module.exports.PRODUKTART = PRODUKTART;
