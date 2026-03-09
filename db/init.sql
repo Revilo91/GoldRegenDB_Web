@@ -2,6 +2,20 @@
 -- Migriert von MariaDB/MySQL
 
 -- ============================================================
+-- Multi-Tenant Support
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tenants (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Default tenant for single-tenant installations and existing data migration
+INSERT INTO tenants (id, name) VALUES (1, 'Default')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
 -- Trigger-Funktionen
 -- ============================================================
 
@@ -71,8 +85,10 @@ CREATE TABLE "Kunde" (
     "Telefonnummer" TEXT DEFAULT NULL,
     "Provision" INTEGER NOT NULL DEFAULT 0,
     "Aktiv" BOOLEAN NOT NULL DEFAULT FALSE,
+    "tenant_id" INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY ("Name"),
-    UNIQUE ("ID")
+    UNIQUE ("ID"),
+    CONSTRAINT "kunde_tenant_id_fk" FOREIGN KEY ("tenant_id") REFERENCES tenants(id)
 );
 
 CREATE TABLE "Lieferschein" (
@@ -80,9 +96,11 @@ CREATE TABLE "Lieferschein" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "tenant_id" INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY ("Nummer"),
     UNIQUE ("ID"),
-    CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
+    CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID"),
+    CONSTRAINT "lieferschein_tenant_id_fk" FOREIGN KEY ("tenant_id") REFERENCES tenants(id)
 );
 
 CREATE TABLE "Rechnung" (
@@ -90,8 +108,10 @@ CREATE TABLE "Rechnung" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "tenant_id" INTEGER NOT NULL DEFAULT 1,
     PRIMARY KEY ("Nummer"),
-    CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
+    CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID"),
+    CONSTRAINT "rechnung_tenant_id_fk" FOREIGN KEY ("tenant_id") REFERENCES tenants(id)
 );
 
 CREATE INDEX idx_rechnung_id ON "Rechnung" ("ID");
@@ -132,12 +152,18 @@ CREATE TABLE "Schmuckstück" (
     "Rechnung_ID" INTEGER DEFAULT 0,
     "Erstelldatum" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "Letzte_Änderung" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY ("Artikelnummer")
+    "tenant_id" INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY ("Artikelnummer"),
+    CONSTRAINT "schmuckstueck_tenant_id_fk" FOREIGN KEY ("tenant_id") REFERENCES tenants(id)
 );
 
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");
 CREATE INDEX idx_schmuck_lieferschein ON "Schmuckstück" ("Lieferschein_ID");
 CREATE INDEX idx_schmuck_rechnung ON "Schmuckstück" ("Rechnung_ID");
+CREATE INDEX idx_schmuckstueck_tenant_id ON "Schmuckstück" ("tenant_id");
+CREATE INDEX idx_kunde_tenant_id ON "Kunde" ("tenant_id");
+CREATE INDEX idx_lieferschein_tenant_id ON "Lieferschein" ("tenant_id");
+CREATE INDEX idx_rechnung_tenant_id ON "Rechnung" ("tenant_id");
 
 CREATE TABLE audit_log (
     id SERIAL PRIMARY KEY,
@@ -168,8 +194,12 @@ CREATE TABLE IF NOT EXISTS app_users (
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT NULL,
-    CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user')),
+    CONSTRAINT app_users_tenant_id_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_app_users_tenant_id ON app_users (tenant_id);
 
 -- Default admin user (password: admin – must be changed after first login)
 -- Password is stored as bcrypt(SHA-256("admin")): frontend hashes with SHA-256,

@@ -5,12 +5,15 @@ const logger = require('../utils/logger');
 
 // GET all invoices
 router.get('/', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT r.*, k."Name" as "KundenName"
        FROM "Rechnung" r
        LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
-       ORDER BY r."Datum" DESC`
+       WHERE r."tenant_id" = $1
+       ORDER BY r."Datum" DESC`,
+      [tenantId]
     );
     logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen`);
     res.json(rows);
@@ -22,21 +25,22 @@ router.get('/', async (req, res) => {
 
 // GET single
 router.get('/:id', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT r.*, k."Name" as "KundenName", k."Provision"
        FROM "Rechnung" r
        LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
-       WHERE r."ID" = $1`,
-      [req.params.id]
+       WHERE r."ID" = $1 AND r."tenant_id" = $2`,
+      [req.params.id, tenantId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 AND "tenant_id" = $2 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      [req.params.id, tenantId]
     );
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
@@ -50,20 +54,21 @@ router.get('/:id', async (req, res) => {
 const { generateExcel } = require('../utils/excelService');
 
 router.get('/:id/excel', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT r.*, k.*
        FROM "Rechnung" r
        LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
-       WHERE r."ID" = $1`,
-      [req.params.id]
+       WHERE r."ID" = $1 AND r."tenant_id" = $2`,
+      [req.params.id, tenantId]
     );
 
     if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 AND "tenant_id" = $2 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      [req.params.id, tenantId]
     );
 
     // Compute invoice period from Lieferschein dates of the pieces
@@ -71,8 +76,8 @@ router.get('/:id/excel', async (req, res) => {
     let rechungsZeitraum = null;
     if (lieferscheinIds.length > 0) {
       const lsResult = await db.query(
-        `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[])`,
-        [lieferscheinIds]
+        `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[]) AND "tenant_id" = $2`,
+        [lieferscheinIds, tenantId]
       );
       if (lsResult.rows[0] && lsResult.rows[0].min_datum) {
         const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE', {
@@ -107,20 +112,21 @@ router.get('/:id/excel', async (req, res) => {
 
 // POST create
 router.post('/', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { Nummer, Artikelnummern, Kundennummer } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer")
-       VALUES ($1, $2) RETURNING *`,
-      [Nummer, Kundennummer]
+      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "tenant_id")
+       VALUES ($1, $2, $3) RETURNING *`,
+      [Nummer, Kundennummer, tenantId]
     );
 
     const rechnungId = rows[0].ID;
 
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [rechnungId, Artikelnummern]
+        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[]) AND "tenant_id" = $3`,
+        [rechnungId, Artikelnummern, tenantId]
       );
     }
 
@@ -134,25 +140,26 @@ router.post('/', async (req, res) => {
 
 // PUT update
 router.put('/:id', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { Nummer, Artikelnummern, Kundennummer } = req.body;
     const { rows } = await db.query(
       `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2
-       WHERE "ID" = $3 RETURNING *`,
-      [Nummer, Kundennummer, req.params.id]
+       WHERE "ID" = $3 AND "tenant_id" = $4 RETURNING *`,
+      [Nummer, Kundennummer, req.params.id, tenantId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
 
     // Reset old associations
-    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
+    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1 AND "tenant_id" = $2`, [req.params.id, tenantId]);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [req.params.id, Artikelnummern]
+        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[]) AND "tenant_id" = $3`,
+        [req.params.id, Artikelnummern, tenantId]
       );
     }
 
@@ -166,15 +173,16 @@ router.put('/:id', async (req, res) => {
 
 // DELETE
 router.delete('/:id', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     // Reset associations before deleting
     await db.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`,
-      [req.params.id]
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1 AND "tenant_id" = $2`,
+      [req.params.id, tenantId]
     );
     const { rowCount } = await db.query(
-      'DELETE FROM "Rechnung" WHERE "ID" = $1',
-      [req.params.id]
+      'DELETE FROM "Rechnung" WHERE "ID" = $1 AND "tenant_id" = $2',
+      [req.params.id, tenantId]
     );
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });

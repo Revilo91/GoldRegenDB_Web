@@ -244,13 +244,84 @@ async function ensureAusschussGrundConstraint() {
   }
 }
 
+// Ensure tenants table exists and default tenant (id=1) is present.
+async function ensureTenantsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      INSERT INTO tenants (id, name) VALUES (1, 'Default')
+      ON CONFLICT (id) DO NOTHING
+    `);
+    // Keep the sequence ahead of the highest id so future inserts don't collide.
+    await pool.query(`
+      SELECT setval(
+        pg_get_serial_sequence('tenants', 'id'),
+        GREATEST((SELECT COALESCE(MAX(id), 0) FROM tenants), 1),
+        true
+      )
+    `);
+    logger.info('DB', 'Tenants-Tabelle verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren der Tenants-Tabelle', { message: err.message });
+  }
+}
+
+// Add tenant_id column (with FK and index) to domain tables and app_users.
+// Idempotent: uses ADD COLUMN IF NOT EXISTS and checks for existing constraints/indexes.
+// Existing rows automatically get tenant_id = 1 (the Default tenant) via the column DEFAULT.
+async function ensureTenantIdColumns() {
+  const domainTables = [
+    { table: 'app_users',    indexName: 'idx_app_users_tenant_id',    fkName: 'app_users_tenant_id_fk' },
+    { table: 'Kunde',        indexName: 'idx_kunde_tenant_id',        fkName: 'kunde_tenant_id_fk' },
+    { table: 'Lieferschein', indexName: 'idx_lieferschein_tenant_id', fkName: 'lieferschein_tenant_id_fk' },
+    { table: 'Rechnung',     indexName: 'idx_rechnung_tenant_id',     fkName: 'rechnung_tenant_id_fk' },
+    { table: 'Schmuckstück', indexName: 'idx_schmuckstueck_tenant_id', fkName: 'schmuckstueck_tenant_id_fk' },
+  ];
+  try {
+    for (const { table, indexName, fkName } of domainTables) {
+      // Add column with DEFAULT 1 so all existing rows are migrated automatically.
+      await pool.query(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "tenant_id" INTEGER NOT NULL DEFAULT 1`);
+
+      // Add FK constraint only if it does not already exist.
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            WHERE c.conname = '${fkName}'
+          ) THEN
+            ALTER TABLE "${table}"
+              ADD CONSTRAINT "${fkName}"
+              FOREIGN KEY ("tenant_id") REFERENCES tenants(id);
+          END IF;
+        END $$;
+      `);
+
+      // Index is safe to re-run with IF NOT EXISTS.
+      await pool.query(`CREATE INDEX IF NOT EXISTS "${indexName}" ON "${table}" ("tenant_id")`);
+    }
+    logger.info('DB', 'tenant_id-Spalten in Domain-Tabellen verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Hinzufügen der tenant_id-Spalten', { message: err.message });
+  }
+}
+
 // Test connection and ensure schema on startup
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
     logger.info('DB', `Verbindung erfolgreich hergestellt. Server-Zeit: ${res.rows[0].server_time}`);
     return ensureAppUsersTable()
       .then(() => ensureAuditUserContextFunction())
-      .then(() => ensureAusschussGrundConstraint());
+      .then(() => ensureAusschussGrundConstraint())
+      .then(() => ensureTenantsTable())
+      .then(() => ensureTenantIdColumns());
   })
   .catch((err) => {
     logger.error('DB', 'Verbindung zur Datenbank fehlgeschlagen', { message: err.message, code: err.code });

@@ -4,7 +4,7 @@ const db = require('../config/db');
 const logger = require('../utils/logger');
 
 // Tables to export/import (in FK-safe order for import)
-const EXPORT_TABLES = ['app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
+const EXPORT_TABLES = ['tenants', 'app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
 
 // GET /api/backup/export – Export selected (or all) tables as a JSON file
 // Optional query param: ?tables=Kunde,Lieferschein,... (comma-separated)
@@ -109,7 +109,7 @@ router.post('/import', async (req, res) => {
 
   // Determine which tables to actually import
   // FK-safe truncation/insertion order (children before parents)
-  const FK_SAFE_ORDER = ['Schmuckstück', 'Rechnung', 'Lieferschein', 'Kunde', 'audit_log', 'app_users'];
+  const FK_SAFE_ORDER = ['Schmuckstück', 'Rechnung', 'Lieferschein', 'Kunde', 'audit_log', 'app_users', 'tenants'];
 
   let tablesToImport;
   if (Array.isArray(selectedTables) && selectedTables.length > 0) {
@@ -191,7 +191,7 @@ router.post('/import', async (req, res) => {
     };
 
     // Insert rows in FK-safe order (parents before children)
-    const INSERT_ORDER = ['app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
+    const INSERT_ORDER = ['tenants', 'app_users', 'audit_log', 'Kunde', 'Lieferschein', 'Rechnung', 'Schmuckstück'];
     for (const tableName of INSERT_ORDER) {
       if (tablesToImport.includes(tableName)) {
         await insertRows(tableName, tables[tableName]);
@@ -200,6 +200,7 @@ router.post('/import', async (req, res) => {
 
     // Reset SERIAL sequences to avoid PK conflicts on future inserts
     const allSeqResets = {
+      tenants: `SELECT setval(pg_get_serial_sequence('tenants', 'id'), COALESCE((SELECT MAX("id") FROM "tenants"), 0) + 1, false)`,
       app_users: `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
       audit_log: `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
       Kunde: `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,

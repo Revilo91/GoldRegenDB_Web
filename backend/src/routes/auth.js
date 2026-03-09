@@ -31,7 +31,7 @@ router.post("/login", async (req, res) => {
   try {
     logger.info("AUTH", `Login-Versuch für Benutzer: ${username}`);
     const { rows } = await db.query(
-      "SELECT id, username, password_hash, role, active, must_change_password FROM app_users WHERE username = $1",
+      "SELECT id, username, password_hash, role, active, must_change_password, tenant_id FROM app_users WHERE username = $1",
       [username],
     );
     const user = rows[0];
@@ -67,14 +67,14 @@ router.post("/login", async (req, res) => {
       [user.id],
     );
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, tenant_id: user.tenant_id ?? 1 },
       JWT_SECRET,
       { expiresIn: "8h" },
     );
-    logger.info("AUTH", `Login erfolgreich: ${username} (Rolle: ${user.role})`);
+    logger.info("AUTH", `Login erfolgreich: ${username} (Rolle: ${user.role}, Tenant: ${user.tenant_id ?? 1})`);
     res.json({
       token,
-      user: { id: user.id, username: user.username, role: user.role },
+      user: { id: user.id, username: user.username, role: user.role, tenant_id: user.tenant_id ?? 1 },
       mustChangePassword: !!user.must_change_password,
     });
   } catch (err) {

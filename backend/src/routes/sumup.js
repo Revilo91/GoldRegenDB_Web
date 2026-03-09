@@ -13,6 +13,7 @@ const PRODUKTART = {
 
 // POST /api/sumup/import - Import SumUp Verkaufsbericht
 router.post("/import", async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     // CSV-Daten aus Body (als String oder Array)
     const csvData = req.body.csvData;
@@ -93,9 +94,9 @@ router.post("/import", async (req, res) => {
     const { rows: matchingItems } = await db.query(
       `SELECT "Artikelnummer", "Verkaufspreis"
        FROM "Schmuckstück"
-       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0 AND "Artikelnummer" LIKE ANY($1::text[])
+       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0 AND "Artikelnummer" LIKE ANY($1::text[]) AND "tenant_id" = $2
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
-      [likePatterns],
+      [likePatterns, tenantId],
     );
 
     // Pro angefragter Artikelnummer nur einen Treffer übernehmen
@@ -136,16 +137,18 @@ router.post("/import", async (req, res) => {
 
     // Hole Kunde "Messe"
     const { rows: kundenResult } = await db.query(
-      `SELECT "ID", "Name" FROM "Kunde" WHERE "Name" ILIKE '%messe%' LIMIT 1`,
+      `SELECT "ID", "Name" FROM "Kunde" WHERE "Name" ILIKE '%messe%' AND "tenant_id" = $1 LIMIT 1`,
+      [tenantId],
     );
 
     let messeKunde;
     if (kundenResult.length === 0) {
       // Erstelle Messe-Kunde falls nicht vorhanden
       const { rows: newKunde } = await db.query(
-        `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Provision", "Aktiv")
-         VALUES ('Messe', '', 0, '', 0, 0, true)
+        `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Provision", "Aktiv", "tenant_id")
+         VALUES ('Messe', '', 0, '', 0, 0, true, $1)
          RETURNING "ID", "Name"`,
+        [tenantId],
       );
       messeKunde = newKunde[0];
     } else {
@@ -161,16 +164,16 @@ router.post("/import", async (req, res) => {
       const { rows: lieferscheinnummerResult } = await db.query(
         `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
          FROM "Lieferschein"
-         WHERE "Nummer" ~ $1`,
-        [`^${aktuellesJahr}-[0-9]+$`],
+         WHERE "Nummer" ~ $1 AND "tenant_id" = $2`,
+        [`^${aktuellesJahr}-[0-9]+$`, tenantId],
       );
       const lieferscheinNummer = `${aktuellesJahr}-${String(Number(lieferscheinnummerResult[0].max_num) + 1).padStart(3, "0")}`;
 
       const { rows: lieferscheinResult } = await db.query(
-        `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datum")
-         VALUES ($1, $2, NOW())
+        `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datum", "tenant_id")
+         VALUES ($1, $2, NOW(), $3)
          RETURNING "ID", "Nummer"`,
-        [lieferscheinNummer, messeKunde.ID],
+        [lieferscheinNummer, messeKunde.ID, tenantId],
       );
 
       const lieferschein = lieferscheinResult[0];
@@ -182,8 +185,8 @@ router.post("/import", async (req, res) => {
         await db.query(
           `UPDATE "Schmuckstück"
            SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
-           WHERE "Artikelnummer" = ANY($3) AND "Verkauft" = 0 AND "Ausschuss" = 0`,
-          [messeKunde.ID, lieferschein.ID, artikelnummernArray],
+           WHERE "Artikelnummer" = ANY($3) AND "Verkauft" = 0 AND "Ausschuss" = 0 AND "tenant_id" = $4`,
+          [messeKunde.ID, lieferschein.ID, artikelnummernArray, tenantId],
         );
       }
 
@@ -191,8 +194,8 @@ router.post("/import", async (req, res) => {
       const { rows: rechnungsnummerResult } = await db.query(
         `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
          FROM "Rechnung"
-         WHERE "Nummer" ~ $1`,
-        [`^${aktuellesJahr}-[0-9]+$`],
+         WHERE "Nummer" ~ $1 AND "tenant_id" = $2`,
+        [`^${aktuellesJahr}-[0-9]+$`, tenantId],
       );
       let naechsteRechnungsnummer = Number(rechnungsnummerResult[0].max_num) + 1;
       const createRechnungsnummer = () =>
@@ -204,10 +207,10 @@ router.post("/import", async (req, res) => {
         const rechnungNummerM = createRechnungsnummer();
 
         const { rows: rechnungMResult } = await db.query(
-          `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
-           VALUES ($1, $2, NOW())
+          `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum", "tenant_id")
+           VALUES ($1, $2, NOW(), $3)
            RETURNING "ID", "Nummer"`,
-          [rechnungNummerM, messeKunde.ID],
+          [rechnungNummerM, messeKunde.ID, tenantId],
         );
 
         rechnungMarina = rechnungMResult[0];
@@ -220,8 +223,8 @@ router.post("/import", async (req, res) => {
           await db.query(
             `UPDATE "Schmuckstück"
              SET "Verkauft" = 1, "Rechnung_ID" = $1
-             WHERE "Artikelnummer" = ANY($2)`,
-            [rechnungMarina.ID, marinaArtikelnummernArray],
+             WHERE "Artikelnummer" = ANY($2) AND "tenant_id" = $3`,
+            [rechnungMarina.ID, marinaArtikelnummernArray, tenantId],
           );
         }
       }
@@ -232,10 +235,10 @@ router.post("/import", async (req, res) => {
         const rechnungNummerS = createRechnungsnummer();
 
         const { rows: rechnungSResult } = await db.query(
-          `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
-           VALUES ($1, $2, NOW())
+          `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum", "tenant_id")
+           VALUES ($1, $2, NOW(), $3)
            RETURNING "ID", "Nummer"`,
-          [rechnungNummerS, messeKunde.ID],
+          [rechnungNummerS, messeKunde.ID, tenantId],
         );
 
         rechnungSaskia = rechnungSResult[0];
@@ -248,8 +251,8 @@ router.post("/import", async (req, res) => {
           await db.query(
             `UPDATE "Schmuckstück"
              SET "Verkauft" = 1, "Rechnung_ID" = $1
-             WHERE "Artikelnummer" = ANY($2)`,
-            [rechnungSaskia.ID, saskiaArtikelnummernArray],
+             WHERE "Artikelnummer" = ANY($2) AND "tenant_id" = $3`,
+            [rechnungSaskia.ID, saskiaArtikelnummernArray, tenantId],
           );
         }
       }
@@ -284,6 +287,7 @@ router.post("/import", async (req, res) => {
 
 // GET Sumup CSV export (Ausgelagert=0, Ausschuss=0, Verkauft=0)
 router.get("/export", async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     // Alle verfügbaren Artikel laden
     const { rows } = await db.query(
@@ -295,8 +299,9 @@ router.get("/export", async (req, res) => {
               "Anhänger_Inhalt_Zusatzmaterial",
               "Anhänger", "Zwischenstück", "Grösse"
        FROM "Schmuckstück"
-       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0
+       WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0 AND "tenant_id" = $1
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      [tenantId],
     );
 
     // CSV-Escape-Funktion

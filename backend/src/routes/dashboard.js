@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 
 // GET dashboard statistics
 router.get('/', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const [
       totalPieces,
@@ -20,22 +21,22 @@ router.get('/', async (req, res) => {
       piecesByArt,
       piecesByKunde,
     ] = await Promise.all([
-      db.query('SELECT COUNT(*) FROM "Schmuckstück"'),
-      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Verkauft" = 1'),
-      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Ausgelagert" > 0'),
-      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Ausschuss" = 1'),
-      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0'),
-      db.query('SELECT COUNT(*) FROM "Kunde"'),
-      db.query('SELECT COUNT(*) FROM "Kunde" WHERE "Aktiv" = true'),
-      db.query('SELECT COALESCE(SUM("Verkaufspreis"), 0) as total FROM "Schmuckstück" WHERE "Verkauft" = 1'),
-      db.query('SELECT COALESCE(SUM("Herstellungskosten"), 0) as total FROM "Schmuckstück"'),
+      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Verkauft" = 1 AND "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Ausgelagert" > 0 AND "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Ausschuss" = 1 AND "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COUNT(*) FROM "Schmuckstück" WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0 AND "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COUNT(*) FROM "Kunde" WHERE "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COUNT(*) FROM "Kunde" WHERE "Aktiv" = true AND "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COALESCE(SUM("Verkaufspreis"), 0) as total FROM "Schmuckstück" WHERE "Verkauft" = 1 AND "tenant_id" = $1', [tenantId]),
+      db.query('SELECT COALESCE(SUM("Herstellungskosten"), 0) as total FROM "Schmuckstück" WHERE "tenant_id" = $1', [tenantId]),
       db.query('SELECT * FROM audit_log ORDER BY change_timestamp DESC LIMIT 10'),
-      db.query('SELECT "Art", COUNT(*) as count FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != \'\' GROUP BY "Art" ORDER BY count DESC LIMIT 10'),
+      db.query('SELECT "Art", COUNT(*) as count FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != \'\' AND "tenant_id" = $1 GROUP BY "Art" ORDER BY count DESC LIMIT 10', [tenantId]),
       db.query(`SELECT k."Name", COUNT(s.*) as count 
                 FROM "Schmuckstück" s 
                 JOIN "Kunde" k ON s."Ausgelagert" = k."ID" 
-                WHERE s."Ausgelagert" > 0 and s."Verkauft" = 0 and s."Ausschuss" = 0
-                GROUP BY k."Name" ORDER BY count DESC`),
+                WHERE s."Ausgelagert" > 0 and s."Verkauft" = 0 and s."Ausschuss" = 0 AND s."tenant_id" = $1
+                GROUP BY k."Name" ORDER BY count DESC`, [tenantId]),
     ]);
 
     res.json({

@@ -6,6 +6,7 @@ const logger = require('../utils/logger');
 
 // GET inventory summary for all customers with items ausgelagert
 router.get('/', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT
@@ -22,8 +23,10 @@ router.get('/', async (req, res) => {
          SUM(CASE WHEN s."Verkauft" = 1                       THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END) AS "wert_verkauft"
        FROM "Kunde" k
        JOIN "Schmuckstück" s ON s."Ausgelagert" = k."ID"
+       WHERE k."tenant_id" = $1 AND s."tenant_id" = $1
        GROUP BY k."ID", k."Name", k."Ort", k."Provision", k."Aktiv"
-       ORDER BY k."Name"`
+       ORDER BY k."Name"`,
+      [tenantId]
     );
     logger.info('INVENTUR', `Inventur-Übersicht geladen: ${rows.length} Kunden`);
     res.json(rows);
@@ -35,12 +38,13 @@ router.get('/', async (req, res) => {
 
 // GET inventory detail for a single customer
 router.get('/:kundeId', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { kundeId } = req.params;
 
     const kundeRes = await db.query(
-      'SELECT * FROM "Kunde" WHERE "ID" = $1',
-      [kundeId]
+      'SELECT * FROM "Kunde" WHERE "ID" = $1 AND "tenant_id" = $2',
+      [kundeId, tenantId]
     );
     if (kundeRes.rows.length === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
@@ -48,9 +52,9 @@ router.get('/:kundeId', async (req, res) => {
 
     const itemsRes = await db.query(
       `SELECT * FROM "Schmuckstück"
-       WHERE "Ausgelagert" = $1
+       WHERE "Ausgelagert" = $1 AND "tenant_id" = $2
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
-      [kundeId]
+      [kundeId, tenantId]
     );
 
     const items = itemsRes.rows;
@@ -76,12 +80,13 @@ router.get('/:kundeId', async (req, res) => {
 
 // GET Excel export for a single customer
 router.get('/:kundeId/excel', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { kundeId } = req.params;
 
     const kundeRes = await db.query(
-      'SELECT * FROM "Kunde" WHERE "ID" = $1',
-      [kundeId]
+      'SELECT * FROM "Kunde" WHERE "ID" = $1 AND "tenant_id" = $2',
+      [kundeId, tenantId]
     );
     if (kundeRes.rows.length === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
@@ -89,9 +94,9 @@ router.get('/:kundeId/excel', async (req, res) => {
 
     const itemsRes = await db.query(
       `SELECT * FROM "Schmuckstück"
-       WHERE "Ausgelagert" = $1
+       WHERE "Ausgelagert" = $1 AND "tenant_id" = $2
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
-      [kundeId]
+      [kundeId, tenantId]
     );
 
     const kunde = kundeRes.rows[0];

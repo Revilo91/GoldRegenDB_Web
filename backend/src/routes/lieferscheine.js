@@ -5,12 +5,15 @@ const logger = require('../utils/logger');
 
 // GET all delivery notes
 router.get('/', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT l.*, k."Name" as "KundenName"
        FROM "Lieferschein" l
        LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"
-       ORDER BY l."Datum" DESC`
+       WHERE l."tenant_id" = $1
+       ORDER BY l."Datum" DESC`,
+      [tenantId]
     );
     logger.info('LIEFERSCHEINE', `${rows.length} Lieferscheine geladen`);
     res.json(rows);
@@ -22,13 +25,14 @@ router.get('/', async (req, res) => {
 
 // GET single
 router.get('/:id', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT l.*, k."Name" as "KundenName", k."Provision"
        FROM "Lieferschein" l
        LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"
-       WHERE l."ID" = $1`,
-      [req.params.id]
+       WHERE l."ID" = $1 AND l."tenant_id" = $2`,
+      [req.params.id, tenantId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
@@ -36,8 +40,8 @@ router.get('/:id', async (req, res) => {
 
     // Get associated jewelry pieces
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Lieferschein_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      'SELECT * FROM "Schmuckstück" WHERE "Lieferschein_ID" = $1 AND "tenant_id" = $2 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      [req.params.id, tenantId]
     );
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
@@ -50,20 +54,21 @@ router.get('/:id', async (req, res) => {
 // GET excel
 const { generateExcel } = require('../utils/excelService');
 router.get('/:id/excel', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { rows } = await db.query(
       `SELECT l.*, k.*
        FROM "Lieferschein" l
        LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"
-       WHERE l."ID" = $1`,
-      [req.params.id]
+       WHERE l."ID" = $1 AND l."tenant_id" = $2`,
+      [req.params.id, tenantId]
     );
 
     if (rows.length === 0) return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Lieferschein_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      'SELECT * FROM "Schmuckstück" WHERE "Lieferschein_ID" = $1 AND "tenant_id" = $2 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      [req.params.id, tenantId]
     );
 
     const buffer = await generateExcel('Lieferschein', {
@@ -83,12 +88,13 @@ router.get('/:id/excel', async (req, res) => {
 
 // POST create
 router.post('/', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { Nummer, Artikelnummern, Kundennummer } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer")
-       VALUES ($1, $2) RETURNING *`,
-      [Nummer, Kundennummer]
+      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "tenant_id")
+       VALUES ($1, $2, $3) RETURNING *`,
+      [Nummer, Kundennummer, tenantId]
     );
 
     const lieferscheinId = rows[0].ID;
@@ -96,8 +102,8 @@ router.post('/', async (req, res) => {
     // Assign products to this delivery note and mark as outsourced to customer
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-        [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
+        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[]) AND "tenant_id" = $4`,
+        [lieferscheinId, parseInt(Kundennummer), Artikelnummern, tenantId]
       );
     }
 
@@ -111,25 +117,26 @@ router.post('/', async (req, res) => {
 
 // PUT update
 router.put('/:id', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     const { Nummer, Artikelnummern, Kundennummer } = req.body;
     const { rows } = await db.query(
       `UPDATE "Lieferschein" SET "Nummer" = $1, "Kundennummer" = $2
-       WHERE "ID" = $3 RETURNING *`,
-      [Nummer, Kundennummer, req.params.id]
+       WHERE "ID" = $3 AND "tenant_id" = $4 RETURNING *`,
+      [Nummer, Kundennummer, req.params.id, tenantId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
     }
 
     // Reset old associations
-    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`, [req.params.id]);
+    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1 AND "tenant_id" = $2`, [req.params.id, tenantId]);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-        [req.params.id, parseInt(Kundennummer), Artikelnummern]
+        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[]) AND "tenant_id" = $4`,
+        [req.params.id, parseInt(Kundennummer), Artikelnummern, tenantId]
       );
     }
 
@@ -143,15 +150,16 @@ router.put('/:id', async (req, res) => {
 
 // DELETE
 router.delete('/:id', async (req, res) => {
+  const tenantId = req.user.tenant_id ?? 1;
   try {
     // Reset associations before deleting
     await db.query(
-      `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`,
-      [req.params.id]
+      `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1 AND "tenant_id" = $2`,
+      [req.params.id, tenantId]
     );
     const { rowCount } = await db.query(
-      'DELETE FROM "Lieferschein" WHERE "ID" = $1',
-      [req.params.id]
+      'DELETE FROM "Lieferschein" WHERE "ID" = $1 AND "tenant_id" = $2',
+      [req.params.id, tenantId]
     );
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
