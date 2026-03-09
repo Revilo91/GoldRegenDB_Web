@@ -1,4 +1,4 @@
-name: agent.md aktuell halten
+name: copilot-instructions aktuell halten
 
 on:
   push:
@@ -23,8 +23,8 @@ on:
       - '.env.example'
 
 jobs:
-  check-agent-md:
-    name: Prüfen ob agent.md aktualisiert wurde
+  check-copilot-instructions:
+    name: Prüfen ob .github/copilot-instructions.md aktualisiert wurde
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -53,17 +53,17 @@ jobs:
           echo "Geänderte Dateien:"
           echo "$CHANGED"
 
-          AGENT_CHANGED=false
+          COPILOT_INSTRUCTIONS_CHANGED=false
           for f in $CHANGED; do
-            if [ "$f" = "agent.md" ]; then
-              AGENT_CHANGED=true
+            if [ "$f" = ".github/copilot-instructions.md" ]; then
+              COPILOT_INSTRUCTIONS_CHANGED=true
             fi
           done
 
-          echo "agent_changed=$AGENT_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "copilot_instructions_changed=$COPILOT_INSTRUCTIONS_CHANGED" >> "$GITHUB_OUTPUT"
 
       - name: Kommentar in Pull Request hinterlassen
-        if: github.event_name == 'pull_request' && steps.changed.outputs.agent_changed == 'false'
+        if: github.event_name == 'pull_request' && steps.changed.outputs.copilot_instructions_changed == 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -72,11 +72,11 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                '## ⚠️ agent.md wurde nicht aktualisiert',
+                '## ⚠️ .github/copilot-instructions.md wurde nicht aktualisiert',
                 '',
-                'Dieser Pull Request ändert Projektdateien (`backend/`, `frontend/`, `db/` oder `docker-compose*.yml`), aber **`agent.md` wurde nicht angepasst**.',
+                'Dieser Pull Request ändert Projektdateien (`backend/`, `frontend/`, `db/` oder `docker-compose*.yml`), aber **`.github/copilot-instructions.md` wurde nicht angepasst**.',
                 '',
-                'Bitte prüfe, ob die Änderungen in `agent.md` dokumentiert werden müssen:',
+                'Bitte prüfe, ob die Änderungen in `.github/copilot-instructions.md` dokumentiert werden müssen:',
                 '- Neue oder geänderte Routen / Endpunkte',
                 '- Neue oder geänderte Frontend-Seiten / Komponenten',
                 '- Datenbankschema-Änderungen',
@@ -88,7 +88,7 @@ jobs:
             });
 
       - name: Issue erstellen (bei Push auf main/master)
-        if: github.event_name == 'push' && steps.changed.outputs.agent_changed == 'false'
+        if: github.event_name == 'push' && steps.changed.outputs.copilot_instructions_changed == 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -102,7 +102,7 @@ jobs:
               state: 'open',
             });
 
-            const title = 'Agent.md an Projekt anpassen';
+            const title = 'Copilot-Instructions an Projekt anpassen';
             const existing = issues.find(i => i.title === title);
 
             if (!existing) {
@@ -111,9 +111,9 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 body: [
-                  `Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, aber \`agent.md\` wurde nicht aktualisiert.`,
+                  `Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, aber \`.github/copilot-instructions.md\` wurde nicht aktualisiert.`,
                   '',
-                  'Bitte prüfe, ob die folgenden Bereiche in `agent.md` dokumentiert werden müssen:',
+                  'Bitte prüfe, ob die folgenden Bereiche in `.github/copilot-instructions.md` dokumentiert werden müssen:',
                   '- Neue oder geänderte Backend-Routen / Endpunkte',
                   '- Neue oder geänderte Frontend-Seiten / Komponenten',
                   '- Datenbankschema-Änderungen (`db/init.sql`)',
@@ -128,6 +128,6 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: existing.number,
-                body: `Weiterer Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, ohne \`agent.md\` zu aktualisieren.`,
+                body: `Weiterer Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, ohne \`.github/copilot-instructions.md\` zu aktualisieren.`,
               });
             }
