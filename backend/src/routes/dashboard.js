@@ -52,7 +52,23 @@ router.get("/", async (req, res) => {
       ...rechnungScopeBuilder.getParams(),
     ];
 
-    const [statisticsResult, recentChangesResult, piecesByArtResult, piecesByKundeResult, monthlyRevenueTrendResult] =
+    // Manufacturer-specific queries
+    const manufacturerStatsBuilder = where(1, tenantId);
+    const manufacturerStatsWhere = manufacturerStatsBuilder.build();
+    const manufacturerStatsParams = manufacturerStatsBuilder.getParams();
+
+    const manufacturerOutsourcedBuilder = where(1, tenantId);
+    manufacturerOutsourcedBuilder.aktivAusgelagert();
+    const manufacturerOutsourcedWhere = manufacturerOutsourcedBuilder.build();
+
+    const manufacturerKundenBuilder = where(manufacturerOutsourcedBuilder.getNextParamIdx(), tenantId);
+    const manufacturerKundenWhere = manufacturerKundenBuilder.build();
+    const manufacturerByKundeParams = [
+      ...manufacturerOutsourcedBuilder.getParams(),
+      ...manufacturerKundenBuilder.getParams(),
+    ];
+
+    const [statisticsResult, recentChangesResult, piecesByArtResult, piecesByKundeResult, monthlyRevenueTrendResult, manufacturerStatsResult, manufacturerByKundeResult] =
       await Promise.all([
         db.query(
           `
@@ -138,6 +154,45 @@ router.get("/", async (req, res) => {
         `,
           monthlyRevenueParams
         ),
+        // Statistics by manufacturer (M = Marina, S = Saskia)
+        db.query(
+          `
+          SELECT
+            LEFT("Artikelnummer", 1) AS hersteller,
+            COUNT(*)::INT AS total,
+            COUNT(*) FILTER (WHERE ${soldCondition})::INT AS verkauft,
+            COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS ausgelagert,
+            COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS verfuegbar,
+            COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS ausschuss,
+            COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS umsatz
+          FROM "Schmuckstück"
+          ${manufacturerStatsWhere}
+          WHERE LEFT("Artikelnummer", 1) IN ('M', 'S')
+          GROUP BY LEFT("Artikelnummer", 1)
+          ORDER BY hersteller
+        `,
+          manufacturerStatsParams
+        ),
+        // Outsourced pieces by manufacturer and customer
+        db.query(
+          `
+          SELECT
+            LEFT(s."Artikelnummer", 1) AS hersteller,
+            k."Name" AS kunde,
+            COUNT(s.*)::INT AS anzahl
+          FROM (
+            SELECT "Ausgelagert", "Artikelnummer"
+            FROM "Schmuckstück"
+            ${manufacturerOutsourcedWhere}
+            AND LEFT("Artikelnummer", 1) IN ('M', 'S')
+          ) s
+          JOIN "Kunde" k ON s."Ausgelagert" = k."ID"
+          ${manufacturerKundenWhere}
+          GROUP BY LEFT(s."Artikelnummer", 1), k."Name"
+          ORDER BY hersteller, anzahl DESC
+        `,
+          manufacturerByKundeParams
+        ),
       ]);
 
     const statistics = statisticsResult.rows[0];
@@ -145,6 +200,22 @@ router.get("/", async (req, res) => {
     const outsourcedCount = statistics.outsourcedPieces;
     const soldCount = statistics.soldPieces;
     const rejectCount = statistics.rejectPieces;
+
+    // Process manufacturer statistics
+    const manufacturerStats = {};
+    manufacturerStatsResult.rows.forEach((row) => {
+      manufacturerStats[row.hersteller] = {
+        total: row.total,
+        verkauft: row.verkauft,
+        ausgelagert: row.ausgelagert,
+        verfuegbar: row.verfuegbar,
+        ausschuss: row.ausschuss,
+        umsatz: row.umsatz,
+      };
+    });
+
+    // Process manufacturer by kunde
+    const manufacturerByKunde = manufacturerByKundeResult.rows;
 
     res.json({
       statistics,
@@ -158,6 +229,8 @@ router.get("/", async (req, res) => {
         { name: "Ausschuss", value: rejectCount },
       ],
       monthlyRevenueTrend: monthlyRevenueTrendResult.rows,
+      manufacturerStats,
+      manufacturerByKunde,
     });
   } catch (err) {
     logger.error("DASHBOARD", "Fehler beim Laden des Dashboards", {

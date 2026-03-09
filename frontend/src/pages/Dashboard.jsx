@@ -85,6 +85,23 @@ export default function Dashboard() {
 
   const s = data.statistics;
 
+  const mStats = data.manufacturerStats?.M || {
+    total: 0,
+    verkauft: 0,
+    ausgelagert: 0,
+    verfuegbar: 0,
+    ausschuss: 0,
+    umsatz: 0,
+  };
+  const sStats = data.manufacturerStats?.S || {
+    total: 0,
+    verkauft: 0,
+    ausgelagert: 0,
+    verfuegbar: 0,
+    ausschuss: 0,
+    umsatz: 0,
+  };
+
   const piecesByArtChart = (data.piecesByArt || []).map((item) => ({
     name: item.Art,
     Stück: parseInt(item.count),
@@ -96,6 +113,34 @@ export default function Dashboard() {
   }));
 
   const statusData = data.statusDistribution || [];
+
+  const manufacturerComparisonData = [
+    {
+      name: "Marina",
+      Gesamt: mStats.total,
+      Verfügbar: mStats.verfuegbar,
+      Ausgelagert: mStats.ausgelagert,
+      Verkauft: mStats.verkauft,
+      Ausschuss: mStats.ausschuss,
+    },
+    {
+      name: "Saskia",
+      Gesamt: sStats.total,
+      Verfügbar: sStats.verfuegbar,
+      Ausgelagert: sStats.ausgelagert,
+      Verkauft: sStats.verkauft,
+      Ausschuss: sStats.ausschuss,
+    },
+  ];
+
+  // Group manufacturer by kunde data
+  const mByKunde = (data.manufacturerByKunde || [])
+    .filter((item) => item.hersteller === "M")
+    .map((item) => ({ name: item.kunde, Stück: item.anzahl }));
+
+  const sByKunde = (data.manufacturerByKunde || [])
+    .filter((item) => item.hersteller === "S")
+    .map((item) => ({ name: item.kunde, Stück: item.anzahl }));
 
   const trendData = (data.monthlyRevenueTrend || []).map((item) => ({
     monat: item.monat,
@@ -157,6 +202,345 @@ export default function Dashboard() {
             {s.activeCustomers}/{s.totalCustomers}
           </div>
           <div className="stat-label">Aktive Kunden</div>
+        </div>
+      </div>
+
+      {/* ── Manufacturer Stats Grid ── */}
+      <div style={{ marginBottom: 24 }}>
+        <h2
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: 600,
+            marginBottom: 16,
+            color: "#e8eaf0",
+          }}
+        >
+          Statistiken nach Hersteller
+        </h2>
+        <div className="responsive-grid-2">
+          {/* Marina */}
+          <div className="card">
+            <div
+              className="card-header"
+              style={{ borderBottom: "2px solid #6366f1" }}
+            >
+              <h3 style={{ color: "#6366f1" }}>Marina (M)</h3>
+            </div>
+            <div style={{ padding: 16 }}>
+              <div className="stats-grid" style={{ marginBottom: 0 }}>
+                <div className="stat-card info" style={{ minHeight: "auto" }}>
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {mStats.total}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Gesamt
+                  </div>
+                </div>
+                <div
+                  className="stat-card success"
+                  style={{ minHeight: "auto" }}
+                >
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {mStats.verfuegbar}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Verfügbar
+                  </div>
+                </div>
+                <div
+                  className="stat-card warning"
+                  style={{ minHeight: "auto" }}
+                >
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {mStats.ausgelagert}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Ausgelagert
+                  </div>
+                </div>
+                <div className="stat-card gold" style={{ minHeight: "auto" }}>
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {mStats.verkauft}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Verkauft
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTop: "1px solid #2e3240",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.9rem",
+                    color: "#9ca3b4",
+                  }}
+                >
+                  <span>Umsatz:</span>
+                  <span style={{ fontWeight: 600, color: "#d4a853" }}>
+                    {mStats.umsatz.toFixed(2)}€
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Saskia */}
+          <div className="card">
+            <div
+              className="card-header"
+              style={{ borderBottom: "2px solid #ec4899" }}
+            >
+              <h3 style={{ color: "#ec4899" }}>Saskia (S)</h3>
+            </div>
+            <div style={{ padding: 16 }}>
+              <div className="stats-grid" style={{ marginBottom: 0 }}>
+                <div className="stat-card info" style={{ minHeight: "auto" }}>
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {sStats.total}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Gesamt
+                  </div>
+                </div>
+                <div
+                  className="stat-card success"
+                  style={{ minHeight: "auto" }}
+                >
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {sStats.verfuegbar}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Verfügbar
+                  </div>
+                </div>
+                <div
+                  className="stat-card warning"
+                  style={{ minHeight: "auto" }}
+                >
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {sStats.ausgelagert}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Ausgelagert
+                  </div>
+                </div>
+                <div className="stat-card gold" style={{ minHeight: "auto" }}>
+                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                    {sStats.verkauft}
+                  </div>
+                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                    Verkauft
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTop: "1px solid #2e3240",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.9rem",
+                    color: "#9ca3b4",
+                  }}
+                >
+                  <span>Umsatz:</span>
+                  <span style={{ fontWeight: 600, color: "#d4a853" }}>
+                    {sStats.umsatz.toFixed(2)}€
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Manufacturer Comparison Chart ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div className="card">
+          <div className="card-header">
+            <h3>Hersteller-Vergleich</h3>
+          </div>
+          <div className="chart-container">
+            {manufacturerComparisonData.every((d) =>
+              Object.values(d).every((v) => typeof v === "string" || v === 0)
+            ) ? (
+              <EmptyChart message="Keine Hersteller-Daten vorhanden" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={manufacturerComparisonData}
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2e3240" />
+                  <XAxis
+                    dataKey="name"
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: "rgba(99,102,241,0.1)" }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 13, color: "#9ca3b4" }}
+                  />
+                  <Bar
+                    dataKey="Verfügbar"
+                    fill={CHART_COLORS.success}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="Ausgelagert"
+                    fill={CHART_COLORS.warning}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="Verkauft"
+                    fill={CHART_COLORS.gold}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="Ausschuss"
+                    fill={CHART_COLORS.danger}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Manufacturer Outsourced by Customer ── */}
+      <div style={{ marginBottom: 24 }}>
+        <h3
+          style={{
+            fontSize: "1.25rem",
+            fontWeight: 600,
+            marginBottom: 16,
+            color: "#e8eaf0",
+          }}
+        >
+          Ausgelagerte Stücke nach Hersteller & Kunde
+        </h3>
+        <div className="responsive-grid-2">
+          <div className="card">
+            <div className="card-header">
+              <h3 style={{ color: "#6366f1" }}>Marina bei Kunden</h3>
+            </div>
+            <div className="chart-container">
+              {mByKunde.length === 0 ? (
+                <EmptyChart message="Keine ausgelagerten Stücke von Marina" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={mByKunde}
+                    layout="vertical"
+                    margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#2e3240"
+                      horizontal={false}
+                    />
+                    <XAxis
+                      type="number"
+                      tick={AXIS_TICK_STYLE}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={90}
+                      tick={AXIS_TICK_STYLE}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ fill: "rgba(99,102,241,0.1)" }}
+                      formatter={(v) => [v, "Stücke"]}
+                    />
+                    <Bar
+                      dataKey="Stück"
+                      fill="#6366f1"
+                      radius={[0, 4, 4, 0]}
+                      maxBarSize={24}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-header">
+              <h3 style={{ color: "#ec4899" }}>Saskia bei Kunden</h3>
+            </div>
+            <div className="chart-container">
+              {sByKunde.length === 0 ? (
+                <EmptyChart message="Keine ausgelagerten Stücke von Saskia" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={sByKunde}
+                    layout="vertical"
+                    margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#2e3240"
+                      horizontal={false}
+                    />
+                    <XAxis
+                      type="number"
+                      tick={AXIS_TICK_STYLE}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={90}
+                      tick={AXIS_TICK_STYLE}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ fill: "rgba(99,102,241,0.1)" }}
+                      formatter={(v) => [v, "Stücke"]}
+                    />
+                    <Bar
+                      dataKey="Stück"
+                      fill="#ec4899"
+                      radius={[0, 4, 4, 0]}
+                      maxBarSize={24}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
