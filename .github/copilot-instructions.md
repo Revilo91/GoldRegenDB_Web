@@ -169,6 +169,50 @@ erDiagram
 - **Verkauft**: SMALLINT (0 = nicht verkauft, 1 = verkauft)
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
+## WHERE Clause Builder (PFLICHT!)
+
+**WICHTIG:** Für alle Datenbank-Queries, die Schmuckstücke filtern, **MUSS** der zentrale WHERE-Builder verwendet werden!
+
+### Geschäftsregeln (konsistent in gesamter Codebasis!)
+
+| Status | Regel | Code |
+|--------|-------|------|
+| **Verkauft** | `Verkauft = 1 UND Ausschuss = 0` | `builder.verkauft()` |
+| **Ausschuss** | `Ausschuss = 1` | `builder.ausschuss()` |
+| **Verfügbar** | `Verkauft = 0 UND Ausschuss = 0 UND Ausgelagert = 0` | `builder.verfuegbar()` |
+| **Aktiv Ausgelagert** | `Ausgelagert > 0 UND Verkauft = 0 UND Ausschuss = 0` | `builder.aktivAusgelagert(kundeId?)` |
+
+**⚠️ Verkauft ≠ Ausschuss** — Ein Schmuckstück kann niemals gleichzeitig verkauft UND Ausschuss sein!
+
+### Verwendung
+
+```javascript
+const { where } = require('../utils/whereClauseBuilder');
+
+// Einfaches Beispiel
+const builder = where();
+builder.verfuegbar();
+const { rows } = await db.query(
+  `SELECT * FROM "Schmuckstück" ${builder.build()}`,
+  builder.getParams()
+);
+
+// Kombiniert
+const builder = where();
+builder.aktivAusgelagert(5);  // Bei Kunde 5
+builder.grundmaterial('P');   // Perlen
+builder.produktart('A');      // Armband
+const query = `SELECT * FROM "Schmuckstück" ${builder.build()}`;
+const result = await db.query(query, builder.getParams());
+```
+
+**📖 Vollständige Dokumentation:** [`backend/src/utils/WHERE_BUILDER.md`](../backend/src/utils/WHERE_BUILDER.md)
+
+**✅ Migrierte Routes:** dashboard.js, schmuckstuecke.js, sumup.js, kunden.js, inventur.js
+**⏳ Noch zu migrieren:** lieferscheine.js, rechnungen.js
+
+---
+
 
 ---
 
