@@ -294,7 +294,7 @@ router.get("/", async (req, res) => {
 // GET filter-options (must come before /:artikelnummer!)
 router.get("/filter-options", async (req, res) => {
   const tenantId = req.user.tenant_id ?? 1;
-  const t = '"tenant_id" = $1';
+  const tenantFilter = '"tenant_id" = $1';
   try {
     const [
       arten, farben, materialien, formen,
@@ -303,33 +303,33 @@ router.get("/filter-options", async (req, res) => {
       inhalt_materialien, inhalt_farben, inhalt_farbakzente, inhalt_zusatzmaterialien,
       zwischenstuecke, fassungen, laengen, groessen, fotos, namen, verkaufspreise, herstellungskosten, ausschuesse, anhaenger, ausschussgruende
     ] = await Promise.all([
-      db.query(`SELECT DISTINCT "Art" FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != '' AND ${t} ORDER BY "Art"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Farbe" FROM "Schmuckstück" WHERE "Farbe" IS NOT NULL AND "Farbe" != '' AND ${t} ORDER BY "Farbe"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Material" FROM "Schmuckstück" WHERE "Material" IS NOT NULL AND "Material" != '' AND ${t} ORDER BY "Material"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Form" FROM "Schmuckstück" WHERE "Form" IS NOT NULL AND "Form" != '' AND ${t} ORDER BY "Form"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Fassung" FROM "Schmuckstück" WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" != '' AND ${t} ORDER BY "Anhänger_Fassung"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Form" FROM "Schmuckstück" WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" != '' AND ${t} ORDER BY "Anhänger_Form"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" != '' AND ${t} ORDER BY "Anhänger_Farbe"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Grösse" FROM "Schmuckstück" WHERE "Anhänger_Grösse" IS NOT NULL AND ${t} ORDER BY "Anhänger_Grösse"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Material" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" != '' AND ${t} ORDER BY "Anhänger_Inhalt_Material"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" != '' AND ${t} ORDER BY "Anhänger_Inhalt_Farbe"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Farbakzente" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" != '' AND ${t} ORDER BY "Anhänger_Inhalt_Farbakzente"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" != '' AND ${t} ORDER BY "Anhänger_Inhalt_Zusatzmaterial"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Inhalt_Material" FROM "Schmuckstück" WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" != '' AND ${t} ORDER BY "Inhalt_Material"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Inhalt_Farbe" FROM "Schmuckstück" WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" != '' AND ${t} ORDER BY "Inhalt_Farbe"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Inhalt_Farbakzent" FROM "Schmuckstück" WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" != '' AND ${t} ORDER BY "Inhalt_Farbakzent"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" != '' AND ${t} ORDER BY "Inhalt_Zusatzmaterial"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Zwischenstück" FROM "Schmuckstück" WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" != '' AND ${t} ORDER BY "Zwischenstück"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Fassung" FROM "Schmuckstück" WHERE "Fassung" IS NOT NULL AND "Fassung" != '' AND ${t} ORDER BY "Fassung"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Länge" FROM "Schmuckstück" WHERE "Länge" IS NOT NULL AND ${t} ORDER BY "Länge"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Grösse" FROM "Schmuckstück" WHERE "Grösse" IS NOT NULL AND ${t} ORDER BY "Grösse"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Foto" FROM "Schmuckstück" WHERE "Foto" IS NOT NULL AND "Foto" != '' AND ${t} ORDER BY "Foto"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Name" FROM "Schmuckstück" WHERE "Name" IS NOT NULL AND "Name" != '' AND ${t} ORDER BY "Name"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Verkaufspreis" FROM "Schmuckstück" WHERE "Verkaufspreis" IS NOT NULL AND ${t} ORDER BY "Verkaufspreis"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Herstellungskosten" FROM "Schmuckstück" WHERE "Herstellungskosten" IS NOT NULL AND ${t} ORDER BY "Herstellungskosten"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Ausschuss" FROM "Schmuckstück" WHERE "Ausschuss" IS NOT NULL AND ${t} ORDER BY "Ausschuss"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Anhänger" FROM "Schmuckstück" WHERE "Anhänger" IS NOT NULL AND "Anhänger" != '' AND ${t} ORDER BY "Anhänger"`, [tenantId]),
-      db.query(`SELECT DISTINCT "Ausschuss_Grund" FROM "Schmuckstück" WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" != '' AND ${t} ORDER BY "Ausschuss_Grund"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Art" FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != '' AND ${tenantFilter} ORDER BY "Art"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Farbe" FROM "Schmuckstück" WHERE "Farbe" IS NOT NULL AND "Farbe" != '' AND ${tenantFilter} ORDER BY "Farbe"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Material" FROM "Schmuckstück" WHERE "Material" IS NOT NULL AND "Material" != '' AND ${tenantFilter} ORDER BY "Material"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Form" FROM "Schmuckstück" WHERE "Form" IS NOT NULL AND "Form" != '' AND ${tenantFilter} ORDER BY "Form"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Fassung" FROM "Schmuckstück" WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" != '' AND ${tenantFilter} ORDER BY "Anhänger_Fassung"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Form" FROM "Schmuckstück" WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" != '' AND ${tenantFilter} ORDER BY "Anhänger_Form"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" != '' AND ${tenantFilter} ORDER BY "Anhänger_Farbe"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Grösse" FROM "Schmuckstück" WHERE "Anhänger_Grösse" IS NOT NULL AND ${tenantFilter} ORDER BY "Anhänger_Grösse"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Material" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" != '' AND ${tenantFilter} ORDER BY "Anhänger_Inhalt_Material"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" != '' AND ${tenantFilter} ORDER BY "Anhänger_Inhalt_Farbe"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Farbakzente" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" != '' AND ${tenantFilter} ORDER BY "Anhänger_Inhalt_Farbakzente"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger_Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" != '' AND ${tenantFilter} ORDER BY "Anhänger_Inhalt_Zusatzmaterial"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Inhalt_Material" FROM "Schmuckstück" WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" != '' AND ${tenantFilter} ORDER BY "Inhalt_Material"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Inhalt_Farbe" FROM "Schmuckstück" WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" != '' AND ${tenantFilter} ORDER BY "Inhalt_Farbe"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Inhalt_Farbakzent" FROM "Schmuckstück" WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" != '' AND ${tenantFilter} ORDER BY "Inhalt_Farbakzent"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" != '' AND ${tenantFilter} ORDER BY "Inhalt_Zusatzmaterial"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Zwischenstück" FROM "Schmuckstück" WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" != '' AND ${tenantFilter} ORDER BY "Zwischenstück"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Fassung" FROM "Schmuckstück" WHERE "Fassung" IS NOT NULL AND "Fassung" != '' AND ${tenantFilter} ORDER BY "Fassung"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Länge" FROM "Schmuckstück" WHERE "Länge" IS NOT NULL AND ${tenantFilter} ORDER BY "Länge"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Grösse" FROM "Schmuckstück" WHERE "Grösse" IS NOT NULL AND ${tenantFilter} ORDER BY "Grösse"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Foto" FROM "Schmuckstück" WHERE "Foto" IS NOT NULL AND "Foto" != '' AND ${tenantFilter} ORDER BY "Foto"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Name" FROM "Schmuckstück" WHERE "Name" IS NOT NULL AND "Name" != '' AND ${tenantFilter} ORDER BY "Name"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Verkaufspreis" FROM "Schmuckstück" WHERE "Verkaufspreis" IS NOT NULL AND ${tenantFilter} ORDER BY "Verkaufspreis"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Herstellungskosten" FROM "Schmuckstück" WHERE "Herstellungskosten" IS NOT NULL AND ${tenantFilter} ORDER BY "Herstellungskosten"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Ausschuss" FROM "Schmuckstück" WHERE "Ausschuss" IS NOT NULL AND ${tenantFilter} ORDER BY "Ausschuss"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Anhänger" FROM "Schmuckstück" WHERE "Anhänger" IS NOT NULL AND "Anhänger" != '' AND ${tenantFilter} ORDER BY "Anhänger"`, [tenantId]),
+      db.query(`SELECT DISTINCT "Ausschuss_Grund" FROM "Schmuckstück" WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" != '' AND ${tenantFilter} ORDER BY "Ausschuss_Grund"`, [tenantId]),
     ]);
     res.json({
       arten: arten.rows.map(r => r.Art),
@@ -449,7 +449,7 @@ router.post("/", async (req, res) => {
     // Daten von Produkt holen, sobald das form nicht ausgefüllt ist
     if (b.Artikelnummer) {
       const { rows } = await client.query(
-        `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 || '_' || $2 AND "tenant_id" = $3`,
+        `SELECT * FROM "Schmuckstück" WHERE ("Artikelnummer" = $1 || '_' || $2) AND "tenant_id" = $3`,
         [baseArtikelnummer, startSuffix - 1, tenantId],
       );
       if (rows.length > 0) {

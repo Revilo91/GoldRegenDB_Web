@@ -66,7 +66,7 @@ router.post('/', async (req, res) => {
     logger.info('KUNDEN', `Kunde erstellt: ${rows[0].Name} (ID=${rows[0].ID})`);
     res.status(201).json(rows[0]);
   } catch (err) {
-    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { name: req.body.Name, message: err.message });
+    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { name: Name, message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Kunden' });
   }
 });
