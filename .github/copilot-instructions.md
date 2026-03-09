@@ -1,6 +1,4 @@
-# GitHub Copilot Instructions – GoldRegenDB – Schmuckverwaltung Web-Anwendung
-
-Dieses Dokument beschreibt die Konventionen und wichtigsten Fakten des Projekts, damit GitHub Copilot passende Vorschläge machen kann.
+# GoldRegenDB – Schmuckverwaltung Web-Anwendung
 
 ## Projektübersicht
 
@@ -32,7 +30,6 @@ erDiagram
         text Telefonnummer
         int Provision
         boolean Aktiv
-        boolean Artikelnummern_Erforderlich
     }
 
     Lieferschein {
@@ -40,15 +37,13 @@ erDiagram
         varchar20 Nummer PK
         int Kundennummer FK
         timestamp Datum
-        text Datei
     }
 
     Rechnung {
-        serial ID
+        serial ID UK
         varchar20 Nummer PK
         int Kundennummer FK
         timestamp Datum
-        text Datei
     }
 
     Schmuckstueck {
@@ -78,10 +73,10 @@ erDiagram
         text Zwischenstueck
         double Herstellungskosten
         double Verkaufspreis
-        boolean Online
         int Ausgelagert FK
-        boolean Verkauft
-        boolean Ausschuss
+        smallint Verkauft
+        smallint Ausschuss
+        text Ausschuss_Grund
         int Lieferschein_ID FK
         int Rechnung_ID FK
         timestamp Erstelldatum
@@ -107,6 +102,7 @@ erDiagram
         text email
         varchar20 role
         boolean active
+        boolean must_change_password
         timestamp created_at
         timestamp last_login
     }
@@ -170,9 +166,9 @@ erDiagram
     - `O` = "Ohrring",
     - `S` = "Schlüsselanhänger",
 - **Ausgelagert**: Referenz auf Kunden-ID, bei dem das Stück liegt (0 = im Lager)
-- **Verkauft**: boolean, ob verkauft
-- **Ausschuss**: boolean, ob aussortiert
-- **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Lieferschein_ID, Rechnung_ID, Online)
+- **Verkauft**: SMALLINT (0 = nicht verkauft, 1 = verkauft)
+- **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
+- **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
 
 ---
 
@@ -186,6 +182,7 @@ erDiagram
 | **Authentifizierung** | JWT (`jsonwebtoken`) + `bcryptjs`    |
 | **Rate Limiting** | `express-rate-limit`                     |
 | **Excel-Export**  | `exceljs`                                |
+| **Bild-Validierung** | `image-size`                          |
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
 | **Frontend**      | React 19 + Vite + React Router v7        |
 | **Container**     | Docker + Docker Compose                  |
@@ -200,37 +197,46 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ### Rollen
 
-| Rolle   | Seiten / Berechtigungen                                                                      |
-| ------- | -------------------------------------------------------------------------------------------- |
-| `user`  | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp, Inventur                 |
-| `admin` | Alles wie `user` + Audit Log, Debug, Benutzerverwaltung, Datensicherung                      |
+| Rolle        | Seiten / Berechtigungen                                                                      |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `user`       | Schmuckstücke erstellen (nur POST /api/schmuckstuecke)                                       |
+| `bearbeiter` | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp, Inventur                 |
+| `admin`      | Alles wie `bearbeiter` + Audit Log, Debug, Benutzerverwaltung, Datensicherung                |
 
 ### Technische Details
 
 - Token-Format: `Bearer <JWT>` im `Authorization`-Header
 - Login: `POST /api/auth/login` → gibt JWT zurück
 - Token-Validierung: `GET /api/auth/me`
+- Passwort ändern: `PUT /api/auth/change-password`
 - JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
 - Rate Limiting: Login max. 20 Versuche / 15 Min; allgemeine API max. 300 Req / Min
-- Standard-Admin: Benutzer `admin`, Passwort `admin123` (muss nach erstem Login geändert werden)
-- Passwort-Hashing mit `bcryptjs` (10 Rounds)
+- Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
+- Passwort-Hashing: Frontend berechnet SHA-256(Passwort) und sendet den 64-Zeichen-Hex-Hash; Backend speichert/vergleicht mit `bcryptjs` (10 Rounds)
 
 ### Middleware
 
-- `authenticate` – prüft JWT, setzt `req.user`
+- `authenticate` – prüft JWT, setzt `req.user`, konfiguriert DB-Session-User für Audit-Trigger
 - `requireAdmin` – prüft `req.user.role === 'admin'`
+- `requireBearbeiter` – prüft `req.user.role` ist `'admin'` oder `'bearbeiter'`
 
 ---
 
 ## Projektstruktur
 
 ```
-GoldRegenDB_Web_new/
+GoldRegenDB_Web/
 ├── docker-compose.yml              # Produktion
 ├── docker-compose.dev.yml          # Entwicklung (Hot Reload)
 ├── docker-compose.synology.yml     # Synology-NAS-spezifisch
 ├── .env.example                    # Vorlage für Umgebungsvariablen
-├── agent.md                        # Diese Datei
+├── .github/copilot-instructions.md # Diese Datei
+├── GoldRegenDB.sql                 # Vollständiger PostgreSQL-Dump (Struktur + Daten)
+├── GoldRegenDB_data.sql            # Original MySQL/MariaDB Datenexport
+├── GoldRegenDB_structure.sql       # Original MySQL/MariaDB Struktur-Dump
+│
+├── scripts/
+│   └── synology-update.sh          # Update-Skript für Synology-NAS-Deployment
 │
 ├── db/
 │   ├── init.sql                    # PostgreSQL-Schema (6 Tabellen + Trigger)
@@ -238,34 +244,39 @@ GoldRegenDB_Web_new/
 │   ├── backup.sh                   # Backup-Skript (täglich/wöchentlich)
 │   ├── restore.sh                  # Wiederherstellungs-Skript
 │   ├── load_seed.sh                # Seed-Daten laden
-│   ├── convert_mysql_to_pg.py      # Migrations-Hilfsskript
+│   ├── convert_mysql_to_pg.py      # Migrations-Hilfsskript (MySQL → PostgreSQL)
+│   ├── json_to_sql.py              # Konvertiert JSON-Backup in SQL-Statements
 │   └── README.md                   # Backup/Restore-Dokumentation
 │
 ├── backend/
 │   ├── Dockerfile                  # Produktions-Image
 │   ├── Dockerfile.dev              # Entwicklungs-Image (watch mode)
 │   ├── package.json
+│   ├── scripts/
+│   │   ├── dev-start.sh            # Startskript für Entwicklungs-Container
+│   │   └── sync-photo-column.js    # Hilfsskript: Foto-Spalte mit vorhandenen Dateien synchronisieren
 │   └── src/
 │       ├── index.js                # Express Entry-Point
 │       ├── config/
-│       │   └── db.js               # PostgreSQL-Verbindung (pg Pool)
+│       │   └── db.js               # PostgreSQL-Verbindung (pg Pool, request-scoped client, Startup-Migrationen)
 │       ├── routes/
-│       │   ├── auth.js             # Login, /me
+│       │   ├── auth.js             # Login, /me, Passwort ändern
 │       │   ├── users.js            # Benutzerverwaltung (Admin)
 │       │   ├── dashboard.js        # Statistiken
-│       │   ├── kunden.js           # Kunden CRUD
-│       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD + Foto-Upload
-│       │   ├── lieferscheine.js    # Lieferscheine CRUD
-│       │   ├── rechnungen.js       # Rechnungen CRUD
+│       │   ├── kunden.js           # Kunden CRUD + Rücklagern
+│       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD + Foto-Upload + Filter-Optionen
+│       │   ├── lieferscheine.js    # Lieferscheine CRUD + Excel-Export
+│       │   ├── rechnungen.js       # Rechnungen CRUD + Excel-Export
 │       │   ├── sumup.js            # SumUp CSV Import/Export
 │       │   ├── inventur.js         # Inventurübersicht pro Kunde + Excel-Export
 │       │   ├── backup.js           # Datensicherung Export/Import (Admin)
 │       │   ├── auditLog.js         # Audit-Log (Admin)
 │       │   └── debug.js            # Debug-Endpunkte (Admin)
 │       ├── middleware/
-│       │   └── auth.js             # JWT-Middleware (authenticate, requireAdmin)
+│       │   └── auth.js             # JWT-Middleware (authenticate, requireAdmin, requireBearbeiter)
 │       └── utils/
-│           └── excelService.js     # Excel-Export (generateExcel, generateInventurExcel)
+│           ├── excelService.js     # Excel-Export (generateExcel, generateInventurExcel)
+│           └── logger.js           # Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix
 │
 ├── frontend/
 │   ├── Dockerfile                  # Multi-Stage-Build (Node → Nginx)
@@ -283,7 +294,9 @@ GoldRegenDB_Web_new/
 │       │   └── AuthContext.jsx     # Authentifizierungs-Context
 │       ├── components/
 │       │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Preview)
-│       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly prop)
+│       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly / bearbeiterOnly props)
+│       ├── utils/
+│       │   └── hashPassword.js     # SHA-256-Passwort-Hashing (Web Crypto API + Fallback)
 │       └── pages/
 │           ├── Login.jsx           # Anmeldeseite
 │           ├── Dashboard.jsx       # Statistik-Übersicht
@@ -292,14 +305,11 @@ GoldRegenDB_Web_new/
 │           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung
 │           ├── Rechnungen.jsx      # Rechnungs-Verwaltung
 │           ├── Sumup.jsx           # SumUp CSV-Import/-Export
-│           ├── Inventur.jsx        # Inventurübersicht pro Kunde (user)
+│           ├── Inventur.jsx        # Inventurübersicht pro Kunde (bearbeiter)
 │           ├── AuditLog.jsx        # Änderungsprotokoll (Admin)
 │           ├── Debug.jsx           # Debug-Oberfläche (Admin)
 │           ├── Benutzerverwaltung.jsx  # Benutzerverwaltung (Admin)
 │           └── Datensicherung.jsx  # Backup & Restore (Admin)
-│
-├── GoldRegenDB_data.sql            # Original MySQL/MariaDB Datenexport
-└── GoldRegenDB_structure.sql       # Original MySQL/MariaDB Struktur-Dump
 ```
 
 ---
@@ -312,6 +322,7 @@ GoldRegenDB_Web_new/
 | ------- | ----------------- | ------------------------------- |
 | POST    | `/api/auth/login` | Login, gibt JWT zurück          |
 | GET     | `/api/auth/me`    | Eigene Benutzerdaten aus Token  |
+| PUT     | `/api/auth/change-password` | Eigenes Passwort ändern (authentifiziert) |
 
 ### Allgemein (authentifiziert)
 
@@ -319,13 +330,23 @@ GoldRegenDB_Web_new/
 | ------- | ----------------------- | -------------------------------------- |
 | GET     | `/api/health`           | Health-Check (öffentlich)              |
 | GET     | `/api/dashboard`        | Statistiken (Bestände, Umsatz etc.)    |
-| GET/POST/PUT/DELETE | `/api/kunden` | Kunden CRUD                   |
-| GET/POST/PUT/DELETE | `/api/schmuckstuecke` | Schmuckstücke CRUD       |
+| GET/POST | `/api/kunden`          | Kunden abrufen / anlegen              |
+| GET/PUT/DELETE | `/api/kunden/:id` | Kunden-Detail, bearbeiten, löschen  |
+| GET     | `/api/kunden/:id/schmuckstuecke` | Schmuckstücke eines Kunden      |
+| PUT     | `/api/kunden/:id/restock` | Alle ausgelagerten Artikel zurücklagern |
+| PUT     | `/api/kunden/:id/restock-selective` | Ausgewählte Artikel zurücklagern |
+| GET/POST | `/api/schmuckstuecke`  | Schmuckstücke abrufen / anlegen       |
+| GET     | `/api/schmuckstuecke/filter-options` | Verfügbare Filter-Optionen (Art, Farbe usw.) |
+| GET/PUT/DELETE | `/api/schmuckstuecke/:artikelnummer` | Schmuckstück-Detail, bearbeiten, löschen |
 | POST    | `/api/schmuckstuecke/upload` | Foto hochladen (multer, max. 5 MB, jpg/png/gif) |
 | GET     | `/api/schmuckstuecke/foto/:fileName` | Foto abrufen                |
 | DELETE  | `/api/schmuckstuecke/foto/:fileName` | Foto löschen                |
-| GET/POST/PUT/DELETE | `/api/lieferscheine` | Lieferscheine CRUD        |
-| GET/POST/PUT/DELETE | `/api/rechnungen` | Rechnungen CRUD              |
+| GET/POST | `/api/lieferscheine`   | Lieferscheine abrufen / anlegen       |
+| GET/PUT/DELETE | `/api/lieferscheine/:id` | Lieferschein-Detail, bearbeiten, löschen |
+| GET     | `/api/lieferscheine/:id/excel` | Lieferschein als Excel-Datei herunterladen |
+| GET/POST | `/api/rechnungen`      | Rechnungen abrufen / anlegen          |
+| GET/PUT/DELETE | `/api/rechnungen/:id` | Rechnungs-Detail, bearbeiten, löschen |
+| GET     | `/api/rechnungen/:id/excel` | Rechnung als Excel-Datei herunterladen |
 | POST    | `/api/sumup/import`    | SumUp-Verkaufsbericht importieren (CSV) |
 | GET     | `/api/sumup/export`    | Verfügbare Schmuckstücke als SumUp-CSV exportieren |
 | GET     | `/api/inventur`        | Inventurübersicht aller Kunden mit ausgelagerten Stücken |
@@ -339,8 +360,11 @@ GoldRegenDB_Web_new/
 | GET     | `/api/backup/export`  | Alle Tabellen als JSON exportieren         |
 | POST    | `/api/backup/import`  | Backup-Daten importieren (2 Formate)      |
 | GET     | `/api/audit-log`  | Änderungsprotokoll anzeigen            |
+| GET     | `/api/audit-log/artikel/:artikelnummer` | Audit-Log für ein bestimmtes Schmuckstück |
 | GET/POST/PUT/DELETE | `/api/users` | Benutzerverwaltung              |
-| GET     | `/api/debug`      | Debug-Informationen                    |
+| GET     | `/api/debug/tables` | Alle Datenbanktabellen auflisten     |
+| GET     | `/api/debug/tables/:tableName` | Inhalt einer Tabelle anzeigen |
+| PUT     | `/api/debug/tables/:tableName` | Einzelnen Datensatz direkt bearbeiten |
 
 ---
 
@@ -437,6 +461,25 @@ Die Funktion `generateInventurExcel(kunde, items)` erzeugt eine Inventur-Excel-D
 
 ---
 
+## Weitere Utilities
+
+### Backend: `backend/src/utils/logger.js`
+
+Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
+- Methoden: `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`
+- Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
+- Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
+
+### Frontend: `frontend/src/utils/hashPassword.js`
+
+SHA-256-Passwort-Hashing vor dem Senden ans Backend.
+- Nutzt primär die Web Crypto API (`crypto.subtle.digest`) in sicheren Kontexten (HTTPS/localhost)
+- Fällt auf reine JavaScript-Implementierung zurück (für HTTP-Umgebungen)
+- Gibt 64-Zeichen-Hex-String zurück
+- Alle passwortübertragenden API-Aufrufe (Login, Benutzer anlegen, Passwort zurücksetzen, Passwort ändern) verwenden `hashPassword()`
+
+---
+
 ## MySQL → PostgreSQL Migration
 
 ### Wichtige Umstellungen
@@ -458,7 +501,7 @@ Die Funktion `generateInventurExcel(kunde, items)` erzeugt eine Inventur-Excel-D
 
 **`trg_update_letzte_aenderung`** – aktualisiert `Letzte_Änderung` bei jedem UPDATE auf `Schmuckstück`.
 
-**`trg_audit_schmuckstueck`** – schreibt Änderungen an Verkauft, Ausgelagert, Ausschuss, Lieferschein_ID, Rechnung_ID, Online in `audit_log`.
+**`trg_audit_schmuckstueck`** – schreibt Änderungen an Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID in `audit_log`.
 
 ---
 
@@ -531,7 +574,7 @@ VITE_API_URL=http://localhost:3001/api
 
 ### Phase 3: Fortgeschritten ✅ (teilweise)
 
-- [x] Benutzer-Authentifizierung (JWT) und Rollenverwaltung (admin/user)
+- [x] Benutzer-Authentifizierung (JWT) und Rollenverwaltung (admin/bearbeiter/user)
 - [x] Benutzerverwaltung über UI
 - [ ] Multi-Mandanten-Fähigkeit
 - [ ] Statistik-Dashboard mit Diagrammen
@@ -541,5 +584,6 @@ VITE_API_URL=http://localhost:3001/api
 
 ## SQL-Quelldateien
 
+- `GoldRegenDB.sql` — Vollständiger PostgreSQL-Dump (Struktur + Daten, neueste Version)
 - `GoldRegenDB_structure.sql` — Original MySQL/MariaDB Tabellenstruktur
 - `GoldRegenDB_data.sql` — Original Datenexport (~3.2 MB, ~12.400 Zeilen)
