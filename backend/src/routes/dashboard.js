@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
     const tenantId = req.user?.tenant_id ?? null;
 
     const soldCondition = where().verkauft().buildConditions();
-    const outsourcedCondition = where().ausgelagert().buildConditions();
+    const outsourcedCondition = where().aktivAusgelagert().buildConditions();
     const rejectCondition = where().ausschuss().buildConditions();
     const inStockCondition = where().verfuegbar().buildConditions();
 
