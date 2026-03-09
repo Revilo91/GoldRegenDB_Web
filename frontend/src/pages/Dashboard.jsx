@@ -9,17 +9,66 @@ import {
   faEuroSign,
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  AreaChart,
+  Area,
+} from "recharts";
 import { api } from "../api";
+
+const CHART_COLORS = {
+  accent: "#6366f1",
+  success: "#10b981",
+  warning: "#f59e0b",
+  danger: "#ef4444",
+  info: "#3b82f6",
+  gold: "#d4a853",
+};
+
+const STATUS_COLORS = [
+  CHART_COLORS.info,
+  CHART_COLORS.warning,
+  CHART_COLORS.success,
+  CHART_COLORS.danger,
+];
+
+const TOOLTIP_STYLE = {
+  backgroundColor: "#21242f",
+  border: "1px solid #2e3240",
+  borderRadius: "8px",
+  color: "#e8eaf0",
+};
+
+const AXIS_TICK_STYLE = { fill: "#9ca3b4", fontSize: 12 };
+
+function EmptyChart({ message }) {
+  return (
+    <div className="chart-empty">
+      <p>{message}</p>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     api
       .getDashboard()
       .then(setData)
-      .catch(console.error)
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -29,12 +78,39 @@ export default function Dashboard() {
         <div className="spinner"></div>Lade Dashboard...
       </div>
     );
-  if (!data) return <div className="loading">Fehler beim Laden</div>;
+  if (error || !data)
+    return (
+      <div className="loading">Fehler beim Laden der Dashboard-Daten.</div>
+    );
 
   const s = data.statistics;
 
+  const piecesByArtChart = (data.piecesByArt || []).map((item) => ({
+    name: item.Art,
+    Stück: parseInt(item.count),
+  }));
+
+  const piecesByKundeChart = (data.piecesByKunde || []).map((item) => ({
+    name: item.Name,
+    Stück: parseInt(item.count),
+  }));
+
+  const statusData = data.statusDistribution || [
+    { name: "Im Lager", value: s.inStockPieces },
+    { name: "Ausgelagert", value: s.outsourcedPieces },
+    { name: "Verkauft", value: s.soldPieces },
+    { name: "Ausschuss", value: s.rejectPieces },
+  ];
+
+  const trendData = (data.monthlyRevenueTrend || []).map((item) => ({
+    monat: item.monat,
+    Umsatz: item.umsatz,
+    Stücke: item.stuecke,
+  }));
+
   return (
     <div>
+      {/* ── Stat Cards ── */}
       <div className="stats-grid">
         <div className="stat-card gold">
           <div className="stat-icon">
@@ -89,85 +165,222 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="responsive-grid-2">
+      {/* ── Row 1: BarChart Art + PieChart Status ── */}
+      <div className="responsive-grid-2" style={{ marginBottom: 24 }}>
         <div className="card">
           <div className="card-header">
             <h3>Stücke nach Art</h3>
           </div>
-          <div className="chart-bars">
-            {data.piecesByArt.map((item) => {
-              const max = data.piecesByArt[0]?.count || 1;
-              return (
-                <div className="chart-bar" key={item.Art}>
-                  <div className="bar-label" title={item.Art}>
-                    {item.Art}
-                  </div>
-                  <div className="bar-track">
-                    <div
-                      className="bar-fill"
-                      style={{ width: `${(item.count / max) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="bar-value">{item.count}</div>
-                </div>
-              );
-            })}
+          <div className="chart-container">
+            {piecesByArtChart.length === 0 ? (
+              <EmptyChart message="Keine Daten vorhanden" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={piecesByArtChart}
+                  layout="vertical"
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#2e3240"
+                    horizontal={false}
+                  />
+                  <XAxis
+                    type="number"
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={90}
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: "rgba(99,102,241,0.1)" }}
+                    formatter={(v) => [v, "Stücke"]}
+                  />
+                  <Bar
+                    dataKey="Stück"
+                    fill={CHART_COLORS.accent}
+                    radius={[0, 4, 4, 0]}
+                    maxBarSize={24}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         <div className="card">
           <div className="card-header">
-            <h3>Stücke bei Kunden</h3>
+            <h3>Statusverteilung</h3>
           </div>
-          <div className="chart-bars">
-            {data.piecesByKunde.map((item) => {
-              const max = data.piecesByKunde[0]?.count || 1;
-              return (
-                <div className="chart-bar" key={item.Name}>
-                  <div className="bar-label" title={item.Name}>
-                    {item.Name}
-                  </div>
-                  <div className="bar-track">
-                    <div
-                      className="bar-fill"
-                      style={{ width: `${(item.count / max) * 100}%` }}
-                    ></div>
-                  </div>
-                  <div className="bar-value">{item.count}</div>
-                </div>
-              );
-            })}
+          <div className="chart-container">
+            {statusData.every((d) => d.value === 0) ? (
+              <EmptyChart message="Keine Daten vorhanden" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {statusData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={STATUS_COLORS[index % STATUS_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    formatter={(v, name) => [v, name]}
+                  />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 13, color: "#9ca3b4" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
 
-      {/* <div className="card" style={{ marginTop: '24px' }}>
-        <div className="card-header"><h3>Letzte Änderungen</h3></div>
-        <div className="card-body">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Artikel</th>
-                <th>Spalte</th>
-                <th>Alt</th>
-                <th>Neu</th>
-                <th>Zeitpunkt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.recentChanges.map((c) => (
-                <tr key={c.id}>
-                  <td><span className="badge gold">{c.artikelnummer_id}</span></td>
-                  <td>{c.column_name}</td>
-                  <td>{c.old_value}</td>
-                  <td>{c.new_value}</td>
-                  <td>{new Date(c.change_timestamp).toLocaleString('de-DE')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* ── Row 2: BarChart Kunden + AreaChart Umsatztrend ── */}
+      <div className="responsive-grid-2">
+        <div className="card">
+          <div className="card-header">
+            <h3>Stücke bei Kunden</h3>
+          </div>
+          <div className="chart-container">
+            {piecesByKundeChart.length === 0 ? (
+              <EmptyChart message="Keine ausgelagerten Stücke" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={piecesByKundeChart}
+                  layout="vertical"
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#2e3240"
+                    horizontal={false}
+                  />
+                  <XAxis
+                    type="number"
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={90}
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    cursor={{ fill: "rgba(99,102,241,0.1)" }}
+                    formatter={(v) => [v, "Stücke"]}
+                  />
+                  <Bar
+                    dataKey="Stück"
+                    fill={CHART_COLORS.warning}
+                    radius={[0, 4, 4, 0]}
+                    maxBarSize={24}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
-      </div> */}
+
+        <div className="card">
+          <div className="card-header">
+            <h3>Monatlicher Umsatztrend</h3>
+          </div>
+          <div className="chart-container">
+            {trendData.length === 0 ? (
+              <EmptyChart message="Noch keine Umsatzdaten vorhanden" />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart
+                  data={trendData}
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="umsatzGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor={CHART_COLORS.gold}
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={CHART_COLORS.gold}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2e3240" />
+                  <XAxis
+                    dataKey="monat"
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={AXIS_TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v}€`}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    formatter={(v, name) => [
+                      name === "Umsatz" ? `${v.toFixed(2)}€` : v,
+                      name,
+                    ]}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 13, color: "#9ca3b4" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Umsatz"
+                    stroke={CHART_COLORS.gold}
+                    strokeWidth={2}
+                    fill="url(#umsatzGradient)"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
