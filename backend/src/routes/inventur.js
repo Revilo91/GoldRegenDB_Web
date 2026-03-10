@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const { generateInventurExcel } = require('../utils/excelService');
+const { where } = require('../utils/whereClauseBuilder');
 const logger = require('../utils/logger');
 
 // GET inventory summary for all customers with items ausgelagert
