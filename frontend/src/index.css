@@ -181,6 +181,11 @@ body {
   height: fit-content;
 }
 
+.dashboard-stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  width: 100%;
+}
+
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -748,7 +753,21 @@ select.form-control {
   margin-right: 16px;
 }
 
-/* ============ CHARTS (simple bar) ============ */
+/* ============ CHARTS (recharts container) ============ */
+.chart-container {
+  padding: 16px 8px 8px;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ============ CHARTS (simple bar – legacy) ============ */
 .chart-bars {
   display: flex;
   flex-direction: column;
