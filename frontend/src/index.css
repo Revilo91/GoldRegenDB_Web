@@ -181,6 +181,11 @@ body {
   height: fit-content;
 }
 
+.dashboard-stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  width: 100%;
+}
+
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);

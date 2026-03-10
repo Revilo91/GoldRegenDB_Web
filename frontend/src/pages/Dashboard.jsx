@@ -51,6 +51,15 @@ const TOOLTIP_STYLE = {
 
 const AXIS_TICK_STYLE = { fill: "#9ca3b4", fontSize: 12 };
 
+function formatPercentage(value) {
+  return `${value.toFixed(1)}%`;
+}
+
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function EmptyChart({ message }) {
   return (
     <div className="chart-empty">
@@ -63,6 +72,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [revenueSeriesMode, setRevenueSeriesMode] = useState("all");
 
   useEffect(() => {
     api
@@ -112,7 +122,24 @@ export default function Dashboard() {
     Stück: parseInt(item.count),
   }));
 
-  const statusData = data.statusDistribution || [];
+  const rawStatusData = data.statusDistribution || [];
+  const totalStatusValue = rawStatusData.reduce(
+    (sum, item) => sum + toNumber(item.value),
+    0
+  );
+  const statusData = rawStatusData.map((item) => {
+    const value = toNumber(item.value);
+    const percentage =
+      totalStatusValue > 0
+        ? Number(((value / totalStatusValue) * 100).toFixed(1))
+        : 0;
+
+    return {
+      ...item,
+      value,
+      percentage,
+    };
+  });
 
   const manufacturerComparisonData = [
     {
@@ -144,14 +171,22 @@ export default function Dashboard() {
 
   const trendData = (data.monthlyRevenueTrend || []).map((item) => ({
     monat: item.monat,
-    Umsatz: item.umsatz,
-    Stücke: item.stuecke,
+    Marina: toNumber(item.marinaUmsatz),
+    Saskia: toNumber(item.saskiaUmsatz),
+    Gesamt: toNumber(item.marinaUmsatz) + toNumber(item.saskiaUmsatz),
   }));
+
+  const showMarinaSeries =
+    revenueSeriesMode === "all" || revenueSeriesMode === "manufacturers";
+  const showSaskiaSeries =
+    revenueSeriesMode === "all" || revenueSeriesMode === "manufacturers";
+  const showTotalSeries =
+    revenueSeriesMode === "all" || revenueSeriesMode === "total";
 
   return (
     <div>
       {/* ── Stat Cards ── */}
-      <div className="stats-grid">
+      <div className="stats-grid dashboard-stats-grid">
         <div className="stat-card gold">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faGem} />
@@ -614,6 +649,8 @@ export default function Dashboard() {
                     outerRadius={100}
                     paddingAngle={3}
                     dataKey="value"
+                    label={({ payload }) => formatPercentage(payload.percentage || 0)}
+                    labelLine={false}
                   >
                     {statusData.map((entry, index) => (
                       <Cell
@@ -624,11 +661,19 @@ export default function Dashboard() {
                   </Pie>
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
-                    formatter={(v, name) => [v, name]}
+                    formatter={(value, name, item) => [
+                      `${value} (${formatPercentage(item.payload.percentage || 0)})`,
+                      name,
+                    ]}
                   />
                   <Legend
                     iconType="circle"
                     wrapperStyle={{ fontSize: 13, color: "#9ca3b4" }}
+                    formatter={(value, entry) =>
+                      `${value} (${formatPercentage(
+                        entry.payload.percentage || 0
+                      )})`
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -692,6 +737,40 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-header">
             <h3>Monatlicher Umsatztrend</h3>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setRevenueSeriesMode("total")}
+                className={revenueSeriesMode === "total" ? "btn" : "btn-secondary"}
+                style={{ padding: "6px 10px", fontSize: "0.8rem" }}
+              >
+                Gesamt
+              </button>
+              <button
+                type="button"
+                onClick={() => setRevenueSeriesMode("manufacturers")}
+                className={
+                  revenueSeriesMode === "manufacturers" ? "btn" : "btn-secondary"
+                }
+                style={{ padding: "6px 10px", fontSize: "0.8rem" }}
+              >
+                Hersteller
+              </button>
+              <button
+                type="button"
+                onClick={() => setRevenueSeriesMode("all")}
+                className={revenueSeriesMode === "all" ? "btn" : "btn-secondary"}
+                style={{ padding: "6px 10px", fontSize: "0.8rem" }}
+              >
+                Alle
+              </button>
+            </div>
           </div>
           <div className="chart-container">
             {trendData.length === 0 ? (
@@ -704,7 +783,7 @@ export default function Dashboard() {
                 >
                   <defs>
                     <linearGradient
-                      id="umsatzGradient"
+                      id="marinaRevenueGradient"
                       x1="0"
                       y1="0"
                       x2="0"
@@ -712,12 +791,48 @@ export default function Dashboard() {
                     >
                       <stop
                         offset="5%"
-                        stopColor={CHART_COLORS.gold}
+                        stopColor={CHART_COLORS.accent}
                         stopOpacity={0.3}
                       />
                       <stop
                         offset="95%"
-                        stopColor={CHART_COLORS.gold}
+                        stopColor={CHART_COLORS.accent}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                    <linearGradient
+                      id="saskiaRevenueGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#ec4899"
+                        stopOpacity={0.25}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="#ec4899"
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                    <linearGradient
+                      id="totalRevenueGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#22c55e"
+                        stopOpacity={0.2}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="#22c55e"
                         stopOpacity={0}
                       />
                     </linearGradient>
@@ -738,22 +853,46 @@ export default function Dashboard() {
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(v, name) => [
-                      name === "Umsatz" ? `${(v ?? 0).toFixed(2)}€` : v,
+                      `${toNumber(v).toFixed(2)}€`,
                       name,
                     ]}
                   />
                   <Legend
                     wrapperStyle={{ fontSize: 13, color: "#9ca3b4" }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="Umsatz"
-                    stroke={CHART_COLORS.gold}
-                    strokeWidth={2}
-                    fill="url(#umsatzGradient)"
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
+                  {showMarinaSeries && (
+                    <Area
+                      type="monotone"
+                      dataKey="Marina"
+                      stroke={CHART_COLORS.accent}
+                      strokeWidth={2}
+                      fill="url(#marinaRevenueGradient)"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  )}
+                  {showSaskiaSeries && (
+                    <Area
+                      type="monotone"
+                      dataKey="Saskia"
+                      stroke="#ec4899"
+                      strokeWidth={2}
+                      fill="url(#saskiaRevenueGradient)"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  )}
+                  {showTotalSeries && (
+                    <Area
+                      type="monotone"
+                      dataKey="Gesamt"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      fill="url(#totalRevenueGradient)"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             )}

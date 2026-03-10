@@ -140,12 +140,19 @@ router.get("/", async (req, res) => {
           `
           SELECT
             TO_CHAR(r."Datum", 'YYYY-MM') AS monat,
-            COUNT(*)::INT AS stuecke,
-            COALESCE(SUM(s."Verkaufspreis"), 0)::DOUBLE PRECISION AS umsatz
+            COALESCE(
+              SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'M'),
+              0
+            )::DOUBLE PRECISION AS "marinaUmsatz",
+            COALESCE(
+              SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'S'),
+              0
+            )::DOUBLE PRECISION AS "saskiaUmsatz"
           FROM (
-            SELECT "Rechnung_ID", "Verkaufspreis"
+            SELECT "Rechnung_ID", "Verkaufspreis", "Artikelnummer"
             FROM "Schmuckstück"
             ${soldWithInvoiceWhere}
+            AND LEFT("Artikelnummer", 1) IN ('M', 'S')
           ) s
           JOIN "Rechnung" r ON s."Rechnung_ID" = r."ID"
           ${rechnungScopeWhere}
@@ -200,6 +207,17 @@ router.get("/", async (req, res) => {
     const outsourcedCount = statistics.outsourcedPieces;
     const soldCount = statistics.soldPieces;
     const rejectCount = statistics.rejectPieces;
+    const totalStatusCount =
+      inStockCount + outsourcedCount + soldCount + rejectCount;
+
+    const createStatusDistributionItem = (name, value) => ({
+      name,
+      value,
+      percentage:
+        totalStatusCount > 0
+          ? Number(((value / totalStatusCount) * 100).toFixed(1))
+          : 0,
+    });
 
     // Process manufacturer statistics
     const manufacturerStats = {};
@@ -223,10 +241,10 @@ router.get("/", async (req, res) => {
       piecesByArt: piecesByArtResult.rows,
       piecesByKunde: piecesByKundeResult.rows,
       statusDistribution: [
-        { name: "Im Lager", value: inStockCount },
-        { name: "Ausgelagert", value: outsourcedCount },
-        { name: "Verkauft", value: soldCount },
-        { name: "Ausschuss", value: rejectCount },
+        createStatusDistributionItem("Im Lager", inStockCount),
+        createStatusDistributionItem("Ausgelagert", outsourcedCount),
+        createStatusDistributionItem("Verkauft", soldCount),
+        createStatusDistributionItem("Ausschuss", rejectCount),
       ],
       monthlyRevenueTrend: monthlyRevenueTrendResult.rows,
       manufacturerStats,
