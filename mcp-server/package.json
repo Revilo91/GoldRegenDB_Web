@@ -1,0 +1,22 @@
+{
+  "name": "goldregendb-mcp-server",
+  "version": "0.1.0",
+  "description": "Minimal MCP-compatible proxy server for GoldRegenDB to allow AI integration.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["mcp", "mcp-server", "goldregendb", "ai", "proxy"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.4.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
