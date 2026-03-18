@@ -14,7 +14,10 @@
     "testEnvironment": "node",
     "testMatch": [
       "**/__tests__/**/*.test.js"
-    ]
+    ],
+    "clearMocks": true,
+    "restoreMocks": true,
+    "testTimeout": 10000
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
