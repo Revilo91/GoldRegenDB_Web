@@ -421,7 +421,7 @@ export default function Rechnungen() {
           ) : (
             <DataTable
               data={sortedData}
-              defaultSort={{ key: "Nummer", direction: "asc" }}
+              defaultSort={{ key: "Datum", direction: "desc" }}
               onRowClick={(r) => openDetail(r.ID)}
               columns={[
                 { key: "Nummer", label: "Nummer", sortable: true },
