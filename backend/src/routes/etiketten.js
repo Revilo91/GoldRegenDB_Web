@@ -3,13 +3,18 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 
-// GET options: list of article numbers + name
+// GET options: list of base article numbers (without suffix) + name
 router.get('/options', async (req, res) => {
   try {
+    // Return deduplicated base article numbers (split on '_') to avoid showing suffixes
     const { rows } = await db.query(
-      `SELECT "Artikelnummer", "Name", "Verkaufspreis" FROM "Schmuckstück" ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT 1000`
+      `SELECT DISTINCT split_part("Artikelnummer", '_', 1) as artikel_base, MIN("Name") as name, MIN("Verkaufspreis") as preis
+       FROM "Schmuckstück"
+       GROUP BY artikel_base
+       ORDER BY artikel_base
+       LIMIT 1000`
     );
-    res.json(rows.map(r => ({ artikelnummer: r.Artikelnummer, name: r.Name, preis: r.Verkaufspreis })));
+    res.json(rows.map(r => ({ artikelnummer: r.artikel_base, name: r.name, preis: r.preis })));
   } catch (err) {
     logger.error('ETIKETTEN', 'Fehler beim Laden der Etiketten-Optionen', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Etiketten-Optionen' });
@@ -25,9 +30,13 @@ router.post('/preview', async (req, res) => {
     // Collect data for each requested artikelnummer
     const details = [];
     for (const it of items) {
+      // accept base artikelnummer (without suffix) and find a matching record
       const artikelnummer = it.artikelnummer;
       const qty = parseInt(it.qty) || 1;
-      const { rows } = await db.query('SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1', [artikelnummer]);
+      const { rows } = await db.query(
+        `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 OR "Artikelnummer" LIKE $2 ORDER BY "Artikelnummer" LIMIT 1`,
+        [artikelnummer, artikelnummer + '\_%']
+      );
       if (rows.length === 0) {
         // skip missing
         continue;
@@ -42,7 +51,7 @@ router.post('/preview', async (req, res) => {
       for (let i = 0; i < d.qty; i++) {
         const art = d.row;
         const name = art.Name || '';
-        const num = art.Artikelnummer || '';
+        const num = (art.Artikelnummer || '').split('_')[0];
         const price = art.Verkaufspreis ? ('' + art.Verkaufspreis.toFixed ? art.Verkaufspreis.toFixed(2) : art.Verkaufspreis) : '';
         // build material hint html
         const hintsHtml = materialHints.length > 0 ? (`<div class="material-title">Material Hinweise</div><ul class="hints">${materialHints.map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`) : '';

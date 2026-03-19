@@ -262,4 +262,23 @@ export const api = {
   getInventur: () => request('/inventur'),
   getInventurKunde: (kundeId) => request(`/inventur/${kundeId}`),
   exportInventurExcel: (kundeId) => downloadBlob(`/inventur/${kundeId}/excel`),
+  // Etiketten
+  getEtikettenOptions: () => request('/etiketten/options'),
+  getEtikettenPreview: async (payload) => {
+    const token = getToken();
+    const res = await fetch(`${API_URL}/etiketten/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const message = err.error || err.message || res.statusText || 'Request failed';
+      const e = new Error(message);
+      e.status = res.status;
+      e.payload = err;
+      throw e;
+    }
+    return res.text();
+  },
 };
