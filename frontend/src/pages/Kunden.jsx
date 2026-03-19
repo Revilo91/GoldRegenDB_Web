@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "../api";
+import DataTable from "../components/DataTable";
 
 export default function Kunden() {
   const [kunden, setKunden] = useState([]);
@@ -8,10 +9,7 @@ export default function Kunden() {
   const [filters, setFilters] = useState({ aktiv: "1" });
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
-  const [sortConfig, setSortConfig] = useState({
-    key: "Name",
-    direction: "asc",
-  });
+  // Default sorting handled by DataTable via defaultSort prop
 
   const load = () => {
     setLoading(true);
@@ -92,37 +90,7 @@ export default function Kunden() {
     });
   }, [kunden, search, filters]);
 
-  const sortedKunden = useMemo(() => {
-    let sortableKunden = [...filteredKunden];
-    if (sortConfig.key !== null) {
-      sortableKunden.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-
-        if (aValue < bValue) {
-          return sortConfig.direction === "asc" ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === "asc" ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    return sortableKunden;
-  }, [filteredKunden, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  // DataTable will handle sorting
 
   return (
     <div>
@@ -166,64 +134,18 @@ export default function Kunden() {
               <div className="spinner"></div>Lade...
             </div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th
-                    onClick={() => requestSort("Name")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Name {getSortIcon("Name")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Ort")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Ort {getSortIcon("Ort")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("PLZ")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    PLZ {getSortIcon("PLZ")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Provision")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Provision {getSortIcon("Provision")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("Aktiv")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Status {getSortIcon("Aktiv")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedKunden.map((k) => (
-                  <tr key={k.ID} onClick={() => openEdit(k)} style={{ cursor: "pointer" }}>
-                    <td>
-                      <strong>{k.Name}</strong>
-                    </td>
-                    <td className="hide-on-mobile">{k.Ort}</td>
-                    <td className="hide-on-mobile">{k.PLZ || "–"}</td>
-                    <td className="hide-on-mobile">{k.Provision}%</td>
-                    <td>
-                      {k.Aktiv ? (
-                        <span className="badge success">Aktiv</span>
-                      ) : (
-                        <span className="badge danger">Inaktiv</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              data={filteredKunden}
+              defaultSort={{ key: "Name", direction: "asc" }}
+              onRowClick={(k) => openEdit(k)}
+              columns={[
+                { key: "Name", label: "Name", sortable: true },
+                { key: "Ort", label: "Ort", className: "hide-on-mobile", sortable: true },
+                { key: "PLZ", label: "PLZ", className: "hide-on-mobile", sortable: true },
+                { key: "Provision", label: "Provision", className: "hide-on-mobile", render: (r) => `${r.Provision}%`, sortable: true },
+                { key: "Aktiv", label: "Status", render: (r) => (r.Aktiv ? <span className="badge success">Aktiv</span> : <span className="badge danger">Inaktiv</span>), sortable: true },
+              ]}
+            />
           )}
         </div>
       </div>

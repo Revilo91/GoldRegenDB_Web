@@ -8,6 +8,7 @@ import {
   faGem,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import DataTable from "../components/DataTable";
 
 const TABS = [
   { id: "aktiv", label: "Nicht verkauft" },
@@ -781,133 +782,43 @@ export default function Inventur() {
                 : "Keine Ergebnisse für diese Suche."}
             </p>
           ) : (
-            <table className="data-table inventur-table">
-              <thead>
-                <tr>
-                  <th
-                    onClick={() => requestSort("Name")}
-                    style={{ cursor: "pointer" }}>
-                    Kunde {getSortIcon("Name")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Ort")}
-                    style={{ cursor: "pointer" }}>
-                    Ort {getSortIcon("Ort")}
-                  </th>
-                  <th
-                    style={{ textAlign: "right", cursor: "pointer" }}
-                    onClick={() => requestSort("gesamt")}>
-                    Gesamt {getSortIcon("gesamt")}
-                  </th>
-                  <th
-                    style={{ textAlign: "right", cursor: "pointer" }}
-                    onClick={() => requestSort("aktiv")}>
-                    Nicht verkauft {getSortIcon("aktiv")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    style={{ textAlign: "right", cursor: "pointer" }}
-                    onClick={() => requestSort("verkauft")}>
-                    Verkauft {getSortIcon("verkauft")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    style={{ textAlign: "right", cursor: "pointer" }}
-                    onClick={() => requestSort("ausschuss")}>
-                    Ausschuss {getSortIcon("ausschuss")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    style={{ textAlign: "right", cursor: "pointer" }}
-                    onClick={() => requestSort("wert_aktiv")}>
-                    Warenwert (aktiv) {getSortIcon("wert_aktiv")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    style={{ textAlign: "right", cursor: "pointer" }}
-                    onClick={() => requestSort("wert_verkauft")}>
-                    Warenwert (verk.) {getSortIcon("wert_verkauft")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((k) => (
-                  <tr
-                    key={k.ID}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelectedKunde(k)}>
-                    <td>
-                      <strong>{k.Name}</strong>
-                      {!k.Aktiv && (
-                        <span
-                          className="badge danger"
-                          style={{ marginLeft: 8, fontSize: 10 }}>
-                          Inaktiv
-                        </span>
-                      )}
-                    </td>
-                    <td className="hide-on-mobile">{k.Ort || "–"}</td>
-                    <td style={{ textAlign: "right" }}>{k.gesamt}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <span style={{ color: "var(--success)" }}>{k.aktiv}</span>
-                    </td>
-                    <td
-                      className="hide-on-mobile"
-                      style={{ textAlign: "right" }}>
-                      <span style={{ color: "var(--info)" }}>{k.verkauft}</span>
-                    </td>
-                    <td
-                      className="hide-on-mobile"
-                      style={{ textAlign: "right" }}>
-                      <span style={{ color: "var(--warning)" }}>
-                        {k.ausschuss}
-                      </span>
-                    </td>
-                    <td
-                      className="hide-on-mobile"
-                      style={{ textAlign: "right" }}>
-                      {formatEur(k.wert_aktiv)}
-                    </td>
-                    <td
-                      className="hide-on-mobile"
-                      style={{ textAlign: "right" }}>
-                      {formatEur(k.wert_verkauft)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ fontWeight: 600, background: "var(--bg-hover)" }}>
-                  <td
-                    colSpan={isMobile ? 1 : 2}
-                    style={{ padding: "8px 12px" }}>
-                    Gesamt
-                  </td>
+            <>
+              <DataTable
+                data={sorted}
+                getRowKey={(r) => r.ID}
+                defaultSort={{ key: "Name", direction: "asc" }}
+                onRowClick={(k) => setSelectedKunde(k)}
+                className="inventur-table"
+                columns={[
+                  { key: "Name", label: "Kunde", sortable: true, render: (r) => (<><strong>{r.Name}</strong>{!r.Aktiv && <span className="badge danger" style={{ marginLeft: 8, fontSize: 10 }}>Inaktiv</span>}</>) },
+                  { key: "Ort", label: "Ort", className: "hide-on-mobile", sortable: true },
+                  { key: "gesamt", label: "Gesamt", style: { textAlign: "right" }, sortable: true, render: (r) => <span style={{ textAlign: "right" }}>{r.gesamt}</span> },
+                  { key: "aktiv", label: "Nicht verkauft", style: { textAlign: "right" }, sortable: true, render: (r) => <span style={{ color: "var(--success)" }}>{r.aktiv}</span> },
+                  { key: "verkauft", label: "Verkauft", className: "hide-on-mobile", style: { textAlign: "right" }, sortable: true, render: (r) => <span style={{ color: "var(--info)" }}>{r.verkauft}</span> },
+                  { key: "ausschuss", label: "Ausschuss", className: "hide-on-mobile", style: { textAlign: "right" }, sortable: true, render: (r) => <span style={{ color: "var(--warning)" }}>{r.ausschuss}</span> },
+                  { key: "wert_aktiv", label: "Warenwert (aktiv)", className: "hide-on-mobile", style: { textAlign: "right" }, render: (r) => formatEur(r.wert_aktiv) },
+                  { key: "wert_verkauft", label: "Warenwert (verk.)", className: "hide-on-mobile", style: { textAlign: "right" }, render: (r) => formatEur(r.wert_verkauft) },
+                ]}
+              />
 
-                  <td style={{ textAlign: "right" }}>{totals.gesamt}</td>
-                  <td style={{ textAlign: "right", color: "var(--success)" }}>
-                    {totals.aktiv}
-                  </td>
-                  <td
-                    className="hide-on-mobile"
-                    style={{ textAlign: "right", color: "var(--info)" }}>
-                    {totals.verkauft}
-                  </td>
-                  <td
-                    className="hide-on-mobile"
-                    style={{ textAlign: "right", color: "var(--warning)" }}>
-                    {totals.ausschuss}
-                  </td>
-                  <td className="hide-on-mobile" style={{ textAlign: "right" }}>
-                    {formatEur(totals.wert_aktiv)}
-                  </td>
-                  <td className="hide-on-mobile" style={{ textAlign: "right" }}>
-                    {formatEur(totals.wert_verkauft)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+              <div style={{ marginTop: 8 }}>
+                <table style={{ width: "100%" }}>
+                  <tbody>
+                    <tr style={{ fontWeight: 600, background: "var(--bg-hover)" }}>
+                      <td colSpan={isMobile ? 1 : 2} style={{ padding: "8px 12px" }}>
+                        Gesamt
+                      </td>
+                      <td style={{ textAlign: "right" }}>{totals.gesamt}</td>
+                      <td style={{ textAlign: "right", color: "var(--success)" }}>{totals.aktiv}</td>
+                      <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--info)" }}>{totals.verkauft}</td>
+                      <td className="hide-on-mobile" style={{ textAlign: "right", color: "var(--warning)" }}>{totals.ausschuss}</td>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>{formatEur(totals.wert_aktiv)}</td>
+                      <td className="hide-on-mobile" style={{ textAlign: "right" }}>{formatEur(totals.wert_verkauft)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
