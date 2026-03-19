@@ -5,7 +5,7 @@ export default function Kunden() {
   const [kunden, setKunden] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState({ aktiv: "1" });
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [sortConfig, setSortConfig] = useState({
@@ -79,8 +79,7 @@ export default function Kunden() {
         const match =
           k.Name?.toUpperCase().includes(s) ||
           k.Ort?.toUpperCase().includes(s) ||
-          k.Email?.toUpperCase().includes(s) ||
-          String(k.ID).includes(s);
+          k.Email?.toUpperCase().includes(s);
         if (!match) return false;
       }
 
@@ -140,7 +139,7 @@ export default function Kunden() {
       <div className="toolbar">
         <input
           className="form-control search-input"
-          placeholder="Suche nach Name, Ort, Email, ID..."
+          placeholder="Suche nach Name, Ort oder Email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -170,12 +169,6 @@ export default function Kunden() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th
-                    onClick={() => requestSort("ID")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    ID {getSortIcon("ID")}
-                  </th>
                   <th
                     onClick={() => requestSort("Name")}
                     style={{ cursor: "pointer" }}
@@ -213,12 +206,7 @@ export default function Kunden() {
               </thead>
               <tbody>
                 {sortedKunden.map((k) => (
-                  <tr
-                    key={k.ID}
-                    onClick={() => openEdit(k)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>{k.ID}</td>
+                  <tr key={k.ID} onClick={() => openEdit(k)} style={{ cursor: "pointer" }}>
                     <td>
                       <strong>{k.Name}</strong>
                     </td>
