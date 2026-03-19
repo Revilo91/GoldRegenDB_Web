@@ -22,7 +22,10 @@ const CONTACTS = {
 
 const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
 
-const DEFAULT_LOGO_PATH = path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png");
+const DEFAULT_LOGO_PATH = path.join(
+  __dirname,
+  "../assets/Logo trasparent weißer Kreis.png",
+);
 
 /**
  * Auto-fit columns based on content with support for merged cells
@@ -51,7 +54,11 @@ function autoFitColumns(worksheet) {
           let mergeWidth = 1;
           for (let col = masterCol + 1; col <= worksheet.columnCount; col++) {
             const nextCell = worksheet.getCell(masterRow, col);
-            if (nextCell.isMerged && nextCell.master && nextCell.master.address === cell.address) {
+            if (
+              nextCell.isMerged &&
+              nextCell.master &&
+              nextCell.master.address === cell.address
+            ) {
               mergeWidth++;
             } else {
               break;
@@ -61,13 +68,19 @@ function autoFitColumns(worksheet) {
           // Distribute width across merged columns
           const widthPerColumn = length / mergeWidth;
           for (let col = masterCol; col < masterCol + mergeWidth; col++) {
-            columnWidths[col] = Math.max(columnWidths[col] || 0, widthPerColumn);
+            columnWidths[col] = Math.max(
+              columnWidths[col] || 0,
+              widthPerColumn,
+            );
           }
         }
         // Skip non-master merged cells
       } else {
         // Regular cell (not merged)
-        columnWidths[colNumber] = Math.max(columnWidths[colNumber] || 0, length);
+        columnWidths[colNumber] = Math.max(
+          columnWidths[colNumber] || 0,
+          length,
+        );
       }
     });
   });
@@ -75,6 +88,11 @@ function autoFitColumns(worksheet) {
   // Apply calculated widths with minimal padding for tight columns
   worksheet.columns.forEach((column, index) => {
     const colNumber = index + 1;
+    // Respect explicit widths already set on the column (e.g., from cm-based config)
+    if (column && column.width) {
+      return;
+    }
+
     if (columnWidths[colNumber]) {
       // Minimal padding (1) and limit between 5 and 50 for tight fit
       column.width = Math.min(Math.max(columnWidths[colNumber] + 1, 5), 50);
@@ -115,19 +133,36 @@ async function generateExcel(type, data, logoPath) {
 
   const contact = CONTACTS.GOLDREGEN; // Default to Marina/GoldRegen
 
+  // Helper: convert centimeters to Excel column width (approx.)
+  // Calibration: adjust if Excel shows different cm than expected
+  // If your exported sheet shows wider columns than requested, reduce this (e.g. 0.9)
+  const CM_WIDTH_CALIBRATION = 0.9;
+
+  const cmToExcelWidth = (cm) => {
+    // 1 cm ≈ 37.7952755906 pixels at 96 DPI
+    const pixelsPerCm = 37.7952755906;
+    // Apply calibration to account for Excel rendering differences
+    const pixels = cm * pixelsPerCm * CM_WIDTH_CALIBRATION;
+    // Excel column width (approx): width = (pixels - 5) / 7
+    const width = (pixels - 5) / 7;
+    return Math.max(width, 1);
+  };
   // Setup column widths optimized for table structure
   // Columns C-F are merged for "Bezeichnung", so they share space
-  worksheet.columns = [
-    { width: 12 }, // A - Artikelnr.
-    { width: 10 }, // B - Kategorie
-    { width: 12 }, // C - Bezeichnung (merged C:F)
-    { width: 12 }, // D - Bezeichnung (merged C:F)
-    { width: 12 }, // E - Bezeichnung (merged C:F)
-    { width: 12 }, // F - Bezeichnung (merged C:F)
-    { width: 8 },  // G - Menge
-    { width: 13 }, // H - Einzelpreis
-    { width: 13 }, // I - Gesamtpreis
+  // Specify desired column widths in centimeters here (adjust as needed)
+  const colWidthsCm = [
+    2.05, // A - Artikelnr. (cm)
+    2.08, // B - Kategorie (cm)
+    2.26, // C - Bezeichnung (merged C:F) (cm)
+    2.26, // D - Bezeichnung (merged C:F) (cm)
+    2.26, // E - Bezeichnung (merged C:F) (cm)
+    2.26, // F - Bezeichnung (merged C:F) (cm)
+    2.46, // G - Menge (cm)
+    2.21, // H - Einzelpreis (cm)
+    2.54, // I - Gesamtpreis (cm)
   ];
+
+  worksheet.columns = colWidthsCm.map((cm) => ({ width: cmToExcelWidth(cm) }));
 
   // Page setup for A4 print layout
   worksheet.pageSetup.paperSize = 9; // A4
@@ -139,7 +174,7 @@ async function generateExcel(type, data, logoPath) {
     left: 0.7,
     right: 0.7,
     top: 0.75,
-    bottom: 1.2,    // Erhöht von 0.75 für mehr Platz für die Fußzeile
+    bottom: 1.2, // Erhöht von 0.75 für mehr Platz für die Fußzeile
     header: 0.3,
     footer: 0.3,
   };
@@ -162,7 +197,7 @@ async function generateExcel(type, data, logoPath) {
         tl: { col: 5, row: 0 },
         ext: {
           width: dimensions.width * scaleFactor,
-          height: dimensions.height * scaleFactor
+          height: dimensions.height * scaleFactor,
         },
         editAs: "oneCell",
       });
@@ -227,9 +262,9 @@ async function generateExcel(type, data, logoPath) {
   worksheet.getCell(`A${infoValueRow}`).font = { name: "Calibri", size: 10 };
 
   const datum = new Date(data.Datum).toLocaleDateString("de-DE", {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
   worksheet.mergeCells(`D${infoValueRow}:E${infoValueRow}`);
   if (type === "Lieferschein") {
@@ -426,7 +461,7 @@ async function generateExcel(type, data, logoPath) {
     const provValueCell = worksheet.getCell(`I${currentRow}`);
     provValueCell.value = provisionValue;
     provValueCell.numFmt = "#,##0.00 €";
-    provValueCell.font = { name: "Calibri", size: 10};
+    provValueCell.font = { name: "Calibri", size: 10 };
     provValueCell.alignment = { horizontal: "right" };
 
     // Final Total
@@ -536,151 +571,169 @@ async function generateExcel(type, data, logoPath) {
  */
 async function generateInventurExcel(kunde, items) {
   const workbook = new ExcelJS.Workbook();
-  workbook.defaultFont = { name: 'Calibri', size: 10 };
+  workbook.defaultFont = { name: "Calibri", size: 10 };
 
-  const today = new Date().toLocaleDateString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+  const today = new Date().toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 
   const COLUMNS = [
-    { header: 'Artikelnummer', key: 'Artikelnummer', width: 18 },
-    { header: 'Name',          key: 'Name',          width: 25 },
-    { header: 'Art',           key: 'Art',            width: 16 },
-    { header: 'Farbe',         key: 'Farbe',          width: 16 },
-    { header: 'Material',      key: 'Material',       width: 16 },
-    { header: 'Verkaufspreis', key: 'Verkaufspreis',  width: 16 },
-    { header: 'Erstelldatum',  key: 'Erstelldatum',   width: 16 },
+    { header: "Artikelnummer", key: "Artikelnummer", width: 18 },
+    { header: "Name", key: "Name", width: 25 },
+    { header: "Art", key: "Art", width: 16 },
+    { header: "Farbe", key: "Farbe", width: 16 },
+    { header: "Material", key: "Material", width: 16 },
+    { header: "Verkaufspreis", key: "Verkaufspreis", width: 16 },
+    { header: "Erstelldatum", key: "Erstelldatum", width: 16 },
   ];
 
   const HEADER_FILL = {
-    type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' },
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFF2F2F2" },
   };
   const THIN_BORDER = {
-    top:    { style: 'thin', color: { argb: 'FFBCBCBC' } },
-    left:   { style: 'thin', color: { argb: 'FFBCBCBC' } },
-    bottom: { style: 'thin', color: { argb: 'FFBCBCBC' } },
-    right:  { style: 'thin', color: { argb: 'FFBCBCBC' } },
+    top: { style: "thin", color: { argb: "FFBCBCBC" } },
+    left: { style: "thin", color: { argb: "FFBCBCBC" } },
+    bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
+    right: { style: "thin", color: { argb: "FFBCBCBC" } },
   };
 
   const addSheet = (sheetName, sheetItems, accentArgb) => {
     const ws = workbook.addWorksheet(sheetName);
     ws.pageSetup.paperSize = 9;
-    ws.pageSetup.orientation = 'landscape';
+    ws.pageSetup.orientation = "landscape";
     ws.pageSetup.fitToPage = true;
     ws.pageSetup.fitToWidth = 1;
     ws.pageSetup.fitToHeight = 0;
 
     // Title rows
-    ws.mergeCells('A1:G1');
-    const titleCell = ws.getCell('A1');
+    ws.mergeCells("A1:G1");
+    const titleCell = ws.getCell("A1");
     titleCell.value = `Inventur – ${kunde.Name}`;
-    titleCell.font = { name: 'Calibri', bold: true, size: 14 };
-    titleCell.alignment = { horizontal: 'left' };
+    titleCell.font = { name: "Calibri", bold: true, size: 14 };
+    titleCell.alignment = { horizontal: "left" };
 
-    ws.mergeCells('A2:G2');
-    const subCell = ws.getCell('A2');
+    ws.mergeCells("A2:G2");
+    const subCell = ws.getCell("A2");
     subCell.value = `${sheetName}  •  Stand: ${today}  •  ${sheetItems.length} Artikel`;
-    subCell.font = { name: 'Calibri', size: 10, color: { argb: 'FF6B7280' } };
+    subCell.font = { name: "Calibri", size: 10, color: { argb: "FF6B7280" } };
 
     ws.addRow([]); // spacer
 
     // Column headers
     ws.columns = COLUMNS;
-    const headerRow = ws.addRow(COLUMNS.map(c => c.header));
-    headerRow.eachCell(cell => {
-      cell.font = { name: 'Calibri', bold: true, size: 10 };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentArgb } };
+    const headerRow = ws.addRow(COLUMNS.map((c) => c.header));
+    headerRow.eachCell((cell) => {
+      cell.font = { name: "Calibri", bold: true, size: 10 };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: accentArgb },
+      };
       cell.border = THIN_BORDER;
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
     });
 
     // Data rows
     let totalValue = 0;
-    sheetItems.forEach(item => {
+    sheetItems.forEach((item) => {
       const price = Number(item.Verkaufspreis) || 0;
       totalValue += price;
       const row = ws.addRow([
         item.Artikelnummer,
-        item.Name || '',
-        item.Art || '',
-        item.Farbe || '',
-        item.Material || '',
+        item.Name || "",
+        item.Art || "",
+        item.Farbe || "",
+        item.Material || "",
         price,
         item.Erstelldatum
-          ? new Date(item.Erstelldatum).toLocaleDateString('de-DE')
-          : '',
+          ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
+          : "",
       ]);
-      row.getCell(6).numFmt = '#,##0.00 €';
-      row.eachCell(cell => {
-        cell.font = { name: 'Calibri', size: 10 };
+      row.getCell(6).numFmt = "#,##0.00 €";
+      row.eachCell((cell) => {
+        cell.font = { name: "Calibri", size: 10 };
         cell.border = THIN_BORDER;
       });
     });
 
     // Totals row
     ws.addRow([]);
-    const totalRow = ws.addRow(['', '', '', '', 'Gesamtwert:', totalValue, '']);
-    totalRow.getCell(5).font = { name: 'Calibri', bold: true, size: 10 };
-    totalRow.getCell(6).numFmt = '#,##0.00 €';
-    totalRow.getCell(6).font = { name: 'Calibri', bold: true, size: 10 };
+    const totalRow = ws.addRow(["", "", "", "", "Gesamtwert:", totalValue, ""]);
+    totalRow.getCell(5).font = { name: "Calibri", bold: true, size: 10 };
+    totalRow.getCell(6).numFmt = "#,##0.00 €";
+    totalRow.getCell(6).font = { name: "Calibri", bold: true, size: 10 };
 
     // Re-apply column widths (columns are already set via ws.columns)
     autoFitColumns(ws);
   };
 
-  const aktiv     = items.filter(i => Number(i.Verkauft)  === 0 && Number(i.Ausschuss) === 0);
-  const verkauft  = items.filter(i => Number(i.Verkauft)  === 1);
-  const ausschuss = items.filter(i => Number(i.Ausschuss) === 1);
+  const aktiv = items.filter(
+    (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+  );
+  const verkauft = items.filter((i) => Number(i.Verkauft) === 1);
+  const ausschuss = items.filter((i) => Number(i.Ausschuss) === 1);
 
-  addSheet('Nicht verkauft', aktiv,     'FFD4EDDA'); // light green
-  addSheet('Verkauft',       verkauft,  'FFCCE5FF'); // light blue
-  addSheet('Ausschuss',      ausschuss, 'FFFFEEBA'); // light yellow
+  addSheet("Nicht verkauft", aktiv, "FFD4EDDA"); // light green
+  addSheet("Verkauft", verkauft, "FFCCE5FF"); // light blue
+  addSheet("Ausschuss", ausschuss, "FFFFEEBA"); // light yellow
 
   // Summary sheet
-  const ws = workbook.addWorksheet('Übersicht');
+  const ws = workbook.addWorksheet("Übersicht");
   ws.pageSetup.paperSize = 9;
-  ws.pageSetup.orientation = 'portrait';
+  ws.pageSetup.orientation = "portrait";
 
-  ws.mergeCells('A1:C1');
-  const titleCell = ws.getCell('A1');
+  ws.mergeCells("A1:C1");
+  const titleCell = ws.getCell("A1");
   titleCell.value = `Inventur – ${kunde.Name}`;
-  titleCell.font = { name: 'Calibri', bold: true, size: 14 };
+  titleCell.font = { name: "Calibri", bold: true, size: 14 };
 
-  ws.mergeCells('A2:C2');
-  ws.getCell('A2').value = `Stand: ${today}`;
-  ws.getCell('A2').font = { name: 'Calibri', size: 10, color: { argb: 'FF6B7280' } };
+  ws.mergeCells("A2:C2");
+  ws.getCell("A2").value = `Stand: ${today}`;
+  ws.getCell("A2").font = {
+    name: "Calibri",
+    size: 10,
+    color: { argb: "FF6B7280" },
+  };
 
   ws.addRow([]);
 
-  const summaryHeaders = ws.addRow(['Status', 'Anzahl', 'Gesamtwert']);
-  summaryHeaders.eachCell(cell => {
-    cell.font = { name: 'Calibri', bold: true, size: 10 };
+  const summaryHeaders = ws.addRow(["Status", "Anzahl", "Gesamtwert"]);
+  summaryHeaders.eachCell((cell) => {
+    cell.font = { name: "Calibri", bold: true, size: 10 };
     cell.fill = HEADER_FILL;
     cell.border = THIN_BORDER;
-    cell.alignment = { horizontal: 'center' };
+    cell.alignment = { horizontal: "center" };
   });
 
   const addSummaryRow = (label, arr, argb) => {
     const total = arr.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
     const row = ws.addRow([label, arr.length, total]);
-    row.getCell(3).numFmt = '#,##0.00 €';
-    row.eachCell(cell => {
-      cell.font = { name: 'Calibri', size: 10 };
+    row.getCell(3).numFmt = "#,##0.00 €";
+    row.eachCell((cell) => {
+      cell.font = { name: "Calibri", size: 10 };
       cell.border = THIN_BORDER;
-      if (argb) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+      if (argb)
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb } };
     });
   };
 
-  addSummaryRow('Nicht verkauft', aktiv,     'FFD4EDDA');
-  addSummaryRow('Verkauft',       verkauft,  'FFCCE5FF');
-  addSummaryRow('Ausschuss',      ausschuss, 'FFFFEEBA');
+  addSummaryRow("Nicht verkauft", aktiv, "FFD4EDDA");
+  addSummaryRow("Verkauft", verkauft, "FFCCE5FF");
+  addSummaryRow("Ausschuss", ausschuss, "FFFFEEBA");
 
   // Total row
-  const allTotal = items.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
-  const totalRow = ws.addRow(['Gesamt', items.length, allTotal]);
-  totalRow.getCell(3).numFmt = '#,##0.00 €';
-  totalRow.eachCell(cell => {
-    cell.font = { name: 'Calibri', bold: true, size: 10 };
+  const allTotal = items.reduce(
+    (s, i) => s + (Number(i.Verkaufspreis) || 0),
+    0,
+  );
+  const totalRow = ws.addRow(["Gesamt", items.length, allTotal]);
+  totalRow.getCell(3).numFmt = "#,##0.00 €";
+  totalRow.eachCell((cell) => {
+    cell.font = { name: "Calibri", bold: true, size: 10 };
     cell.border = THIN_BORDER;
   });
 
