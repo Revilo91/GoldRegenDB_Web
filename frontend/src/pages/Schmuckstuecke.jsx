@@ -12,6 +12,7 @@ import {
   faPaperclip,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import { useAuth } from "../context/AuthContext";
 
@@ -314,116 +315,33 @@ export default function Schmuckstuecke() {
               <div className="spinner"></div>Lade...
             </div>
           ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="photo-col">Foto</th>
-                  <th
-                    onClick={() => requestSort("Artikelnummer")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Artikelnr. {getSortIcon("Artikelnummer")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Grundmaterial")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Grundmaterial {getSortIcon("Grundmaterial")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Art")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Art {getSortIcon("Art")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Material")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Material {getSortIcon("Material")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Farbe")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Farbe {getSortIcon("Farbe")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("Verkaufspreis")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Preis {getSortIcon("Verkaufspreis")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("Verkauft")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Status {getSortIcon("Verkauft")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("Ausgelagert")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Ausgelagert {getSortIcon("Ausgelagert")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedData.map((s) => (
-                  <tr
-                    key={s.Artikelnummer}
-                    onClick={() => setSelected(s)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td className="photo-col">
-                      <TablePhoto
-                        foto={s.Foto}
-                        artikelnummer={s.Artikelnummer}
-                      />
-                    </td>
-                    <td>
-                      <strong>{s.Artikelnummer.split("_")[0]}</strong>
-                      {s.Artikelnummer.split("_")[1] > 0 && (
-                        <span className="badge warning">
-                          {s.Artikelnummer.split("_")[1]}
-                        </span>
-                      )}
-                    </td>
-                    <td className="hide-on-mobile">{s.Grundmaterial}</td>
-                    <td className="hide-on-mobile">{s.Art}</td>
-                    <td className="hide-on-mobile">{s.Material}</td>
-                    <td className="hide-on-mobile">{s.Farbe}</td>
-                    <td>{s.Verkaufspreis > 0 ? `${s.Verkaufspreis}€` : "-"}</td>
-                    <td>
-                      {s.Verkauft === 1 && (
-                        <span className="badge success">Verkauft</span>
-                      )}
-                      {s.Ausschuss === 1 && (
-                        <span className="badge danger">Ausschuss</span>
-                      )}
-                      {s.Verkauft === 0 &&
-                        s.Ausschuss === 0 &&
-                        s.Ausgelagert === 0 && (
-                          <span className="badge gold">Lager</span>
-                        )}
-                    </td>
-                    <td>
-                      {s.Ausgelagert > 0 ? (
-                        <span className="badge warning">
-                          {getKundenName(s.Ausgelagert)}
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              data={sortedData}
+              getRowKey={(r) => r.Artikelnummer}
+              defaultSort={{ key: "Artikelnummer", direction: "asc" }}
+              onRowClick={(s) => setSelected(s)}
+              columns={[
+                { key: "foto", label: "Foto", className: "photo-col", render: (r) => <TablePhoto foto={r.Foto} artikelnummer={r.Artikelnummer} /> },
+                { key: "Artikelnummer", label: "Artikelnr.", sortable: true, render: (r) => {
+                    const parts = String(r.Artikelnummer).split("_");
+                    return (<><strong>{parts[0]}</strong>{parts[1] > 0 && <span className="badge warning">{parts[1]}</span>}</>);
+                  }
+                },
+                { key: "Grundmaterial", label: "Grundmaterial", className: "hide-on-mobile", sortable: true },
+                { key: "Art", label: "Art", className: "hide-on-mobile", sortable: true },
+                { key: "Material", label: "Material", className: "hide-on-mobile", sortable: true },
+                { key: "Farbe", label: "Farbe", className: "hide-on-mobile", sortable: true },
+                { key: "Verkaufspreis", label: "Preis", sortable: true, render: (r) => (r.Verkaufspreis > 0 ? `${r.Verkaufspreis}€` : "-") },
+                { key: "Status", label: "Status", sortable: true, render: (r) => (
+                    r.Verkauft === 1 ? <span className="badge success">Verkauft</span>
+                    : r.Ausschuss === 1 ? <span className="badge danger">Ausschuss</span>
+                    : r.Verkauft === 0 && r.Ausschuss === 0 && r.Ausgelagert === 0 ? <span className="badge gold">Lager</span>
+                    : null
+                  )
+                },
+                { key: "Ausgelagert", label: "Ausgelagert", render: (r) => (r.Ausgelagert > 0 ? <span className="badge warning">{getKundenName(r.Ausgelagert)}</span> : "-") },
+              ]}
+            />
           )}
         </div>
         {p.totalPages > 1 && (

@@ -7,6 +7,7 @@ import {
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import DataTable from "../components/DataTable";
 
 export default function Rechnungen() {
   const [data, setData] = useState([]);
@@ -356,100 +357,78 @@ export default function Rechnungen() {
             <div className="loading">
               <div className="spinner"></div>Lade...
             </div>
-          ) : (
+          ) : groupByKunde ? (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th
-                    onClick={() => requestSort("Nummer")}
-                    style={{ cursor: "pointer" }}>
-                    Nummer {getSortIcon("Nummer")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("KundenName")}
-                    style={{ cursor: "pointer" }}>
-                    Kunde {getSortIcon("KundenName")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("Datum")}
-                    style={{ cursor: "pointer" }}>
-                    Datum {getSortIcon("Datum")}
-                  </th>
+                  <th style={{ cursor: "pointer" }}>Nummer</th>
+                  <th style={{ cursor: "pointer" }}>Kunde</th>
+                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>Datum</th>
                 </tr>
               </thead>
               <tbody>
-                {groupByKunde
-                  ? groupedData.flatMap((group) => {
-                      const isExpanded = expandedGroups.has(group.key);
-                      return [
-                        <tr
-                          key={`group-${group.key}`}
-                          className="group-header-row"
-                          style={{ cursor: "pointer" }}
-                          onClick={() => toggleGroup(group.key)}
-                          aria-label={`Kundengruppe: ${group.name}`}>
-                          <td colSpan={4}>
-                            <span style={{ marginRight: 8 }}>
-                              {isExpanded ? "▼" : "▶"}
-                            </span>
-                            <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
-                            <span
-                              style={{
-                                fontWeight: "normal",
-                                color: "var(--text-muted)",
-                                fontSize: "0.9em",
-                              }}>
-                              ({group.items.length})
-                            </span>
-                          </td>
-                        </tr>,
-                        ...(isExpanded
-                          ? group.items.map((r) => (
-                              <tr
-                                key={r.ID}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openDetail(r.ID);
-                                }}
-                                style={{ cursor: "pointer" }}>
-                                <td>{r.Nummer}</td>
-                                <td>
-                                  {r.KundenName || `Kunde ${r.Kundennummer}`}
-                                </td>
-                                <td className="hide-on-mobile">
-                                  {new Date(r.Datum).toLocaleDateString(
-                                    "de-DE",
-                                    {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                    },
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          : []),
-                      ];
-                    })
-                  : sortedData.map((r) => (
-                      <tr
-                        key={r.ID}
-                        onClick={() => openDetail(r.ID)}
-                        style={{ cursor: "pointer" }}>
-                        <td>{r.Nummer}</td>
-                        <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
-                        <td className="hide-on-mobile">
-                          {new Date(r.Datum).toLocaleDateString("de-DE", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })}
-                        </td>
-                      </tr>
-                    ))}
+                {groupedData.flatMap((group) => {
+                  const isExpanded = expandedGroups.has(group.key);
+                  return [
+                    <tr
+                      key={`group-${group.key}`}
+                      className="group-header-row"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => toggleGroup(group.key)}
+                      aria-label={`Kundengruppe: ${group.name}`}>
+                      <td colSpan={4}>
+                        <span style={{ marginRight: 8 }}>
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
+                        <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
+                        <span
+                          style={{
+                            fontWeight: "normal",
+                            color: "var(--text-muted)",
+                            fontSize: "0.9em",
+                          }}>
+                          ({group.items.length})
+                        </span>
+                      </td>
+                    </tr>,
+                    ...(isExpanded
+                      ? group.items.map((r) => (
+                          <tr
+                            key={r.ID}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDetail(r.ID);
+                            }}
+                            style={{ cursor: "pointer" }}>
+                            <td>{r.Nummer}</td>
+                            <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
+                            <td className="hide-on-mobile">
+                              {r.Datum
+                                ? new Date(r.Datum).toLocaleDateString("de-DE", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                  })
+                                : ""}
+                            </td>
+                          </tr>
+                        ))
+                      : []),
+                  ];
+                })}
               </tbody>
             </table>
+          ) : (
+            <DataTable
+              data={sortedData}
+              defaultSort={{ key: "Datum", direction: "desc" }}
+              onRowClick={(r) => openDetail(r.ID)}
+              columns={[
+                { key: "Nummer", label: "Nummer", sortable: true },
+                { key: "KundenName", label: "Kunde", sortable: true, render: (r) => r.KundenName || `Kunde ${r.Kundennummer}` },
+                { key: "Datum", label: "Datum", className: "hide-on-mobile", sortable: true, render: (r) => (r.Datum ? new Date(r.Datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "") },
+              ]}
+            />
           )}
         </div>
       </div>
