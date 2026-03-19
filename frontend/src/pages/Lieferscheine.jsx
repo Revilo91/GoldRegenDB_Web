@@ -7,6 +7,7 @@ import {
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import DocumentPreview from "../components/DocumentPreview";
 
 export default function Lieferscheine() {
   const [data, setData] = useState([]);
@@ -28,6 +29,7 @@ export default function Lieferscheine() {
     key: "Datum",
     direction: "desc",
   });
+  const [showPreview, setShowPreview] = useState(false);
   const [groupByKunde, setGroupByKunde] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
 
@@ -80,6 +82,19 @@ export default function Lieferscheine() {
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const handlePdfExport = async (id, nummer) => {
+    const blob = await api.exportLieferscheinPdf(id);
+    const url = window.URL.createObjectURL(blob);
+    const safeNummer = String(nummer || id).replace(/[\\/:*?"<>|]+/g, "_");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Lieferschein_${safeNummer}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
   const loadAvailablePieces = async () => {
@@ -458,8 +473,8 @@ export default function Lieferscheine() {
               <button
                 className="btn btn-primary btn-sm"
                 style={{ marginLeft: "auto", marginRight: 8 }}
-                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
-                Lieferschein erstellen
+                onClick={() => setShowPreview(true)}>
+                Vorschau / Export
               </button>
               <button
                 className="btn btn-danger btn-sm"
@@ -679,6 +694,16 @@ export default function Lieferscheine() {
             </div>
           </div>
         </div>
+      )}
+
+      {showPreview && detail && (
+        <DocumentPreview
+          type="Lieferschein"
+          data={detail}
+          onClose={() => setShowPreview(false)}
+          onExportExcel={() => handleExcelExport(detail.ID, detail.Nummer)}
+          onExportPdf={() => handlePdfExport(detail.ID, detail.Nummer)}
+        />
       )}
 
       {editing === "new" && (

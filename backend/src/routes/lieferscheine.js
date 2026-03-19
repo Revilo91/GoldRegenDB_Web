@@ -81,6 +81,40 @@ router.get('/:id/excel', async (req, res) => {
   }
 });
 
+// GET pdf
+const { generatePdf } = require('../utils/excelService');
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT l.*, k.*
+       FROM "Lieferschein" l
+       LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"
+       WHERE l."ID" = $1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
+
+    const pieces = await db.query(
+      'SELECT * FROM "Schmuckstück" WHERE "Lieferschein_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      [req.params.id]
+    );
+
+    const pdfBuffer = await generatePdf('Lieferschein', {
+      ...rows[0],
+      kunde: rows[0],
+      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Lieferschein_${rows[0].Nummer}.pdf`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    logger.error('LIEFERSCHEINE', `PDF-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
+    res.status(500).json({ error: 'PDF-Generierung fehlgeschlagen' });
+  }
+});
+
 // POST create
 router.post('/', async (req, res) => {
   try {

@@ -1590,3 +1590,163 @@ select.form-control {
     transform: rotate(360deg);
   }
 }
+
+/* ============ DOCUMENT PREVIEW ============ */
+.document-preview-modal {
+  padding: 0;
+  max-width: 1000px !important;
+}
+
+.preview-scroll-area {
+  background-color: #525659;
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.a4-page {
+  background: white;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 15mm 20mm 20mm 20mm;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  color: #000;
+  font-family: 'Calibri', 'Arial', sans-serif;
+  font-size: 13px;
+  position: relative;
+}
+
+.doc-top-section {
+  position: relative;
+  margin-bottom: 20px;
+  min-height: 120px;
+}
+
+.doc-logo-container {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 140px;
+}
+
+.doc-logo {
+  width: 100%;
+  height: auto;
+}
+
+.doc-sender-line {
+  font-size: 10px;
+  color: #555;
+  border-bottom: 1px solid #555;
+  display: inline-block;
+  margin-bottom: 10px;
+  padding-bottom: 2px;
+}
+
+.doc-address {
+  line-height: 1.4;
+  font-size: 14px;
+}
+
+.doc-info-block {
+  margin-bottom: 30px;
+}
+
+.doc-info-block h1 {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.doc-intro {
+  margin-bottom: 12px;
+}
+
+.doc-divider {
+  border-top: 2px solid #000;
+  margin: 15px 0 25px 0;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.doc-table th, .doc-table td {
+  border: 1px solid #000;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.doc-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  text-align: left;
+}
+
+.doc-totals-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.totals-table {
+  width: 360px;
+  border-collapse: collapse;
+}
+
+.totals-table td {
+  padding: 6px 8px;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+.bg-gray {
+  background-color: #bcbcbc;
+}
+
+.total-label {
+  text-align: right;
+  padding-right: 15px;
+}
+
+.doc-footer-text {
+  margin-top: 10px;
+  font-size: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.doc-signature {
+  margin-top: 40px;
+}
+
+.doc-page-footer {
+  position: absolute;
+  bottom: 15mm;
+  left: 20mm;
+  right: 20mm;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #666;
+  border-top: 1px solid #ccc;
+  padding-top: 10px;
+}
+
+.footer-col {
+  width: 33%;
+  line-height: 1.4;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}

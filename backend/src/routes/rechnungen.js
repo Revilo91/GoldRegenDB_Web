@@ -105,6 +105,56 @@ router.get('/:id/excel', async (req, res) => {
   }
 });
 
+// GET pdf
+const { generatePdf } = require('../utils/excelService');
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT r.*, k.*
+       FROM "Rechnung" r
+       LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
+       WHERE r."ID" = $1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+
+    const pieces = await db.query(
+      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      [req.params.id]
+    );
+
+    // Compute invoice period from Lieferschein dates
+    const lieferscheinIds = [...new Set(pieces.rows.map(p => p.Lieferschein_ID).filter(id => id > 0))];
+    let rechungsZeitraum = null;
+    if (lieferscheinIds.length > 0) {
+      const lsResult = await db.query(
+        `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[])`,
+        [lieferscheinIds]
+      );
+      if (lsResult.rows[0] && lsResult.rows[0].min_datum) {
+        const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const maxDate = new Date(lsResult.rows[0].max_datum).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
+      }
+    }
+
+    const pdfBuffer = await generatePdf('Rechnung', {
+      ...rows[0],
+      kunde: rows[0],
+      rechungsZeitraum,
+      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Rechnung_${rows[0].Nummer}.pdf`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    logger.error('RECHNUNGEN', `PDF-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
+    res.status(500).json({ error: 'PDF-Generierung fehlgeschlagen' });
+  }
+});
+
 // POST create
 router.post('/', async (req, res) => {
   try {

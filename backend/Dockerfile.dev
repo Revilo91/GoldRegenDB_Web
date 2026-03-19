@@ -1,8 +1,8 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl for health checks and libreoffice for PDF conversion
+RUN apk add --no-cache curl libreoffice
 
 COPY package*.json ./
 RUN npm install

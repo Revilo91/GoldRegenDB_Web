@@ -742,4 +742,46 @@ async function generateInventurExcel(kunde, items) {
   return await workbook.xlsx.writeBuffer();
 }
 
-module.exports = { generateExcel, generateInventurExcel };
+/**
+ * Generate a PDF by first creating the Excel, then converting it via LibreOffice headless.
+ * Returns a Buffer containing the PDF data.
+ */
+async function generatePdf(type, data, logoPath) {
+  const os = require("os");
+  const { execSync } = require("child_process");
+
+  const excelBuffer = await generateExcel(type, data, logoPath);
+
+  // Write Excel to a temp file
+  const tmpDir = os.tmpdir();
+  const baseName = `${type}_${data.Nummer || Date.now()}`;
+  const xlsxPath = path.join(tmpDir, `${baseName}.xlsx`);
+  fs.writeFileSync(xlsxPath, excelBuffer);
+
+  try {
+    // Convert to PDF using LibreOffice headless
+    execSync(
+      `libreoffice --headless --calc --convert-to pdf --outdir "${tmpDir}" "${xlsxPath}"`,
+      { timeout: 30000, stdio: "pipe" }
+    );
+
+    const pdfPath = path.join(tmpDir, `${baseName}.pdf`);
+    if (!fs.existsSync(pdfPath)) {
+      throw new Error("PDF-Datei wurde nicht erzeugt");
+    }
+
+    const pdfBuffer = fs.readFileSync(pdfPath);
+
+    // Cleanup temp files
+    try { fs.unlinkSync(xlsxPath); } catch (_) {}
+    try { fs.unlinkSync(pdfPath); } catch (_) {}
+
+    return pdfBuffer;
+  } catch (err) {
+    // Cleanup on error
+    try { fs.unlinkSync(xlsxPath); } catch (_) {}
+    throw new Error(`PDF-Konvertierung fehlgeschlagen: ${err.message}`);
+  }
+}
+
+module.exports = { generateExcel, generateInventurExcel, generatePdf };

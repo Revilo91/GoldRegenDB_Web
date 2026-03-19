@@ -221,6 +221,10 @@ export const api = {
   exportLieferscheinExcel: (id) => downloadBlob(`/lieferscheine/${id}/excel`),
   exportRechnungExcel: (id) => downloadBlob(`/rechnungen/${id}/excel`),
 
+  // PDF Export
+  exportLieferscheinPdf: (id) => downloadBlob(`/lieferscheine/${id}/pdf`),
+  exportRechnungPdf: (id) => downloadBlob(`/rechnungen/${id}/pdf`),
+
   // Sumup
   // Export - Blob-Download mit Token
   exportSumupCsv: () => downloadBlob('/sumup/export'),
