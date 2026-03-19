@@ -398,6 +398,112 @@ body {
   font-weight: 600;
 }
 
+/* ===== EtikettPhomemo styles (moved from EtikettPhomemo.css) ===== */
+.hint-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #f1f1f1;
+  border-radius: 16px;
+  margin: 4px;
+  font-size: 13px;
+}
+.chip-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.hint-label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.custom-hint-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+/* Card specific adjustments */
+.hints-card-body {
+  padding: 14px;
+}
+.hints-card-body .preset-hints {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.hints-card-body .custom-hint-row input {
+  height: 40px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+}
+.hints-card-body .custom-hint-row .btn {
+  height: 40px;
+  padding: 8px 12px;
+}
+.hints-card-body .hint-chip {
+  background: #ffffff;
+  border: 1px solid #e6e6e6;
+  color: #222;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+}
+.hints-card-body .hint-chip span {
+  color: inherit;
+}
+
+@media (max-width: 640px) {
+  .custom-hint-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hint-chip {
+    font-size: 12px;
+  }
+  .hints-card-body .custom-hint-row .btn {
+    width: 100%;
+  }
+}
+
+/* Hints wrapper: card + active hints panel side-by-side */
+.hints-wrapper {
+  margin: 10px 0px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.active-hints-panel {
+  min-width: 200px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.active-hints-panel h4 {
+  margin: 0 0 6px 0;
+}
+.active-hints-panel .muted {
+  color: #777;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .hints-wrapper {
+    flex-direction: column;
+  }
+  .active-hints-panel {
+    min-width: 0;
+  }
+}
+
+/* ===== end EtikettPhomemo styles ===== */
+
 .badge.success {
   background: var(--success-bg);
   color: var(--success);
@@ -417,6 +523,34 @@ body {
 .badge.gold {
   background: var(--gold-bg);
   color: var(--gold);
+}
+
+/* clickable badges used in EtikettPhomemo */
+.badge.clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition);
+}
+.badge.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+/* small adjustments for Etikett component */
+.etikett-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.card-header h3 {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+.card-body h4 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 /* ============ BUTTONS ============ */
@@ -1035,6 +1169,7 @@ select.form-control {
     overflow: visible;
   }
   .card-body {
+    margin: 10px 0px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -1226,7 +1361,11 @@ select.form-control {
 .nav-section-admin {
   margin-top: 16px;
   padding: 8px;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.15),
+    rgba(220, 38, 38, 0.1)
+  );
   border-radius: var(--radius-sm);
   position: relative;
 }
