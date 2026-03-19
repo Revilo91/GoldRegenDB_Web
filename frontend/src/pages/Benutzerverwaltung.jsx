@@ -12,6 +12,7 @@ import {
   faKey,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import DataTable from "../components/DataTable";
 
 const ROLES = [
   { value: "admin", label: "Admin" },
@@ -58,20 +59,13 @@ export default function Benutzerverwaltung() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [sortConfig, setSortConfig] = useState({
-    key: "username",
-    direction: "asc",
-  });
 
   const load = () => {
     setLoading(true);
     api
       .getUsers()
-      .then(setUsers)
+      .then((data) => setUsers(data || []))
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -80,65 +74,41 @@ export default function Benutzerverwaltung() {
     load();
   }, []);
 
+  const openNew = () => {
+    setForm({ ...EMPTY_FORM });
+    setSelected({ id: "new", username: "", email: "", role: "user", active: true });
+    setEditing("new");
+  };
+
+  const openEdit = (u) => {
+    setSelected(u);
+    setForm({ username: u.username, email: u.email || "", role: u.role, active: u.active });
+    setEditing(null);
+    setNewPassword("");
+    setShowNewPassword(false);
+  };
+
   const handleSave = async () => {
     try {
       if (editing === "new") {
-        if (form.password !== form.passwordConfirm) {
-          alert("Passwörter stimmen nicht überein");
-          return;
-        }
-        if (form.password.length < 8) {
-          alert("Passwort muss mindestens 8 Zeichen lang sein");
-          return;
-        }
-        if (!form.username.trim()) {
-          alert("Benutzername darf nicht leer sein");
-          return;
-        }
-        const createData = {
-          username: form.username,
-          password: form.password,
-          email: form.email,
-          role: form.role,
-          active: form.active,
-        };
-        await api.createUser(createData);
+        if (form.password !== form.passwordConfirm) return alert("Passwörter stimmen nicht überein");
+        if (form.password.length < 8) return alert("Passwort muss mindestens 8 Zeichen lang sein");
+        if (!form.username.trim()) return alert("Benutzername darf nicht leer sein");
+        await api.createUser({ username: form.username, password: form.password, email: form.email, role: form.role, active: form.active });
       } else {
-        if (!form.username.trim()) {
-          alert("Benutzername darf nicht leer sein");
-          return;
-        }
-        const updateData = {
-          username: form.username,
-          email: form.email,
-          role: form.role,
-          active: form.active,
-        };
-        await api.updateUser(selected.id, updateData);
+        if (!form.username.trim()) return alert("Benutzername darf nicht leer sein");
+        await api.updateUser(selected.id, { username: form.username, email: form.email, role: form.role, active: form.active });
       }
       setEditing(null);
       setSelected(null);
       load();
     } catch (err) {
-      let errorMessage = "Fehler beim Speichern";
-
-      if (err.message === "Failed to fetch") {
-        errorMessage =
-          "Backend-Server nicht erreichbar. Bitte stelle sicher, dass der Server läuft (http://localhost:3001).";
-      } else if (err.message === "Request failed") {
-        // Versuche Details aus der Axios-Response zu bekommen
-        errorMessage =
-          "Backend-Fehler: " + (err.message || "Unbekannter Fehler");
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      alert(errorMessage);
-      console.error("Save error:", err);
+      alert(err.message || "Fehler beim Speichern");
     }
   };
 
   const handleDelete = async () => {
+    if (!selected) return;
     if (!confirm(`Benutzer "${selected.username}" wirklich löschen?`)) return;
     try {
       await api.deleteUser(selected.id);
@@ -146,645 +116,158 @@ export default function Benutzerverwaltung() {
       setEditing(null);
       load();
     } catch (err) {
-      alert(err.message);
+      alert(err.message || "Fehler");
     }
   };
 
   const handleResetPassword = async () => {
     try {
-      if (!newPassword) {
-        alert("Bitte ein neues Passwort eingeben");
-        return;
-      }
-      if (newPassword.length < 8) {
-        alert("Passwort muss mindestens 8 Zeichen lang sein");
-        return;
-      }
+      if (!newPassword || newPassword.length < 8) return alert("Passwort muss mindestens 8 Zeichen lang sein");
       await api.resetUserPassword(selected.id, newPassword);
       alert("Passwort erfolgreich zurückgesetzt");
       setNewPassword("");
       setShowNewPassword(false);
       load();
     } catch (err) {
-      alert(err.message);
+      alert(err.message || "Fehler");
     }
-  };
-
-  const openNew = () => {
-    setForm({ ...EMPTY_FORM });
-    setSelected({
-      id: "new",
-      username: "",
-      email: "",
-      role: "user",
-      active: true,
-    });
-    setEditing("new");
-  };
-
-  const openEdit = (u) => {
-    setSelected(u);
-    setForm({
-      username: u.username,
-      email: u.email || "",
-      role: u.role,
-      active: u.active,
-    });
-    setEditing(null);
-    setNewPassword("");
-    setShowNewPassword(false);
-    setShowPasswordReset(false);
-  };
-
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
 
   const filteredUsers = useMemo(() => {
-    let list = users.filter((u) => {
-      if (!search) return true;
-      const s = search.toLowerCase();
-      return (
-        u.username?.toLowerCase().includes(s) ||
-        u.email?.toLowerCase().includes(s) ||
-        u.role?.toLowerCase().includes(s)
-      );
+    const q = (search || "").trim().toLowerCase();
+    return (users || []).filter((u) => {
+      if (!q) return true;
+      return (u.username && u.username.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q));
     });
-    list = [...list].sort((a, b) => {
-      const aVal = a[sortConfig.key] ?? "";
-      const bVal = b[sortConfig.key] ?? "";
-      if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
-    return list;
-  }, [users, search, sortConfig]);
+  }, [users, search]);
+
+  const columns = [
+    { label: "Benutzername", key: "username", sortable: true },
+    { label: "E-Mail", key: "email", sortable: true, className: "hide-on-mobile" },
+    { label: "Rolle", key: "role", render: (r) => <RoleBadge role={r.role} /> },
+    {
+      label: "Status",
+      key: "active",
+      render: (r) => (
+        <span className={`badge ${r.active ? "success" : "danger"}`}>
+          {r.active ? (
+            <>
+              <FontAwesomeIcon icon={faCheckCircle} /> Aktiv
+            </>
+          ) : (
+            <>
+              <FontAwesomeIcon icon={faTimesCircle} /> Inaktiv
+            </>
+          )}
+        </span>
+      ),
+    },
+    { label: "PW-Status", key: "must_change_password", className: "hide-on-mobile" },
+    { label: "Erstellt", key: "created_at", className: "hide-on-mobile", render: (r) => (r.created_at ? new Date(r.created_at).toLocaleString("de-DE") : "–") },
+    { label: "Letzter Login", key: "last_login", className: "hide-on-mobile", render: (r) => (r.last_login ? new Date(r.last_login).toLocaleString("de-DE") : "–") },
+  ];
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="page">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h2>Benutzerverwaltung</h2>
-        <p>{users.length} Benutzer – Nur Admins können Benutzer verwalten</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input className="form-control" placeholder="Suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <button className="btn btn-primary" onClick={openNew} title="Neuer Benutzer">
+            <FontAwesomeIcon icon={faPlus} />
+          </button>
+        </div>
       </div>
 
-      <div className="toolbar">
-        <input
-          className="form-control search-input"
-          placeholder="Suche nach Benutzername, E-Mail, Rolle..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button className="btn btn-primary" onClick={openNew}>
-          + Benutzer anlegen
-        </button>
+      <div className="card">
+        <div className="card-body">
+          {loading ? (
+            <div className="loading"><div className="spinner"></div>Lade...</div>
+          ) : (
+            <DataTable
+              data={filteredUsers}
+              columns={columns}
+              defaultSort={{ key: "username", direction: "asc" }}
+              onRowClick={(r) => openEdit(r)}
+              getRowKey={(r) => r.id}
+            />
+          )}
+        </div>
       </div>
 
-      {/* User Detail Modal */}
       {selected && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setSelected(null);
-            setEditing(null);
-            setNewPassword("");
-            setShowPassword(false);
-            setShowPasswordConfirm(false);
-            setShowNewPassword(false);
-            setShowPasswordReset(false);
-          }}
-        >
-          <div
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "600px" }}
-          >
-            <div className="modal-header">
-              <h3>
-                {editing === "new" ? (
+        <div className="modal" style={{ display: "block" }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3 style={{ margin: 0 }}>{editing === "new" || editing === selected.id ? (editing === "new" ? "Neuer Benutzer" : `Bearbeite: ${selected.username}`) : selected.username}</h3>
+                <button className="btn btn-ghost" onClick={() => { setSelected(null); setEditing(null); }}><FontAwesomeIcon icon={faTimes} /></button>
+              </div>
+              <div className="modal-body">
+                {editing === "new" || editing === selected.id ? (
                   <>
-                    <FontAwesomeIcon icon={faPlus} /> Neuer Benutzer
-                  </>
-                ) : editing === selected.id ? (
-                  <>
-                    <FontAwesomeIcon icon={faPen} /> Benutzer bearbeiten
+                    <div className="form-group">
+                      <label className="form-label">Benutzername *</label>
+                      <input className="form-control" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+                    </div>
+                    {editing === "new" && (
+                      <div className="form-group">
+                        <label className="form-label">Passwort *</label>
+                        <input type="password" className="form-control" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mindestens 8 Zeichen" />
+                      </div>
+                    )}
+                    <div className="form-group">
+                      <label className="form-label">E-Mail</label>
+                      <input type="email" className="form-control" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Rolle *</label>
+                      <select className="form-control" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                        {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Aktiv</label>
+                    </div>
                   </>
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faUser} /> {selected.username}
+                    <h4 style={{ marginBottom: 10, color: "var(--text-secondary)" }}>Grundinformationen</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px 20px" }}>
+                      <strong>Benutzername:</strong><span>{selected.username}</span>
+                      <strong>E-Mail:</strong><span>{selected.email || "–"}</span>
+                      <strong>Rolle:</strong><span><RoleBadge role={selected.role} /></span>
+                      <strong>Status:</strong><span><span className={`badge ${selected.active ? "success" : "danger"}`}>{selected.active ? (<><FontAwesomeIcon icon={faCheckCircle} /> Aktiv</>) : (<><FontAwesomeIcon icon={faTimesCircle} /> Inaktiv</>)}</span></span>
+                    </div>
+                    <h4 style={{ marginTop: 16, marginBottom: 8, color: "var(--text-secondary)" }}>Audit-Informationen</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px 20px" }}>
+                      <strong>Erstellt:</strong><span>{selected.created_at ? new Date(selected.created_at).toLocaleString("de-DE") : "–"}</span>
+                      <strong>Letzter Login:</strong><span>{selected.last_login ? new Date(selected.last_login).toLocaleString("de-DE") : "Noch nicht angemeldet"}</span>
+                    </div>
+                    <div style={{ marginTop: 12 }} />
                   </>
                 )}
-              </h3>
-              <button
-                className="modal-close"
-                onClick={() => {
-                  setSelected(null);
-                  setEditing(null);
-                  setNewPassword("");
-                  setShowPassword(false);
-                  setShowPasswordConfirm(false);
-                  setShowNewPassword(false);
-                  setShowPasswordReset(false);
-                }}
-              >
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              {editing === "new" || editing === selected.id ? (
-                // Edit/Create Mode
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Benutzername *</label>
-                    <input
-                      className="form-control"
-                      value={form.username}
-                      onChange={(e) =>
-                        setForm({ ...form, username: e.target.value })
-                      }
-                    />
-                  </div>
-                  {editing === "new" && (
-                    <div className="form-group">
-                      <label className="form-label">Passwort *</label>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          className="form-control"
-                          value={form.password}
-                          onChange={(e) =>
-                            setForm({ ...form, password: e.target.value })
-                          }
-                          placeholder="Mindestens 8 Zeichen"
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => setShowPassword(!showPassword)}
-                          style={{ padding: "6px 12px", minWidth: "40px" }}
-                        >
-                          {showPassword ? "🙈" : "👁️"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {editing === "new" && (
-                    <div className="form-group">
-                      <label className="form-label">
-                        Passwort bestätigen *
-                      </label>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <input
-                          type={showPasswordConfirm ? "text" : "password"}
-                          className="form-control"
-                          value={form.passwordConfirm}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              passwordConfirm: e.target.value,
-                            })
-                          }
-                          placeholder="Passwort wiederholen"
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() =>
-                            setShowPasswordConfirm(!showPasswordConfirm)
-                          }
-                          style={{ padding: "6px 12px", minWidth: "40px" }}
-                        >
-                          {showPasswordConfirm ? "🙈" : "👁️"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="form-group">
-                    <label className="form-label">E-Mail</label>
-                    <input
-                      type="email"
-                      className="form-control"
-                      value={form.email}
-                      onChange={(e) =>
-                        setForm({ ...form, email: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Rolle *</label>
-                    <select
-                      className="form-control"
-                      value={form.role}
-                      onChange={(e) =>
-                        setForm({ ...form, role: e.target.value })
-                      }
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label
-                      className="form-label"
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.active}
-                        onChange={(e) =>
-                          setForm({ ...form, active: e.target.checked })
-                        }
-                      />
-                      Aktiv
-                    </label>
-                  </div>
-                </>
-              ) : (
-                // View Mode
-                <>
-                  <div style={{ marginBottom: "20px" }}>
-                    <h4
-                      style={{
-                        marginBottom: "10px",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      Grundinformationen
-                    </h4>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(200px, 1fr))",
-                        gap: "12px 20px",
-                      }}
-                    >
-                      <strong>Benutzername:</strong>
-                      <span>{selected.username}</span>
-                      <strong>E-Mail:</strong>
-                      <span>{selected.email || "–"}</span>
-                      <strong>Rolle:</strong>
-                      <span>
-                        <RoleBadge role={selected.role} />
-                      </span>
-                      <strong>Status:</strong>
-                      <span>
-                        <span
-                          className={`badge ${selected.active ? "success" : "danger"}`}
-                        >
-                          {selected.active ? (
-                            <>
-                              <FontAwesomeIcon icon={faCheckCircle} /> Aktiv
-                            </>
-                          ) : (
-                            <>
-                              <FontAwesomeIcon icon={faTimesCircle} /> Inaktiv
-                            </>
-                          )}
-                        </span>
-                      </span>
-                      <strong>Passwort:</strong>
-                      <span>
-                        <span
-                          className={`badge ${selected.must_change_password ? "gold" : "success"}`}
-                        >
-                          {selected.must_change_password ? (
-                            <>
-                              <FontAwesomeIcon icon={faKey} /> Einmalpasswort
-                            </>
-                          ) : (
-                            <>
-                              <FontAwesomeIcon icon={faCheckCircle} /> Eigenes
-                              Passwort
-                            </>
-                          )}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4
-                      style={{
-                        marginBottom: "10px",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      Audit-Informationen
-                    </h4>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(200px, 1fr))",
-                        gap: "12px 20px",
-                      }}
-                    >
-                      <strong>Erstellt:</strong>
-                      <span>
-                        {selected.created_at
-                          ? new Date(selected.created_at).toLocaleString(
-                              "de-DE",
-                            )
-                          : "–"}
-                      </span>
-                      <strong>Letzter Login:</strong>
-                      <span>
-                        {selected.last_login
-                          ? new Date(selected.last_login).toLocaleString(
-                              "de-DE",
-                            )
-                          : "Noch nicht angemeldet"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {showPasswordReset && (
-                    <>
-                      <hr
-                        style={{
-                          margin: "20px 0",
-                          borderColor: "var(--border)",
-                        }}
-                      />
-                      <h4
-                        style={{
-                          marginBottom: "10px",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        Passwort zurücksetzen
-                      </h4>
-                      <div style={{ display: "grid", gap: "10px" }}>
-                        <div className="form-group">
-                          <label className="form-label">Neues Passwort *</label>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <input
-                              type={showNewPassword ? "text" : "password"}
-                              className="form-control"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              placeholder="Mindestens 8 Zeichen"
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              onClick={() =>
-                                setShowNewPassword(!showNewPassword)
-                              }
-                              style={{ padding: "6px 12px", minWidth: "40px" }}
-                            >
-                              {showNewPassword ? "🙈" : "👁️"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div
-              className="modal-footer"
-              style={{
-                gap: "10px",
-                justifyContent:
-                  editing === "new" || editing === selected?.id
-                    ? "flex-end"
-                    : "space-between",
-              }}
-            >
-              {selected.id !== "new" && editing === null && (
-                <button
-                  className="btn btn-danger"
-                  onClick={handleDelete}
-                  style={{ marginRight: "auto" }}
-                >
-                  <FontAwesomeIcon icon={faTrash} /> Löschen
-                </button>
-              )}
-              <div
-                className="modal-actions"
-                style={{ display: "flex", gap: "10px" }}
-              >
+              </div>
+              <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: editing === "new" || editing === selected.id ? "flex-end" : "space-between" }}>
                 {selected.id !== "new" && editing === null && (
-                  <>
-                    {showPasswordReset ? (
-                      <>
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => {
-                            setNewPassword("");
-                            setShowNewPassword(false);
-                            setShowPasswordReset(false);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faTimes} /> Passwort-Reset
-                          abbrechen
-                        </button>
-                        <button
-                          className="btn btn-success"
-                          onClick={handleResetPassword}
-                          disabled={!newPassword}
-                        >
-                          ✓ Passwort jetzt zurücksetzen
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => setShowPasswordReset(true)}
-                      >
-                        <FontAwesomeIcon icon={faKey} /> Passwort zurücksetzen
-                      </button>
-                    )}
-                  </>
+                  <button className="btn btn-danger" onClick={handleDelete} style={{ marginRight: "auto" }}><FontAwesomeIcon icon={faTrash} /> Löschen</button>
                 )}
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setSelected(null);
-                    setEditing(null);
-                    setNewPassword("");
-                    setShowPassword(false);
-                    setShowPasswordConfirm(false);
-                    setShowNewPassword(false);
-                    setShowPasswordReset(false);
-                  }}
-                >
-                  {editing === "new" || editing === selected.id
-                    ? "Abbrechen"
-                    : "Schließen"}
-                </button>
-                {(editing === "new" || editing === selected.id) && (
-                  <button className="btn btn-primary" onClick={handleSave}>
-                    ✓ Speichern
+                <div style={{ display: "flex", gap: 10 }}>
+                  {selected.id !== "new" && editing === null && (
+                    <button className="btn btn-secondary" onClick={() => setEditing(selected.id)}><FontAwesomeIcon icon={faPen} /> Bearbeiten</button>
+                  )}
+                  <button className="btn btn-secondary" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowNewPassword(false); }}>
+                    {editing === "new" || editing === selected.id ? "Abbrechen" : "Schließen"}
                   </button>
-                )}
-                {editing === null && selected.id !== "new" && (
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setEditing(selected.id)}
-                  >
-                    <FontAwesomeIcon icon={faPen} /> Bearbeiten
-                  </button>
-                )}
+                  {(editing === "new" || editing === selected.id) && (
+                    <button className="btn btn-primary" onClick={handleSave}>✓ Speichern</button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <div className="card">
-        <div className="card-body">
-          {loading ? (
-            <div className="loading">
-              <div className="spinner"></div>Lade...
-            </div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th
-                    onClick={() => requestSort("id")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    ID {getSortIcon("id")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("username")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Benutzername {getSortIcon("username")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("email")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    E-Mail {getSortIcon("email")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("role")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Rolle {getSortIcon("role")}
-                  </th>
-                  <th
-                    onClick={() => requestSort("active")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Status {getSortIcon("active")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("must_change_password")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    PW-Status {getSortIcon("must_change_password")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("created_at")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Erstellt {getSortIcon("created_at")}
-                  </th>
-                  <th
-                    className="hide-on-mobile"
-                    onClick={() => requestSort("last_login")}
-                    style={{ cursor: "pointer" }}
-                  >
-                    Letzter Login {getSortIcon("last_login")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((u) => (
-                  <tr
-                    key={u.id}
-                    onClick={() => openEdit(u)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>{u.id}</td>
-                    <td>
-                      <strong>{u.username}</strong>
-                    </td>
-                    <td className="hide-on-mobile">{u.email || "–"}</td>
-                    <td>
-                      <RoleBadge role={u.role} />
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${u.active ? "success" : "danger"}`}
-                      >
-                        {u.active ? (
-                          <>
-                            <FontAwesomeIcon icon={faCheckCircle} /> Aktiv
-                          </>
-                        ) : (
-                          <>
-                            <FontAwesomeIcon icon={faTimesCircle} /> Inaktiv
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    <td className="hide-on-mobile">
-                      <span
-                        className={`badge ${u.must_change_password ? "gold" : "success"}`}
-                      >
-                        {u.must_change_password ? (
-                          <>
-                            <FontAwesomeIcon icon={faKey} /> Einmal
-                          </>
-                        ) : (
-                          "✓"
-                        )}
-                      </span>
-                    </td>
-                    <td className="hide-on-mobile">
-                      {u.created_at
-                        ? new Date(u.created_at).toLocaleString("de-DE")
-                        : "–"}
-                    </td>
-                    <td className="hide-on-mobile">
-                      {u.last_login
-                        ? new Date(u.last_login).toLocaleString("de-DE")
-                        : "–"}
-                    </td>
-                  </tr>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={8}
-                      style={{
-                        textAlign: "center",
-                        color: "var(--text-muted)",
-                      }}
-                    >
-                      Keine Benutzer gefunden
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
