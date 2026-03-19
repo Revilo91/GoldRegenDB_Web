@@ -7,6 +7,7 @@ export default function DataTable({
   onRowClick,
   defaultSort = { key: null, direction: "asc" },
   getRowKey = (r) => r.id || r.ID || JSON.stringify(r),
+  footer = null,
 }) {
   const [sortConfig, setSortConfig] = useState(defaultSort);
 
@@ -60,6 +61,7 @@ export default function DataTable({
           </tr>
         ))}
       </tbody>
+      {footer ? <tfoot>{footer}</tfoot> : null}
     </table>
   );
 }
