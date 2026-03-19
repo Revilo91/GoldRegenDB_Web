@@ -1,6 +1,8 @@
 import { hashPassword } from './utils/hashPassword';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// Allow explicit override via VITE_API_URL. When undefined and running on localhost
+// assume backend at http://localhost:3001/api to make dev setup work without proxy.
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api');
 
 const LOG_PREFIX = '[FRONTEND/API]';
 

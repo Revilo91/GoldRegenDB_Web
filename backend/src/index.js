@@ -16,6 +16,7 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const sumupRoutes = require('./routes/sumup');
 const inventurRoutes = require('./routes/inventur');
+const etikettenRoutes = require('./routes/etiketten');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -105,6 +106,9 @@ app.use('/api/inventur', apiLimiter, authenticate, requireBearbeiter, inventurRo
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);
 app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/debug'));
 app.use('/api/backup', apiLimiter, authenticate, requireAdmin, require('./routes/backup'));
+
+// Etiketten (Bearbeiter)
+app.use('/api/etiketten', apiLimiter, authenticate, requireBearbeiter, etikettenRoutes);
 
 logger.info('SERVER', 'Alle Routen registriert');
 
