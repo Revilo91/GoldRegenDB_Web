@@ -107,7 +107,9 @@ router.get('/:id/pdf', async (req, res) => {
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Lieferschein_${rows[0].Nummer}.pdf`);
+    // Wenn ?download=1 angegeben ist, dann Attachment erzwingen, sonst Inline-Vorschau erlauben
+    const disposition = req.query && req.query.download === '1' ? 'attachment' : 'inline';
+    res.setHeader('Content-Disposition', `${disposition}; filename=Lieferschein_${rows[0].Nummer}.pdf`);
     res.send(pdfBuffer);
   } catch (err) {
     logger.error('LIEFERSCHEINE', `PDF-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });

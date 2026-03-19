@@ -749,38 +749,165 @@ async function generateInventurExcel(kunde, items) {
 async function generatePdf(type, data, logoPath) {
   const os = require("os");
   const { execSync } = require("child_process");
+  const PDFDocument = require("pdfkit");
+  const { WritableStreamBuffer } = require("stream-buffers");
 
-  const excelBuffer = await generateExcel(type, data, logoPath);
-
-  // Write Excel to a temp file
-  const tmpDir = os.tmpdir();
-  const baseName = `${type}_${data.Nummer || Date.now()}`;
-  const xlsxPath = path.join(tmpDir, `${baseName}.xlsx`);
-  fs.writeFileSync(xlsxPath, excelBuffer);
-
+  // First attempt: generate Excel and convert with LibreOffice (existing flow)
   try {
+    const excelBuffer = await generateExcel(type, data, logoPath);
+    const tmpDir = os.tmpdir();
+    const baseName = `${type}_${data.Nummer || Date.now()}`;
+    const xlsxPath = path.join(tmpDir, `${baseName}.xlsx`);
+    fs.writeFileSync(xlsxPath, excelBuffer);
+
     // Convert to PDF using LibreOffice headless
-    execSync(
-      `libreoffice --headless --calc --convert-to pdf --outdir "${tmpDir}" "${xlsxPath}"`,
-      { timeout: 30000, stdio: "pipe" }
-    );
+    try {
+      execSync(
+        `libreoffice --headless --convert-to pdf --outdir "${tmpDir}" "${xlsxPath}"`,
+        { timeout: 30000, stdio: "pipe" }
+      );
 
-    const pdfPath = path.join(tmpDir, `${baseName}.pdf`);
-    if (!fs.existsSync(pdfPath)) {
-      throw new Error("PDF-Datei wurde nicht erzeugt");
+      const pdfPath = path.join(tmpDir, `${baseName}.pdf`);
+      if (!fs.existsSync(pdfPath)) {
+        throw new Error("PDF-Datei wurde nicht erzeugt");
+      }
+
+      const pdfBuffer = fs.readFileSync(pdfPath);
+
+      // Cleanup temp files
+      try { fs.unlinkSync(xlsxPath); } catch (_) {}
+      try { fs.unlinkSync(pdfPath); } catch (_) {}
+
+      return pdfBuffer;
+    } catch (err) {
+      // Cleanup temp Excel and fall through to PDFKit fallback
+      try { fs.unlinkSync(xlsxPath); } catch (_) {}
+      throw err;
     }
-
-    const pdfBuffer = fs.readFileSync(pdfPath);
-
-    // Cleanup temp files
-    try { fs.unlinkSync(xlsxPath); } catch (_) {}
-    try { fs.unlinkSync(pdfPath); } catch (_) {}
-
-    return pdfBuffer;
   } catch (err) {
-    // Cleanup on error
-    try { fs.unlinkSync(xlsxPath); } catch (_) {}
-    throw new Error(`PDF-Konvertierung fehlgeschlagen: ${err.message}`);
+    // Fallback: generate PDF directly via PDFKit (no external dependency on LibreOffice)
+    try {
+      const doc = new PDFDocument({ size: "A4", margin: 40 });
+      const stream = new WritableStreamBuffer();
+      doc.pipe(stream);
+
+      // Header / Logo
+      try {
+        const logoCandidates = [
+          logoPath,
+          path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png"),
+        ];
+        const logo = logoCandidates.find((p) => p && fs.existsSync(p));
+        if (logo) {
+          doc.image(logo, { fit: [100, 100] });
+        }
+      } catch (_) {}
+
+      doc.moveDown();
+      doc.fontSize(12).text("Marina Südholt • Herzogin-Ludmilla-Ring 5 • 84085 Langquaid");
+      doc.moveDown(1);
+
+      // Recipient
+      const kundeName = data.KundenName || (data.kunde && data.kunde.Name) || "";
+      if (kundeName) {
+        doc.fontSize(12).text(kundeName);
+        if (data.kunde) {
+          const k = data.kunde;
+          doc.text(`${k.Strasse || ""} ${k.Hausnummer || ""}`);
+          doc.text(`${k.PLZ || ""} ${k.Ort || ""}`);
+        }
+        doc.moveDown();
+      }
+
+      // Title and meta
+      doc.fontSize(18).text(type, { underline: false });
+      doc.moveDown(0.5);
+      const datum = new Date(data.Datum || Date.now()).toLocaleDateString("de-DE");
+      doc.fontSize(10).text(`${type} Nr.: ${data.Nummer || ""}`, { continued: true }).text(`    Datum: ${datum}`);
+      doc.moveDown();
+
+      // Intro
+      doc.fontSize(11).text(type === "Lieferschein" ? "Wir liefern Ihnen, wie vereinbart folgende Artikel:" : "Für die verkauften Artikel stellen wir Ihnen folgende Positionen in Rechnung:");
+      doc.moveDown(0.5);
+
+      // Table header
+      const startX = doc.x;
+      const tableTop = doc.y;
+      const colWidths = [110, 120, 220, 60, 80, 80];
+      doc.fontSize(10).font("Helvetica-Bold");
+      doc.text("Artikelnr.", startX, tableTop, { width: colWidths[0] });
+      doc.text("Kategorie", startX + colWidths[0], tableTop, { width: colWidths[1] });
+      doc.text("Bezeichnung", startX + colWidths[0] + colWidths[1], tableTop, { width: colWidths[2] });
+      doc.text("Menge", startX + colWidths[0] + colWidths[1] + colWidths[2], tableTop, { width: colWidths[3], align: "center" });
+      doc.text("Einzelpreis", startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], tableTop, { width: colWidths[4], align: "right" });
+      doc.text("Gesamtpreis", startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4], tableTop, { width: colWidths[5], align: "right" });
+      doc.moveDown(0.8);
+
+      doc.font("Helvetica");
+      const items = (data.schmuckstuecke || []).slice();
+      // group counts by artNrBasis
+      const counts = {};
+      items.forEach((s) => {
+        const artNrBasis = (s.Artikelnummer || "").split("_")[0];
+        counts[artNrBasis] = (counts[artNrBasis] || 0) + 1;
+      });
+      const processed = [];
+      const seen = new Set();
+      items.forEach((s) => {
+        const artNrBasis = (s.Artikelnummer || "").split("_")[0];
+        if (!seen.has(artNrBasis)) {
+          seen.add(artNrBasis);
+          processed.push({ ...s, artNrBasis, menge: counts[artNrBasis] });
+        }
+      });
+
+      processed.forEach((item) => {
+        const y = doc.y;
+        doc.text(item.artNrBasis || "", { width: colWidths[0] });
+        doc.text((item.Art || ""), startX + colWidths[0], y, { width: colWidths[1] });
+        const bezeichnung = item.Name && item.Name.trim() ? item.Name : `${item.Art || ""} ${item.Material || ""} ${item.Farbe || ""}`;
+        doc.text(bezeichnung, startX + colWidths[0] + colWidths[1], y, { width: colWidths[2] });
+        doc.text(String(item.menge || 1), startX + colWidths[0] + colWidths[1] + colWidths[2], y, { width: colWidths[3], align: "center" });
+        const ep = Number(item.Verkaufspreis) || 0;
+        const gp = ep * (item.menge || 1);
+        doc.text(ep.toFixed(2) + " €", startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], y, { width: colWidths[4], align: "right" });
+        doc.text(gp.toFixed(2) + " €", startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4], y, { width: colWidths[5], align: "right" });
+        doc.moveDown(0.6);
+      });
+
+      // Totals (for Rechnung)
+      if (type === "Rechnung") {
+        const totalBrutto = (data.schmuckstuecke || []).reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+        const provisionPercent = Number(data.Provision || (data.kunde && data.kunde.Provision) || 0);
+        const provisionValue = totalBrutto * (provisionPercent / 100);
+        const finalTotal = totalBrutto - provisionValue;
+
+        doc.moveDown(1);
+        doc.font("Helvetica-Bold");
+        doc.text("Gesamtwert", { continued: true });
+        doc.text(totalBrutto.toFixed(2) + " €", { align: "right" });
+        if (provisionPercent > 0) {
+          doc.text(`- Provision (${provisionPercent}%)`, { continued: true });
+          doc.text(provisionValue.toFixed(2) + " €", { align: "right" });
+        }
+        doc.text("Überweisungsbetrag", { continued: true });
+        doc.text(finalTotal.toFixed(2) + " €", { align: "right" });
+      }
+
+      // Footer
+      doc.moveDown(2);
+      doc.fontSize(10).text("Mit freundlichen Grüßen\n\nMarina Südholt", { align: "left" });
+      doc.moveDown(1);
+      doc.fontSize(9).text("UniCredit Bank AG  DE51 7502 0073 0029 2620 20  HYVEDEMM447", { align: "left" });
+
+      doc.end();
+
+      const pdfBuffer = stream.getContents();
+      if (!pdfBuffer) throw new Error("PDFKit hat keinen Inhalt erzeugt");
+      return Buffer.from(pdfBuffer);
+    } catch (fallbackErr) {
+      throw new Error(`PDF-Konvertierung fehlgeschlagen: ${err.message}; Fallback-Fehler: ${fallbackErr.message}`);
+    }
   }
 }
 

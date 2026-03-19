@@ -147,7 +147,8 @@ router.get('/:id/pdf', async (req, res) => {
     });
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=Rechnung_${rows[0].Nummer}.pdf`);
+    const disposition = req.query && req.query.download === '1' ? 'attachment' : 'inline';
+    res.setHeader('Content-Disposition', `${disposition}; filename=Rechnung_${rows[0].Nummer}.pdf`);
     res.send(pdfBuffer);
   } catch (err) {
     logger.error('RECHNUNGEN', `PDF-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
