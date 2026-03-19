@@ -8,13 +8,13 @@ router.get('/options', async (req, res) => {
   try {
     // Return deduplicated base article numbers (split on '_') to avoid showing suffixes
     const { rows } = await db.query(
-      `SELECT DISTINCT split_part("Artikelnummer", '_', 1) as artikel_base, MIN("Name") as name, MIN("Verkaufspreis") as preis
+      `SELECT DISTINCT split_part("Artikelnummer", '_', 1) as artikel_base, MIN("Name") as name
        FROM "Schmuckstück"
        GROUP BY artikel_base
        ORDER BY artikel_base
        LIMIT 1000`
     );
-    res.json(rows.map(r => ({ artikelnummer: r.artikel_base, name: r.name, preis: r.preis })));
+    res.json(rows.map(r => ({ artikelnummer: r.artikel_base, name: r.name })));
   } catch (err) {
     logger.error('ETIKETTEN', 'Fehler beim Laden der Etiketten-Optionen', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Etiketten-Optionen' });
