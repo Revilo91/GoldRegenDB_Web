@@ -392,65 +392,34 @@ p.lead {
   padding-right: 8px;
 }
 
-.table-photo-thumb,
-.table-photo-placeholder {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.table-photo-thumb {
-  object-fit: cover;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-}
-
-.table-photo-placeholder {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  object-fit: cover;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
-}
-
 /* Etiketten / Label Vorschau (genutzt von /api/etiketten/preview) */
 @page {
-  size: 48mm 25mm;
-  margin: 2mm;
+  /* Physical page size for the label roll: 30mm (width) x 40mm (height) in portrait */
+  size: 30mm 40mm portrait;
+  margin: 0mm;
 }
 .etiketten-body {
   margin: 0;
-  padding: 4mm;
+  padding: 0mm;
   font-family: Arial, Helvetica, sans-serif;
   color: #111; /* Labels are printed on white background — use dark text */
 }
 .sheet {
   display: flex;
   flex-wrap: wrap;
-  gap: 4mm;
+  gap: 1mm;
 }
 .label {
-  /* target physical label size */
+  /* target physical label size: portrait 30mm x 40mm */
   width: 30mm;
-  height: 20mm;
-  box-sizing: border-box;
-  border-radius: 4px;
-  background: #fff;
-  padding: 4px;
+  height: 40mm;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: stretch;
 }
 .brand {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-align: center;
   width: 100%;
@@ -460,7 +429,7 @@ p.lead {
   color: #666;
   text-align: center;
   font-size: 9px;
-  margin: 2px 0 3px 0;
+  margin: 2px 0 4px 0;
 }
 .artnr {
   width: 100%;
@@ -468,16 +437,16 @@ p.lead {
   gap: 6px;
   text-align: center;
   align-items: baseline;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-align: center;
 }
 .label-key {
   font-size: 10px;
   color: #444;
 }
-.label-value {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
+
 .material-title {
   margin-top: 4px;
   font-weight: 700;
@@ -498,8 +467,8 @@ p.lead {
 .qr-img {
   width: auto;
   height: auto;
-  max-width: 12mm;
-  max-height: 12mm;
+  max-width: 16mm;
+  max-height: 16mm;
   object-fit: contain;
 }
 @media print {
@@ -529,8 +498,8 @@ p.lead {
 .warn-symbol {
   display: inline-block;
   flex-shrink: 0;
-  width: 8mm;
-  height: 8mm;
+  width: 10mm;
+  height: 10mm;
 }
 .warn-symbol img,
 .warn-symbol svg {

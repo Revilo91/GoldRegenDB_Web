@@ -90,22 +90,23 @@ router.post("/preview", async (req, res) => {
             ? `<div class="material-title">Material Hinweise</div><ul class="hints">${materialHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>`
             : "";
         const hasHints = materialHints.length > 0;
-        const qrSize = hasHints ? 28 : 48; // smaller QR when there are hints
+        // Use mm units so printed size scales properly for physical labels (portrait)
+        const qrSizeMm = hasHints ? 12 : 16; // mm
         const qrImgHtml = qrDataUrl
-          ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" style="width:${qrSize}px;height:${qrSize}px;object-fit:contain" />`
+          ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" style="width:${qrSizeMm}mm;height:${qrSizeMm}mm;object-fit:contain" />`
           : "";
 
         // Use inlined warn SVG (data URL) when available, otherwise fall back to endpoint
         const warnImgHtml = warnDataUrl
-          ? `<img src="${warnDataUrl}" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:${qrSize}px;height:${qrSize}px;flex-shrink:0" />`
-          : `<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:${qrSize}px;height:${qrSize}px;flex-shrink:0" />`;
+          ? `<img src="${warnDataUrl}" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:10mm;height:10mm;flex-shrink:0" />`
+          : `<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:10mm;height:10mm;flex-shrink:0" />`;
         const leftMeta = `<div class="left-meta">${hintsHtml}</div>`;
 
         labelHtmlParts.push(`
           <div class="label">
             <div class="brand">GoldRegen<br/>Schmuckdesign</div>
             <div class="dotted">............................................</div>
-            <div class="artnr"><span class="label-value">${escapeHtml(num)}</span></div>
+            <div class="artnr">${escapeHtml(num)}</div>
             <div class="meta-row">
               ${leftMeta}
               <div class="right-block" style="display:flex;flex-direction:row;align-items:center;gap:6px">
