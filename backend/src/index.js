@@ -107,6 +107,33 @@ app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes
 app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/debug'));
 app.use('/api/backup', apiLimiter, authenticate, requireAdmin, require('./routes/backup'));
 
+// Public assets for etiketten preview (no auth) — styles + warn SVG
+const fs = require('fs');
+const path = require('path');
+app.get('/api/etiketten/styles.css', async (req, res) => {
+  try {
+    const cssPath = path.resolve(__dirname, '../frontend/src/index.css');
+    const css = await fs.promises.readFile(cssPath, 'utf8');
+    res.set('Content-Type', 'text/css; charset=utf-8');
+    res.send(css);
+  } catch (err) {
+    logger.warn('SERVER', 'Etiketten styles not found', { message: err.message });
+    res.status(404).send('');
+  }
+});
+
+app.get('/api/etiketten/warn.svg', async (req, res) => {
+  try {
+    const imgPath = path.resolve(__dirname, '../frontend/public/warn_0-3.svg');
+    const svg = await fs.promises.readFile(imgPath, 'utf8');
+    res.set('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.send(svg);
+  } catch (err) {
+    logger.warn('SERVER', 'Etiketten warn.svg not found', { message: err.message });
+    res.status(404).send('');
+  }
+});
+
 // Etiketten (Bearbeiter)
 app.use('/api/etiketten', apiLimiter, authenticate, requireBearbeiter, etikettenRoutes);
 

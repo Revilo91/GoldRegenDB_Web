@@ -192,16 +192,9 @@ export default function EtikettPhomemo() {
       <div className="page-header">
         <div>
           <h2>Etiketten erstellen</h2>
+          <p>{options.length} Schmuckstücke</p>
         </div>
       </div>
-      <div style={{ marginBottom: 12 }}>
-        {loadingOptions ? (
-          <div>Lade Artikel...</div>
-        ) : error ? (
-          <div style={{ color: "var(--danger, #c53030)" }}>{error}</div>
-        ) : null}
-      </div>
-
       <div
         className="toolbar"
         style={{
@@ -243,19 +236,25 @@ export default function EtikettPhomemo() {
             </div>
             <div className="card-body">
               <div style={{ maxHeight: 420, overflow: "auto" }}>
-                <DataTable
-                  columns={columns}
-                  data={options.filter((o) => {
-                    if (!search) return true;
-                    const s = search.toLowerCase();
-                    const base = (o.artikelnummer || "").toLowerCase();
-                    return (
-                      base.includes(s) ||
-                      (o.name && o.name.toLowerCase().includes(s))
-                    );
-                  })}
-                  getRowKey={(r) => r.artikelnummer}
-                />
+                {loadingOptions ? (
+                  <div style={{ padding: 12 }}>Lade Artikel...</div>
+                ) : error ? (
+                  <div style={{ color: "var(--danger, #c53030)", padding: 12 }}>{error}</div>
+                ) : (
+                  <DataTable
+                    columns={columns}
+                    data={options.filter((o) => {
+                      if (!search) return true;
+                      const s = search.toLowerCase();
+                      const base = (o.artikelnummer || "").toLowerCase();
+                      return (
+                        base.includes(s) ||
+                        (o.name && o.name.toLowerCase().includes(s))
+                      );
+                    })}
+                    getRowKey={(r) => r.artikelnummer}
+                  />
+                )}
               </div>
             </div>
           </div>

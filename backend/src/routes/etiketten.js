@@ -1,10 +1,13 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const db = require('../config/db');
-const logger = require('../utils/logger');
+const db = require("../config/db");
+const logger = require("../utils/logger");
+const QRCode = require("qrcode");
+const fs = require("fs");
+const path = require("path");
 
 // GET options: list of base article numbers (without suffix) + name
-router.get('/options', async (req, res) => {
+router.get("/options", async (req, res) => {
   try {
     // Return deduplicated base article numbers (split on '_') to avoid showing suffixes
     const { rows } = await db.query(
@@ -12,20 +15,25 @@ router.get('/options', async (req, res) => {
        FROM "Schmuckstück"
        GROUP BY artikel_base
        ORDER BY artikel_base
-       LIMIT 1000`
+       `,
     );
-    res.json(rows.map(r => ({ artikelnummer: r.artikel_base, name: r.name })));
+    res.json(
+      rows.map((r) => ({ artikelnummer: r.artikel_base, name: r.name })),
+    );
   } catch (err) {
-    logger.error('ETIKETTEN', 'Fehler beim Laden der Etiketten-Optionen', { message: err.message });
-    res.status(500).json({ error: 'Fehler beim Laden der Etiketten-Optionen' });
+    logger.error("ETIKETTEN", "Fehler beim Laden der Etiketten-Optionen", {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Laden der Etiketten-Optionen" });
   }
 });
 
 // POST preview: generate simple HTML for labels
-router.post('/preview', async (req, res) => {
+router.post("/preview", async (req, res) => {
   try {
     const items = Array.isArray(req.body.items) ? req.body.items : [];
-    if (items.length === 0) return res.status(400).json({ error: 'Keine Artikel übergeben' });
+    if (items.length === 0)
+      return res.status(400).json({ error: "Keine Artikel übergeben" });
 
     // Collect data for each requested artikelnummer
     const details = [];
@@ -35,7 +43,7 @@ router.post('/preview', async (req, res) => {
       const qty = parseInt(it.qty) || 1;
       const { rows } = await db.query(
         `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 OR "Artikelnummer" LIKE $2 ORDER BY "Artikelnummer" LIMIT 1`,
-        [artikelnummer, artikelnummer + '\_%']
+        [artikelnummer, artikelnummer + "\_%"],
       );
       if (rows.length === 0) {
         // skip missing
@@ -45,23 +53,58 @@ router.post('/preview', async (req, res) => {
     }
 
     // Build minimal HTML optimized for small labels (Phomemo M220). User can print from the browser.
-    const materialHints = Array.isArray(req.body.materialHints) ? req.body.materialHints : [];
+    const materialHints = Array.isArray(req.body.materialHints)
+      ? req.body.materialHints
+      : [];
+    // generate QR code (data URL) for company homepage
+    const qrUrl = "https://www.goldregenschmuckdesign.de/";
+    let qrDataUrl = "";
+    try {
+      qrDataUrl = await QRCode.toDataURL(qrUrl);
+    } catch (e) {
+      logger.warn("ETIKETTEN", "QR-Code konnte nicht generiert werden", {
+        message: e.message,
+      });
+      qrDataUrl = "";
+    }
     const labelHtmlParts = [];
     for (const d of details) {
       for (let i = 0; i < d.qty; i++) {
         const art = d.row;
-        const name = art.Name || '';
-        const num = (art.Artikelnummer || '').split('_')[0];
-        const price = art.Verkaufspreis ? ('' + art.Verkaufspreis.toFixed ? art.Verkaufspreis.toFixed(2) : art.Verkaufspreis) : '';
+        const name = art.Name || "";
+        const num = (art.Artikelnummer || "").split("_")[0];
+        const price = art.Verkaufspreis
+          ? "" + art.Verkaufspreis.toFixed
+            ? art.Verkaufspreis.toFixed(2)
+            : art.Verkaufspreis
+          : "";
         // build material hint html
-        const hintsHtml = materialHints.length > 0 ? (`<div class="material-title">Material Hinweise</div><ul class="hints">${materialHints.map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ul>`) : '';
+        const hintsHtml =
+          materialHints.length > 0
+            ? `<div class="material-title">Material Hinweise</div><ul class="hints">${materialHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>`
+            : "";
+        const hasHints = materialHints.length > 0;
+        const qrSize = hasHints ? 28 : 48; // smaller QR when there are hints
+        const qrImgHtml = qrDataUrl
+          ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" style="width:${qrSize}px;height:${qrSize}px;object-fit:contain" />`
+          : "";
+
+        // Use external warn SVG file from frontend public folder
+        const warnImgHtml = `<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:${qrSize}px;height:${qrSize}px;flex-shrink:0" />`;
+        const leftMeta = `<div class="left-meta">${hintsHtml}</div>`;
+
         labelHtmlParts.push(`
           <div class="label">
             <div class="brand">GoldRegen<br/>Schmuckdesign</div>
             <div class="dotted">............................................</div>
-            <div class="artnr"><span class="label-key">Art.Nr.</span> <span class="label-value">${escapeHtml(num)}</span></div>
-            ${hintsHtml}
-            <div class="qr">${/* optional: could embed a QR here */ ''}</div>
+            <div class="artnr"><span class="label-value">${escapeHtml(num)}</span></div>
+            <div class="meta-row">
+              ${leftMeta}
+              <div class="right-block">
+                ${warnImgHtml}
+                ${qrImgHtml ? `<div class="qr">${qrImgHtml}</div>` : ""}
+              </div>
+            </div>
           </div>
         `);
       }
@@ -72,46 +115,64 @@ router.post('/preview', async (req, res) => {
       <head>
         <meta charset="utf-8">
         <title>Etiketten Vorschau</title>
-        <style>
-          @page { size: 48mm 25mm; margin: 2mm; }
-          body { margin: 0; padding: 4mm; font-family: Arial, Helvetica, sans-serif; }
-          .sheet { display: flex; flex-wrap: wrap; gap: 4mm; }
-          .label { width: 48mm; height: 25mm; box-sizing: border-box; border-radius: 6px; background: #fff; padding: 6px; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; }
-          .brand { font-size: 12px; font-weight: 700; text-align: center; width:100%; }
-          .dotted { width:100%; color:#666; text-align:center; font-size:10px; margin:2px 0 4px 0 }
-          .artnr { width:100%; display:flex; gap:6px; align-items:baseline; }
-          .label-key { font-size:10px; color:#444 }
-          .label-value { font-size:16px; font-weight:700; letter-spacing:1px }
-          .material-title { margin-top:4px; font-weight:700; font-size:10px }
-          .hints { margin:4px 0 0 14px; padding:0; list-style:disc; font-size:10px }
-          .hints li { margin-bottom:2px }
-          @media print { .label { border: none; } }
-        </style>
+            <link rel="stylesheet" href="/api/etiketten/styles.css">
       </head>
-      <body>
+          <body class="etiketten-body">
         <div class="sheet">
-          ${labelHtmlParts.join('\n')}
+          ${labelHtmlParts.join("\n")}
         </div>
         <script>window.onload = function(){ window.focus(); /* user prints manually */ };</script>
       </body>
       </html>`;
 
-    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   } catch (err) {
-    logger.error('ETIKETTEN', 'Fehler beim Erzeugen der Etiketten-Vorschau', { message: err.message });
-    res.status(500).json({ error: 'Fehler beim Erzeugen der Etiketten-Vorschau' });
+    logger.error("ETIKETTEN", "Fehler beim Erzeugen der Etiketten-Vorschau", {
+      message: err.message,
+    });
+    res
+      .status(500)
+      .json({ error: "Fehler beim Erzeugen der Etiketten-Vorschau" });
   }
 });
 
 function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
+  if (str === null || str === undefined) return "";
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 module.exports = router;
+
+// Serve frontend index.css so preview can reuse the same styles
+router.get("/styles.css", async (req, res) => {
+  try {
+    const cssPath = path.resolve(__dirname, "../../frontend/src/index.css");
+    if (!fs.existsSync(cssPath)) return res.status(404).send("/* not found */");
+    const css = await fs.promises.readFile(cssPath, "utf8");
+    res.set("Content-Type", "text/css; charset=utf-8");
+    res.send(css);
+  } catch (err) {
+    logger.warn("ETIKETTEN", "Fehler beim Lesen der CSS-Datei", { message: err.message });
+    res.status(500).send("/* error */");
+  }
+});
+
+// Serve warn SVG from frontend public folder
+router.get("/warn.svg", async (req, res) => {
+  try {
+    const imgPath = path.resolve(__dirname, "../../frontend/public/warn_0-3.svg");
+    if (!fs.existsSync(imgPath)) return res.status(404).send("");
+    const svg = await fs.promises.readFile(imgPath, "utf8");
+    res.set("Content-Type", "image/svg+xml; charset=utf-8");
+    res.send(svg);
+  } catch (err) {
+    logger.warn("ETIKETTEN", "Fehler beim Lesen der Warn-SVG", { message: err.message });
+    res.status(500).send("");
+  }
+});

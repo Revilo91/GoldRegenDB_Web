@@ -227,14 +227,6 @@ export default function Lieferscheine() {
     return sortableData;
   }, [filteredData, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(groupKey)) {
