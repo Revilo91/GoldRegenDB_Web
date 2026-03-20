@@ -67,17 +67,23 @@ router.post("/preview", async (req, res) => {
       });
       qrDataUrl = "";
     }
+    // try to inline warn SVG as data URL to avoid separate requests
+    let warnDataUrl = "";
+    try {
+      const warnSvgPath = path.resolve(__dirname, "../assets/warn_0-3.svg");
+      if (fs.existsSync(warnSvgPath)) {
+        const svgContent = await fs.promises.readFile(warnSvgPath, "utf8");
+        const svgBase64 = Buffer.from(svgContent).toString("base64");
+        warnDataUrl = `data:image/svg+xml;base64,${svgBase64}`;
+      }
+    } catch (e) {
+      logger.warn("ETIKETTEN", "Warn-SVG konnte nicht gelesen werden", { message: e.message });
+    }
     const labelHtmlParts = [];
     for (const d of details) {
       for (let i = 0; i < d.qty; i++) {
         const art = d.row;
-        const name = art.Name || "";
         const num = (art.Artikelnummer || "").split("_")[0];
-        const price = art.Verkaufspreis
-          ? "" + art.Verkaufspreis.toFixed
-            ? art.Verkaufspreis.toFixed(2)
-            : art.Verkaufspreis
-          : "";
         // build material hint html
         const hintsHtml =
           materialHints.length > 0
@@ -89,8 +95,10 @@ router.post("/preview", async (req, res) => {
           ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" style="width:${qrSize}px;height:${qrSize}px;object-fit:contain" />`
           : "";
 
-        // Use external warn SVG file from frontend public folder
-        const warnImgHtml = `<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:${qrSize}px;height:${qrSize}px;flex-shrink:0" />`;
+        // Use inlined warn SVG (data URL) when available, otherwise fall back to endpoint
+        const warnImgHtml = warnDataUrl
+          ? `<img src="${warnDataUrl}" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:${qrSize}px;height:${qrSize}px;flex-shrink:0" />`
+          : `<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Nicht für Kinder unter 3 Jahren" style="width:${qrSize}px;height:${qrSize}px;flex-shrink:0" />`;
         const leftMeta = `<div class="left-meta">${hintsHtml}</div>`;
 
         labelHtmlParts.push(`
@@ -166,7 +174,7 @@ router.get("/styles.css", async (req, res) => {
 // Serve warn SVG from frontend public folder
 router.get("/warn.svg", async (req, res) => {
   try {
-    const imgPath = path.resolve(__dirname, "../../frontend/public/warn_0-3.svg");
+    const imgPath = path.resolve(__dirname, "../assets/warn_0-3.svg");
     if (!fs.existsSync(imgPath)) return res.status(404).send("");
     const svg = await fs.promises.readFile(imgPath, "utf8");
     res.set("Content-Type", "image/svg+xml; charset=utf-8");

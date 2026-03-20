@@ -112,7 +112,7 @@ const fs = require('fs');
 const path = require('path');
 app.get('/api/etiketten/styles.css', async (req, res) => {
   try {
-    const cssPath = path.resolve(__dirname, '../frontend/src/index.css');
+    const cssPath = path.resolve(__dirname, '../../frontend/src/index.css');
     const css = await fs.promises.readFile(cssPath, 'utf8');
     res.set('Content-Type', 'text/css; charset=utf-8');
     res.send(css);
@@ -124,7 +124,7 @@ app.get('/api/etiketten/styles.css', async (req, res) => {
 
 app.get('/api/etiketten/warn.svg', async (req, res) => {
   try {
-    const imgPath = path.resolve(__dirname, '../frontend/public/warn_0-3.svg');
+    const imgPath = path.resolve(__dirname, '../../frontend/public/warn_0-3.svg');
     const svg = await fs.promises.readFile(imgPath, 'utf8');
     res.set('Content-Type', 'image/svg+xml; charset=utf-8');
     res.send(svg);
