@@ -421,29 +421,131 @@ p.lead {
 }
 
 /* Etiketten / Label Vorschau (genutzt von /api/etiketten/preview) */
-@page { size: 48mm 25mm; margin: 2mm; }
-.etiketten-body { margin: 0; padding: 4mm; font-family: Arial, Helvetica, sans-serif; }
-.sheet { display: flex; flex-wrap: wrap; gap: 4mm; }
-.label { width: 48mm; height: 25mm; box-sizing: border-box; border-radius: 6px; background: #fff; padding: 6px; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; }
-.brand { font-size: 12px; font-weight: 700; text-align: center; width:100%; }
-.dotted { width:100%; color:#666; text-align:center; font-size:10px; margin:2px 0 4px 0 }
-.artnr { width:100%; display:flex; gap:6px; text-align: center; align-items:baseline; }
-.label-key { font-size:10px; color:#444 }
-.label-value { font-size:16px; font-weight:700; letter-spacing:1px }
-.material-title { margin-top:4px; font-weight:700; font-size:10px }
-.hints { margin:4px 0 0 14px; padding:0; list-style:disc; font-size:10px }
-.hints li { margin-bottom:2px }
-.qr { margin-top:6px }
-.qr-img { width:48px; height:48px; object-fit:contain }
-@media print { .label { border: none; } }
+@page {
+  size: 48mm 25mm;
+  margin: 2mm;
+}
+.etiketten-body {
+  margin: 0;
+  padding: 4mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #111; /* Labels are printed on white background — use dark text */
+}
+.sheet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4mm;
+}
+.label {
+  /* target physical label size */
+  width: 30mm;
+  height: 20mm;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: #fff;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+}
+.brand {
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+}
+.dotted {
+  width: 100%;
+  color: #666;
+  text-align: center;
+  font-size: 9px;
+  margin: 2px 0 3px 0;
+}
+.artnr {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  text-align: center;
+  align-items: baseline;
+}
+.label-key {
+  font-size: 10px;
+  color: #444;
+}
+.label-value {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.material-title {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 10px;
+}
+.hints {
+  margin: 4px 0 0 14px;
+  padding: 0;
+  list-style: disc;
+  font-size: 10px;
+}
+.hints li {
+  margin-bottom: 2px;
+}
+.qr {
+  margin-top: 6px;
+}
+.qr-img {
+  width: auto;
+  height: auto;
+  max-width: 12mm;
+  max-height: 12mm;
+  object-fit: contain;
+}
+@media print {
+  .label {
+    border: none;
+  }
+}
 
-  /* Etiketten layout helpers */
-  .meta-row { display: flex; gap: 8px; width: 100%; align-items: flex-start; justify-content: space-between; }
-  .left-meta { flex: 1; min-width: 0; }
-  .right-block { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-  .warn-symbol { display: inline-block; flex-shrink: 0; }
-  .warn-symbol svg, .warn-symbol { display: inline-block; }
-  .warn-symbol[title] { cursor: help }
+/* Etiketten layout helpers */
+.meta-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+.left-meta {
+  flex: 1;
+  min-width: 0;
+}
+.right-block {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.warn-symbol {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8mm;
+  height: 8mm;
+}
+.warn-symbol img,
+.warn-symbol svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.warn-symbol[title] {
+  cursor: help;
+}
+.qr-img {
+  width: 48px;
+  height: 48px;
+}
 
 /* ============ BADGES ============ */
 .badge {

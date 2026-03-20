@@ -62,14 +62,6 @@ export default function EtikettPhomemo() {
     }
   }
 
-  function addItem() {
-    if (!selected) return;
-    setItems((prev) => [
-      ...prev,
-      { artikelnummer: selected, qty: Number(qty) || 1 },
-    ]);
-  }
-
   function addItemFromList(artikelnummer, q) {
     const addQty = Math.max(1, parseInt(String(q || 0), 10) || 1);
     setItems((prev) => {
@@ -122,10 +114,12 @@ export default function EtikettPhomemo() {
         items,
         materialHints: selectedHints,
       });
+      // The backend already returns a full HTML document (including <head> and
+      // a link to /api/etiketten/styles.css). Write it verbatim into the new
+      // window so the stylesheet and scripts from the backend are applied.
       const w = window.open("", "_blank");
-      const wrapper = `<!doctype html><html><head><meta charset="utf-8"><title>Etiketten Vorschau</title><meta name="viewport" content="width=device-width,initial-scale=1"/><style>body{font-family:Arial,Helvetica,sans-serif;padding:12px;color:#111} .hint-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#f7f7f7;border-radius:16px;margin:4px;font-size:13px} .hint-chip button{border:none;background:transparent;cursor:pointer} table{border-collapse:collapse;width:100%} th,td{padding:6px 8px;border:1px solid #e6e6e6}</style></head><body>${html}</body></html>`;
       w.document.open();
-      w.document.write(wrapper);
+      w.document.write(html);
       w.document.close();
     } catch (err) {
       console.error(err);

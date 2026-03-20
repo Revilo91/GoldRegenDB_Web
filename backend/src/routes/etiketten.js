@@ -108,9 +108,9 @@ router.post("/preview", async (req, res) => {
             <div class="artnr"><span class="label-value">${escapeHtml(num)}</span></div>
             <div class="meta-row">
               ${leftMeta}
-              <div class="right-block">
-                ${warnImgHtml}
-                ${qrImgHtml ? `<div class="qr">${qrImgHtml}</div>` : ""}
+              <div class="right-block" style="display:flex;flex-direction:row;align-items:center;gap:6px">
+                <div style="display:flex;align-items:center">${warnImgHtml}</div>
+                ${qrImgHtml ? `<div class="qr" style="display:flex;align-items:center">${qrImgHtml}</div>` : ""}
               </div>
             </div>
           </div>
