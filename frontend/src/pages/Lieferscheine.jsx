@@ -235,11 +235,6 @@ export default function Lieferscheine() {
     setSortConfig({ key, direction });
   };
 
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
-
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);
     if (newExpanded.has(groupKey)) {

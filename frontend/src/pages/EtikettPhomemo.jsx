@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 
@@ -21,6 +21,7 @@ export default function EtikettPhomemo() {
   const [search, setSearch] = useState("");
   const [rowQty, setRowQty] = useState({});
   const [adding, setAdding] = useState({});
+  const addingRef = useRef({});
   const totalSelected = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   useEffect(() => {
@@ -70,38 +71,22 @@ export default function EtikettPhomemo() {
   }
 
   function addItemFromList(artikelnummer, q) {
+    const addQty = Math.max(1, parseInt(String(q || 0), 10) || 1);
     setItems((prev) => {
-      const existingIdx = prev.findIndex(
-        (i) => i.artikelnummer === artikelnummer,
-      );
-      const addQty = Math.max(1, parseInt(String(q || 0), 10) || 1);
-      console.debug("[Etikett] addItemFromList called", {
-        artikelnummer,
-        q,
-        addQty,
-        prev,
-      });
+      const existingIdx = prev.findIndex((i) => i.artikelnummer === artikelnummer);
       if (existingIdx >= 0) {
         const cp = [...prev];
         const existingQty = Number(cp[existingIdx].qty) || 0;
-        cp[existingIdx].qty = existingQty + addQty;
-        console.debug("[Etikett] merged item", {
-          artikelnummer,
-          existingQty,
-          addQty,
-          newQty: cp[existingIdx].qty,
-        });
-        // reset rowQty for this artikelnummer to 1
-        setRowQty((r) => ({ ...r, [artikelnummer]: 1 }));
+        cp[existingIdx] = { ...cp[existingIdx], qty: existingQty + addQty };
+        console.debug("[Etikett] merged item", { artikelnummer, existingQty, addQty, newQty: cp[existingIdx].qty });
         return cp;
       }
-      // new entry
       const entry = { artikelnummer, qty: addQty };
       console.debug("[Etikett] new item added", entry);
-      // reset rowQty for this artikelnummer to 1
-      setRowQty((r) => ({ ...r, [artikelnummer]: 1 }));
       return [...prev, entry];
     });
+    // reset rowQty for this artikelnummer to 1 (outside setItems to avoid nested state updates)
+    setRowQty((r) => ({ ...r, [artikelnummer]: 1 }));
   }
 
   function updateQty(idx, newQty) {
@@ -181,16 +166,18 @@ export default function EtikettPhomemo() {
             disabled={adding[r.artikelnummer]}
             onClick={(e) => {
               e.stopPropagation();
-              if (adding[r.artikelnummer]) return;
-              const q = Number(rowQty[r.artikelnummer]) || 1;
+              if (addingRef.current[r.artikelnummer]) return;
+              // set ref synchronously so repeated event triggers are ignored
+              addingRef.current[r.artikelnummer] = true;
               setAdding((p) => ({ ...p, [r.artikelnummer]: true }));
               try {
+                const q = Number(rowQty[r.artikelnummer]) || 1;
                 addItemFromList(r.artikelnummer, q);
               } finally {
-                setTimeout(
-                  () => setAdding((p) => ({ ...p, [r.artikelnummer]: false })),
-                  300,
-                );
+                setTimeout(() => {
+                  addingRef.current[r.artikelnummer] = false;
+                  setAdding((p) => ({ ...p, [r.artikelnummer]: false }));
+                }, 300);
               }
             }}>
             {adding[r.artikelnummer] ? "..." : "Auswählen"}
@@ -215,19 +202,40 @@ export default function EtikettPhomemo() {
         ) : null}
       </div>
 
+      <div
+        className="toolbar"
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          marginBottom: 12,
+        }}>
+        <input
+          className="form-control"
+          placeholder="Suche Artikelnummer oder Name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: 260 }}
+        />
+        <button className="btn" onClick={() => fetchOptions()}>
+          Aktualisieren
+        </button>
+
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+          }}>
+          <div className="badge info">{items.length} Typen</div>
+          <div className="badge gold">{totalSelected} Gesamt</div>
+        </div>
+      </div>
+
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
         <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <input
-              className="form-control"
-              placeholder="Suche Artikelnummer oder Name"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <button className="btn" onClick={() => fetchOptions()}>
-              Aktualisieren
-            </button>
-          </div>
+          {/* toolbar moved to top */}
 
           <div className="card">
             <div className="card-header">
@@ -257,15 +265,11 @@ export default function EtikettPhomemo() {
           <div className="card">
             <div className="card-header">
               <h3>Ausgewählte Etiketten</h3>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div className="badge info">{items.length} Typen</div>
-                <div className="badge gold">{totalSelected} Gesamt</div>
-              </div>
             </div>
             <div className="card-body">
               <div style={{ maxHeight: 420, overflow: "auto", padding: 5 }}>
                 {items.length === 0 ? (
-                  <div>Keine Artikel ausgewählt</div>
+                  <p>Keine Artikel ausgewählt</p>
                 ) : (
                   <table className="data-table">
                     <thead>
@@ -309,77 +313,85 @@ export default function EtikettPhomemo() {
         </div>
       </div>
 
-        <div className="hints-wrapper">
-          <div className="card">
-            <div className="card-body hints-card-body">
-              <h4 style={{ padding: 10 }}>Materialhinweise (wählbar)</h4>
-              <div className="preset-hints" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                {presetHints.map((h) => (
-                  <label
-                    key={h}
-                    htmlFor={`hint-${h}`}
-                    style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <input
-                      id={`hint-${h}`}
-                      type="checkbox"
-                      aria-label={`Materialhinweis ${h}`}
-                      checked={selectedHints.includes(h)}
-                      onChange={() => toggleHint(h)}
-                    />
-                    <span>{h}</span>
-                  </label>
-                ))}
-              </div>
+      <div className="hints-wrapper">
+        <div className="card">
+          <div className="card-body hints-card-body">
+            <h4 style={{ padding: 10 }}>Materialhinweise (wählbar)</h4>
+            <div
+              className="preset-hints"
+              style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {presetHints.map((h) => (
+                <label
+                  key={h}
+                  htmlFor={`hint-${h}`}
+                  style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    id={`hint-${h}`}
+                    type="checkbox"
+                    aria-label={`Materialhinweis ${h}`}
+                    checked={selectedHints.includes(h)}
+                    onChange={() => toggleHint(h)}
+                  />
+                  <span>{h}</span>
+                </label>
+              ))}
+            </div>
 
-              <div className="custom-hint-row" style={{ marginTop: 8 }}>
-                <input
-                  placeholder="Eigener Hinweis"
-                  value={customHint}
-                  onChange={(e) => setCustomHint(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addCustomHint();
-                    }
-                  }}
-                  aria-label="Eigener Hinweis"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={addCustomHint}
-                  disabled={!customHint || customHint.trim() === ""}
-                >
-                  Hinzufügen
-                </button>
-              </div>
+            <div className="custom-hint-row" style={{ marginTop: 8 }}>
+              <input
+                placeholder="Eigener Hinweis"
+                value={customHint}
+                onChange={(e) => setCustomHint(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomHint();
+                  }
+                }}
+                aria-label="Eigener Hinweis"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn"
+                onClick={addCustomHint}
+                disabled={!customHint || customHint.trim() === ""}>
+                Hinzufügen
+              </button>
             </div>
           </div>
-
-          <div className="card-body active-hints-panel">
-            <h4>Aktive Hinweise</h4>
-            {selectedHints.length === 0 ? (
-              <div className="muted">Keine aktiven Hinweise</div>
-            ) : (
-              <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {selectedHints.map((h) => (
-                  <span key={h} className="hint-chip">
-                    <span>{h}</span>
-                    <button
-                      type="button"
-                      className="chip-remove"
-                      aria-label={`Hinweis ${h} entfernen`}
-                      onClick={() => setSelectedHints((prev) => prev.filter((x) => x !== h))}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
+
+        <div className="card-body active-hints-panel">
+          <h4>Aktive Hinweise</h4>
+          {selectedHints.length === 0 ? (
+            <div className="muted">Keine aktiven Hinweise</div>
+          ) : (
+            <div
+              style={{
+                marginTop: 6,
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}>
+              {selectedHints.map((h) => (
+                <span key={h} className="hint-chip">
+                  <span>{h}</span>
+                  <button
+                    type="button"
+                    className="chip-remove"
+                    aria-label={`Hinweis ${h} entfernen`}
+                    onClick={() =>
+                      setSelectedHints((prev) => prev.filter((x) => x !== h))
+                    }>
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div style={{ display: "flex", gap: 8 }}>
         <button
