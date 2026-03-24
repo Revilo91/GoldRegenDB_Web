@@ -76,12 +76,38 @@ router.post("/preview", async (req, res) => {
       : [];
 
     // QR Code für Homepage
-    const qrUrl = "https://www.goldregenschmuckdesign.de/";
+    const qrUrl = "https://goldregenschmuckdesign.de";
     let qrDataUrl = "";
+    // try {
+    //   // SVG bleibt beim Druck deutlich schaerfer als PNG bei kleinen Labels.
+    //   const qrSvg = await QRCode.toString(qrUrl, {
+    //     type: "svg",
+    //     errorCorrectionLevel: "Q",
+    //     margin: 4,
+    //     color: {
+    //       dark: "#000000",
+    //       light: "#FFFFFF",
+    //     },
+    //   });
+    //   qrDataUrl = `data:image/svg+xml;base64,${Buffer.from(qrSvg).toString("base64")}`;
+    // } catch (e) {
+    //   logger.warn("ETIKETTEN", "QR-SVG Fehler, fallback auf PNG", {
+    //     message: e.message,
+    //   });
     try {
-      qrDataUrl = await QRCode.toDataURL(qrUrl);
-    } catch (e) {
-      logger.warn("ETIKETTEN", "QR-Code Fehler", { message: e.message });
+      qrDataUrl = await QRCode.toDataURL(qrUrl, {
+        errorCorrectionLevel: "Q",
+        margin: 4,
+        width: 1200,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      });
+    } catch (fallbackErr) {
+      logger.warn("ETIKETTEN", "QR-Code Fehler", {
+        message: fallbackErr.message,
+      });
     }
 
     // Warn-SVG einlesen
@@ -124,7 +150,6 @@ router.post("/preview", async (req, res) => {
         brandH: getCssVar(cssContent, "--label-small-brandH", "8mm"),
         artSize: getCssVar(cssContent, "--label-small-artSize", "8mm"),
         hintSize: getCssVar(cssContent, "--label-small-hintSize", "3.5mm"),
-        qr: getCssVar(cssContent, "--label-small-qr", "14mm"),
       },
       medium: {
         w: getCssVar(cssContent, "--label-medium-w", "60mm"),
@@ -132,7 +157,6 @@ router.post("/preview", async (req, res) => {
         brandH: getCssVar(cssContent, "--label-medium-brandH", "10mm"),
         artSize: getCssVar(cssContent, "--label-medium-artSize", "10mm"),
         hintSize: getCssVar(cssContent, "--label-medium-hintSize", "4mm"),
-        qr: getCssVar(cssContent, "--label-medium-qr", "16mm"),
       },
       large: {
         w: getCssVar(cssContent, "--label-large-w", "80mm"),
@@ -140,7 +164,6 @@ router.post("/preview", async (req, res) => {
         brandH: getCssVar(cssContent, "--label-large-brandH", "14mm"),
         artSize: getCssVar(cssContent, "--label-large-artSize", "14mm"),
         hintSize: getCssVar(cssContent, "--label-large-hintSize", "5mm"),
-        qr: getCssVar(cssContent, "--label-large-qr", "20mm"),
       },
     };
     const s = sizes[labelSize] || sizes.small;
@@ -159,7 +182,11 @@ router.post("/preview", async (req, res) => {
     for (const d of details) {
       for (let i = 0; i < d.qty; i++) {
         const num = (d.row.Artikelnummer || "").split("_")[0];
-        const uniqueHints = [...new Set(materialHints.map((h) => String(h).trim()).filter(Boolean))];
+        const uniqueHints = [
+          ...new Set(
+            materialHints.map((h) => String(h).trim()).filter(Boolean),
+          ),
+        ];
         const hintClass =
           uniqueHints.length > 2 || uniqueHints.some((hint) => hint.length > 12)
             ? "hints compact"
@@ -172,11 +199,13 @@ router.post("/preview", async (req, res) => {
           : `<div class="brand-text">GoldRegen Schmuckdesign</div>`;
 
         // Zusatzinfos (optional). Wenn leer, wird Platzhalter für Leerraum gesetzt
-        const hintsHtml = uniqueHints.length > 0
-          ? `<div class="hints-container">
+        const hintsHtml =
+          uniqueHints.length > 0
+            ? `<div class="hints-container">
+               <p style="font-weight: bold;">Material Hinweise</p>
                <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
              </div>`
-          : `<div class="empty-space"></div>`;
+            : `<div class="empty-space"></div>`;
 
         // Strukturiertes Layout nach Vorgabe
         // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
@@ -218,7 +247,8 @@ router.post("/preview", async (req, res) => {
         --brand-h: ${s.brandH};
         --art-size: ${s.artSize};
         --hint-size: ${s.hintSize};
-        --qr-size: ${s.qr};
+        /* QR nur einmal zentral aus dem kleineren Etikettenmass ableiten */
+        --qr-size: min(calc(var(--label-w) * 0.44), calc(var(--label-h) * 0.44));
       }
       .sheet {
         width: ${s.w};
@@ -267,7 +297,7 @@ router.post("/preview", async (req, res) => {
       /* 1. Logo: feste Höhe nach CSS-Variable, Inhalt skaliert sauber */
       .logo-container {
         width: 100%;
-        flex: 0 0 calc(var(--brand-h) * 2.35);
+        flex: 0 0 calc(var(--brand-h) * 1);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -279,12 +309,12 @@ router.post("/preview", async (req, res) => {
         object-fit: contain;
         object-position: center;
         display: block;
-        transform: scale(1.12);
-        transform-origin: center;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
       .brand-text {
         text-align: center;
-        font-weight: 700;
+        font-weight: bold;
         font-size: calc(var(--brand-h) * 0.95);
         width: 100%;
         line-height: 1;
@@ -294,23 +324,17 @@ router.post("/preview", async (req, res) => {
       .dotted-line {
         width: 100%;
         border-bottom: 1px dotted #000;
-        margin: 0.6mm 0 0.9mm;
+        margin: 1mm;
         flex-shrink: 0;
       }
 
       /* 3. Artikelnummer */
       .artnr {
-        width: 100%;
         text-align: center;
-        font-weight: 700;
+        font-weight: bold;
         font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
-        line-height: 1.02;
-        letter-spacing: 0.04mm;
-        flex: 0 0 auto;
-        max-height: 44%;
-        overflow: hidden;
-        white-space: normal;
-        word-break: break-all;
+        line-height: 1;
+        letter-spacing: 0.1mm;
       }
       .artnr.compact {
         font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
@@ -337,6 +361,7 @@ router.post("/preview", async (req, res) => {
         flex-direction: column;
         align-items: center;
         gap: 0.45mm;
+        font-weight: bold;
       }
       .hints li {
         margin: 0;
@@ -347,7 +372,7 @@ router.post("/preview", async (req, res) => {
         text-overflow: ellipsis;
       }
       .hints.compact li {
-        font-size: calc(var(--hint-size) * 0.56);
+        font-size: calc(var(--hint-size) * 0.7);
       }
       .empty-space {
         flex: 1 1 auto;
@@ -356,26 +381,25 @@ router.post("/preview", async (req, res) => {
       /* 5. GANZ UNTEN: QR Code und Warnhinweis */
       .bottom-row {
         width: 100%;
-        flex: 0 0 auto;
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        gap: 2mm;
         padding-top: 0.6mm;
       }
       .warn-symbol {
         height: auto;
-        max-height: calc(var(--qr-size) * 0.5);
+        max-height: calc(var(--qr-size) * 1.0);
         width: auto;
         object-fit: contain;
         flex-shrink: 0;
       }
       .qr-img {
-        height: auto;
-        max-height: calc(var(--qr-size) * 0.75);
-        width: auto;
+        width: calc(var(--qr-size) * 1.2);
+        height: calc(var(--qr-size) * 1.2);
         object-fit: contain;
         flex-shrink: 0;
+        box-sizing: border-box;
+        image-rendering: auto;
+        image-rendering: crisp-edges;
       }
 
       @media print {

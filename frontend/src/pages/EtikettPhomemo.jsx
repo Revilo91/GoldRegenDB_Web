@@ -21,6 +21,7 @@ export default function EtikettPhomemo() {
   const [search, setSearch] = useState("");
   const [rowQty, setRowQty] = useState({});
   const [adding, setAdding] = useState({});
+  const [labelSize, setLabelSize] = useState("small");
   const addingRef = useRef({});
   const totalSelected = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
@@ -113,6 +114,7 @@ export default function EtikettPhomemo() {
       const html = await api.getEtikettenPreview({
         items,
         materialHints: selectedHints,
+        labelSize,
       });
       // The backend already returns a full HTML document (including <head> and
       // a link to /api/etiketten/styles.css). Write it verbatim into the new
@@ -300,6 +302,46 @@ export default function EtikettPhomemo() {
                     </tbody>
                   </table>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="card-header">
+              <h3>Etikettengröße</h3>
+            </div>
+            <div className="card-body">
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="radio"
+                    name="labelSize"
+                    value="small"
+                    checked={labelSize === "small"}
+                    onChange={(e) => setLabelSize(e.target.value)}
+                  />
+                  <span>Klein (30 × 20 mm)</span>
+                </label>
+                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="radio"
+                    name="labelSize"
+                    value="medium"
+                    checked={labelSize === "medium"}
+                    onChange={(e) => setLabelSize(e.target.value)}
+                  />
+                  <span>Mittel (40 × 20 mm)</span>
+                </label>
+                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="radio"
+                    name="labelSize"
+                    value="large"
+                    checked={labelSize === "large"}
+                    onChange={(e) => setLabelSize(e.target.value)}
+                  />
+                  <span>Groß (40 × 30 mm)</span>
+                </label>
               </div>
             </div>
           </div>

@@ -34,21 +34,18 @@
   --label-small-brandH: 8mm;
   --label-small-artSize: 5mm;
   --label-small-hintSize: 2.5mm;
-  --label-small-qr: 9mm;
 
   --label-medium-w: 40mm;
   --label-medium-h: 20mm;
   --label-medium-brandH: 8mm;
   --label-medium-artSize: 5.5mm;
   --label-medium-hintSize: 2.5mm;
-  --label-medium-qr: 9mm;
 
   --label-large-w: 40mm;
   --label-large-h: 30mm;
   --label-large-brandH: 11mm;
   --label-large-artSize: 9mm;
   --label-large-hintSize: 3mm;
-  --label-large-qr: 13mm;
 }
 
 * {
