@@ -175,27 +175,13 @@ router.post("/preview", async (req, res) => {
         const hintsHtml = uniqueHints.length > 0
           ? `<div class="hints-container">
                <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
-        const hintsHtml = uniqueHints.length > 0
-          ? `<div class="hints-container">
-               <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
              </div>`
-          : `<div class="empty-space"></div>`;
           : `<div class="empty-space"></div>`;
 
         // Strukturiertes Layout nach Vorgabe
         // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
-        // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
         labelHtmlParts.push(`
           <div class="label">
-            <div class="rot">
-              <div class="logo-container">${brandHtml}</div>
-              <div class="dotted-line"></div>
-              <div class="${artNrClass}">${escapeHtml(num)}</div>
-              ${hintsHtml}
-              <div class="bottom-row">
-                ${warnImgHtml}
-                ${qrImgHtml}
-              </div>
             <div class="rot">
               <div class="logo-container">${brandHtml}</div>
               <div class="dotted-line"></div>
