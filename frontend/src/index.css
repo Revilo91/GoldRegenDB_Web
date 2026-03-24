@@ -29,26 +29,26 @@
   --transition: all 0.2s ease;
 
   /* Label sizes for etiketten preview (used by backend /api/etiketten/preview) */
-  --label-small-w: 48mm;
-  --label-small-h: 30mm;
-  --label-small-brandH: 12mm;
-  --label-small-artSize: 8mm;
-  --label-small-hintSize: 3.5mm;
-  --label-small-qr: 14mm;
+  --label-small-w: 30mm;
+  --label-small-h: 20mm;
+  --label-small-brandH: 8mm;
+  --label-small-artSize: 5mm;
+  --label-small-hintSize: 2.5mm;
+  --label-small-qr: 9mm;
 
-  --label-medium-w: 60mm;
-  --label-medium-h: 36mm;
-  --label-medium-brandH: 14mm;
-  --label-medium-artSize: 10mm;
-  --label-medium-hintSize: 4mm;
-  --label-medium-qr: 16mm;
+  --label-medium-w: 40mm;
+  --label-medium-h: 20mm;
+  --label-medium-brandH: 8mm;
+  --label-medium-artSize: 5.5mm;
+  --label-medium-hintSize: 2.5mm;
+  --label-medium-qr: 9mm;
 
-  --label-large-w: 80mm;
-  --label-large-h: 48mm;
-  --label-large-brandH: 18mm;
-  --label-large-artSize: 14mm;
-  --label-large-hintSize: 5mm;
-  --label-large-qr: 20mm;
+  --label-large-w: 40mm;
+  --label-large-h: 30mm;
+  --label-large-brandH: 11mm;
+  --label-large-artSize: 9mm;
+  --label-large-hintSize: 3mm;
+  --label-large-qr: 13mm;
 }
 
 * {
