@@ -175,13 +175,27 @@ router.post("/preview", async (req, res) => {
         const hintsHtml = uniqueHints.length > 0
           ? `<div class="hints-container">
                <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
+        const hintsHtml = uniqueHints.length > 0
+          ? `<div class="hints-container">
+               <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
              </div>`
+          : `<div class="empty-space"></div>`;
           : `<div class="empty-space"></div>`;
 
         // Strukturiertes Layout nach Vorgabe
         // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
+        // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
         labelHtmlParts.push(`
           <div class="label">
+            <div class="rot">
+              <div class="logo-container">${brandHtml}</div>
+              <div class="dotted-line"></div>
+              <div class="${artNrClass}">${escapeHtml(num)}</div>
+              ${hintsHtml}
+              <div class="bottom-row">
+                ${warnImgHtml}
+                ${qrImgHtml}
+              </div>
             <div class="rot">
               <div class="logo-container">${brandHtml}</div>
               <div class="dotted-line"></div>
@@ -200,6 +214,36 @@ router.post("/preview", async (req, res) => {
     // 5. Minimales Print-CSS
     const printCss = `
       @page { size: ${s.w} ${s.h}; margin: 0mm; }
+      html, body {
+        width: ${s.w};
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        overflow: hidden;
+      }
+      body.etiketten-body {
+        font-family: Arial, Helvetica, sans-serif;
+        width: ${s.w};
+      }
+      /* Sheet auf Seitenhöhe bringen und Label vertikal zentrieren */
+      :root {
+        --label-w: ${s.w};
+        --label-h: ${s.h};
+        --brand-h: ${s.brandH};
+        --art-size: ${s.artSize};
+        --hint-size: ${s.hintSize};
+        --qr-size: ${s.qr};
+      }
+      .sheet {
+        width: ${s.w};
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 0;
+        margin: 0;
+      }
+
       html, body {
         width: ${s.w};
         margin: 0;
@@ -256,37 +300,62 @@ router.post("/preview", async (req, res) => {
         width: ${s.h};
         height: ${s.w};
         display: flex;
+        justify-content: center;
+        align-items: center;
+        border: none; /* kein sichtbarer Rand */
+        box-shadow: none; /* kein Schatten in der Vorschau */
+        margin: 0;
+        page-break-after: always;
+        break-after: page;
+        overflow: hidden;
+      }
+      .label:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+
+      /* Innencontainer, der um 90° gedreht wird */
+      .label .rot {
+        transform: rotate(90deg);
+        transform-origin: center center;
+        width: ${s.h};
+        height: ${s.w};
+        display: flex;
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
+        padding: 0.8mm 1.1mm;
+        box-sizing: border-box;
         padding: 0.8mm 1.1mm;
         box-sizing: border-box;
         overflow: hidden;
       }
 
       /* 1. Logo: feste Höhe nach CSS-Variable, Inhalt skaliert sauber */
+      /* 1. Logo: feste Höhe nach CSS-Variable, Inhalt skaliert sauber */
       .logo-container {
         width: 100%;
-        flex: 0 0 calc(var(--brand-h) * 2.35);
+        flex: 0 0 calc(var(--brand-h) * 1.9);
         display: flex;
         justify-content: center;
         align-items: center;
         overflow: hidden;
+        overflow: hidden;
       }
       .brand-logo {
-        width: 100%;
-        height: 100%;
+        width: auto;
+        max-width: 100%;
+        max-height: 100%;
         object-fit: contain;
-        object-position: center;
         display: block;
-        transform: scale(1.12);
-        transform-origin: center;
       }
       .brand-text {
         text-align: center;
         font-weight: 700;
         font-size: calc(var(--brand-h) * 0.95);
+        font-size: calc(var(--brand-h) * 0.95);
         width: 100%;
+        line-height: 1;
         line-height: 1;
       }
 
@@ -294,6 +363,7 @@ router.post("/preview", async (req, res) => {
       .dotted-line {
         width: 100%;
         border-bottom: 1px dotted #000;
+        margin: 0.6mm 0 0.9mm;
         margin: 0.6mm 0 0.9mm;
         flex-shrink: 0;
       }
@@ -306,7 +376,18 @@ router.post("/preview", async (req, res) => {
         font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
         line-height: 1.02;
         letter-spacing: 0.04mm;
+        font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
+        line-height: 1.02;
+        letter-spacing: 0.04mm;
         flex: 0 0 auto;
+        max-height: 44%;
+        overflow: hidden;
+        white-space: normal;
+        word-break: break-all;
+      }
+      .artnr.compact {
+        font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
+        letter-spacing: 0.02mm;
         max-height: 44%;
         overflow: hidden;
         white-space: normal;
@@ -323,16 +404,23 @@ router.post("/preview", async (req, res) => {
         text-align: center;
         font-size: calc(var(--hint-size) * 0.68);
         flex: 1 1 auto;
+        font-size: calc(var(--hint-size) * 0.68);
+        flex: 1 1 auto;
         display: flex;
         flex-direction: column;
         justify-content: center;
         overflow: hidden;
+        min-height: calc(var(--hint-size) * 2.6);
         min-height: calc(var(--hint-size) * 2.6);
       }
       .hints {
         list-style: none;
         margin: 0;
         padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.45mm;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -348,15 +436,39 @@ router.post("/preview", async (req, res) => {
       }
       .hints.compact li {
         font-size: calc(var(--hint-size) * 0.56);
+        margin: 0;
+        max-width: 100%;
+        line-height: 1.05;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
+      .hints.compact li {
+        font-size: calc(var(--hint-size) * 0.56);
+      }
+      .empty-space { flex: 1 1 auto; }
       .empty-space { flex: 1 1 auto; }
 
       /* 5. GANZ UNTEN: QR Code und Warnhinweis */
       .bottom-row {
         width: 100%;
         flex: 0 0 auto;
+        flex: 0 0 auto;
         display: flex;
         justify-content: space-between;
+        align-items: center;
+        gap: 2mm;
+        padding-top: 0.6mm;
+      }
+      /* Symbole etwas kleiner machen, damit sie nicht dominieren */
+      .warn-symbol { height: auto; max-height: calc(var(--qr-size) * 0.5); width: auto; object-fit: contain; flex-shrink: 0; }
+      .qr-img { height: auto; max-height: calc(var(--qr-size) * 0.75); width: auto; object-fit: contain; flex-shrink: 0; }
+
+      @media print {
+        html, body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         align-items: center;
         gap: 2mm;
         padding-top: 0.6mm;
