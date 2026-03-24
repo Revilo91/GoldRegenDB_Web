@@ -159,6 +159,12 @@ router.post("/preview", async (req, res) => {
     for (const d of details) {
       for (let i = 0; i < d.qty; i++) {
         const num = (d.row.Artikelnummer || "").split("_")[0];
+        const uniqueHints = [...new Set(materialHints.map((h) => String(h).trim()).filter(Boolean))];
+        const hintClass =
+          uniqueHints.length > 2 || uniqueHints.some((hint) => hint.length > 12)
+            ? "hints compact"
+            : "hints";
+        const artNrClass = num.length > 7 ? "artnr compact" : "artnr";
 
         // Brand-Logo: Soll in voller Breite gerendert werden
         const brandHtml = brandDataUrl
@@ -166,22 +172,25 @@ router.post("/preview", async (req, res) => {
           : `<div class="brand-text">GoldRegen Schmuckdesign</div>`;
 
         // Zusatzinfos (optional). Wenn leer, wird Platzhalter für Leerraum gesetzt
-        const hintsHtml = materialHints.length > 0
-            ? `<div class="hints-container">
-               <ul class="hints">${materialHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
+        const hintsHtml = uniqueHints.length > 0
+          ? `<div class="hints-container">
+               <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
              </div>`
-            : `<div class="empty-space"></div>`;
+          : `<div class="empty-space"></div>`;
 
         // Strukturiertes Layout nach Vorgabe
+        // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
         labelHtmlParts.push(`
           <div class="label">
-            <div class="logo-container">${brandHtml}</div>
-            <div class="dotted-line"></div>
-            <div class="artnr">${escapeHtml(num)}</div>
-            ${hintsHtml}
-            <div class="bottom-row">
-              ${warnImgHtml}
-              ${qrImgHtml}
+            <div class="rot">
+              <div class="logo-container">${brandHtml}</div>
+              <div class="dotted-line"></div>
+              <div class="${artNrClass}">${escapeHtml(num)}</div>
+              ${hintsHtml}
+              <div class="bottom-row">
+                ${warnImgHtml}
+                ${qrImgHtml}
+              </div>
             </div>
           </div>
         `);
@@ -191,50 +200,99 @@ router.post("/preview", async (req, res) => {
     // 5. Minimales Print-CSS
     const printCss = `
       @page { size: ${s.w} ${s.h}; margin: 0mm; }
-      html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: #fff; }
-      body.etiketten-body { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; }
-      .sheet { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 0; margin: 0; }
-      
+      html, body {
+        width: ${s.w};
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        overflow: hidden;
+      }
+      body.etiketten-body {
+        font-family: Arial, Helvetica, sans-serif;
+        width: ${s.w};
+      }
+      /* Sheet auf Seitenhöhe bringen und Label vertikal zentrieren */
+      :root {
+        --label-w: ${s.w};
+        --label-h: ${s.h};
+        --brand-h: ${s.brandH};
+        --art-size: ${s.artSize};
+        --hint-size: ${s.hintSize};
+        --qr-size: ${s.qr};
+      }
+      .sheet {
+        width: ${s.w};
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 0;
+        margin: 0;
+      }
+
       .label {
         box-sizing: border-box;
         width: ${s.w};
         height: ${s.h};
-        padding: 2mm 3mm;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: none; /* kein sichtbarer Rand */
+        box-shadow: none; /* kein Schatten in der Vorschau */
+        margin: 0;
+        page-break-after: always;
+        break-after: page;
+        overflow: hidden;
+      }
+      .label:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+
+      /* Innencontainer, der um 90° gedreht wird */
+      .label .rot {
+        transform: rotate(90deg);
+        transform-origin: center center;
+        width: ${s.h};
+        height: ${s.w};
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
-        border: 0.2mm solid transparent;
-        margin: 0;
-        page-break-after: always;
+        padding: 0.8mm 1.1mm;
+        box-sizing: border-box;
         overflow: hidden;
       }
 
-      /* 1. Logo */
+      /* 1. Logo: feste Höhe nach CSS-Variable, Inhalt skaliert sauber */
       .logo-container {
         width: 100%;
-        flex: 0 1 35%; /* Bis zu 35% der Hoehe */
+        flex: 0 0 calc(var(--brand-h) * 1.9);
         display: flex;
         justify-content: center;
         align-items: center;
+        overflow: hidden;
       }
       .brand-logo {
-        width: 100%;
+        width: auto;
+        max-width: 100%;
         max-height: 100%;
         object-fit: contain;
+        display: block;
       }
       .brand-text {
         text-align: center;
         font-weight: 700;
-        font-size: 8mm;
+        font-size: calc(var(--brand-h) * 0.95);
         width: 100%;
+        line-height: 1;
       }
 
       /* 2. Linie */
       .dotted-line {
         width: 100%;
         border-bottom: 1px dotted #000;
-        margin: 1mm 0;
+        margin: 0.6mm 0 0.9mm;
         flex-shrink: 0;
       }
 
@@ -243,56 +301,73 @@ router.post("/preview", async (req, res) => {
         width: 100%;
         text-align: center;
         font-weight: 700;
-        font-size: ${s.artSize}; /* z.B. 8mm */
-        line-height: 1;
+        font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
+        line-height: 1.02;
+        letter-spacing: 0.04mm;
         flex: 0 0 auto;
+        max-height: 44%;
+        overflow: hidden;
+        white-space: normal;
+        word-break: break-all;
+      }
+      .artnr.compact {
+        font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
+        letter-spacing: 0.02mm;
       }
 
       /* 4. Zusatzinfos / Leerraum */
       .hints-container {
         width: 100%;
         text-align: center;
-        font-size: ${s.hintSize};
-        flex: 1 1 auto; /* Nimmt restlichen Platz ein */
+        font-size: calc(var(--hint-size) * 0.68);
+        flex: 1 1 auto;
         display: flex;
         flex-direction: column;
         justify-content: center;
         overflow: hidden;
-        min-height: 2mm;
+        min-height: calc(var(--hint-size) * 2.6);
       }
       .hints {
         list-style: none;
         margin: 0;
         padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.45mm;
       }
       .hints li {
-        margin: 0.5mm 0;
+        margin: 0;
+        max-width: 100%;
+        line-height: 1.05;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-      .empty-space {
-        flex: 1 1 auto;
+      .hints.compact li {
+        font-size: calc(var(--hint-size) * 0.56);
       }
+      .empty-space { flex: 1 1 auto; }
 
       /* 5. GANZ UNTEN: QR Code und Warnhinweis */
       .bottom-row {
         width: 100%;
-        flex: 0 1 30%; /* Maximal 30% der Hoehe */
+        flex: 0 0 auto;
         display: flex;
         justify-content: space-between;
-        align-items: flex-end;
+        align-items: center;
+        gap: 2mm;
+        padding-top: 0.6mm;
       }
-      .warn-symbol {
-        height: 100%;
-        max-height: 10mm;
-        width: auto;
-        object-fit: contain;
-        flex-shrink: 0;
-      }
-      .qr-img {
-        height: 100%;
-        max-height: 14mm;
-        width: auto;
-        object-fit: contain;
-        flex-shrink: 0;
+      /* Symbole etwas kleiner machen, damit sie nicht dominieren */
+      .warn-symbol { height: auto; max-height: calc(var(--qr-size) * 0.5); width: auto; object-fit: contain; flex-shrink: 0; }
+      .qr-img { height: auto; max-height: calc(var(--qr-size) * 0.75); width: auto; object-fit: contain; flex-shrink: 0; }
+
+      @media print {
+        html, body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
       }
     `;
 
