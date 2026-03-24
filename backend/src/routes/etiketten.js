@@ -267,18 +267,20 @@ router.post("/preview", async (req, res) => {
       /* 1. Logo: feste Höhe nach CSS-Variable, Inhalt skaliert sauber */
       .logo-container {
         width: 100%;
-        flex: 0 0 calc(var(--brand-h) * 1.9);
+        flex: 0 0 calc(var(--brand-h) * 2.35);
         display: flex;
         justify-content: center;
         align-items: center;
         overflow: hidden;
       }
       .brand-logo {
-        width: auto;
-        max-width: 100%;
-        max-height: 100%;
+        width: 100%;
+        height: 100%;
         object-fit: contain;
+        object-position: center;
         display: block;
+        transform: scale(1.12);
+        transform-origin: center;
       }
       .brand-text {
         text-align: center;
