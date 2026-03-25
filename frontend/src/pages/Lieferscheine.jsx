@@ -6,31 +6,46 @@ import {
   faTrash,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
+
+import DocumentManager from "./DocumentManager";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 
 export default function Lieferscheine() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [detail, setDetail] = useState(null);
-  const [kunden, setKunden] = useState([]);
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({});
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({
-    Nummer: "",
-    Kundennummer: "",
-    Artikelnummern: [],
-  });
-  const [availablePieces, setAvailablePieces] = useState([]);
-  const [pieceSearch, setPieceSearch] = useState("");
-  const [artikelnummerInput, setArtikelnummerInput] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "Datum",
-    direction: "desc",
-  });
-  const [groupByKunde, setGroupByKunde] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  return (
+    <DocumentManager
+      type="lieferschein"
+      api={{
+        getList: api.getLieferscheine,
+        getDetail: api.getLieferschein,
+        deleteItem: api.deleteLieferschein,
+        createItem: api.createLieferschein,
+        exportExcel: api.exportLieferscheinExcel,
+        getKunden: api.getKunden,
+        getPieces: (filter) => api.getSchmuckstuecke({
+          ausgelagert: "0",
+          verkauft: "0",
+          ausschuss: "0",
+          limit: -1,
+          ...filter,
+        }),
+      }}
+      icons={{ header: faBox, modal: faBox, user: faUser, trash: faTrash, times: faTimes }}
+      labels={{
+        header: "Lieferscheine",
+        newBtn: "+ Neuer Lieferschein",
+        modalTitle: "🆕 Neuer Lieferschein",
+        excel: "Lieferschein erstellen",
+        delete: "Löschen",
+        deleteConfirm: "Lieferschein wirklich löschen?",
+        excelFilePrefix: "Lieferschein",
+        kundeRequired: "Bitte Kunde angeben.",
+        pieceNotFound: (nr) => `Artikelnummer \"${nr}\" nicht gefunden oder nicht verfügbar.`,
+      }}
+      pieceFilter={() => ({ ausgelagert: "0", verkauft: "0", ausschuss: "0", limit: -1 })}
+      pieceSelectMode="all"
+    />
+  );
 
   const load = () => {
     setLoading(true);
@@ -308,34 +323,100 @@ export default function Lieferscheine() {
           {/* ...weitere Filter (Jahr etc.) ... */}
         </div>
 
-        <DataTable
-          data={sortedData}
-          defaultSort={{ key: "Datum", direction: "desc" }}
-          onRowClick={(r) => openDetail(r.ID)}
-          columns={[
-            { key: "Nummer", label: "Nummer", sortable: true },
-            {
-              key: "KundenName",
-              label: "Kunde",
-              sortable: true,
-              render: (r) => r.KundenName || `Kunde ${r.Kundennummer}`,
-            },
-            {
-              key: "Datum",
-              label: "Datum",
-              className: "hide-on-mobile",
-              sortable: true,
-              render: (r) =>
-                r.Datum
-                  ? new Date(r.Datum).toLocaleDateString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
-                  : "",
-            },
-          ]}
-        />
+        {groupByKunde ? (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ cursor: "pointer" }}>Nummer</th>
+                <th style={{ cursor: "pointer" }}>Kunde</th>
+                <th className="hide-on-mobile" style={{ cursor: "pointer" }}>
+                  Datum
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupedData.map((group) => {
+                const isExpanded = expandedGroups.has(group.key);
+                return [
+                  <tr
+                    key={`group-${group.key}`}
+                    className="group-header-row"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => toggleGroup(group.key)}
+                    aria-label={`Kundengruppe: ${group.name}`}
+                  >
+                    <td colSpan={4}>
+                      <span style={{ marginRight: 8 }}>{isExpanded ? "▼" : "▶"}</span>
+                      <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
+                      <span
+                        style={{
+                          fontWeight: "normal",
+                          color: "var(--text-muted)",
+                          fontSize: "0.9em",
+                        }}
+                      >
+                        ({group.items.length})
+                      </span>
+                    </td>
+                  </tr>,
+                  ...(isExpanded
+                    ? group.items.map((l) => (
+                        <tr
+                          key={l.ID}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDetail(l.ID);
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <td>{l.Nummer}</td>
+                          <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
+                          <td className="hide-on-mobile">
+                            {l.Datum
+                              ? new Date(l.Datum).toLocaleDateString("de-DE", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                })
+                              : ""}
+                          </td>
+                        </tr>
+                      ))
+                    : []),
+                ];
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <DataTable
+            data={sortedData}
+            defaultSort={{ key: "Datum", direction: "desc" }}
+            onRowClick={(r) => openDetail(r.ID)}
+            columns={[
+              { key: "Nummer", label: "Nummer", sortable: true },
+              {
+                key: "KundenName",
+                label: "Kunde",
+                sortable: true,
+                render: (r) => r.KundenName || `Kunde ${r.Kundennummer}`,
+              },
+              {
+                key: "Datum",
+                label: "Datum",
+                className: "hide-on-mobile",
+                sortable: true,
+                render: (r) =>
+                  r.Datum
+                    ? new Date(r.Datum).toLocaleDateString("de-DE", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })
+                    : "",
+              },
+            ]}
+          />
+        )}
               onRowClick={(r) => openDetail(r.ID)}
               columns={[
                 { key: "Nummer", label: "Nummer", sortable: true },
