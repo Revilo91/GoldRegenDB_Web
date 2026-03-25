@@ -305,121 +305,37 @@ export default function Lieferscheine() {
               </option>
             ))}
           </select>
-          <select
-            className="form-control"
-            style={{ width: "auto" }}
-            value={filters.jahr ?? ""}
-            onChange={(e) => {
-              const { jahr, ...rest } = filters;
-              setFilters(
-                e.target.value !== ""
-                  ? { ...rest, jahr: e.target.value }
-                  : rest,
-              );
-            }}>
-            <option value="">Alle Jahre</option>
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: 14,
-              color: "var(--text-secondary)",
-              userSelect: "none",
-            }}>
-            <input
-              type="checkbox"
-              checked={groupByKunde}
-              onChange={(e) => setGroupByKunde(e.target.checked)}
-            />
-            Nach Kunde gruppieren
-          </label>
+          {/* ...weitere Filter (Jahr etc.) ... */}
         </div>
-      </div>
 
-      <div className="card">
-        <div className="card-body">
-          {loading ? (
-            <div className="loading">
-              <div className="spinner"></div>Lade...
-            </div>
-          ) : groupByKunde ? (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ cursor: "pointer" }}>Nummer</th>
-                  <th style={{ cursor: "pointer" }}>Kunde</th>
-                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>
-                    Datum
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupedData.flatMap((group) => {
-                  const isExpanded = expandedGroups.has(group.key);
-                  return [
-                    <tr
-                      key={`group-${group.key}`}
-                      className="group-header-row"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => toggleGroup(group.key)}
-                      aria-label={`Kundengruppe: ${group.name}`}>
-                      <td colSpan={4}>
-                        <span style={{ marginRight: 8 }}>
-                          {isExpanded ? "▼" : "▶"}
-                        </span>
-                        <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
-                        <span
-                          style={{
-                            fontWeight: "normal",
-                            color: "var(--text-muted)",
-                            fontSize: "0.9em",
-                          }}>
-                          ({group.items.length})
-                        </span>
-                      </td>
-                    </tr>,
-                    ...(isExpanded
-                      ? group.items.map((l) => (
-                          <tr
-                            key={l.ID}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDetail(l.ID);
-                            }}
-                            style={{ cursor: "pointer" }}>
-                            <td>{l.Nummer}</td>
-                            <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
-                            <td className="hide-on-mobile">
-                              {l.Datum
-                                ? new Date(l.Datum).toLocaleDateString(
-                                    "de-DE",
-                                    {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                    },
-                                  )
-                                : ""}
-                            </td>
-                          </tr>
-                        ))
-                      : []),
-                  ];
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <DataTable
-              data={sortedData}
-              defaultSort={{ key: "Datum", direction: "desc" }}
+        <DataTable
+          data={sortedData}
+          defaultSort={{ key: "Datum", direction: "desc" }}
+          onRowClick={(r) => openDetail(r.ID)}
+          columns={[
+            { key: "Nummer", label: "Nummer", sortable: true },
+            {
+              key: "KundenName",
+              label: "Kunde",
+              sortable: true,
+              render: (r) => r.KundenName || `Kunde ${r.Kundennummer}`,
+            },
+            {
+              key: "Datum",
+              label: "Datum",
+              className: "hide-on-mobile",
+              sortable: true,
+              render: (r) =>
+                r.Datum
+                  ? new Date(r.Datum).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })
+                  : "",
+            },
+          ]}
+        />
               onRowClick={(r) => openDetail(r.ID)}
               columns={[
                 { key: "Nummer", label: "Nummer", sortable: true },
@@ -444,10 +360,8 @@ export default function Lieferscheine() {
                       : "",
                 },
               ]}
-            />
-          )}
-        </div>
-      </div>
+
+    </div>
 
       {detail && (
         <div className="modal-overlay" onClick={() => setDetail(null)}>
@@ -735,75 +649,54 @@ export default function Lieferscheine() {
                   {/* Linke Seite: Alle verfügbaren Schmuckstücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h5>Alle Schmuckstücke</h5>
-                    <input
-                      className="form-control"
-                      style={{ width: "200px", marginBottom: 8 }}
-                      placeholder="Suchen..."
-                      value={pieceSearch}
-                      onChange={(e) => setPieceSearch(e.target.value)}
+                    <DataTable
+                      data={availablePieces
+                        .filter((p) =>
+                          pieceSearch.trim() === ""
+                            ? true
+                            : [
+                                p.Artikelnummer,
+                                p.Art,
+                                String(p.Verkaufspreis),
+                              ]
+                                .join(" ")
+                                .toLowerCase()
+                                .includes(pieceSearch.trim().toLowerCase()),
+                        )}
+                      columns={[
+                        {
+                          key: "select",
+                          label: "",
+                          render: (p) => (
+                            <input
+                              type="checkbox"
+                              checked={form.Artikelnummern.includes(p.Artikelnummer)}
+                              readOnly
+                            />
+                          ),
+                          width: 40,
+                        },
+                        { key: "Artikelnummer", label: "Artikelnr.", sortable: true },
+                        { key: "Art", label: "Art", sortable: true },
+                        {
+                          key: "Verkaufspreis",
+                          label: "Preis",
+                          sortable: true,
+                          render: (p) => `${p.Verkaufspreis}€`,
+                        },
+                      ]}
+                      onRowClick={(p) => togglePiece(p.Artikelnummer)}
+                      rowProps={(p) => ({
+                        draggable: true,
+                        onDragStart: (e) =>
+                          e.dataTransfer.setData("artikelnummer", p.Artikelnummer),
+                        style: { cursor: "grab" },
+                      })}
+                      searchValue={pieceSearch}
+                      onSearchChange={setPieceSearch}
+                      searchPlaceholder="Suchen..."
+                      style={{ maxHeight: 400, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
                     />
-                    <div
-                      style={{
-                        maxHeight: "400px",
-                        overflowY: "auto",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                      }}>
-                      <table className="data-table">
-                        <thead
-                          style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                          <tr>
-                            <th style={{ width: "40px" }}></th>
-                            <th>Artikelnr.</th>
-                            <th>Art</th>
-                            <th>Preis</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {availablePieces
-                            .filter((p) => {
-                              if (!pieceSearch) return true;
-                              const s = pieceSearch.toUpperCase();
-                              return (
-                                p.Artikelnummer?.toUpperCase().includes(s) ||
-                                p.Art?.toUpperCase().includes(s) ||
-                                (p.Name?.toUpperCase().includes(s) ?? false)
-                              );
-                            })
-                            .sort((a, b) =>
-                              a.Artikelnummer.split("_")[0].localeCompare(
-                                b.Artikelnummer.split("_")[0],
-                              ),
-                            )
-                            .map((p) => (
-                              <tr
-                                key={p.Artikelnummer}
-                                draggable
-                                onDragStart={(e) =>
-                                  e.dataTransfer.setData(
-                                    "artikelnummer",
-                                    p.Artikelnummer,
-                                  )
-                                }
-                                onClick={() => togglePiece(p.Artikelnummer)}
-                                style={{ cursor: "grab" }}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={form.Artikelnummern.includes(
-                                      p.Artikelnummer,
-                                    )}
-                                    readOnly
-                                  />
-                                </td>
-                                <td>{p.Artikelnummer}</td>
-                                <td>{p.Art}</td>
-                                <td>{p.Verkaufspreis}€</td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
                   </div>
                   {/* Rechte Seite: Selektierte Schmuckstücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>

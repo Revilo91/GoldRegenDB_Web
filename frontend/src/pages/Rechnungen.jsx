@@ -742,151 +742,56 @@ export default function Rechnungen() {
                   }}>
                   {/* Linke Seite: Beim Kunden ausgelagerte Schmuckstücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h5>Beim Kunden ausgelagerte Schmuckstücke</h5>
-                    <input
-                      className="form-control"
-                      style={{ width: "200px", marginBottom: 8 }}
-                      placeholder="Suchen..."
-                      value={pieceSearch}
-                      onChange={(e) => setPieceSearch(e.target.value)}
+                    <h5>Alle Schmuckstücke</h5>
+                    <DataTable
+                      data={availablePieces
+                        .filter((p) =>
+                          pieceSearch.trim() === ""
+                            ? true
+                            : [
+                                p.Artikelnummer,
+                                p.Art,
+                                String(p.Verkaufspreis),
+                              ]
+                                .join(" ")
+                                .toLowerCase()
+                                .includes(pieceSearch.trim().toLowerCase()),
+                        )}
+                      columns={[
+                        {
+                          key: "select",
+                          label: "",
+                          render: (p) => (
+                            <input
+                              type="checkbox"
+                              checked={form.Artikelnummern.includes(p.Artikelnummer)}
+                              readOnly
+                            />
+                          ),
+                          width: 40,
+                        },
+                        { key: "Artikelnummer", label: "Artikelnr.", sortable: true },
+                        { key: "Art", label: "Art", sortable: true },
+                        {
+                          key: "Verkaufspreis",
+                          label: "Preis",
+                          sortable: true,
+                          render: (p) => `${p.Verkaufspreis}€`,
+                        },
+                      ]}
+                      onRowClick={(p) => togglePiece(p.Artikelnummer)}
+                      rowProps={(p) => ({
+                        draggable: true,
+                        onDragStart: (e) =>
+                          e.dataTransfer.setData("artikelnummer", p.Artikelnummer),
+                        style: { cursor: "grab" },
+                      })}
+                      searchValue={pieceSearch}
+                      onSearchChange={setPieceSearch}
+                      searchPlaceholder="Suchen..."
+                      style={{ maxHeight: 400, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
                       disabled={!form.Kundennummer}
                     />
-                    <div
-                      style={{
-                        maxHeight: "400px",
-                        overflowY: "auto",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                      }}>
-                      <table className="data-table">
-                        <thead
-                          style={{ position: "sticky", top: 0, zIndex: 1 }}>
-                          <tr>
-                            <th style={{ width: "40px" }}></th>
-                            <th>Artikelnr.</th>
-                            <th>Art</th>
-                            <th>Preis</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {form.Kundennummer &&
-                            availablePieces
-                              .filter((p) => {
-                                if (!pieceSearch) return true;
-                                const s = pieceSearch.toUpperCase();
-                                return (
-                                  p.Artikelnummer?.toUpperCase().includes(s) ||
-                                  p.Art?.toUpperCase().includes(s) ||
-                                  p.Name?.toUpperCase().includes(s)
-                                );
-                              })
-                              .map((p) => (
-                                <tr
-                                  key={p.Artikelnummer}
-                                  draggable
-                                  onDragStart={(e) =>
-                                    e.dataTransfer.setData(
-                                      "artikelnummer",
-                                      p.Artikelnummer,
-                                    )
-                                  }
-                                  onClick={() => togglePiece(p.Artikelnummer)}
-                                  style={{ cursor: "grab" }}>
-                                  <td>
-                                    <input
-                                      type="checkbox"
-                                      checked={form.Artikelnummern.includes(
-                                        p.Artikelnummer,
-                                      )}
-                                      readOnly
-                                    />
-                                  </td>
-                                  <td>{p.Artikelnummer}</td>
-                                  <td>{p.Art}</td>
-                                  <td>{p.Verkaufspreis}€</td>
-                                </tr>
-                              ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  {/* Rechte Seite: Selektierte Schmuckstücke */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h5>
-                      Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
-                    </h5>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                      <input
-                        className="form-control"
-                        style={{ flex: 1 }}
-                        placeholder="Artikelnummer eingeben..."
-                        value={artikelnummerInput}
-                        onChange={(e) => setArtikelnummerInput(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && addByArtikelnummer()
-                        }
-                        disabled={!form.Kundennummer}
-                      />
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={addByArtikelnummer}
-                        disabled={!form.Kundennummer}>
-                        Hinzufügen
-                      </button>
-                    </div>
-                    <div
-                      style={{
-                        maxHeight: "400px",
-                        overflowY: "auto",
-                        border: "2px dashed var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const nr = e.dataTransfer.getData("artikelnummer");
-                        if (nr && !form.Artikelnummern.includes(nr)) {
-                          setForm({
-                            ...form,
-                            Artikelnummern: [...form.Artikelnummern, nr],
-                          });
-                        }
-                      }}>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>Artikelnr.</th>
-                            <th>Art</th>
-                            <th>Preis</th>
-                            <th></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {form.Kundennummer &&
-                            form.Artikelnummern.map((nr) => {
-                              const piece = availablePieces.find(
-                                (p) => p.Artikelnummer === nr,
-                              );
-                              if (!piece) return null;
-                              return (
-                                <tr key={nr}>
-                                  <td>{piece.Artikelnummer}</td>
-                                  <td>{piece.Art}</td>
-                                  <td>{piece.Verkaufspreis}€</td>
-                                  <td>
-                                    <button
-                                      className="btn btn-danger btn-sm"
-                                      title="Entfernen"
-                                      onClick={() => togglePiece(nr)}>
-                                      <FontAwesomeIcon icon={faTimes} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
                   </div>
                 </div>
               </div>
