@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
+import TableToolbar from "../components/TableToolbar";
 
 export default function AuditLog() {
   const [data, setData] = useState({ data: [], pagination: {} });
@@ -67,14 +68,12 @@ export default function AuditLog() {
         <p>{p.total || 0} Einträge – Änderungsprotokoll</p>
       </div>
 
-      <div className="toolbar" style={{ marginBottom: 12 }}>
-        <input
-          className="form-control search-input"
-          placeholder="Suche nach ID, Artikel, Spalte,..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      <TableToolbar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Suche nach ID, Artikel, Spalte,..."
+        style={{ marginBottom: 12 }}
+      />
 
       <div className="card">
         <div className="card-body">

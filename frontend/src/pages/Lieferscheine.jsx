@@ -356,7 +356,9 @@ export default function Lieferscheine() {
                 <tr>
                   <th style={{ cursor: "pointer" }}>Nummer</th>
                   <th style={{ cursor: "pointer" }}>Kunde</th>
-                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>Datum</th>
+                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>
+                    Datum
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -370,9 +372,18 @@ export default function Lieferscheine() {
                       onClick={() => toggleGroup(group.key)}
                       aria-label={`Kundengruppe: ${group.name}`}>
                       <td colSpan={4}>
-                        <span style={{ marginRight: 8 }}>{isExpanded ? "▼" : "▶"}</span>
+                        <span style={{ marginRight: 8 }}>
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
                         <FontAwesomeIcon icon={faUser} /> {group.name}{" "}
-                        <span style={{ fontWeight: "normal", color: "var(--text-muted)", fontSize: "0.9em" }}>({group.items.length})</span>
+                        <span
+                          style={{
+                            fontWeight: "normal",
+                            color: "var(--text-muted)",
+                            fontSize: "0.9em",
+                          }}>
+                          ({group.items.length})
+                        </span>
                       </td>
                     </tr>,
                     ...(isExpanded
@@ -388,7 +399,14 @@ export default function Lieferscheine() {
                             <td>{l.KundenName || `Kunde ${l.Kundennummer}`}</td>
                             <td className="hide-on-mobile">
                               {l.Datum
-                                ? new Date(l.Datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+                                ? new Date(l.Datum).toLocaleDateString(
+                                    "de-DE",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    },
+                                  )
                                 : ""}
                             </td>
                           </tr>
@@ -405,8 +423,26 @@ export default function Lieferscheine() {
               onRowClick={(r) => openDetail(r.ID)}
               columns={[
                 { key: "Nummer", label: "Nummer", sortable: true },
-                { key: "KundenName", label: "Kunde", sortable: true, render: (r) => r.KundenName || `Kunde ${r.Kundennummer}` },
-                { key: "Datum", label: "Datum", className: "hide-on-mobile", sortable: true, render: (r) => (r.Datum ? new Date(r.Datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "") },
+                {
+                  key: "KundenName",
+                  label: "Kunde",
+                  sortable: true,
+                  render: (r) => r.KundenName || `Kunde ${r.Kundennummer}`,
+                },
+                {
+                  key: "Datum",
+                  label: "Datum",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                  render: (r) =>
+                    r.Datum
+                      ? new Date(r.Datum).toLocaleDateString("de-DE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "",
+                },
               ]}
             />
           )}

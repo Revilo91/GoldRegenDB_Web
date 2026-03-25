@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faKey } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import DataTable from "../components/DataTable";
+import TableToolbar from "../components/TableToolbar";
 import "./../index.css"; // Make sure styles are loaded
 
 const formatDebugError = (err) => {
@@ -54,11 +56,11 @@ const DebugTable = ({ tableName }) => {
   const [error, setError] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState("");
   const pageSize = 100;
 
   // Track which cell is currently being edited: { rowIndex, columnName }
   const [editingCell, setEditingCell] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
   useEffect(() => {
     if (expanded && !hasFetched) {
@@ -124,39 +126,79 @@ const DebugTable = ({ tableName }) => {
     }
   };
 
-  const sortedData = React.useMemo(() => {
-    let sortableData = [...data];
-    if (sortConfig.key !== null) {
-      sortableData.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
+  const filteredData = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return data;
 
-        if (aValue === null) aValue = "";
-        if (bValue === null) bValue = "";
+    return data.filter((row) =>
+      columns.some((col) => {
+        const rawValue = row[col.column_name];
+        const normalized = rawValue === null ? "null" : String(rawValue).toLowerCase();
+        return normalized.includes(query);
+      }),
+    );
+  }, [data, columns, search]);
 
-        if (typeof aValue === "string") aValue = aValue.toUpperCase();
-        if (typeof bValue === "string") bValue = bValue.toUpperCase();
+  const tableColumns = React.useMemo(
+    () =>
+      columns.map((col) => ({
+        key: col.column_name,
+        label: (
+          <>
+            {col.column_name}
+            {primaryKeys.includes(col.column_name) && (
+              <>
+                {" "}
+                <FontAwesomeIcon icon={faKey} />
+              </>
+            )}
+          </>
+        ),
+        sortable: true,
+        render: (row) => {
+          const rowIndex = data.findIndex((candidate) => candidate === row);
+          const colName = col.column_name;
+          const isEditing =
+            editingCell?.rowIndex === rowIndex && editingCell?.columnName === colName;
+          const value = row[colName];
+          const displayValue =
+            value === null ? (
+              <em style={{ color: "var(--text-muted)" }}>null</em>
+            ) : (
+              String(value)
+            );
 
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
+          return (
+            <div
+              className="debug-cell"
+              onDoubleClick={() => setEditingCell({ rowIndex, columnName: colName })}
+            >
+              {isEditing ? (
+                <EditableCell
+                  value={value}
+                  onSave={(newVal) => handleSave(rowIndex, colName, newVal)}
+                  onCancel={() => setEditingCell(null)}
+                />
+              ) : (
+                displayValue
+              )}
+            </div>
+          );
+        },
+      })),
+    [columns, data, editingCell, primaryKeys],
+  );
+
+  useEffect(() => {
+    setPage(0);
+  }, [search]);
+
+  useEffect(() => {
+    const totalPages = Math.ceil(filteredData.length / pageSize);
+    if (page > 0 && page >= totalPages) {
+      setPage(Math.max(totalPages - 1, 0));
     }
-    return sortableData;
-  }, [data, sortConfig]);
-
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  }, [filteredData.length, page]);
 
   const renderContent = () => {
     if (loading)
@@ -180,83 +222,45 @@ const DebugTable = ({ tableName }) => {
 
     if (!hasFetched) return null;
 
-    const totalPages = Math.ceil(data.length / pageSize);
-    const paginatedData = sortedData.slice(
+    const totalPages = Math.ceil(filteredData.length / pageSize);
+    const paginatedData = filteredData.slice(
       page * pageSize,
       (page + 1) * pageSize,
     );
 
     return (
       <div className="card-body" style={{ overflowX: "auto" }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.column_name}
-                  title={col.data_type}
-                  onClick={() => requestSort(col.column_name)}
-                  style={{ cursor: "pointer" }}
-                >
-                  {col.column_name}
-                  {primaryKeys.includes(col.column_name) && <> <FontAwesomeIcon icon={faKey} /></>}{" "}
-                  {getSortIcon(col.column_name)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedData.map((row, relativeIndex) => {
-              const rowIndex = page * pageSize + relativeIndex;
-              return (
-                <tr key={rowIndex}>
-                  {columns.map((col) => {
-                    const colName = col.column_name;
-                    const isEditing =
-                      editingCell?.rowIndex === rowIndex &&
-                      editingCell?.columnName === colName;
-                    const value = row[colName];
-                    const displayValue =
-                      value === null ? (
-                        <em style={{ color: "var(--text-muted)" }}>null</em>
-                      ) : (
-                        String(value)
-                      );
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder={`Suche in ${tableName}...`}
+          style={{ marginBottom: "12px" }}
+        />
 
-                    return (
-                      <td
-                        key={colName}
-                        className="debug-cell"
-                        onDoubleClick={() =>
-                          setEditingCell({ rowIndex, columnName: colName })
-                        }
-                      >
-                        {isEditing ? (
-                          <EditableCell
-                            value={value}
-                            onSave={(newVal) =>
-                              handleSave(rowIndex, colName, newVal)
-                            }
-                            onCancel={() => setEditingCell(null)}
-                          />
-                        ) : (
-                          displayValue
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {filteredData.length > 0 ? (
+          <DataTable
+            columns={tableColumns}
+            data={paginatedData}
+            getRowKey={(row) => {
+              if (primaryKeys.length > 0) {
+                return primaryKeys.map((pk) => String(row[pk])).join("|");
+              }
+              return JSON.stringify(row);
+            }}
+          />
+        ) : (
+          <div className="detail-item" style={{ padding: "24px" }}>
+            Keine Treffer in {tableName}.
+          </div>
+        )}
+
         {totalPages > 1 && (
           <div className="pagination">
             <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>
             <span className="page-info">
-              Page {page + 1} of {totalPages} (Total rows: {data.length})
+              Page {page + 1} of {totalPages} (Gefilterte Zeilen: {filteredData.length})
             </span>
             <button
               disabled={page >= totalPages - 1}

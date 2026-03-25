@@ -13,6 +13,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
+import TableToolbar from "../components/TableToolbar";
 
 const ROLES = [
   { value: "admin", label: "Admin" },
@@ -171,13 +172,17 @@ export default function Benutzerverwaltung() {
     <div className="page">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h2>Benutzerverwaltung</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input className="form-control" placeholder="Suchen..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button className="btn btn-primary" onClick={openNew} title="Neuer Benutzer">
-            <FontAwesomeIcon icon={faPlus} />
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={openNew} title="Neuer Benutzer">
+          <FontAwesomeIcon icon={faPlus} />
+        </button>
       </div>
+
+      <TableToolbar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Suche nach Benutzername oder E-Mail..."
+        style={{ marginBottom: 12 }}
+      />
 
       <div className="card">
         <div className="card-body">

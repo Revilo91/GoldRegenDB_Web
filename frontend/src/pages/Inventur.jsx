@@ -9,6 +9,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
+import TableToolbar from "../components/TableToolbar";
 
 const TABS = [
   { id: "aktiv", label: "Nicht verkauft" },
@@ -772,14 +773,11 @@ export default function Inventur() {
         </div>
       </div>
 
-      <div className="toolbar">
-        <input
-          className="form-control search-input"
-          placeholder="Suche nach Kunde, Ort…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      <TableToolbar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Suche nach Kunde, Ort…"
+      />
 
       <div className="card">
         <div className="card-body">
@@ -855,16 +853,16 @@ export default function Inventur() {
                   {
                     key: "gesamt",
                     label: "Gesamt",
-                    style: { textAlign: "right" },
+                    style: { textAlign: "left" },
                     sortable: true,
                     render: (r) => (
-                      <span style={{ textAlign: "right" }}>{r.gesamt}</span>
+                      <span style={{ textAlign: "left" }}>{r.gesamt}</span>
                     ),
                   },
                   {
                     key: "aktiv",
                     label: "Nicht verkauft",
-                    style: { textAlign: "right" },
+                    style: { textAlign: "left" },
                     sortable: true,
                     render: (r) => (
                       <span style={{ color: "var(--success)" }}>{r.aktiv}</span>
@@ -874,7 +872,7 @@ export default function Inventur() {
                     key: "verkauft",
                     label: "Verkauft",
                     className: "hide-on-mobile",
-                    style: { textAlign: "right" },
+                    style: { textAlign: "left" },
                     sortable: true,
                     render: (r) => (
                       <span style={{ color: "var(--info)" }}>{r.verkauft}</span>
@@ -884,7 +882,7 @@ export default function Inventur() {
                     key: "ausschuss",
                     label: "Ausschuss",
                     className: "hide-on-mobile",
-                    style: { textAlign: "right" },
+                    style: { textAlign: "left" },
                     sortable: true,
                     render: (r) => (
                       <span style={{ color: "var(--warning)" }}>
@@ -896,14 +894,14 @@ export default function Inventur() {
                     key: "wert_aktiv",
                     label: "Warenwert (aktiv)",
                     className: "hide-on-mobile",
-                    style: { textAlign: "right" },
+                    style: { textAlign: "left" },
                     render: (r) => formatEur(r.wert_aktiv),
                   },
                   {
                     key: "wert_verkauft",
                     label: "Warenwert (verk.)",
                     className: "hide-on-mobile",
-                    style: { textAlign: "right" },
+                    style: { textAlign: "left" },
                     render: (r) => formatEur(r.wert_verkauft),
                   },
                 ]}

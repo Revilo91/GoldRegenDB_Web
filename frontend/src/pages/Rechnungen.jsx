@@ -404,11 +404,14 @@ export default function Rechnungen() {
                             <td>{r.KundenName || `Kunde ${r.Kundennummer}`}</td>
                             <td className="hide-on-mobile">
                               {r.Datum
-                                ? new Date(r.Datum).toLocaleDateString("de-DE", {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                  })
+                                ? new Date(r.Datum).toLocaleDateString(
+                                    "de-DE",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    },
+                                  )
                                 : ""}
                             </td>
                           </tr>
@@ -425,8 +428,26 @@ export default function Rechnungen() {
               onRowClick={(r) => openDetail(r.ID)}
               columns={[
                 { key: "Nummer", label: "Nummer", sortable: true },
-                { key: "KundenName", label: "Kunde", sortable: true, render: (r) => r.KundenName || `Kunde ${r.Kundennummer}` },
-                { key: "Datum", label: "Datum", className: "hide-on-mobile", sortable: true, render: (r) => (r.Datum ? new Date(r.Datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "") },
+                {
+                  key: "KundenName",
+                  label: "Kunde",
+                  sortable: true,
+                  render: (r) => r.KundenName || `Kunde ${r.Kundennummer}`,
+                },
+                {
+                  key: "Datum",
+                  label: "Datum",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                  render: (r) =>
+                    r.Datum
+                      ? new Date(r.Datum).toLocaleDateString("de-DE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "",
+                },
               ]}
             />
           )}

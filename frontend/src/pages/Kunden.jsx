@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
+import TableToolbar from "../components/TableToolbar";
 
 export default function Kunden() {
   const [kunden, setKunden] = useState([]);
@@ -104,28 +105,27 @@ export default function Kunden() {
         </button>
       </div>
 
-      <div className="toolbar">
-        <input
-          className="form-control search-input"
-          placeholder="Suche nach Name, Ort oder Email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="form-control"
-          value={filters.aktiv ?? ""}
-          onChange={(e) => {
-            const { aktiv, ...rest } = filters;
-            setFilters(
-              e.target.value !== "" ? { ...rest, aktiv: e.target.value } : rest,
-            );
-          }}
-        >
-          <option value="">Alle Status</option>
-          <option value="1">Aktiv</option>
-          <option value="0">Inaktiv</option>
-        </select>
-      </div>
+      <TableToolbar
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Suche nach Name, Ort oder Email..."
+        right={
+          <select
+            className="form-control"
+            value={filters.aktiv ?? ""}
+            onChange={(e) => {
+              const { aktiv, ...rest } = filters;
+              setFilters(
+                e.target.value !== "" ? { ...rest, aktiv: e.target.value } : rest,
+              );
+            }}
+          >
+            <option value="">Alle Status</option>
+            <option value="1">Aktiv</option>
+            <option value="0">Inaktiv</option>
+          </select>
+        }
+      />
 
       <div className="card">
         <div className="card-body">
