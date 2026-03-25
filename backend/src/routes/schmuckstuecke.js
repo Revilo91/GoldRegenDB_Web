@@ -175,7 +175,8 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    let limit = parseInt(req.query.limit);
+    if (isNaN(limit)) limit = 50;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
     const verkauft = req.query.verkauft;
@@ -248,11 +249,21 @@ router.get("/", async (req, res) => {
     );
     const total = parseInt(countResult.rows[0].count);
 
-    // Get page
-    const { rows } = await db.query(
-      `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`,
-      [...params, limit, offset],
-    );
+    let rows;
+    if (limit === -1) {
+      // Alle laden, kein LIMIT/OFFSET
+      const result = await db.query(
+        `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+        params,
+      );
+      rows = result.rows;
+    } else {
+      const result = await db.query(
+        `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`,
+        [...params, limit, offset],
+      );
+      rows = result.rows;
+    }
     const processedRows = rows.map((row) => {
       // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
       if (!row.Foto || row.Foto.trim() === "") {

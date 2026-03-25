@@ -89,7 +89,7 @@ export default function Lieferscheine() {
         ausgelagert: "0",
         verkauft: "0",
         ausschuss: "0",
-        limit: 1000,
+        limit: -1
       });
 
       setAvailablePieces(resp.data);

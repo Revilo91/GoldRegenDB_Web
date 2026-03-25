@@ -123,7 +123,8 @@ export default function Rechnungen() {
         const resp = await api.getSchmuckstuecke({
           ausgelagert: form.Kundennummer,
           verkauft: "0",
-          limit: 1000,
+          ausschuss: "0",
+          limit: -1,
         });
         setAvailablePieces(resp.data);
       } catch (err) {
@@ -363,7 +364,9 @@ export default function Rechnungen() {
                 <tr>
                   <th style={{ cursor: "pointer" }}>Nummer</th>
                   <th style={{ cursor: "pointer" }}>Kunde</th>
-                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>Datum</th>
+                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>
+                    Datum
+                  </th>
                 </tr>
               </thead>
               <tbody>
