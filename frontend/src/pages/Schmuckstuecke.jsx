@@ -354,7 +354,7 @@ export default function Schmuckstuecke() {
                 },
                 {
                   key: "Inhalt_Farbe",
-                  label: "Inhalt Farbe",
+                  label: "Farbe Inhalt",
                   className: "hide-on-mobile",
                   sortable: true,
                 },
