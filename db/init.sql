@@ -171,12 +171,25 @@ CREATE TABLE IF NOT EXISTS app_users (
     CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
 );
 
--- Default admin user (password: admin – must be changed after first login)
--- Password is stored as bcrypt(SHA-256("admin")): frontend hashes with SHA-256,
--- backend hashes again with bcrypt before storing.
 INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
 VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
+
+
+-- ============================================================
+-- Lager-Inventur-Entwürfe
+-- ============================================================
+CREATE TABLE IF NOT EXISTS lagerinventur_entwurf (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES app_users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'entwurf', -- entwurf | abgeschlossen
+    data JSONB NOT NULL, -- Artikelnummern und gezählte Mengen
+    kommentar TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_lagerinventur_user_status ON lagerinventur_entwurf(user_id, status);
 
 -- ============================================================
 -- Trigger
