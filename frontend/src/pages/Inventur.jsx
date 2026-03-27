@@ -658,6 +658,7 @@ export default function Inventur() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ aktiv: "1" });
   const [selectedKunde, setSelectedKunde] = useState(null);
+  const [activeTab, setActiveTab] = useState('kunden'); // 'kunden' | 'lager'
   const [sortConfig, setSortConfig] = useState({
     key: "Name",
     direction: "asc",
@@ -769,158 +770,188 @@ export default function Inventur() {
       <div className="page-header">
         <div>
           <h2>Inventur</h2>
-          <p>Ausgelagerte Schmuckstücke pro Kunde</p>
+          <p>Ausgelagerte Schmuckstücke pro Kunde oder Lager</p>
         </div>
       </div>
 
-      <TableToolbar
-        search={search}
-        onSearchChange={setSearch}
-        placeholder="Suche nach Kunde, Ort…"
-      />
+      {/* Tabs für Kunden-Inventur und Lager-Inventur */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button
+          className={`btn btn-sm ${activeTab === 'kunden' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('kunden')}
+        >
+          Kunden-Inventur
+        </button>
+        <button
+          className={`btn btn-sm ${activeTab === 'lager' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('lager')}
+        >
+          Lager-Inventur
+        </button>
+      </div>
 
-      <div className="card">
-        <div className="card-body">
-          {loading ? (
-            <div className="loading">
-              <div className="spinner"></div>Lade…
-            </div>
-          ) : filtered.length === 0 ? (
-            <p style={{ color: "var(--text-muted)" }}>
-              {summary.length === 0
-                ? "Keine ausgelagerten Artikel vorhanden."
-                : "Keine Ergebnisse für diese Suche."}
-            </p>
-          ) : (
-            <>
-              <DataTable
-                data={sorted}
-                getRowKey={(r) => r.ID}
-                defaultSort={{ key: "Name", direction: "asc" }}
-                onRowClick={(k) => setSelectedKunde(k)}
-                className="inventur-table"
-                footer={
-                  <tr
-                    style={{
-                      fontWeight: 600,
-                      background: "var(--bg-hover)",
-                    }}>
-                    <td colSpan={isMobile ? 1 : 2} style={{ padding: "8px 12px" }}>
-                      Gesamt
-                    </td>
-                    <td style={{ textAlign: "left" }}>{totals.gesamt}</td>
-                    <td style={{ textAlign: "left", color: "var(--success)" }}>
-                      {totals.aktiv}
-                    </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "left", color: "var(--info)" }}>
-                      {totals.verkauft}
-                    </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "left", color: "var(--warning)" }}>
-                      {totals.ausschuss}
-                    </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "left" }}>
-                      {formatEur(totals.wert_aktiv)}
-                    </td>
-                    <td className="hide-on-mobile" style={{ textAlign: "left" }}>
-                      {formatEur(totals.wert_verkauft)}
-                    </td>
-                  </tr>
-                }
-                columns={[
-                  {
-                    key: "Name",
-                    label: "Kunde",
-                    sortable: true,
-                    render: (r) => (
-                      <>
-                        <strong>{r.Name}</strong>
-                        {!r.Aktiv && (
-                          <span
-                            className="badge danger"
-                            style={{ marginLeft: 8, fontSize: 10 }}>
-                            Inaktiv
+      {activeTab === 'kunden' && (
+        <>
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Suche nach Kunde, Ort…"
+          />
+
+          <div className="card">
+            <div className="card-body">
+              {loading ? (
+                <div className="loading">
+                  <div className="spinner"></div>Lade…
+                </div>
+              ) : filtered.length === 0 ? (
+                <p style={{ color: "var(--text-muted)" }}>
+                  {summary.length === 0
+                    ? "Keine ausgelagerten Artikel vorhanden."
+                    : "Keine Ergebnisse für diese Suche."}
+                </p>
+              ) : (
+                <>
+                  <DataTable
+                    data={sorted}
+                    getRowKey={(r) => r.ID}
+                    defaultSort={{ key: "Name", direction: "asc" }}
+                    onRowClick={(k) => setSelectedKunde(k)}
+                    className="inventur-table"
+                    footer={
+                      <tr
+                        style={{
+                          fontWeight: 600,
+                          background: "var(--bg-hover)",
+                        }}>
+                        <td colSpan={isMobile ? 1 : 2} style={{ padding: "8px 12px" }}>
+                          Gesamt
+                        </td>
+                        <td style={{ textAlign: "left" }}>{totals.gesamt}</td>
+                        <td style={{ textAlign: "left", color: "var(--success)" }}>
+                          {totals.aktiv}
+                        </td>
+                        <td className="hide-on-mobile" style={{ textAlign: "left", color: "var(--info)" }}>
+                          {totals.verkauft}
+                        </td>
+                        <td className="hide-on-mobile" style={{ textAlign: "left", color: "var(--warning)" }}>
+                          {totals.ausschuss}
+                        </td>
+                        <td className="hide-on-mobile" style={{ textAlign: "left" }}>
+                          {formatEur(totals.wert_aktiv)}
+                        </td>
+                        <td className="hide-on-mobile" style={{ textAlign: "left" }}>
+                          {formatEur(totals.wert_verkauft)}
+                        </td>
+                      </tr>
+                    }
+                    columns={[
+                      {
+                        key: "Name",
+                        label: "Kunde",
+                        sortable: true,
+                        render: (r) => (
+                          <>
+                            <strong>{r.Name}</strong>
+                            {!r.Aktiv && (
+                              <span
+                                className="badge danger"
+                                style={{ marginLeft: 8, fontSize: 10 }}>
+                                Inaktiv
+                              </span>
+                            )}
+                          </>
+                        ),
+                      },
+                      {
+                        key: "Ort",
+                        label: "Ort",
+                        className: "hide-on-mobile",
+                        sortable: true,
+                      },
+                      {
+                        key: "gesamt",
+                        label: "Gesamt",
+                        style: { textAlign: "left" },
+                        sortable: true,
+                        render: (r) => (
+                          <span style={{ textAlign: "left" }}>{r.gesamt}</span>
+                        ),
+                      },
+                      {
+                        key: "aktiv",
+                        label: "Nicht verkauft",
+                        style: { textAlign: "left" },
+                        sortable: true,
+                        render: (r) => (
+                          <span style={{ color: "var(--success)" }}>{r.aktiv}</span>
+                        ),
+                      },
+                      {
+                        key: "verkauft",
+                        label: "Verkauft",
+                        className: "hide-on-mobile",
+                        style: { textAlign: "left" },
+                        sortable: true,
+                        render: (r) => (
+                          <span style={{ color: "var(--info)" }}>{r.verkauft}</span>
+                        ),
+                      },
+                      {
+                        key: "ausschuss",
+                        label: "Ausschuss",
+                        className: "hide-on-mobile",
+                        style: { textAlign: "left" },
+                        sortable: true,
+                        render: (r) => (
+                          <span style={{ color: "var(--warning)" }}>
+                            {r.ausschuss}
                           </span>
-                        )}
-                      </>
-                    ),
-                  },
-                  {
-                    key: "Ort",
-                    label: "Ort",
-                    className: "hide-on-mobile",
-                    sortable: true,
-                  },
-                  {
-                    key: "gesamt",
-                    label: "Gesamt",
-                    style: { textAlign: "left" },
-                    sortable: true,
-                    render: (r) => (
-                      <span style={{ textAlign: "left" }}>{r.gesamt}</span>
-                    ),
-                  },
-                  {
-                    key: "aktiv",
-                    label: "Nicht verkauft",
-                    style: { textAlign: "left" },
-                    sortable: true,
-                    render: (r) => (
-                      <span style={{ color: "var(--success)" }}>{r.aktiv}</span>
-                    ),
-                  },
-                  {
-                    key: "verkauft",
-                    label: "Verkauft",
-                    className: "hide-on-mobile",
-                    style: { textAlign: "left" },
-                    sortable: true,
-                    render: (r) => (
-                      <span style={{ color: "var(--info)" }}>{r.verkauft}</span>
-                    ),
-                  },
-                  {
-                    key: "ausschuss",
-                    label: "Ausschuss",
-                    className: "hide-on-mobile",
-                    style: { textAlign: "left" },
-                    sortable: true,
-                    render: (r) => (
-                      <span style={{ color: "var(--warning)" }}>
-                        {r.ausschuss}
-                      </span>
-                    ),
-                  },
-                  {
-                    key: "wert_aktiv",
-                    label: "Warenwert (aktiv)",
-                    className: "hide-on-mobile",
-                    style: { textAlign: "left" },
-                    render: (r) => formatEur(r.wert_aktiv),
-                  },
-                  {
-                    key: "wert_verkauft",
-                    label: "Warenwert (verk.)",
-                    className: "hide-on-mobile",
-                    style: { textAlign: "left" },
-                    render: (r) => formatEur(r.wert_verkauft),
-                  },
-                ]}
-              />
+                        ),
+                      },
+                      {
+                        key: "wert_aktiv",
+                        label: "Warenwert (aktiv)",
+                        className: "hide-on-mobile",
+                        style: { textAlign: "left" },
+                        render: (r) => formatEur(r.wert_aktiv),
+                      },
+                      {
+                        key: "wert_verkauft",
+                        label: "Warenwert (verkauft)",
+                        className: "hide-on-mobile",
+                        style: { textAlign: "left" },
+                        render: (r) => formatEur(r.wert_verkauft),
+                      },
+                    ]}
+                  />
+                  {selectedKunde && (
+                    <DetailModal
+                      kundeId={selectedKunde.ID}
+                      kundeName={selectedKunde.Name}
+                      kundeAktiv={selectedKunde.Aktiv}
+                      onClose={() => setSelectedKunde(null)}
+                      onRestock={load}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-
-            </>
-          )}
+      {activeTab === 'lager' && (
+        <div className="card">
+          <div className="card-body">
+            <h3>Lager-Inventur</h3>
+            <p>Hier können Sie eine Inventur des Lagerbestands durchführen und Zwischenergebnisse speichern.</p>
+            {/* TODO: Lager-Inventur-UI und Anbindung an Entwurfs-API */}
+            <div style={{ color: 'var(--text-muted)', padding: 24 }}>
+              (Platzhalter für Lager-Inventur)
+            </div>
+          </div>
         </div>
-      </div>
-
-      {selectedKunde && (
-        <DetailModal
-          kundeId={selectedKunde.ID}
-          kundeName={selectedKunde.Name}
-          kundeAktiv={selectedKunde.Aktiv}
-          onClose={() => setSelectedKunde(null)}
-          onRestock={load}
-        />
       )}
     </div>
   );

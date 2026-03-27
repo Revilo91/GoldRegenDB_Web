@@ -16,6 +16,7 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const sumupRoutes = require('./routes/sumup');
 const inventurRoutes = require('./routes/inventur');
+const lagerinventurRoutes = require('./routes/lagerinventur');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -100,6 +101,8 @@ app.use('/api/sumup', apiLimiter, authenticate, requireBearbeiter, sumupRoutes);
 
 // Inventur route (Bearbeiter und Admin)
 app.use('/api/inventur', apiLimiter, authenticate, requireBearbeiter, inventurRoutes);
+// Lager-Inventur-Entwürfe (Bearbeiter und Admin)
+app.use('/api/lagerinventur', apiLimiter, authenticate, requireBearbeiter, lagerinventurRoutes);
 
 // Admin-only routes
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);
