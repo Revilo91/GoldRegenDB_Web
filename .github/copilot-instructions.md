@@ -346,8 +346,9 @@ GoldRegenDB_Web/
 │           ├── Dashboard.jsx       # Statistik-Übersicht
 │           ├── Schmuckstuecke.jsx  # Schmuckstücke-Verwaltung
 │           ├── Kunden.jsx          # Kundenverwaltung
-│           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung
-│           ├── Rechnungen.jsx      # Rechnungs-Verwaltung
+│           ├── DocumentManager.jsx # Gemeinsame Komponente für Lieferscheine & Rechnungen (zentraler Reuse)
+│           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung (nutzt DocumentManager)
+│           ├── Rechnungen.jsx      # Rechnungs-Verwaltung (nutzt DocumentManager)
 │           ├── Sumup.jsx           # SumUp CSV-Import/-Export
 │           ├── Inventur.jsx        # Inventurübersicht pro Kunde (bearbeiter)
 │           ├── AuditLog.jsx        # Änderungsprotokoll (Admin)
@@ -601,9 +602,19 @@ VITE_API_URL=http://localhost:3001/api
 - [x] Dashboard mit Statistiken (Gesamtbestand, ausgelagert, verkauft, Umsatz)
 - [x] Schmuckstücke: Liste, Filter, Suche, Erstellen, Bearbeiten
 - [x] Kunden: Liste, Erstellen, Bearbeiten, Detailansicht mit zugehörigen Stücken
-- [x] Lieferscheine: Liste, Erstellen (mit Artikelzuordnung)
-- [x] Rechnungen: Liste, Erstellen (mit Artikelzuordnung)
+- [x] Lieferscheine & Rechnungen: Gemeinsame Verwaltung über DocumentManager.jsx (maximaler Code- und UI-Reuse)
+- [x] Lieferscheine: Liste, Erstellen (nutzt DocumentManager)
+- [x] Rechnungen: Liste, Erstellen (nutzt DocumentManager)
 - [x] Audit-Log: Anzeige der letzten Änderungen (Admin)
+---
+
+## Frontend Architektur: Dokumentenverwaltung (Lieferscheine/Rechnungen)
+
+Die Seiten **Lieferscheine.jsx** und **Rechnungen.jsx** verwenden eine gemeinsame, parametrisierte Komponente **DocumentManager.jsx**. Alle gemeinsame Logik und UI (Filter, Sortierung, Gruppierung, Modale, Stückauswahl) ist in DocumentManager.jsx gekapselt. Unterschiede (API, Labels, Stückauswahl-Logik) werden über Props gesteuert.
+
+**Wichtig:** Änderungen an der Dokumentenverwaltung (Logik, UI, Filter, Stückauswahl etc.) sollten immer zuerst in `DocumentManager.jsx` erfolgen. Die Seiten `Lieferscheine.jsx` und `Rechnungen.jsx` enthalten nur noch die jeweilige Typ-spezifische Konfiguration und binden die zentrale Komponente ein.
+
+Siehe auch: `/frontend/src/pages/DocumentManager.jsx`
 
 ### Phase 2: Erweiterte Features ✅ (teilweise)
 

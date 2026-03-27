@@ -163,19 +163,6 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
-
   function TablePhoto({ foto, artikelnummer }) {
     const [photoSrc, setPhotoSrc] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -207,8 +194,7 @@ export default function Schmuckstuecke() {
       return (
         <span
           className="table-photo-placeholder"
-          title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}
-        >
+          title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}>
           <FontAwesomeIcon icon={faGem} />
         </span>
       );
@@ -258,8 +244,7 @@ export default function Schmuckstuecke() {
                     : rest,
                 );
                 setPage(1);
-              }}
-            >
+              }}>
               <option value="">Alle Arten</option>
               <option value="A">Armband</option>
               <option value="H">Halskette</option>
@@ -277,8 +262,7 @@ export default function Schmuckstuecke() {
                     : rest,
                 );
                 setPage(1);
-              }}
-            >
+              }}>
               <option value="">Alle Standorte</option>
               <option value="0">Lager</option>
               {kunden.map((k) => (
@@ -298,8 +282,7 @@ export default function Schmuckstuecke() {
                     : rest,
                 );
                 setPage(1);
-              }}
-            >
+              }}>
               <option value="">Status</option>
               <option value="0">Nicht verkauft</option>
               <option value="1">Verkauft</option>
@@ -321,25 +304,94 @@ export default function Schmuckstuecke() {
               defaultSort={{ key: "Artikelnummer", direction: "asc" }}
               onRowClick={(s) => setSelected(s)}
               columns={[
-                { key: "foto", label: "Foto", className: "photo-col", render: (r) => <TablePhoto foto={r.Foto} artikelnummer={r.Artikelnummer} /> },
-                { key: "Artikelnummer", label: "Artikelnr.", sortable: true, render: (r) => {
+                {
+                  key: "foto",
+                  label: "Foto",
+                  className: "photo-col",
+                  render: (r) => (
+                    <TablePhoto foto={r.Foto} artikelnummer={r.Artikelnummer} />
+                  ),
+                },
+                {
+                  key: "Artikelnummer",
+                  label: "Artikelnr.",
+                  sortable: true,
+                  render: (r) => {
                     const parts = String(r.Artikelnummer).split("_");
-                    return (<><strong>{parts[0]}</strong>{parts[1] > 0 && <span className="badge warning">{parts[1]}</span>}</>);
-                  }
+                    return (
+                      <>
+                        <strong>{parts[0]}</strong>
+                        {parts[1] > 0 && (
+                          <span className="badge warning">{parts[1]}</span>
+                        )}
+                      </>
+                    );
+                  },
                 },
-                { key: "Grundmaterial", label: "Grundmaterial", className: "hide-on-mobile", sortable: true },
-                { key: "Art", label: "Art", className: "hide-on-mobile", sortable: true },
-                { key: "Material", label: "Material", className: "hide-on-mobile", sortable: true },
-                { key: "Farbe", label: "Farbe", className: "hide-on-mobile", sortable: true },
-                { key: "Verkaufspreis", label: "Preis", sortable: true, render: (r) => (r.Verkaufspreis > 0 ? `${r.Verkaufspreis}€` : "-") },
-                { key: "Status", label: "Status", sortable: true, render: (r) => (
-                    r.Verkauft === 1 ? <span className="badge success">Verkauft</span>
-                    : r.Ausschuss === 1 ? <span className="badge danger">Ausschuss</span>
-                    : r.Verkauft === 0 && r.Ausschuss === 0 && r.Ausgelagert === 0 ? <span className="badge gold">Lager</span>
-                    : null
-                  )
+                {
+                  key: "Grundmaterial",
+                  label: "Grundmaterial",
+                  className: "hide-on-mobile",
+                  sortable: true,
                 },
-                { key: "Ausgelagert", label: "Ausgelagert", render: (r) => (r.Ausgelagert > 0 ? <span className="badge warning">{getKundenName(r.Ausgelagert)}</span> : "-") },
+                {
+                  key: "Art",
+                  label: "Art",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                },
+                {
+                  key: "Material",
+                  label: "Material",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                },
+                {
+                  key: "Farbe",
+                  label: "Farbe",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                },
+                {
+                  key: "Inhalt_Farbe",
+                  label: "Farbe Inhalt",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                },
+                {
+                  key: "Verkaufspreis",
+                  label: "Preis",
+                  sortable: true,
+                  render: (r) =>
+                    r.Verkaufspreis > 0 ? `${r.Verkaufspreis}€` : "-",
+                },
+                {
+                  key: "Status",
+                  label: "Status",
+                  sortable: true,
+                  render: (r) =>
+                    r.Verkauft === 1 ? (
+                      <span className="badge success">Verkauft</span>
+                    ) : r.Ausschuss === 1 ? (
+                      <span className="badge danger">Ausschuss</span>
+                    ) : r.Verkauft === 0 &&
+                      r.Ausschuss === 0 &&
+                      r.Ausgelagert === 0 ? (
+                      <span className="badge gold">Lager</span>
+                    ) : null,
+                },
+                {
+                  key: "Ausgelagert",
+                  label: "Ausgelagert",
+                  render: (r) =>
+                    r.Ausgelagert > 0 ? (
+                      <span className="badge warning">
+                        {getKundenName(r.Ausgelagert)}
+                      </span>
+                    ) : (
+                      "-"
+                    ),
+                },
               ]}
             />
           )}
@@ -354,8 +406,7 @@ export default function Schmuckstuecke() {
             </span>
             <button
               disabled={page >= p.totalPages}
-              onClick={() => setPage(page + 1)}
-            >
+              onClick={() => setPage(page + 1)}>
               Weiter →
             </button>
           </div>
@@ -386,14 +437,12 @@ export default function Schmuckstuecke() {
                     <button
                       className="btn btn-secondary btn-sm"
                       style={{ marginRight: 8 }}
-                      onClick={() => openEdit(selected)}
-                    >
+                      onClick={() => openEdit(selected)}>
                       <FontAwesomeIcon icon={faPen} /> Bearbeiten
                     </button>
                     <button
                       className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(selected.Artikelnummer)}
-                    >
+                      onClick={() => handleDelete(selected.Artikelnummer)}>
                       <FontAwesomeIcon icon={faTrash} /> Löschen
                     </button>
                   </>
@@ -411,8 +460,7 @@ export default function Schmuckstuecke() {
                 padding: "16px 0",
                 borderBottom: "1px solid #ddd",
                 backgroundColor: "#f9f9f9",
-              }}
-            >
+              }}>
               {selectedPhoto ? (
                 <img
                   src={selectedPhoto}
@@ -437,8 +485,7 @@ export default function Schmuckstuecke() {
                     color: "#999",
                     fontSize: "14px",
                     border: "2px dashed #ccc",
-                  }}
-                >
+                  }}>
                   <div>
                     <div style={{ marginBottom: "8px" }}>⏳</div>
                     Bild wird geladen...
@@ -458,8 +505,7 @@ export default function Schmuckstuecke() {
                     color: "#bbb",
                     fontSize: "14px",
                     border: "2px dashed #ddd",
-                  }}
-                >
+                  }}>
                   <div>
                     <div style={{ marginBottom: "8px", fontSize: "24px" }}>
                       📷
@@ -539,8 +585,7 @@ export default function Schmuckstuecke() {
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "900px" }}
-          >
+            style={{ maxWidth: "900px" }}>
             <div className="modal-header">
               <h3>
                 {editing === "new" ? (
@@ -1053,8 +1098,7 @@ export default function Schmuckstuecke() {
                           ...form,
                           Ausgelagert: parseInt(e.target.value),
                         })
-                      }
-                    >
+                      }>
                       <option value="0">Lager</option>
                       {kunden.map((k) => (
                         <option key={k.ID} value={k.ID}>
@@ -1067,8 +1111,7 @@ export default function Schmuckstuecke() {
                 <div className="form-row" style={{ marginTop: "16px" }}>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
+                    style={{ display: "flex", alignItems: "center" }}>
                     <input
                       type="checkbox"
                       id="form-verkauft"
@@ -1085,8 +1128,7 @@ export default function Schmuckstuecke() {
                   </div>
                   <div
                     className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}
-                  >
+                    style={{ display: "flex", alignItems: "center" }}>
                     <input
                       type="checkbox"
                       id="form-ausschuss"
@@ -1137,8 +1179,7 @@ export default function Schmuckstuecke() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setEditing(null)}
-              >
+                onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
