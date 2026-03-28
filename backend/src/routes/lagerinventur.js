@@ -88,28 +88,89 @@ router.get('/drafts/:id/diff', async (req, res) => {
        ORDER BY length("Artikelnummer"), "Artikelnummer"`
     );
 
-    // Soll-Map: Artikelnummer -> Artikel-Info
-    const sollMap = {};
+    // Soll aggregieren
+    const sollStats = {};
     for (const row of lagerRows) {
-      sollMap[row.Artikelnummer] = row;
-    }
-
-    // Vergleich
-    const fehlend = [];    // Im Lager vorhanden, aber nicht gescannt
-    const gefunden = [];   // Im Lager vorhanden und gescannt
-    const unbekannt = [];  // Gescannt, aber nicht im Lager
-
-    for (const [nr, count] of Object.entries(scanned)) {
-      if (sollMap[nr]) {
-        gefunden.push({ ...sollMap[nr], gescannt: count });
-      } else {
-        unbekannt.push({ artikelnummer: nr, gescannt: count });
+      const baseNr = row.Artikelnummer.split('_')[0];
+      if (!sollStats[baseNr]) {
+        sollStats[baseNr] = {
+          BaseNr: baseNr,
+          Name: row.Name,
+          Art: row.Art,
+          Verkaufspreis: row.Verkaufspreis,
+          Soll: 0
+        };
       }
+      sollStats[baseNr].Soll += 1;
     }
 
-    for (const [nr, info] of Object.entries(sollMap)) {
-      if (!scanned[nr]) {
-        fehlend.push(info);
+    // Ist aggregieren
+    const istStats = {};
+    for (const [nr, count] of Object.entries(scanned)) {
+      const baseNr = nr.split('_')[0];
+      istStats[baseNr] = (istStats[baseNr] || 0) + count;
+    }
+
+    const fehlend = [];
+    const gefunden = [];
+    const unbekannt = [];
+
+    const allBaseNrs = new Set([...Object.keys(sollStats), ...Object.keys(istStats)]);
+
+    let statsFehlend = 0;
+    let statsUnbekannt = 0;
+    let statsGefunden = 0;
+
+    for (const baseNr of allBaseNrs) {
+      const sollObj = sollStats[baseNr] || { BaseNr: baseNr, Name: "–", Art: "–", Verkaufspreis: 0, Soll: 0 };
+      const ist = istStats[baseNr] || 0;
+      const soll = sollObj.Soll;
+
+      const item = {
+        Artikelnummer: baseNr,
+        Name: sollObj.Name,
+        Art: sollObj.Art,
+        Verkaufspreis: sollObj.Verkaufspreis,
+        Soll: soll,
+        Ist: ist
+      };
+
+      if (ist === 0) {
+        // Komplett fehlend
+        item.Fehlt = soll;
+        fehlend.push(item);
+        statsFehlend += soll;
+      } else if (soll === 0) {
+        // Komplett unbekannt
+        item.Zuviel = ist;
+        unbekannt.push(item);
+        statsUnbekannt += ist;
+      } else {
+        // Soll > 0 und Ist > 0
+        if (ist < soll) {
+          // es fehlen welche
+          item.Fehlt = soll - ist;
+          fehlend.push(item);
+          statsFehlend += item.Fehlt;
+          
+          const gefItem = { ...item, Gefunden: ist };
+          gefunden.push(gefItem);
+          statsGefunden += ist;
+        } else if (ist > soll) {
+          // zu viele!
+          item.Zuviel = ist - soll;
+          unbekannt.push(item);
+          statsUnbekannt += item.Zuviel;
+          
+          const gefItem = { ...item, Gefunden: soll };
+          gefunden.push(gefItem);
+          statsGefunden += soll;
+        } else {
+          // genau richtig
+          const gefItem = { ...item, Gefunden: soll };
+          gefunden.push(gefItem);
+          statsGefunden += soll;
+        }
       }
     }
 
@@ -120,9 +181,9 @@ router.get('/drafts/:id/diff', async (req, res) => {
       stats: {
         soll: lagerRows.length,
         gescannt: Object.values(scanned).reduce((s, c) => s + c, 0),
-        fehlend: fehlend.length,
-        gefunden: gefunden.length,
-        unbekannt: unbekannt.length,
+        fehlend: statsFehlend,
+        gefunden: statsGefunden,
+        unbekannt: statsUnbekannt,
       }
     });
   } catch (err) {

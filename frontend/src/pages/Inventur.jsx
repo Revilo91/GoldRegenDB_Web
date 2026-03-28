@@ -829,11 +829,14 @@ function InventurDiffModal({ draftId, onClose }) {
                               <th style={{ padding: "8px", textAlign: "left" }}>
                                 Name
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
-                                Art
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Soll
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
-                                Verkaufspreis
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Ist
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Fehlend
                               </th>
                             </tr>
                           </thead>
@@ -855,11 +858,14 @@ function InventurDiffModal({ draftId, onClose }) {
                                 <td style={{ padding: "8px" }}>
                                   {item.Name || "–"}
                                 </td>
-                                <td style={{ padding: "8px" }}>
-                                  {item.Art || "–"}
+                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                  {item.Soll}
                                 </td>
-                                <td style={{ padding: "8px" }}>
-                                  {formatEur(item.Verkaufspreis)}
+                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                  {item.Ist}
+                                </td>
+                                <td style={{ padding: "8px", textAlign: "center", fontWeight: "bold", color: "var(--danger)" }}>
+                                  {item.Fehlt}
                                 </td>
                               </tr>
                             ))}
@@ -914,14 +920,23 @@ function InventurDiffModal({ draftId, onClose }) {
                                 Artikelnummer
                               </th>
                               <th style={{ padding: "8px", textAlign: "left" }}>
-                                Anzahl gescannt
+                                Name
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Soll
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Ist
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Überschuss
                               </th>
                             </tr>
                           </thead>
                           <tbody>
                             {diff.unbekannt.map((item) => (
                               <tr
-                                key={item.artikelnummer}
+                                key={item.Artikelnummer}
                                 style={{
                                   borderBottom: "1px solid var(--border)",
                                   background:
@@ -930,11 +945,20 @@ function InventurDiffModal({ draftId, onClose }) {
                               >
                                 <td style={{ padding: "8px" }}>
                                   <strong style={{ color: "var(--warning)" }}>
-                                    {item.artikelnummer}
+                                    {item.Artikelnummer}
                                   </strong>
                                 </td>
                                 <td style={{ padding: "8px" }}>
-                                  {item.gescannt}
+                                  {item.Name || "–"}
+                                </td>
+                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                  {item.Soll}
+                                </td>
+                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                  {item.Ist}
+                                </td>
+                                <td style={{ padding: "8px", textAlign: "center", fontWeight: "bold", color: "var(--warning)" }}>
+                                  {item.Zuviel}
                                 </td>
                               </tr>
                             ))}
@@ -991,11 +1015,11 @@ function InventurDiffModal({ draftId, onClose }) {
                               <th style={{ padding: "8px", textAlign: "left" }}>
                                 Name
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
-                                Art
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Soll
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
-                                Verkaufspreis
+                              <th style={{ padding: "8px", textAlign: "center" }}>
+                                Gefunden
                               </th>
                             </tr>
                           </thead>
@@ -1015,11 +1039,11 @@ function InventurDiffModal({ draftId, onClose }) {
                                 <td style={{ padding: "8px" }}>
                                   {item.Name || "–"}
                                 </td>
-                                <td style={{ padding: "8px" }}>
-                                  {item.Art || "–"}
+                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                  {item.Soll}
                                 </td>
-                                <td style={{ padding: "8px" }}>
-                                  {formatEur(item.Verkaufspreis)}
+                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                  {item.Gefunden}
                                 </td>
                               </tr>
                             ))}
@@ -1067,15 +1091,14 @@ function LagerInventurEditor({ draftId, onBack }) {
 
     // Lade Artikelnummern für Autovervollständigung
     api
-      .getSchmuckstuecke({
+      .getUniqueArtikelnummern({
         ausgelagert: "0",
         verkauft: "0",
         ausschuss: "0",
-        limit: -1,
       })
       .then((res) => {
-        if (res && res.data) {
-          setAllArticleNumbers(res.data.map((item) => item.Artikelnummer));
+        if (res && Array.isArray(res)) {
+          setAllArticleNumbers(res);
         }
       })
       .catch((err) =>
