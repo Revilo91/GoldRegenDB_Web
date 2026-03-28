@@ -368,6 +368,60 @@ router.get("/filter-options", async (req, res) => {
   }
 });
 
+// GET unique base artikelnummern (without _suffix)
+router.get("/unique-artikelnummern", async (req, res) => {
+  try {
+    const verkauft = req.query.verkauft;
+    const ausgelagert = req.query.ausgelagert;
+    const ausschuss = req.query.ausschuss;
+    const artikelnummer_art = req.query.artikelnummer_art;
+    console.log(req.query);
+    // Initialisiere WHERE-Builder
+    const builder = where();
+
+    if (verkauft !== undefined) {
+      builder.equals("Verkauft", parseInt(verkauft));
+    }
+    if (ausgelagert !== undefined) {
+      builder.equals("Ausgelagert", parseInt(ausgelagert));
+    }
+    if (ausschuss !== undefined) {
+      builder.equals("Ausschuss", parseInt(ausschuss));
+    }
+    if (artikelnummer_art) {
+      builder.produktart(artikelnummer_art);
+    }
+    if (req.query.grundmaterial) {
+      builder.grundmaterial(req.query.grundmaterial);
+    }
+
+    const whereClauseBuilderResult = builder.build();
+    let whereClause = whereClauseBuilderResult;
+
+    const params = builder.getParams();
+    console.log(whereClause);
+    console.log(params);
+    const { rows } = await db.query(
+      `SELECT base_nr FROM (
+         SELECT DISTINCT split_part("Artikelnummer", '_', 1) as "base_nr"
+         FROM "Schmuckstück"
+         ${whereClause}
+       ORDER BY length(split_part("Artikelnummer", '_', 1)), split_part("Artikelnummer", '_', 1)`,
+      params,
+    );
+    res.json(rows.map((r) => r.base_nr));
+  } catch (err) {
+    logger.error(
+      "SCHMUCK",
+      "Fehler beim Laden der einzigartigen Artikelnummern",
+      { message: err.message },
+    );
+    res.status(500).json({
+      // error: "Fehler beim Laden der einzigartigen Artikelnummern",
+      error: String(err),
+    });
+  }
+});
 
 // GET single piece
 router.get("/:artikelnummer", async (req, res) => {
