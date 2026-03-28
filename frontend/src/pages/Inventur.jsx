@@ -9,6 +9,10 @@ import {
   faPlus,
   faSave,
   faCheck,
+  faSearch,
+  faExclamationTriangle,
+  faQuestionCircle,
+  faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
@@ -59,7 +63,8 @@ function TablePhoto({ foto, artikelnummer }) {
     return (
       <span
         className="table-photo-placeholder"
-        title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}>
+        title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}
+      >
         <FontAwesomeIcon icon={faGem} />
       </span>
     );
@@ -141,7 +146,8 @@ function ItemsTable({
     selectedForRechnung.size === sorted.length;
 
   const total = useMemo(
-    () => sorted.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    () =>
+      sorted.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
     [sorted],
   );
 
@@ -177,7 +183,7 @@ function ItemsTable({
                   checked={allSelected}
                   onChange={selectAll}
                   title={allSelected ? "Alle abwählen" : "Alle auswählen"}
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   style={{ marginTop: 2 }}
                 />
               </>
@@ -188,7 +194,7 @@ function ItemsTable({
                 type="checkbox"
                 checked={selectedForReturn.has(item.Artikelnummer)}
                 onChange={() => toggleItemSelection(item.Artikelnummer)}
-                onClick={e => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
               />
             ),
           },
@@ -206,7 +212,7 @@ function ItemsTable({
                       ? "Alle abwählen"
                       : "Alle für Rechnung auswählen"
                   }
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   style={{ marginTop: 2 }}
                 />
               </>
@@ -217,7 +223,7 @@ function ItemsTable({
                 type="checkbox"
                 checked={selectedForRechnung.has(item.Artikelnummer)}
                 onChange={() => toggleForRechnung(item.Artikelnummer)}
-                onClick={e => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
               />
             ),
           },
@@ -226,21 +232,25 @@ function ItemsTable({
             label: "Foto",
             className: "photo-col",
             render: (item) => (
-              <TablePhoto
-                foto={item.Foto}
-                artikelnummer={item.Artikelnummer}
-              />
+              <TablePhoto foto={item.Foto} artikelnummer={item.Artikelnummer} />
             ),
           },
           {
             key: "Artikelnummer",
             label: (
-              <span style={{ cursor: "pointer" }} onClick={() => requestSort("Artikelnummer")}>Artikelnummer {getSortIcon("Artikelnummer")}</span>
+              <span
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("Artikelnummer")}
+              >
+                Artikelnummer {getSortIcon("Artikelnummer")}
+              </span>
             ),
             sortable: true,
             render: (item) => (
               <>
-                <strong>{String(item.Artikelnummer || "").split("_")[0]}</strong>
+                <strong>
+                  {String(item.Artikelnummer || "").split("_")[0]}
+                </strong>
                 {Number(String(item.Artikelnummer || "").split("_")[1]) > 0 && (
                   <span className="badge warning">
                     {String(item.Artikelnummer || "").split("_")[1]}
@@ -252,7 +262,13 @@ function ItemsTable({
           {
             key: "Verkaufspreis",
             label: (
-              <span className="hide-on-mobile" style={{ cursor: "pointer" }} onClick={() => requestSort("Verkaufspreis")}>Verkaufspreis {getSortIcon("Verkaufspreis")}</span>
+              <span
+                className="hide-on-mobile"
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("Verkaufspreis")}
+              >
+                Verkaufspreis {getSortIcon("Verkaufspreis")}
+              </span>
             ),
             className: "hide-on-mobile",
             sortable: true,
@@ -261,7 +277,12 @@ function ItemsTable({
           {
             key: "Erstelldatum",
             label: (
-              <span style={{ cursor: "pointer" }} onClick={() => requestSort("Erstelldatum")}>Erstellt {getSortIcon("Erstelldatum")}</span>
+              <span
+                style={{ cursor: "pointer" }}
+                onClick={() => requestSort("Erstelldatum")}
+              >
+                Erstellt {getSortIcon("Erstelldatum")}
+              </span>
             ),
             sortable: true,
             render: (item) =>
@@ -285,7 +306,8 @@ function ItemsTable({
                 fontWeight: 600,
                 textAlign: "right",
                 padding: "8px 12px",
-              }}>
+              }}
+            >
               Gesamtwert:
             </td>
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
@@ -459,14 +481,16 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       <div
         className="modal"
         style={{ maxWidth: 960, width: "95%" }}
-        onClick={(e) => e.stopPropagation()}>
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h3>
             Inventur – {kundeName}
             {!kundeAktiv && (
               <span
                 className="badge danger"
-                style={{ marginLeft: 8, fontSize: 12 }}>
+                style={{ marginLeft: 8, fontSize: 12 }}
+              >
                 Inaktiv
               </span>
             )}
@@ -523,16 +547,19 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                     gap: 12,
                     marginBottom: 20,
                     flexWrap: "wrap",
-                  }}>
+                  }}
+                >
                   <span
-                    style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                    style={{ color: "var(--text-secondary)", fontSize: 13 }}
+                  >
                     Warenwert (aktiv):{" "}
                     <strong style={{ color: "var(--success)" }}>
                       {formatEur(data.stats.wert_aktiv)}
                     </strong>
                   </span>
                   <span
-                    style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                    style={{ color: "var(--text-secondary)", fontSize: 13 }}
+                  >
                     Warenwert (verkauft):{" "}
                     <strong style={{ color: "var(--info)" }}>
                       {formatEur(data.stats.wert_verkauft)}
@@ -547,7 +574,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                     gap: 4,
                     marginBottom: 16,
                     flexWrap: "wrap",
-                  }}>
+                  }}
+                >
                   {TABS.map((t) => (
                     <button
                       key={t.id}
@@ -556,7 +584,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                         setTab(t.id);
                         setselectedForReturn(new Set());
                         setSelectedForRechnung(new Set());
-                      }}>
+                      }}
+                    >
                       {t.label}
                       {t.id !== "alle" && (
                         <span
@@ -566,7 +595,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                             borderRadius: 10,
                             padding: "1px 6px",
                             fontSize: 11,
-                          }}>
+                          }}
+                        >
                           {t.id === "aktiv"
                             ? data.stats.aktiv
                             : t.id === "verkauft"
@@ -598,7 +628,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
         <div
           className="modal-footer inventur-modal-footer"
-          style={{ justifyContent: "space-between" }}>
+          style={{ justifyContent: "space-between" }}
+        >
           <div style={{ display: "flex", gap: 8 }}>
             <button
               className="btn btn-warning"
@@ -608,7 +639,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                 selectedForReturn.size === 0
                   ? "Wähle Artikel (↩) aus um zurückzulagern"
                   : `${selectedForReturn.size} Artikel zurücklagern`
-              }>
+              }
+            >
               <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
               {restocking
                 ? "Lagere zurück…"
@@ -624,7 +656,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                 selectedForRechnung.size === 0
                   ? "Wähle Artikel (🧾) aus um eine Rechnung zu erstellen"
                   : `Rechnung für ${selectedForRechnung.size} Artikel erstellen`
-              }>
+              }
+            >
               <FontAwesomeIcon
                 icon={faFileInvoice}
                 style={{ marginRight: 6 }}
@@ -636,11 +669,13 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
           </div>
           <div
             className="inventur-modal-actions"
-            style={{ display: "flex", gap: 8 }}>
+            style={{ display: "flex", gap: 8 }}
+          >
             <button
               className="btn btn-primary"
               onClick={handleExcel}
-              disabled={exporting || loading}>
+              disabled={exporting || loading}
+            >
               <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: 6 }} />
               {exporting ? "Exportiere…" : "Excel Export"}
             </button>
@@ -654,33 +689,210 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   );
 }
 
+function InventurDiffModal({ draftId, onClose }) {
+  const [diff, setDiff] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState('fehlend');
+
+  useEffect(() => {
+    api.getInventurDiff(draftId)
+      .then(setDiff)
+      .catch(err => alert('Fehler beim Laden der Auswertung: ' + err.message))
+      .finally(() => setLoading(false));
+  }, [draftId]);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal"
+        style={{ maxWidth: 900, width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <FontAwesomeIcon icon={faSearch} />
+            Inventur-Auswertung #{draftId}
+          </h3>
+          <button className="modal-close" onClick={onClose}>
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
+        </div>
+
+        <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+          {loading ? (
+            <div className="loading"><div className="spinner"></div>Lade Auswertung…</div>
+          ) : diff && (
+            <>
+              {/* Summary Badges */}
+              <div className="stats-grid" style={{ marginBottom: 20 }}>
+                <div className="stat-card danger" style={{ cursor: 'pointer', outline: activeSection === 'fehlend' ? '2px solid var(--danger)' : 'none' }} onClick={() => setActiveSection('fehlend')}>
+                  <div className="stat-value">{diff.stats.fehlend}</div>
+                  <div className="stat-label">Fehlend</div>
+                </div>
+                <div className="stat-card warning" style={{ cursor: 'pointer', outline: activeSection === 'unbekannt' ? '2px solid var(--warning)' : 'none' }} onClick={() => setActiveSection('unbekannt')}>
+                  <div className="stat-value">{diff.stats.unbekannt}</div>
+                  <div className="stat-label">Unbekannt</div>
+                </div>
+                <div className="stat-card success" style={{ cursor: 'pointer', outline: activeSection === 'gefunden' ? '2px solid var(--success)' : 'none' }} onClick={() => setActiveSection('gefunden')}>
+                  <div className="stat-value">{diff.stats.gefunden}</div>
+                  <div className="stat-label">Gefunden</div>
+                </div>
+                <div className="stat-card gold">
+                  <div className="stat-value">{diff.stats.soll}</div>
+                  <div className="stat-label">Soll-Bestand</div>
+                </div>
+              </div>
+
+              {/* Fehlend */}
+              {activeSection === 'fehlend' && (
+                <>
+                  <h4 style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <FontAwesomeIcon icon={faExclamationTriangle} />
+                    Fehlende Artikel ({diff.fehlend.length})
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>– Im Lager erwartet, aber nicht gescannt</span>
+                  </h4>
+                  {diff.fehlend.length === 0 ? (
+                    <p style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Keine Artikel fehlen – alles vollständig erfasst!</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Artikelnummer</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Name</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Art</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Verkaufspreis</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {diff.fehlend.map(item => (
+                            <tr key={item.Artikelnummer} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(var(--danger-rgb, 239,68,68), 0.05)' }}>
+                              <td style={{ padding: '8px' }}><strong style={{ color: 'var(--danger)' }}>{item.Artikelnummer}</strong></td>
+                              <td style={{ padding: '8px' }}>{item.Name || '–'}</td>
+                              <td style={{ padding: '8px' }}>{item.Art || '–'}</td>
+                              <td style={{ padding: '8px' }}>{formatEur(item.Verkaufspreis)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Unbekannt */}
+              {activeSection === 'unbekannt' && (
+                <>
+                  <h4 style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <FontAwesomeIcon icon={faQuestionCircle} />
+                    Unbekannte Artikel ({diff.unbekannt.length})
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>– Gescannt, aber nicht im Lager-Soll</span>
+                  </h4>
+                  {diff.unbekannt.length === 0 ? (
+                    <p style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Keine unbekannten Artikel gescannt.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Artikelnummer</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Anzahl gescannt</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {diff.unbekannt.map(item => (
+                            <tr key={item.artikelnummer} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(var(--warning-rgb, 245,158,11), 0.05)' }}>
+                              <td style={{ padding: '8px' }}><strong style={{ color: 'var(--warning)' }}>{item.artikelnummer}</strong></td>
+                              <td style={{ padding: '8px' }}>{item.gescannt}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Gefunden */}
+              {activeSection === 'gefunden' && (
+                <>
+                  <h4 style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <FontAwesomeIcon icon={faCheckCircle} />
+                    Gefundene Artikel ({diff.gefunden.length})
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>– Im Soll und auch gescannt</span>
+                  </h4>
+                  {diff.gefunden.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)' }}>Keine Artikel übereinstimmend.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Artikelnummer</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Name</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Art</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Verkaufspreis</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {diff.gefunden.map(item => (
+                            <tr key={item.Artikelnummer} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={{ padding: '8px' }}><strong style={{ color: 'var(--success)' }}>{item.Artikelnummer}</strong></td>
+                              <td style={{ padding: '8px' }}>{item.Name || '–'}</td>
+                              <td style={{ padding: '8px' }}>{item.Art || '–'}</td>
+                              <td style={{ padding: '8px' }}>{formatEur(item.Verkaufspreis)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Schließen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LagerInventurEditor({ draftId, onBack }) {
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inputNr, setInputNr] = useState("");
   const [allArticleNumbers, setAllArticleNumbers] = useState([]);
-  
+  const [showDiff, setShowDiff] = useState(false);
+
   useEffect(() => {
-    api.getInventurDraft(draftId)
-      .then(d => {
+    api
+      .getInventurDraft(draftId)
+      .then((d) => {
         if (!d.data) d.data = {};
         setDraft(d);
       })
-      .catch(err => {
+      .catch((err) => {
         alert(err.message);
         onBack();
       })
       .finally(() => setLoading(false));
 
     // Lade Artikelnummern für Autovervollständigung
-    api.getSchmuckstuecke({ limit: -1 })
-      .then(res => {
+    api
+      .getSchmuckstuecke({ limit: -1 })
+      .then((res) => {
         if (res && res.data) {
-          setAllArticleNumbers(res.data.map(item => item.Artikelnummer));
+          setAllArticleNumbers(res.data.map((item) => item.Artikelnummer));
         }
       })
-      .catch(err => console.error("Fehler beim Laden der Artikelnummern", err));
+      .catch((err) =>
+        console.error("Fehler beim Laden der Artikelnummern", err),
+      );
   }, [draftId, onBack]);
 
   const handleScan = (e) => {
@@ -688,7 +900,7 @@ function LagerInventurEditor({ draftId, onBack }) {
     const nr = inputNr.trim().toUpperCase();
     if (!nr) return;
 
-    setDraft(prev => {
+    setDraft((prev) => {
       const nextData = { ...prev.data };
       nextData[nr] = (nextData[nr] || 0) + 1;
       return { ...prev, data: nextData };
@@ -697,7 +909,7 @@ function LagerInventurEditor({ draftId, onBack }) {
   };
 
   const handleCountChange = (nr, count) => {
-    setDraft(prev => {
+    setDraft((prev) => {
       const nextData = { ...prev.data };
       const val = parseInt(count, 10);
       if (isNaN(val) || val <= 0) {
@@ -710,7 +922,7 @@ function LagerInventurEditor({ draftId, onBack }) {
   };
 
   const handleRemove = (nr) => {
-    setDraft(prev => {
+    setDraft((prev) => {
       const nextData = { ...prev.data };
       delete nextData[nr];
       return { ...prev, data: nextData };
@@ -720,7 +932,10 @@ function LagerInventurEditor({ draftId, onBack }) {
   const saveDraft = async () => {
     setSaving(true);
     try {
-      await api.updateInventurDraft(draftId, { data: draft.data, kommentar: draft.kommentar });
+      await api.updateInventurDraft(draftId, {
+        data: draft.data,
+        kommentar: draft.kommentar,
+      });
       alert("Entwurf erfolgreich gespeichert!");
     } catch (err) {
       alert(err.message);
@@ -730,90 +945,159 @@ function LagerInventurEditor({ draftId, onBack }) {
   };
 
   const completeDraft = async () => {
-    if (!window.confirm("Möchtest du diesen Entwurf wirklich abschließen? Er kann danach nicht mehr bearbeitet werden.")) return;
+    if (
+      !window.confirm(
+        "Möchtest du diesen Entwurf wirklich abschließen? Er kann danach nicht mehr bearbeitet werden.",
+      )
+    )
+      return;
     setSaving(true);
     try {
-      await api.updateInventurDraft(draftId, { data: draft.data, kommentar: draft.kommentar });
+      await api.updateInventurDraft(draftId, {
+        data: draft.data,
+        kommentar: draft.kommentar,
+      });
       await api.completeInventurDraft(draftId);
-      alert("Entwurf abgeschlossen!");
-      onBack();
+      setShowDiff(true); // Fehlbestand automatisch anzeigen
     } catch (err) {
       alert(err.message);
       setSaving(false);
     }
   };
 
-  if (loading || !draft) return <div className="loading"><div className="spinner"></div></div>;
+  if (loading || !draft)
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+      </div>
+    );
 
-  const entries = Object.entries(draft.data || {}).sort((a,b) => a[0].localeCompare(b[0]));
+  const entries = Object.entries(draft.data || {}).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
 
   return (
+    <>
+      {showDiff && (
+        <InventurDiffModal
+          draftId={draftId}
+          onClose={() => { setShowDiff(false); onBack(); }}
+        />
+      )}
     <div className="card">
-      <div className="card-header" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        <button className="btn btn-secondary" onClick={onBack}>&larr; Zurück</button>
+      <div
+        className="card-header"
+        style={{ display: "flex", gap: 16, alignItems: "center" }}
+      >
+        <button className="btn btn-secondary" onClick={onBack}>
+          &larr; Zurück
+        </button>
         <h3 style={{ margin: 0 }}>Lager-Inventur #{draft.id}</h3>
       </div>
       <div className="card-body">
         <div style={{ marginBottom: 20 }}>
           <label>Kommentar:</label>
-          <input 
-            type="text" 
-            className="input" 
-            value={draft.kommentar || ""} 
-            onChange={e => setDraft(prev => ({ ...prev, kommentar: e.target.value }))}
+          <input
+            type="text"
+            className="input"
+            value={draft.kommentar || ""}
+            onChange={(e) =>
+              setDraft((prev) => ({ ...prev, kommentar: e.target.value }))
+            }
             placeholder="Optionale Notiz..."
-            style={{ width: '100%', maxWidth: 400, marginTop: 4 }}
+            style={{ width: "100%", maxWidth: 400, marginTop: 4 }}
           />
         </div>
 
-        <form onSubmit={handleScan} style={{ display: 'flex', gap: 8, marginBottom: 24, padding: 16, background: 'var(--bg-hover)', borderRadius: 8 }}>
-          <input 
-            type="text" 
-            className="input" 
+        <form
+          onSubmit={handleScan}
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 24,
+            padding: 16,
+            background: "var(--bg-hover)",
+            borderRadius: 8,
+          }}
+        >
+          <input
+            type="text"
+            className="input"
             list="artikelnummer-autocomplete"
             value={inputNr}
-            onChange={e => setInputNr(e.target.value)}
+            onChange={(e) => setInputNr(e.target.value)}
             placeholder="Artikelnummer scannen..."
             autoFocus
             style={{ flex: 1, maxWidth: 300 }}
           />
           <datalist id="artikelnummer-autocomplete">
-            {allArticleNumbers.map(nr => (
+            {allArticleNumbers.map((nr) => (
               <option key={nr} value={nr} />
             ))}
           </datalist>
-          <button type="submit" className="btn btn-primary" disabled={!inputNr.trim()}>Hinzufügen</button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={!inputNr.trim()}
+          >
+            Hinzufügen
+          </button>
         </form>
 
-        <h4 style={{ marginBottom: 12 }}>Erfasste Artikel ({entries.reduce((sum, [_, count]) => sum + count, 0)} Stück gesamt)</h4>
+        <h4 style={{ marginBottom: 12 }}>
+          Erfasste Artikel (
+          {entries.reduce((sum, [_, count]) => sum + count, 0)} Stück gesamt)
+        </h4>
         {entries.length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>Noch keine Artikel gescannt.</p>
+          <p style={{ color: "var(--text-muted)" }}>
+            Noch keine Artikel gescannt.
+          </p>
         ) : (
-          <div style={{ overflowX: 'auto', marginBottom: 20 }}>
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div style={{ overflowX: "auto", marginBottom: 20 }}>
+            <table
+              className="table"
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                textAlign: "left",
+              }}
+            >
               <thead>
-                <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                  <th style={{ padding: '8px' }}>Artikelnummer</th>
-                  <th style={{ width: 120, padding: '8px' }}>Anzahl</th>
-                  <th style={{ width: 80, padding: '8px', textAlign: 'center' }}>Aktion</th>
+                <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                  <th style={{ padding: "8px" }}>Artikelnummer</th>
+                  <th style={{ width: 120, padding: "8px" }}>Anzahl</th>
+                  <th
+                    style={{ width: 80, padding: "8px", textAlign: "center" }}
+                  >
+                    Aktion
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map(([nr, count]) => (
-                  <tr key={nr} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '8px' }}><strong>{nr}</strong></td>
-                    <td style={{ padding: '8px' }}>
-                      <input 
-                        type="number" 
-                        className="input" 
-                        min="1" 
-                        value={count} 
-                        onChange={e => handleCountChange(nr, e.target.value)}
+                  <tr
+                    key={nr}
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                  >
+                    <td style={{ padding: "8px" }}>
+                      <strong>{nr}</strong>
+                    </td>
+                    <td style={{ padding: "8px" }}>
+                      <input
+                        type="number"
+                        className="input"
+                        min="1"
+                        value={count}
+                        onChange={(e) => handleCountChange(nr, e.target.value)}
                         style={{ width: 80 }}
                       />
                     </td>
-                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleRemove(nr)} title="Löschen">
+                    <td style={{ padding: "8px", textAlign: "center" }}>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleRemove(nr)}
+                        title="Löschen"
+                      >
                         <FontAwesomeIcon icon={faTimes} />
                       </button>
                     </td>
@@ -824,18 +1108,46 @@ function LagerInventurEditor({ draftId, onBack }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-          <button className="btn btn-secondary" onClick={saveDraft} disabled={saving}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginTop: 20,
+            paddingTop: 20,
+            borderTop: "1px solid var(--border)",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            className="btn btn-secondary"
+            onClick={saveDraft}
+            disabled={saving}
+          >
             <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} />
             Zwischenspeichern
           </button>
-          <button className="btn btn-success" onClick={completeDraft} disabled={saving}>
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowDiff(true)}
+            disabled={saving || entries.length === 0}
+            title="Vergleiche gescannte Artikel mit dem Lagerbestand"
+          >
+            <FontAwesomeIcon icon={faSearch} style={{ marginRight: 8 }} />
+            Auswertung anzeigen
+          </button>
+          <button
+            className="btn btn-success"
+            onClick={completeDraft}
+            disabled={saving}
+            style={{ marginLeft: "auto" }}
+          >
             <FontAwesomeIcon icon={faCheck} style={{ marginRight: 8 }} />
             Abschließen
           </button>
         </div>
       </div>
     </div>
+    </>
   );
 }
 
@@ -846,9 +1158,10 @@ function LagerInventurUI() {
 
   const loadDrafts = () => {
     setLoading(true);
-    api.getInventurDrafts()
+    api
+      .getInventurDrafts()
       .then(setDrafts)
-      .catch(err => alert("Fehler beim Laden der Entwürfe: " + err.message))
+      .catch((err) => alert("Fehler beim Laden der Entwürfe: " + err.message))
       .finally(() => setLoading(false));
   };
 
@@ -868,12 +1181,26 @@ function LagerInventurUI() {
   };
 
   if (activeDraftId) {
-    return <LagerInventurEditor draftId={activeDraftId} onBack={() => setActiveDraftId(null)} />;
+    return (
+      <LagerInventurEditor
+        draftId={activeDraftId}
+        onBack={() => setActiveDraftId(null)}
+      />
+    );
   }
 
   return (
     <div className="card">
-      <div className="card-header" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        className="card-header"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <h3 style={{ margin: 0 }}>Lager-Inventur offene Entwürfe</h3>
         <button className="btn btn-primary" onClick={createDraft}>
           <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} />
@@ -881,22 +1208,52 @@ function LagerInventurUI() {
         </button>
       </div>
       <div className="card-body">
-        <p style={{ marginBottom: 16 }}>Hier können Sie eine Inventur des Lagerbestands durchführen und Zwischenergebnisse speichern.</p>
+        <p style={{ marginBottom: 16 }}>
+          Hier können Sie eine Inventur des Lagerbestands durchführen und
+          Zwischenergebnisse speichern.
+        </p>
         {loading ? (
-          <div className="loading"><div className="spinner"></div>Lade Entwürfe...</div>
+          <div className="loading">
+            <div className="spinner"></div>Lade Entwürfe...
+          </div>
         ) : drafts.length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>Keine offenen Entwürfe vorhanden.</p>
+          <p style={{ color: "var(--text-muted)" }}>
+            Keine offenen Entwürfe vorhanden.
+          </p>
         ) : (
           <DataTable
             data={drafts}
-            getRowKey={d => d.id}
-            onRowClick={d => setActiveDraftId(d.id)}
+            getRowKey={(d) => d.id}
+            onRowClick={(d) => setActiveDraftId(d.id)}
             columns={[
-              { key: 'id', label: 'ID', render: d => `#${d.id}` },
-              { key: 'created_at', label: 'Erstellt am', render: d => new Date(d.created_at).toLocaleString('de-DE') },
-              { key: 'updated_at', label: 'Zuletzt geändert', render: d => new Date(d.updated_at).toLocaleString('de-DE') },
-              { key: 'kommentar', label: 'Kommentar', render: d => d.kommentar || <span style={{ color: 'var(--text-muted)' }}>Kein Kommentar</span> },
-              { key: 'item_count', label: 'Gescannte Artikel', render: d => Object.values(d.data || {}).reduce((s, c) => s + c, 0) + ' Stück' },
+              { key: "id", label: "ID", render: (d) => `#${d.id}` },
+              {
+                key: "created_at",
+                label: "Erstellt am",
+                render: (d) => new Date(d.created_at).toLocaleString("de-DE"),
+              },
+              {
+                key: "updated_at",
+                label: "Zuletzt geändert",
+                render: (d) => new Date(d.updated_at).toLocaleString("de-DE"),
+              },
+              {
+                key: "kommentar",
+                label: "Kommentar",
+                render: (d) =>
+                  d.kommentar || (
+                    <span style={{ color: "var(--text-muted)" }}>
+                      Kein Kommentar
+                    </span>
+                  ),
+              },
+              {
+                key: "item_count",
+                label: "Gescannte Artikel",
+                render: (d) =>
+                  Object.values(d.data || {}).reduce((s, c) => s + c, 0) +
+                  " Stück",
+              },
             ]}
           />
         )}
@@ -911,7 +1268,7 @@ export default function Inventur() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ aktiv: "1" });
   const [selectedKunde, setSelectedKunde] = useState(null);
-  const [activeTab, setActiveTab] = useState('kunden'); // 'kunden' | 'lager'
+  const [activeTab, setActiveTab] = useState("kunden"); // 'kunden' | 'lager'
   const [sortConfig, setSortConfig] = useState({
     key: "Name",
     direction: "asc",
@@ -1028,22 +1385,22 @@ export default function Inventur() {
       </div>
 
       {/* Tabs für Kunden-Inventur und Lager-Inventur */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button
-          className={`btn btn-sm ${activeTab === 'kunden' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('kunden')}
+          className={`btn btn-sm ${activeTab === "kunden" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("kunden")}
         >
           Kunden-Inventur
         </button>
         <button
-          className={`btn btn-sm ${activeTab === 'lager' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('lager')}
+          className={`btn btn-sm ${activeTab === "lager" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("lager")}
         >
           Lager-Inventur
         </button>
       </div>
 
-      {activeTab === 'kunden' && (
+      {activeTab === "kunden" && (
         <>
           <TableToolbar
             search={search}
@@ -1076,24 +1433,42 @@ export default function Inventur() {
                         style={{
                           fontWeight: 600,
                           background: "var(--bg-hover)",
-                        }}>
-                        <td colSpan={isMobile ? 1 : 2} style={{ padding: "8px 12px" }}>
+                        }}
+                      >
+                        <td
+                          colSpan={isMobile ? 1 : 2}
+                          style={{ padding: "8px 12px" }}
+                        >
                           Gesamt
                         </td>
                         <td style={{ textAlign: "left" }}>{totals.gesamt}</td>
-                        <td style={{ textAlign: "left", color: "var(--success)" }}>
+                        <td
+                          style={{ textAlign: "left", color: "var(--success)" }}
+                        >
                           {totals.aktiv}
                         </td>
-                        <td className="hide-on-mobile" style={{ textAlign: "left", color: "var(--info)" }}>
+                        <td
+                          className="hide-on-mobile"
+                          style={{ textAlign: "left", color: "var(--info)" }}
+                        >
                           {totals.verkauft}
                         </td>
-                        <td className="hide-on-mobile" style={{ textAlign: "left", color: "var(--warning)" }}>
+                        <td
+                          className="hide-on-mobile"
+                          style={{ textAlign: "left", color: "var(--warning)" }}
+                        >
                           {totals.ausschuss}
                         </td>
-                        <td className="hide-on-mobile" style={{ textAlign: "left" }}>
+                        <td
+                          className="hide-on-mobile"
+                          style={{ textAlign: "left" }}
+                        >
                           {formatEur(totals.wert_aktiv)}
                         </td>
-                        <td className="hide-on-mobile" style={{ textAlign: "left" }}>
+                        <td
+                          className="hide-on-mobile"
+                          style={{ textAlign: "left" }}
+                        >
                           {formatEur(totals.wert_verkauft)}
                         </td>
                       </tr>
@@ -1109,7 +1484,8 @@ export default function Inventur() {
                             {!r.Aktiv && (
                               <span
                                 className="badge danger"
-                                style={{ marginLeft: 8, fontSize: 10 }}>
+                                style={{ marginLeft: 8, fontSize: 10 }}
+                              >
                                 Inaktiv
                               </span>
                             )}
@@ -1137,7 +1513,9 @@ export default function Inventur() {
                         style: { textAlign: "left" },
                         sortable: true,
                         render: (r) => (
-                          <span style={{ color: "var(--success)" }}>{r.aktiv}</span>
+                          <span style={{ color: "var(--success)" }}>
+                            {r.aktiv}
+                          </span>
                         ),
                       },
                       {
@@ -1147,7 +1525,9 @@ export default function Inventur() {
                         style: { textAlign: "left" },
                         sortable: true,
                         render: (r) => (
-                          <span style={{ color: "var(--info)" }}>{r.verkauft}</span>
+                          <span style={{ color: "var(--info)" }}>
+                            {r.verkauft}
+                          </span>
                         ),
                       },
                       {
@@ -1194,9 +1574,7 @@ export default function Inventur() {
         </>
       )}
 
-      {activeTab === 'lager' && (
-        <LagerInventurUI />
-      )}
+      {activeTab === "lager" && <LagerInventurUI />}
     </div>
   );
 }

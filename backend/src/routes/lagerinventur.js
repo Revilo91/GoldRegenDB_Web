@@ -64,6 +64,72 @@ router.put('/drafts/:id', async (req, res) => {
   }
 });
 
+// Inventur-Diff: Soll vs. Ist vergleichen
+router.get('/drafts/:id/diff', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // Entwurf laden
+    const { rows: draftRows } = await db.query(
+      'SELECT * FROM lagerinventur_entwurf WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (draftRows.length === 0) return res.status(404).json({ error: 'Entwurf nicht gefunden' });
+
+    const draft = draftRows[0];
+    const scanned = draft.data || {}; // { "MXO001_1": 1, "MXO001_2": 2, ... }
+
+    // Soll-Bestand: alle Artikel im Lager (nicht ausgelagert, nicht verkauft, kein Ausschuss)
+    const { rows: lagerRows } = await db.query(
+      `SELECT "Artikelnummer", "Name", "Verkaufspreis", "Art", "Material"
+       FROM "Schmuckstück"
+       WHERE "Ausgelagert" = 0 AND "Verkauft" = 0 AND "Ausschuss" = 0
+       ORDER BY length("Artikelnummer"), "Artikelnummer"`
+    );
+
+    // Soll-Map: Artikelnummer -> Artikel-Info
+    const sollMap = {};
+    for (const row of lagerRows) {
+      sollMap[row.Artikelnummer] = row;
+    }
+
+    // Vergleich
+    const fehlend = [];    // Im Lager vorhanden, aber nicht gescannt
+    const gefunden = [];   // Im Lager vorhanden und gescannt
+    const unbekannt = [];  // Gescannt, aber nicht im Lager
+
+    for (const [nr, count] of Object.entries(scanned)) {
+      if (sollMap[nr]) {
+        gefunden.push({ ...sollMap[nr], gescannt: count });
+      } else {
+        unbekannt.push({ artikelnummer: nr, gescannt: count });
+      }
+    }
+
+    for (const [nr, info] of Object.entries(sollMap)) {
+      if (!scanned[nr]) {
+        fehlend.push(info);
+      }
+    }
+
+    res.json({
+      fehlend,
+      gefunden,
+      unbekannt,
+      stats: {
+        soll: lagerRows.length,
+        gescannt: Object.values(scanned).reduce((s, c) => s + c, 0),
+        fehlend: fehlend.length,
+        gefunden: gefunden.length,
+        unbekannt: unbekannt.length,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Fehler beim Vergleichen', details: err.message });
+  }
+});
+
 // Entwurf abschließen
 router.post('/drafts/:id/complete', async (req, res) => {
   try {
