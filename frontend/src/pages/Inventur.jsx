@@ -796,7 +796,7 @@ function InventurDiffModal({ draftId, onClose }) {
                       }}
                     >
                       <FontAwesomeIcon icon={faExclamationTriangle} />
-                      Fehlende Artikel ({diff.fehlend.length})
+                      Fehlende Artikelnummern ({diff.stats.fehlend})
                       <span
                         style={{
                           fontSize: 12,
@@ -829,13 +829,19 @@ function InventurDiffModal({ draftId, onClose }) {
                               <th style={{ padding: "8px", textAlign: "left" }}>
                                 Name
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Soll
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Ist
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Fehlend
                               </th>
                             </tr>
@@ -858,13 +864,30 @@ function InventurDiffModal({ draftId, onClose }) {
                                 <td style={{ padding: "8px" }}>
                                   {item.Name || "–"}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                  }}
+                                >
                                   {item.Soll}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                  }}
+                                >
                                   {item.Ist}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center", fontWeight: "bold", color: "var(--danger)" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                    fontWeight: "bold",
+                                    color: "var(--danger)",
+                                  }}
+                                >
                                   {item.Fehlt}
                                 </td>
                               </tr>
@@ -922,13 +945,19 @@ function InventurDiffModal({ draftId, onClose }) {
                               <th style={{ padding: "8px", textAlign: "left" }}>
                                 Name
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Soll
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Ist
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Überschuss
                               </th>
                             </tr>
@@ -951,13 +980,30 @@ function InventurDiffModal({ draftId, onClose }) {
                                 <td style={{ padding: "8px" }}>
                                   {item.Name || "–"}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                  }}
+                                >
                                   {item.Soll}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                  }}
+                                >
                                   {item.Ist}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center", fontWeight: "bold", color: "var(--warning)" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                    fontWeight: "bold",
+                                    color: "var(--warning)",
+                                  }}
+                                >
                                   {item.Zuviel}
                                 </td>
                               </tr>
@@ -1015,10 +1061,14 @@ function InventurDiffModal({ draftId, onClose }) {
                               <th style={{ padding: "8px", textAlign: "left" }}>
                                 Name
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Soll
                               </th>
-                              <th style={{ padding: "8px", textAlign: "center" }}>
+                              <th
+                                style={{ padding: "8px", textAlign: "center" }}
+                              >
                                 Gefunden
                               </th>
                             </tr>
@@ -1039,10 +1089,20 @@ function InventurDiffModal({ draftId, onClose }) {
                                 <td style={{ padding: "8px" }}>
                                   {item.Name || "–"}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                  }}
+                                >
                                   {item.Soll}
                                 </td>
-                                <td style={{ padding: "8px", textAlign: "center" }}>
+                                <td
+                                  style={{
+                                    padding: "8px",
+                                    textAlign: "center",
+                                  }}
+                                >
                                   {item.Gefunden}
                                 </td>
                               </tr>
@@ -1075,6 +1135,9 @@ function LagerInventurEditor({ draftId, onBack }) {
   const [inputNr, setInputNr] = useState("");
   const [allArticleNumbers, setAllArticleNumbers] = useState([]);
   const [showDiff, setShowDiff] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [lastSavedDraftStr, setLastSavedDraftStr] = useState(null);
 
   useEffect(() => {
     api
@@ -1082,6 +1145,8 @@ function LagerInventurEditor({ draftId, onBack }) {
       .then((d) => {
         if (!d.data) d.data = {};
         setDraft(d);
+        setLastSavedDraftStr(JSON.stringify({ data: d.data, kommentar: d.kommentar }));
+        setTimeout(() => setDraftLoaded(true), 100);
       })
       .catch((err) => {
         alert(err.message);
@@ -1105,6 +1170,46 @@ function LagerInventurEditor({ draftId, onBack }) {
         console.error("Fehler beim Laden der Artikelnummern", err),
       );
   }, [draftId, onBack]);
+
+  const performSave = async (showSuccessAlert = false) => {
+    const currentStr = JSON.stringify({ data: draft.data, kommentar: draft.kommentar });
+    if (currentStr === lastSavedDraftStr) {
+       // Nichts geändert, muss nicht gespeichert werden
+       if (showSuccessAlert) alert("Entwurf erfolgreich gespeichert!");
+       return true;
+    }
+
+    setSaving(true);
+    try {
+      await api.updateInventurDraft(draftId, {
+        data: draft.data,
+        kommentar: draft.kommentar,
+      });
+      setLastSavedDraftStr(currentStr);
+      if (showSuccessAlert) {
+        alert("Entwurf erfolgreich gespeichert!");
+      }
+      return true;
+    } catch (err) {
+      if (showSuccessAlert) {
+        alert("Fehler beim Speichern: " + err.message);
+      } else {
+        console.error("Speicher-Fehler:", err);
+      }
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Autosave
+  useEffect(() => {
+    if (!draftLoaded || !draft) return;
+    const timer = setTimeout(() => {
+      performSave(false).catch(() => {});
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [draft, draftLoaded, draftId]);
 
   const handleScan = (e) => {
     e.preventDefault();
@@ -1140,21 +1245,6 @@ function LagerInventurEditor({ draftId, onBack }) {
     });
   };
 
-  const saveDraft = async () => {
-    setSaving(true);
-    try {
-      await api.updateInventurDraft(draftId, {
-        data: draft.data,
-        kommentar: draft.kommentar,
-      });
-      alert("Entwurf erfolgreich gespeichert!");
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const completeDraft = async () => {
     if (
       !window.confirm(
@@ -1162,17 +1252,23 @@ function LagerInventurEditor({ draftId, onBack }) {
       )
     )
       return;
-    setSaving(true);
+    
     try {
-      await api.updateInventurDraft(draftId, {
-        data: draft.data,
-        kommentar: draft.kommentar,
-      });
+      await performSave(false);
       await api.completeInventurDraft(draftId);
+      setIsCompleted(true);
       setShowDiff(true); // Fehlbestand automatisch anzeigen
     } catch (err) {
-      alert(err.message);
-      setSaving(false);
+      alert("Fehler beim Abschließen: " + err.message);
+    }
+  };
+
+  const handleShowDiff = async () => {
+    try {
+      await performSave(false);
+      setShowDiff(true);
+    } catch (err) {
+      alert("Fehler vor Auswertung: " + err.message);
     }
   };
 
@@ -1194,7 +1290,9 @@ function LagerInventurEditor({ draftId, onBack }) {
           draftId={draftId}
           onClose={() => {
             setShowDiff(false);
-            onBack();
+            if (isCompleted) {
+              onBack();
+            }
           }}
         />
       )}
@@ -1335,16 +1433,8 @@ function LagerInventurEditor({ draftId, onBack }) {
             }}
           >
             <button
-              className="btn btn-secondary"
-              onClick={saveDraft}
-              disabled={saving}
-            >
-              <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} />
-              Zwischenspeichern
-            </button>
-            <button
               className="btn btn-primary"
-              onClick={() => setShowDiff(true)}
+              onClick={handleShowDiff}
               disabled={saving || entries.length === 0}
               title="Vergleiche gescannte Artikel mit dem Lagerbestand"
             >
