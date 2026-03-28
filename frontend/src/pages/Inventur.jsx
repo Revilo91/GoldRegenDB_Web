@@ -692,12 +692,13 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 function InventurDiffModal({ draftId, onClose }) {
   const [diff, setDiff] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState('fehlend');
+  const [activeSection, setActiveSection] = useState("fehlend");
 
   useEffect(() => {
-    api.getInventurDiff(draftId)
+    api
+      .getInventurDiff(draftId)
       .then(setDiff)
-      .catch(err => alert('Fehler beim Laden der Auswertung: ' + err.message))
+      .catch((err) => alert("Fehler beim Laden der Auswertung: " + err.message))
       .finally(() => setLoading(false));
   }, [draftId]);
 
@@ -705,11 +706,17 @@ function InventurDiffModal({ draftId, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal"
-        style={{ maxWidth: 900, width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
-        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 900,
+          width: "95%",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <FontAwesomeIcon icon={faSearch} />
             Inventur-Auswertung #{draftId}
           </h3>
@@ -718,143 +725,319 @@ function InventurDiffModal({ draftId, onClose }) {
           </button>
         </div>
 
-        <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="modal-body" style={{ flex: 1, overflowY: "auto" }}>
           {loading ? (
-            <div className="loading"><div className="spinner"></div>Lade Auswertung…</div>
-          ) : diff && (
-            <>
-              {/* Summary Badges */}
-              <div className="stats-grid" style={{ marginBottom: 20 }}>
-                <div className="stat-card danger" style={{ cursor: 'pointer', outline: activeSection === 'fehlend' ? '2px solid var(--danger)' : 'none' }} onClick={() => setActiveSection('fehlend')}>
-                  <div className="stat-value">{diff.stats.fehlend}</div>
-                  <div className="stat-label">Fehlend</div>
+            <div className="loading">
+              <div className="spinner"></div>Lade Auswertung…
+            </div>
+          ) : (
+            diff && (
+              <>
+                {/* Summary Badges */}
+                <div className="stats-grid" style={{ marginBottom: 20 }}>
+                  <div
+                    className="stat-card danger"
+                    style={{
+                      cursor: "pointer",
+                      outline:
+                        activeSection === "fehlend"
+                          ? "2px solid var(--danger)"
+                          : "none",
+                    }}
+                    onClick={() => setActiveSection("fehlend")}
+                  >
+                    <div className="stat-value">{diff.stats.fehlend}</div>
+                    <div className="stat-label">Fehlend</div>
+                  </div>
+                  <div
+                    className="stat-card warning"
+                    style={{
+                      cursor: "pointer",
+                      outline:
+                        activeSection === "unbekannt"
+                          ? "2px solid var(--warning)"
+                          : "none",
+                    }}
+                    onClick={() => setActiveSection("unbekannt")}
+                  >
+                    <div className="stat-value">{diff.stats.unbekannt}</div>
+                    <div className="stat-label">Unbekannt</div>
+                  </div>
+                  <div
+                    className="stat-card success"
+                    style={{
+                      cursor: "pointer",
+                      outline:
+                        activeSection === "gefunden"
+                          ? "2px solid var(--success)"
+                          : "none",
+                    }}
+                    onClick={() => setActiveSection("gefunden")}
+                  >
+                    <div className="stat-value">{diff.stats.gefunden}</div>
+                    <div className="stat-label">Gefunden</div>
+                  </div>
+                  <div className="stat-card gold">
+                    <div className="stat-value">{diff.stats.soll}</div>
+                    <div className="stat-label">Soll-Bestand</div>
+                  </div>
                 </div>
-                <div className="stat-card warning" style={{ cursor: 'pointer', outline: activeSection === 'unbekannt' ? '2px solid var(--warning)' : 'none' }} onClick={() => setActiveSection('unbekannt')}>
-                  <div className="stat-value">{diff.stats.unbekannt}</div>
-                  <div className="stat-label">Unbekannt</div>
-                </div>
-                <div className="stat-card success" style={{ cursor: 'pointer', outline: activeSection === 'gefunden' ? '2px solid var(--success)' : 'none' }} onClick={() => setActiveSection('gefunden')}>
-                  <div className="stat-value">{diff.stats.gefunden}</div>
-                  <div className="stat-label">Gefunden</div>
-                </div>
-                <div className="stat-card gold">
-                  <div className="stat-value">{diff.stats.soll}</div>
-                  <div className="stat-label">Soll-Bestand</div>
-                </div>
-              </div>
 
-              {/* Fehlend */}
-              {activeSection === 'fehlend' && (
-                <>
-                  <h4 style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <FontAwesomeIcon icon={faExclamationTriangle} />
-                    Fehlende Artikel ({diff.fehlend.length})
-                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>– Im Lager erwartet, aber nicht gescannt</span>
-                  </h4>
-                  {diff.fehlend.length === 0 ? (
-                    <p style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Keine Artikel fehlen – alles vollständig erfasst!</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Artikelnummer</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Name</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Art</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Verkaufspreis</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {diff.fehlend.map(item => (
-                            <tr key={item.Artikelnummer} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(var(--danger-rgb, 239,68,68), 0.05)' }}>
-                              <td style={{ padding: '8px' }}><strong style={{ color: 'var(--danger)' }}>{item.Artikelnummer}</strong></td>
-                              <td style={{ padding: '8px' }}>{item.Name || '–'}</td>
-                              <td style={{ padding: '8px' }}>{item.Art || '–'}</td>
-                              <td style={{ padding: '8px' }}>{formatEur(item.Verkaufspreis)}</td>
+                {/* Fehlend */}
+                {activeSection === "fehlend" && (
+                  <>
+                    <h4
+                      style={{
+                        color: "var(--danger)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faExclamationTriangle} />
+                      Fehlende Artikel ({diff.fehlend.length})
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 400,
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        – Im Lager erwartet, aber nicht gescannt
+                      </span>
+                    </h4>
+                    {diff.fehlend.length === 0 ? (
+                      <p style={{ color: "var(--success)", fontWeight: 600 }}>
+                        ✓ Keine Artikel fehlen – alles vollständig erfasst!
+                      </p>
+                    ) : (
+                      <div style={{ overflowX: "auto" }}>
+                        <table
+                          className="table"
+                          style={{ width: "100%", borderCollapse: "collapse" }}
+                        >
+                          <thead>
+                            <tr
+                              style={{
+                                borderBottom: "2px solid var(--border)",
+                              }}
+                            >
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Artikelnummer
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Name
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Art
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Verkaufspreis
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              )}
+                          </thead>
+                          <tbody>
+                            {diff.fehlend.map((item) => (
+                              <tr
+                                key={item.Artikelnummer}
+                                style={{
+                                  borderBottom: "1px solid var(--border)",
+                                  background:
+                                    "rgba(var(--danger-rgb, 239,68,68), 0.05)",
+                                }}
+                              >
+                                <td style={{ padding: "8px" }}>
+                                  <strong style={{ color: "var(--danger)" }}>
+                                    {item.Artikelnummer}
+                                  </strong>
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {item.Name || "–"}
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {item.Art || "–"}
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {formatEur(item.Verkaufspreis)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
 
-              {/* Unbekannt */}
-              {activeSection === 'unbekannt' && (
-                <>
-                  <h4 style={{ color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <FontAwesomeIcon icon={faQuestionCircle} />
-                    Unbekannte Artikel ({diff.unbekannt.length})
-                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>– Gescannt, aber nicht im Lager-Soll</span>
-                  </h4>
-                  {diff.unbekannt.length === 0 ? (
-                    <p style={{ color: 'var(--success)', fontWeight: 600 }}>✓ Keine unbekannten Artikel gescannt.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Artikelnummer</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Anzahl gescannt</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {diff.unbekannt.map(item => (
-                            <tr key={item.artikelnummer} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(var(--warning-rgb, 245,158,11), 0.05)' }}>
-                              <td style={{ padding: '8px' }}><strong style={{ color: 'var(--warning)' }}>{item.artikelnummer}</strong></td>
-                              <td style={{ padding: '8px' }}>{item.gescannt}</td>
+                {/* Unbekannt */}
+                {activeSection === "unbekannt" && (
+                  <>
+                    <h4
+                      style={{
+                        color: "var(--warning)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faQuestionCircle} />
+                      Unbekannte Artikel ({diff.unbekannt.length})
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 400,
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        – Gescannt, aber nicht im Lager-Soll
+                      </span>
+                    </h4>
+                    {diff.unbekannt.length === 0 ? (
+                      <p style={{ color: "var(--success)", fontWeight: 600 }}>
+                        ✓ Keine unbekannten Artikel gescannt.
+                      </p>
+                    ) : (
+                      <div style={{ overflowX: "auto" }}>
+                        <table
+                          className="table"
+                          style={{ width: "100%", borderCollapse: "collapse" }}
+                        >
+                          <thead>
+                            <tr
+                              style={{
+                                borderBottom: "2px solid var(--border)",
+                              }}
+                            >
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Artikelnummer
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Anzahl gescannt
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              )}
+                          </thead>
+                          <tbody>
+                            {diff.unbekannt.map((item) => (
+                              <tr
+                                key={item.artikelnummer}
+                                style={{
+                                  borderBottom: "1px solid var(--border)",
+                                  background:
+                                    "rgba(var(--warning-rgb, 245,158,11), 0.05)",
+                                }}
+                              >
+                                <td style={{ padding: "8px" }}>
+                                  <strong style={{ color: "var(--warning)" }}>
+                                    {item.artikelnummer}
+                                  </strong>
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {item.gescannt}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
 
-              {/* Gefunden */}
-              {activeSection === 'gefunden' && (
-                <>
-                  <h4 style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <FontAwesomeIcon icon={faCheckCircle} />
-                    Gefundene Artikel ({diff.gefunden.length})
-                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)' }}>– Im Soll und auch gescannt</span>
-                  </h4>
-                  {diff.gefunden.length === 0 ? (
-                    <p style={{ color: 'var(--text-muted)' }}>Keine Artikel übereinstimmend.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Artikelnummer</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Name</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Art</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Verkaufspreis</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {diff.gefunden.map(item => (
-                            <tr key={item.Artikelnummer} style={{ borderBottom: '1px solid var(--border)' }}>
-                              <td style={{ padding: '8px' }}><strong style={{ color: 'var(--success)' }}>{item.Artikelnummer}</strong></td>
-                              <td style={{ padding: '8px' }}>{item.Name || '–'}</td>
-                              <td style={{ padding: '8px' }}>{item.Art || '–'}</td>
-                              <td style={{ padding: '8px' }}>{formatEur(item.Verkaufspreis)}</td>
+                {/* Gefunden */}
+                {activeSection === "gefunden" && (
+                  <>
+                    <h4
+                      style={{
+                        color: "var(--success)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faCheckCircle} />
+                      Gefundene Artikel ({diff.gefunden.length})
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 400,
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        – Im Soll und auch gescannt
+                      </span>
+                    </h4>
+                    {diff.gefunden.length === 0 ? (
+                      <p style={{ color: "var(--text-muted)" }}>
+                        Keine Artikel übereinstimmend.
+                      </p>
+                    ) : (
+                      <div style={{ overflowX: "auto" }}>
+                        <table
+                          className="table"
+                          style={{ width: "100%", borderCollapse: "collapse" }}
+                        >
+                          <thead>
+                            <tr
+                              style={{
+                                borderBottom: "2px solid var(--border)",
+                              }}
+                            >
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Artikelnummer
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Name
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Art
+                              </th>
+                              <th style={{ padding: "8px", textAlign: "left" }}>
+                                Verkaufspreis
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
+                          </thead>
+                          <tbody>
+                            {diff.gefunden.map((item) => (
+                              <tr
+                                key={item.Artikelnummer}
+                                style={{
+                                  borderBottom: "1px solid var(--border)",
+                                }}
+                              >
+                                <td style={{ padding: "8px" }}>
+                                  <strong style={{ color: "var(--success)" }}>
+                                    {item.Artikelnummer}
+                                  </strong>
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {item.Name || "–"}
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {item.Art || "–"}
+                                </td>
+                                <td style={{ padding: "8px" }}>
+                                  {formatEur(item.Verkaufspreis)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )
           )}
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn btn-secondary" onClick={onClose}>Schließen</button>
+        <div className="modal-footer" style={{ justifyContent: "flex-end" }}>
+          <button className="btn btn-secondary" onClick={onClose}>
+            Schließen
+          </button>
         </div>
       </div>
     </div>
@@ -884,7 +1067,12 @@ function LagerInventurEditor({ draftId, onBack }) {
 
     // Lade Artikelnummern für Autovervollständigung
     api
-      .getSchmuckstuecke({ limit: -1 })
+      .getSchmuckstuecke({
+        ausgelagert: "0",
+        verkauft: "0",
+        ausschuss: "0",
+        limit: -1,
+      })
       .then((res) => {
         if (res && res.data) {
           setAllArticleNumbers(res.data.map((item) => item.Artikelnummer));
@@ -981,172 +1169,177 @@ function LagerInventurEditor({ draftId, onBack }) {
       {showDiff && (
         <InventurDiffModal
           draftId={draftId}
-          onClose={() => { setShowDiff(false); onBack(); }}
+          onClose={() => {
+            setShowDiff(false);
+            onBack();
+          }}
         />
       )}
-    <div className="card">
-      <div
-        className="card-header"
-        style={{ display: "flex", gap: 16, alignItems: "center" }}
-      >
-        <button className="btn btn-secondary" onClick={onBack}>
-          &larr; Zurück
-        </button>
-        <h3 style={{ margin: 0 }}>Lager-Inventur #{draft.id}</h3>
-      </div>
-      <div className="card-body">
-        <div style={{ marginBottom: 20 }}>
-          <label>Kommentar:</label>
-          <input
-            type="text"
-            className="input"
-            value={draft.kommentar || ""}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, kommentar: e.target.value }))
-            }
-            placeholder="Optionale Notiz..."
-            style={{ width: "100%", maxWidth: 400, marginTop: 4 }}
-          />
-        </div>
-
-        <form
-          onSubmit={handleScan}
-          style={{
-            display: "flex",
-            gap: 8,
-            marginBottom: 24,
-            padding: 16,
-            background: "var(--bg-hover)",
-            borderRadius: 8,
-          }}
-        >
-          <input
-            type="text"
-            className="input"
-            list="artikelnummer-autocomplete"
-            value={inputNr}
-            onChange={(e) => setInputNr(e.target.value)}
-            placeholder="Artikelnummer scannen..."
-            autoFocus
-            style={{ flex: 1, maxWidth: 300 }}
-          />
-          <datalist id="artikelnummer-autocomplete">
-            {allArticleNumbers.map((nr) => (
-              <option key={nr} value={nr} />
-            ))}
-          </datalist>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={!inputNr.trim()}
-          >
-            Hinzufügen
-          </button>
-        </form>
-
-        <h4 style={{ marginBottom: 12 }}>
-          Erfasste Artikel (
-          {entries.reduce((sum, [_, count]) => sum + count, 0)} Stück gesamt)
-        </h4>
-        {entries.length === 0 ? (
-          <p style={{ color: "var(--text-muted)" }}>
-            Noch keine Artikel gescannt.
-          </p>
-        ) : (
-          <div style={{ overflowX: "auto", marginBottom: 20 }}>
-            <table
-              className="table"
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                textAlign: "left",
-              }}
-            >
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th style={{ padding: "8px" }}>Artikelnummer</th>
-                  <th style={{ width: 120, padding: "8px" }}>Anzahl</th>
-                  <th
-                    style={{ width: 80, padding: "8px", textAlign: "center" }}
-                  >
-                    Aktion
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map(([nr, count]) => (
-                  <tr
-                    key={nr}
-                    style={{ borderBottom: "1px solid var(--border)" }}
-                  >
-                    <td style={{ padding: "8px" }}>
-                      <strong>{nr}</strong>
-                    </td>
-                    <td style={{ padding: "8px" }}>
-                      <input
-                        type="number"
-                        className="input"
-                        min="1"
-                        value={count}
-                        onChange={(e) => handleCountChange(nr, e.target.value)}
-                        style={{ width: 80 }}
-                      />
-                    </td>
-                    <td style={{ padding: "8px", textAlign: "center" }}>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleRemove(nr)}
-                        title="Löschen"
-                      >
-                        <FontAwesomeIcon icon={faTimes} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
+      <div className="card">
         <div
-          style={{
-            display: "flex",
-            gap: 12,
-            marginTop: 20,
-            paddingTop: 20,
-            borderTop: "1px solid var(--border)",
-            flexWrap: "wrap",
-          }}
+          className="card-header"
+          style={{ display: "flex", gap: 16, alignItems: "center" }}
         >
-          <button
-            className="btn btn-secondary"
-            onClick={saveDraft}
-            disabled={saving}
-          >
-            <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} />
-            Zwischenspeichern
+          <button className="btn btn-secondary" onClick={onBack}>
+            &larr; Zurück
           </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowDiff(true)}
-            disabled={saving || entries.length === 0}
-            title="Vergleiche gescannte Artikel mit dem Lagerbestand"
+          <h3 style={{ margin: 0 }}>Lager-Inventur #{draft.id}</h3>
+        </div>
+        <div className="card-body">
+          <div style={{ marginBottom: 20 }}>
+            <label>Kommentar:</label>
+            <input
+              type="text"
+              className="input"
+              value={draft.kommentar || ""}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, kommentar: e.target.value }))
+              }
+              placeholder="Optionale Notiz..."
+              style={{ width: "100%", maxWidth: 400, marginTop: 4 }}
+            />
+          </div>
+
+          <form
+            onSubmit={handleScan}
+            style={{
+              display: "flex",
+              gap: 8,
+              marginBottom: 24,
+              padding: 16,
+              background: "var(--bg-hover)",
+              borderRadius: 8,
+            }}
           >
-            <FontAwesomeIcon icon={faSearch} style={{ marginRight: 8 }} />
-            Auswertung anzeigen
-          </button>
-          <button
-            className="btn btn-success"
-            onClick={completeDraft}
-            disabled={saving}
-            style={{ marginLeft: "auto" }}
+            <input
+              type="text"
+              className="input"
+              list="artikelnummer-autocomplete"
+              value={inputNr}
+              onChange={(e) => setInputNr(e.target.value)}
+              placeholder="Artikelnummer scannen..."
+              autoFocus
+              style={{ flex: 1, maxWidth: 300 }}
+            />
+            <datalist id="artikelnummer-autocomplete">
+              {allArticleNumbers.map((nr) => (
+                <option key={nr} value={nr} />
+              ))}
+            </datalist>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!inputNr.trim()}
+            >
+              Hinzufügen
+            </button>
+          </form>
+
+          <h4 style={{ marginBottom: 12 }}>
+            Erfasste Artikel (
+            {entries.reduce((sum, [_, count]) => sum + count, 0)} Stück gesamt)
+          </h4>
+          {entries.length === 0 ? (
+            <p style={{ color: "var(--text-muted)" }}>
+              Noch keine Artikel gescannt.
+            </p>
+          ) : (
+            <div style={{ overflowX: "auto", marginBottom: 20 }}>
+              <table
+                className="table"
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  textAlign: "left",
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
+                    <th style={{ padding: "8px" }}>Artikelnummer</th>
+                    <th style={{ width: 120, padding: "8px" }}>Anzahl</th>
+                    <th
+                      style={{ width: 80, padding: "8px", textAlign: "center" }}
+                    >
+                      Aktion
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map(([nr, count]) => (
+                    <tr
+                      key={nr}
+                      style={{ borderBottom: "1px solid var(--border)" }}
+                    >
+                      <td style={{ padding: "8px" }}>
+                        <strong>{nr}</strong>
+                      </td>
+                      <td style={{ padding: "8px" }}>
+                        <input
+                          type="number"
+                          className="input"
+                          min="1"
+                          value={count}
+                          onChange={(e) =>
+                            handleCountChange(nr, e.target.value)
+                          }
+                          style={{ width: 80 }}
+                        />
+                      </td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleRemove(nr)}
+                          title="Löschen"
+                        >
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              marginTop: 20,
+              paddingTop: 20,
+              borderTop: "1px solid var(--border)",
+              flexWrap: "wrap",
+            }}
           >
-            <FontAwesomeIcon icon={faCheck} style={{ marginRight: 8 }} />
-            Abschließen
-          </button>
+            <button
+              className="btn btn-secondary"
+              onClick={saveDraft}
+              disabled={saving}
+            >
+              <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} />
+              Zwischenspeichern
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowDiff(true)}
+              disabled={saving || entries.length === 0}
+              title="Vergleiche gescannte Artikel mit dem Lagerbestand"
+            >
+              <FontAwesomeIcon icon={faSearch} style={{ marginRight: 8 }} />
+              Auswertung anzeigen
+            </button>
+            <button
+              className="btn btn-success"
+              onClick={completeDraft}
+              disabled={saving}
+              style={{ marginLeft: "auto" }}
+            >
+              <FontAwesomeIcon icon={faCheck} style={{ marginRight: 8 }} />
+              Abschließen
+            </button>
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }
