@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -29,7 +29,7 @@ services:
     # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
     # Kompatibel mit Synology Container Manager (DSM).
     image: ghcr.io/revilo91/goldregendb-backend:latest
-    restart: unless-stopped
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
     # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
     # VITE_API_URL=/api ist bereits im Image eingebettet; nginx leitet /api an den Backend-Container weiter.
     image: ghcr.io/revilo91/goldregendb-frontend:latest
-    restart: unless-stopped
+    restart: always
     depends_on:
       - backend
     ports:

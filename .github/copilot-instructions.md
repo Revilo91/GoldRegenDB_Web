@@ -429,7 +429,7 @@ GoldRegenDB_Web/
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: always
     volumes:
       - pgdata:/var/lib/postgresql/data
       - pgbackups:/backups
@@ -444,7 +444,7 @@ services:
 
   backend:
     build: ./backend
-    restart: unless-stopped
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -458,7 +458,7 @@ services:
 
   frontend:
     build: ./frontend         # Multi-Stage: Node build → Nginx
-    restart: unless-stopped
+    restart: always
     ports:
       - "3000:80"             # Nginx serviert den gebautem React-Build
 ```

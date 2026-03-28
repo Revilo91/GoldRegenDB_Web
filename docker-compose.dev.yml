@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -27,7 +27,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    restart: unless-stopped
+    restart: always
     depends_on:
       - db
     environment:
@@ -54,7 +54,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    restart: unless-stopped
+    restart: always
     depends_on:
       - backend
     environment:
