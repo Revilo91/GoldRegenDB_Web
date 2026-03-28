@@ -512,9 +512,7 @@ router.get("/unique-artikelnummern", async (req, res) => {
          SELECT DISTINCT split_part("Artikelnummer", '_', 1) as "base_nr"
          FROM "Schmuckstück"
          ${whereClause}
-       ) sub
-       WHERE "base_nr" is not null AND "base_nr" != ''
-       ORDER BY length("base_nr"), "base_nr"`,
+       ) ORDER BY length("base_nr"), "base_nr"`,
       params,
     );
     res.json(rows.map((r) => r.base_nr));
