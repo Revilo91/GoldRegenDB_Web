@@ -67,6 +67,7 @@ function TablePhoto({ foto, artikelnummer }) {
       className="table-photo-thumb"
       src={photoSrc}
       alt={`Foto ${artikelnummer}`}
+      title={`Foto ${artikelnummer}`}
       loading="lazy"
     />
   );
@@ -127,6 +128,20 @@ function ItemsTable({
     return sortableData;
   }, [items, sortConfig]);
 
+  const allSelected =
+    selectedForReturn &&
+    sorted.length > 0 &&
+    selectedForReturn.size === sorted.length;
+  const allSelectedForRechnung =
+    selectedForRechnung &&
+    sorted.length > 0 &&
+    selectedForRechnung.size === sorted.length;
+
+  const total = useMemo(
+    () => sorted.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    [sorted],
+  );
+
   const requestSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -139,45 +154,45 @@ function ItemsTable({
     if (sortConfig.key !== key) return "↕️";
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
-  if (items.length === 0) {
-    return (
-      <p style={{ color: "var(--text-muted)", padding: "16px 0" }}>
-        Keine Artikel.
-      </p>
-    );
-  }
-  const total = sorted.reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
-  const allSelected =
-    selectedForReturn &&
-    sorted.length > 0 &&
-    selectedForReturn.size === sorted.length;
-  const allSelectedForRechnung =
-    selectedForRechnung &&
-    items.length > 0 &&
-    selectedForRechnung.size === items.length;
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <table className="data-table inventur-items-table">
-        <thead>
-          <tr>
-            {selectedForReturn && (
-              <th
-                style={{ width: 40, textAlign: "center" }}
-                title="Zurücklagern">
+      <DataTable
+        data={sorted}
+        className="inventur-items-table"
+        getRowKey={(item) => item.Artikelnummer}
+        defaultSort={{ key: sortConfig.key, direction: sortConfig.direction }}
+        onRowClick={undefined}
+        columns={[
+          selectedForReturn && {
+            key: "zurueck",
+            label: (
+              <>
                 <div style={{ fontSize: 8 }}>Zurück</div>
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={selectAll}
                   title={allSelected ? "Alle abwählen" : "Alle auswählen"}
+                  onClick={e => e.stopPropagation()}
+                  style={{ marginTop: 2 }}
                 />
-              </th>
-            )}
-            {selectedForRechnung && (
-              <th
-                style={{ width: 40, textAlign: "center" }}
-                title="Rechnung erstellen">
+              </>
+            ),
+            style: { width: 40, textAlign: "center" },
+            render: (item) => (
+              <input
+                type="checkbox"
+                checked={selectedForReturn.has(item.Artikelnummer)}
+                onChange={() => toggleItemSelection(item.Artikelnummer)}
+                onClick={e => e.stopPropagation()}
+              />
+            ),
+          },
+          selectedForRechnung && {
+            key: "rechnung",
+            label: (
+              <>
                 <div style={{ fontSize: 8 }}>Rechnung</div>
                 <input
                   type="checkbox"
@@ -188,91 +203,75 @@ function ItemsTable({
                       ? "Alle abwählen"
                       : "Alle für Rechnung auswählen"
                   }
+                  onClick={e => e.stopPropagation()}
+                  style={{ marginTop: 2 }}
                 />
-              </th>
-            )}
-            <th className="photo-col">Foto</th>
-            <th
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Artikelnummer")}>
-              Artikelnummer {getSortIcon("Artikelnummer")}
-            </th>
-            <th
-              className="hide-on-mobile"
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Verkaufspreis")}>
-              Verkaufspreis {getSortIcon("Verkaufspreis")}
-            </th>
-            <th
-              style={{ cursor: "pointer" }}
-              onClick={() => requestSort("Erstelldatum")}>
-              Erstellt {getSortIcon("Erstelldatum")}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((item) => (
-            <tr
-              key={item.Artikelnummer}
-              style={
-                selectedForRechnung &&
-                selectedForRechnung.has(item.Artikelnummer)
-                  ? { background: "var(--bg-hover)" }
-                  : selectedForReturn &&
-                      selectedForReturn.has(item.Artikelnummer)
-                    ? { background: "var(--bg-hover)" }
-                    : {}
-              }>
-              {selectedForReturn && (
-                <td style={{ textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedForReturn.has(item.Artikelnummer)}
-                    onChange={() => toggleItemSelection(item.Artikelnummer)}
-                  />
-                </td>
-              )}
-              {selectedForRechnung && (
-                <td style={{ textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedForRechnung.has(item.Artikelnummer)}
-                    onChange={() => toggleForRechnung(item.Artikelnummer)}
-                  />
-                </td>
-              )}
-              <td className="photo-col">
-                <TablePhoto
-                  foto={item.Foto}
-                  artikelnummer={item.Artikelnummer}
-                />
-              </td>
-              <td>
-                <strong>
-                  {String(item.Artikelnummer || "").split("_")[0]}
-                </strong>
+              </>
+            ),
+            style: { width: 40, textAlign: "center" },
+            render: (item) => (
+              <input
+                type="checkbox"
+                checked={selectedForRechnung.has(item.Artikelnummer)}
+                onChange={() => toggleForRechnung(item.Artikelnummer)}
+                onClick={e => e.stopPropagation()}
+              />
+            ),
+          },
+          {
+            key: "Foto",
+            label: "Foto",
+            className: "photo-col",
+            render: (item) => (
+              <TablePhoto
+                foto={item.Foto}
+                artikelnummer={item.Artikelnummer}
+              />
+            ),
+          },
+          {
+            key: "Artikelnummer",
+            label: (
+              <span style={{ cursor: "pointer" }} onClick={() => requestSort("Artikelnummer")}>Artikelnummer {getSortIcon("Artikelnummer")}</span>
+            ),
+            sortable: true,
+            render: (item) => (
+              <>
+                <strong>{String(item.Artikelnummer || "").split("_")[0]}</strong>
                 {Number(String(item.Artikelnummer || "").split("_")[1]) > 0 && (
                   <span className="badge warning">
                     {String(item.Artikelnummer || "").split("_")[1]}
                   </span>
                 )}
-              </td>
-              <td className="hide-on-mobile">
-                {formatEur(item.Verkaufspreis)}
-              </td>
-              <td>
-                {item.Erstelldatum
-                  ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
-                  : "–"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot className="hide-on-mobile">
+              </>
+            ),
+          },
+          {
+            key: "Verkaufspreis",
+            label: (
+              <span className="hide-on-mobile" style={{ cursor: "pointer" }} onClick={() => requestSort("Verkaufspreis")}>Verkaufspreis {getSortIcon("Verkaufspreis")}</span>
+            ),
+            className: "hide-on-mobile",
+            sortable: true,
+            render: (item) => formatEur(item.Verkaufspreis),
+          },
+          {
+            key: "Erstelldatum",
+            label: (
+              <span style={{ cursor: "pointer" }} onClick={() => requestSort("Erstelldatum")}>Erstellt {getSortIcon("Erstelldatum")}</span>
+            ),
+            sortable: true,
+            render: (item) =>
+              item.Erstelldatum
+                ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })
+                : "–",
+          },
+        ].filter(Boolean)}
+        footer={
           <tr>
             {selectedForReturn && <td />}
             {selectedForRechnung && <td />}
@@ -289,8 +288,8 @@ function ItemsTable({
             <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
             <td className="hide-on-mobile" />
           </tr>
-        </tfoot>
-      </table>
+        }
+      />
     </div>
   );
 }
