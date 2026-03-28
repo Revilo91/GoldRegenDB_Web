@@ -6,6 +6,9 @@ import {
   faTimes,
   faBox,
   faGem,
+  faPlus,
+  faSave,
+  faCheck,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
@@ -651,6 +654,257 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   );
 }
 
+function LagerInventurEditor({ draftId, onBack }) {
+  const [draft, setDraft] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [inputNr, setInputNr] = useState("");
+  const [allArticleNumbers, setAllArticleNumbers] = useState([]);
+  
+  useEffect(() => {
+    api.getInventurDraft(draftId)
+      .then(d => {
+        if (!d.data) d.data = {};
+        setDraft(d);
+      })
+      .catch(err => {
+        alert(err.message);
+        onBack();
+      })
+      .finally(() => setLoading(false));
+
+    // Lade Artikelnummern für Autovervollständigung
+    api.getSchmuckstuecke({ limit: -1 })
+      .then(res => {
+        if (res && res.data) {
+          setAllArticleNumbers(res.data.map(item => item.Artikelnummer));
+        }
+      })
+      .catch(err => console.error("Fehler beim Laden der Artikelnummern", err));
+  }, [draftId, onBack]);
+
+  const handleScan = (e) => {
+    e.preventDefault();
+    const nr = inputNr.trim().toUpperCase();
+    if (!nr) return;
+
+    setDraft(prev => {
+      const nextData = { ...prev.data };
+      nextData[nr] = (nextData[nr] || 0) + 1;
+      return { ...prev, data: nextData };
+    });
+    setInputNr("");
+  };
+
+  const handleCountChange = (nr, count) => {
+    setDraft(prev => {
+      const nextData = { ...prev.data };
+      const val = parseInt(count, 10);
+      if (isNaN(val) || val <= 0) {
+        delete nextData[nr];
+      } else {
+        nextData[nr] = val;
+      }
+      return { ...prev, data: nextData };
+    });
+  };
+
+  const handleRemove = (nr) => {
+    setDraft(prev => {
+      const nextData = { ...prev.data };
+      delete nextData[nr];
+      return { ...prev, data: nextData };
+    });
+  };
+
+  const saveDraft = async () => {
+    setSaving(true);
+    try {
+      await api.updateInventurDraft(draftId, { data: draft.data, kommentar: draft.kommentar });
+      alert("Entwurf erfolgreich gespeichert!");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const completeDraft = async () => {
+    if (!window.confirm("Möchtest du diesen Entwurf wirklich abschließen? Er kann danach nicht mehr bearbeitet werden.")) return;
+    setSaving(true);
+    try {
+      await api.updateInventurDraft(draftId, { data: draft.data, kommentar: draft.kommentar });
+      await api.completeInventurDraft(draftId);
+      alert("Entwurf abgeschlossen!");
+      onBack();
+    } catch (err) {
+      alert(err.message);
+      setSaving(false);
+    }
+  };
+
+  if (loading || !draft) return <div className="loading"><div className="spinner"></div></div>;
+
+  const entries = Object.entries(draft.data || {}).sort((a,b) => a[0].localeCompare(b[0]));
+
+  return (
+    <div className="card">
+      <div className="card-header" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <button className="btn btn-secondary" onClick={onBack}>&larr; Zurück</button>
+        <h3 style={{ margin: 0 }}>Lager-Inventur #{draft.id}</h3>
+      </div>
+      <div className="card-body">
+        <div style={{ marginBottom: 20 }}>
+          <label>Kommentar:</label>
+          <input 
+            type="text" 
+            className="input" 
+            value={draft.kommentar || ""} 
+            onChange={e => setDraft(prev => ({ ...prev, kommentar: e.target.value }))}
+            placeholder="Optionale Notiz..."
+            style={{ width: '100%', maxWidth: 400, marginTop: 4 }}
+          />
+        </div>
+
+        <form onSubmit={handleScan} style={{ display: 'flex', gap: 8, marginBottom: 24, padding: 16, background: 'var(--bg-hover)', borderRadius: 8 }}>
+          <input 
+            type="text" 
+            className="input" 
+            list="artikelnummer-autocomplete"
+            value={inputNr}
+            onChange={e => setInputNr(e.target.value)}
+            placeholder="Artikelnummer scannen..."
+            autoFocus
+            style={{ flex: 1, maxWidth: 300 }}
+          />
+          <datalist id="artikelnummer-autocomplete">
+            {allArticleNumbers.map(nr => (
+              <option key={nr} value={nr} />
+            ))}
+          </datalist>
+          <button type="submit" className="btn btn-primary" disabled={!inputNr.trim()}>Hinzufügen</button>
+        </form>
+
+        <h4 style={{ marginBottom: 12 }}>Erfasste Artikel ({entries.reduce((sum, [_, count]) => sum + count, 0)} Stück gesamt)</h4>
+        {entries.length === 0 ? (
+          <p style={{ color: "var(--text-muted)" }}>Noch keine Artikel gescannt.</p>
+        ) : (
+          <div style={{ overflowX: 'auto', marginBottom: 20 }}>
+            <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                  <th style={{ padding: '8px' }}>Artikelnummer</th>
+                  <th style={{ width: 120, padding: '8px' }}>Anzahl</th>
+                  <th style={{ width: 80, padding: '8px', textAlign: 'center' }}>Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(([nr, count]) => (
+                  <tr key={nr} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '8px' }}><strong>{nr}</strong></td>
+                    <td style={{ padding: '8px' }}>
+                      <input 
+                        type="number" 
+                        className="input" 
+                        min="1" 
+                        value={count} 
+                        onChange={e => handleCountChange(nr, e.target.value)}
+                        style={{ width: 80 }}
+                      />
+                    </td>
+                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleRemove(nr)} title="Löschen">
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 12, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+          <button className="btn btn-secondary" onClick={saveDraft} disabled={saving}>
+            <FontAwesomeIcon icon={faSave} style={{ marginRight: 8 }} />
+            Zwischenspeichern
+          </button>
+          <button className="btn btn-success" onClick={completeDraft} disabled={saving}>
+            <FontAwesomeIcon icon={faCheck} style={{ marginRight: 8 }} />
+            Abschließen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LagerInventurUI() {
+  const [drafts, setDrafts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeDraftId, setActiveDraftId] = useState(null);
+
+  const loadDrafts = () => {
+    setLoading(true);
+    api.getInventurDrafts()
+      .then(setDrafts)
+      .catch(err => alert("Fehler beim Laden der Entwürfe: " + err.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!activeDraftId) {
+      loadDrafts();
+    }
+  }, [activeDraftId]);
+
+  const createDraft = async () => {
+    try {
+      const draft = await api.createInventurDraft({ data: {}, kommentar: "" });
+      setActiveDraftId(draft.id);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  if (activeDraftId) {
+    return <LagerInventurEditor draftId={activeDraftId} onBack={() => setActiveDraftId(null)} />;
+  }
+
+  return (
+    <div className="card">
+      <div className="card-header" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>Lager-Inventur offene Entwürfe</h3>
+        <button className="btn btn-primary" onClick={createDraft}>
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} />
+          Neuer Entwurf
+        </button>
+      </div>
+      <div className="card-body">
+        <p style={{ marginBottom: 16 }}>Hier können Sie eine Inventur des Lagerbestands durchführen und Zwischenergebnisse speichern.</p>
+        {loading ? (
+          <div className="loading"><div className="spinner"></div>Lade Entwürfe...</div>
+        ) : drafts.length === 0 ? (
+          <p style={{ color: "var(--text-muted)" }}>Keine offenen Entwürfe vorhanden.</p>
+        ) : (
+          <DataTable
+            data={drafts}
+            getRowKey={d => d.id}
+            onRowClick={d => setActiveDraftId(d.id)}
+            columns={[
+              { key: 'id', label: 'ID', render: d => `#${d.id}` },
+              { key: 'created_at', label: 'Erstellt am', render: d => new Date(d.created_at).toLocaleString('de-DE') },
+              { key: 'updated_at', label: 'Zuletzt geändert', render: d => new Date(d.updated_at).toLocaleString('de-DE') },
+              { key: 'kommentar', label: 'Kommentar', render: d => d.kommentar || <span style={{ color: 'var(--text-muted)' }}>Kein Kommentar</span> },
+              { key: 'item_count', label: 'Gescannte Artikel', render: d => Object.values(d.data || {}).reduce((s, c) => s + c, 0) + ' Stück' },
+            ]}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Inventur() {
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -941,16 +1195,7 @@ export default function Inventur() {
       )}
 
       {activeTab === 'lager' && (
-        <div className="card">
-          <div className="card-body">
-            <h3>Lager-Inventur</h3>
-            <p>Hier können Sie eine Inventur des Lagerbestands durchführen und Zwischenergebnisse speichern.</p>
-            {/* TODO: Lager-Inventur-UI und Anbindung an Entwurfs-API */}
-            <div style={{ color: 'var(--text-muted)', padding: 24 }}>
-              (Platzhalter für Lager-Inventur)
-            </div>
-          </div>
-        </div>
+        <LagerInventurUI />
       )}
     </div>
   );
