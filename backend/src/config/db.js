@@ -244,13 +244,35 @@ async function ensureAusschussGrundConstraint() {
   }
 }
 
+// Ensure lagerinventur_entwurf table exists
+async function ensureLagerinventurEntwurfTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lagerinventur_entwurf (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES app_users(id),
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          status VARCHAR(20) NOT NULL DEFAULT 'entwurf',
+          data JSONB NOT NULL,
+          kommentar TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_lagerinventur_user_status ON lagerinventur_entwurf(user_id, status);
+    `);
+    logger.info('DB', 'lagerinventur_entwurf Tabelle verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren der lagerinventur_entwurf Tabelle', { message: err.message });
+  }
+}
+
 // Test connection and ensure schema on startup
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
     logger.info('DB', `Verbindung erfolgreich hergestellt. Server-Zeit: ${res.rows[0].server_time}`);
     return ensureAppUsersTable()
       .then(() => ensureAuditUserContextFunction())
-      .then(() => ensureAusschussGrundConstraint());
+      .then(() => ensureAusschussGrundConstraint())
+      .then(() => ensureLagerinventurEntwurfTable());
   })
   .catch((err) => {
     logger.error('DB', 'Verbindung zur Datenbank fehlgeschlagen', { message: err.message, code: err.code });
