@@ -1467,7 +1467,7 @@ function LagerInventurUI() {
     api
       .getInventurDrafts()
       .then(setDrafts)
-      .catch((err) => alert("Fehler beim Laden der Entwürfe: " + err.message))
+      .catch((err) => alert("Fehler beim Laden der Inventuren: " + err.message))
       .finally(() => setLoading(false));
   };
 
@@ -1507,24 +1507,20 @@ function LagerInventurUI() {
           alignItems: "center",
         }}
       >
-        <h3 style={{ margin: 0 }}>Lager-Inventur offene Entwürfe</h3>
+        <h3 style={{ margin: 0 }}>Offene Inventuren</h3>
         <button className="btn btn-primary" onClick={createDraft}>
           <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} />
           Neue Inventur
         </button>
       </div>
       <div className="card-body">
-        <p style={{ marginBottom: 16 }}>
-          Hier können Sie eine Inventur des Lagerbestands durchführen und
-          Zwischenergebnisse speichern.
-        </p>
         {loading ? (
           <div className="loading">
-            <div className="spinner"></div>Lade Entwürfe...
+            <div className="spinner"></div>Lade Inventuren...
           </div>
         ) : drafts.length === 0 ? (
           <p style={{ color: "var(--text-muted)" }}>
-            Keine offenen Entwürfe vorhanden.
+            Keine offenen Inventuren vorhanden.
           </p>
         ) : (
           <DataTable
