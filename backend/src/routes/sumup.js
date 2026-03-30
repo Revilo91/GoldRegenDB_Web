@@ -189,11 +189,15 @@ router.post("/import", async (req, res) => {
         updateBuilder.nichtVerkauft();
         updateBuilder.keinAusschuss();
 
+        // SET-Parameter zuerst, dann WHERE-Parameter
+        const setParams = [messeKunde.ID, lieferschein.ID];
+        const whereParams = updateBuilder.getParams();
         await db.query(
           `UPDATE "Schmuckstück"
            SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
-           ${updateBuilder.build()}`,
-          [messeKunde.ID, lieferschein.ID, ...updateBuilder.getParams()],
+           ${updateBuilder.build().replace(/\$1/g, `$${setParams.length + 1}`)}
+          `,
+          [...setParams, ...whereParams],
         );
       }
 
