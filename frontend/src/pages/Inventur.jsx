@@ -1175,7 +1175,7 @@ function LagerInventurEditor({ draftId, onBack }) {
     const currentStr = JSON.stringify({ data: draft.data, kommentar: draft.kommentar });
     if (currentStr === lastSavedDraftStr) {
        // Nichts geändert, muss nicht gespeichert werden
-       if (showSuccessAlert) alert("Entwurf erfolgreich gespeichert!");
+       if (showSuccessAlert) alert("Inventur erfolgreich gespeichert!");
        return true;
     }
 
@@ -1187,7 +1187,7 @@ function LagerInventurEditor({ draftId, onBack }) {
       });
       setLastSavedDraftStr(currentStr);
       if (showSuccessAlert) {
-        alert("Entwurf erfolgreich gespeichert!");
+        alert("Inventur erfolgreich gespeichert!");
       }
       return true;
     } catch (err) {
@@ -1248,11 +1248,11 @@ function LagerInventurEditor({ draftId, onBack }) {
   const completeDraft = async () => {
     if (
       !window.confirm(
-        "Möchtest du diesen Entwurf wirklich abschließen? Er kann danach nicht mehr bearbeitet werden.",
+        "Möchtest du diese Inventur wirklich abschließen? Sie kann danach nicht mehr bearbeitet werden.",
       )
     )
       return;
-    
+
     try {
       await performSave(false);
       await api.completeInventurDraft(draftId);
@@ -1510,7 +1510,7 @@ function LagerInventurUI() {
         <h3 style={{ margin: 0 }}>Lager-Inventur offene Entwürfe</h3>
         <button className="btn btn-primary" onClick={createDraft}>
           <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} />
-          Neuer Entwurf
+          Neue Inventur
         </button>
       </div>
       <div className="card-body">
