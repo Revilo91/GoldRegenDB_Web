@@ -19,6 +19,7 @@ const ALL_TABLES = [
   { key: "Schmuckstück", label: "Schmuckstücke" },
   { key: "audit_log", label: "Audit-Log" },
   { key: "app_users", label: "Benutzer" },
+  { key: "lagerinventur", label: "Lagerinventur" },
 ];
 
 const TABLE_LABELS = Object.fromEntries(ALL_TABLES.map(({ key, label }) => [key, label]));
