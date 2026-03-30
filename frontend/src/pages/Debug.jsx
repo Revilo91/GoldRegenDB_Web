@@ -332,13 +332,9 @@ const Debug = () => {
     <div>
       <div className="page-header">
         <h2>Database Debug View</h2>
-        <p>
-          Double-click a cell to edit its value. Press Enter to save, or Escape
-          to cancel.
-        </p>
       </div>
 
-      <div style={{ marginTop: "32px" }}>
+      <div>
         {tables.map((tableName) => (
           <DebugTable key={tableName} tableName={tableName} />
         ))}
