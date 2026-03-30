@@ -133,7 +133,8 @@ const DebugTable = ({ tableName }) => {
     return data.filter((row) =>
       columns.some((col) => {
         const rawValue = row[col.column_name];
-        const normalized = rawValue === null ? "null" : String(rawValue).toLowerCase();
+        const normalized =
+          rawValue === null ? "null" : String(rawValue).toLowerCase();
         return normalized.includes(query);
       }),
     );
@@ -159,7 +160,8 @@ const DebugTable = ({ tableName }) => {
           const rowIndex = data.findIndex((candidate) => candidate === row);
           const colName = col.column_name;
           const isEditing =
-            editingCell?.rowIndex === rowIndex && editingCell?.columnName === colName;
+            editingCell?.rowIndex === rowIndex &&
+            editingCell?.columnName === colName;
           const value = row[colName];
           const displayValue =
             value === null ? (
@@ -171,8 +173,9 @@ const DebugTable = ({ tableName }) => {
           return (
             <div
               className="debug-cell"
-              onDoubleClick={() => setEditingCell({ rowIndex, columnName: colName })}
-            >
+              onDoubleClick={() =>
+                setEditingCell({ rowIndex, columnName: colName })
+              }>
               {isEditing ? (
                 <EditableCell
                   value={value}
@@ -260,12 +263,12 @@ const DebugTable = ({ tableName }) => {
               Previous
             </button>
             <span className="page-info">
-              Page {page + 1} of {totalPages} (Gefilterte Zeilen: {filteredData.length})
+              Page {page + 1} of {totalPages} (Gefilterte Zeilen:{" "}
+              {filteredData.length})
             </span>
             <button
               disabled={page >= totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-            >
+              onClick={() => setPage((p) => p + 1)}>
               Next
             </button>
           </div>
@@ -311,7 +314,7 @@ const Debug = () => {
 
   if (loading)
     return (
-      <div className="main-content">
+      <div>
         <div className="loading">
           <div className="spinner"></div>Loading Debug View...
         </div>
@@ -319,21 +322,19 @@ const Debug = () => {
     );
   if (error)
     return (
-      <div className="main-content">
+      <div>
         <h2>Error</h2>
         <p>{error}</p>
       </div>
     );
 
   return (
-    <div className="page-header">
-      <h2>Database Debug View</h2>
-      <p>
-        Double-click a cell to edit its value. Press Enter to save, or Escape to
-        cancel.
-      </p>
+    <div>
+      <div className="page-header">
+        <h2>Database Debug View</h2>
+      </div>
 
-      <div style={{ marginTop: "32px" }}>
+      <div>
         {tables.map((tableName) => (
           <DebugTable key={tableName} tableName={tableName} />
         ))}

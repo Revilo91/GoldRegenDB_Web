@@ -152,6 +152,10 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/schmuckstuecke?${qs}`);
   },
+  getUniqueArtikelnummern: (params) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return request(`/schmuckstuecke/unique-artikelnummern?${qs}`);
+  },
   getFilterOptions: () => request('/schmuckstuecke/filter-options'),
   getSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`),
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
@@ -267,4 +271,5 @@ export const api = {
   createInventurDraft: (data) => request('/lagerinventur/drafts', { method: 'POST', body: JSON.stringify(data) }),
   updateInventurDraft: (id, data) => request(`/lagerinventur/drafts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   completeInventurDraft: (id) => request(`/lagerinventur/drafts/${id}/complete`, { method: 'POST', body: JSON.stringify({}) }),
+  getInventurDiff: (id) => request(`/lagerinventur/drafts/${id}/diff`),
 };

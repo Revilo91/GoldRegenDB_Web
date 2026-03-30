@@ -179,7 +179,7 @@ ON CONFLICT (username) DO NOTHING;
 -- ============================================================
 -- Lager-Inventur-Entwürfe
 -- ============================================================
-CREATE TABLE IF NOT EXISTS lagerinventur_entwurf (
+CREATE TABLE IF NOT EXISTS lagerinventur (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES app_users(id),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS lagerinventur_entwurf (
     kommentar TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_lagerinventur_user_status ON lagerinventur_entwurf(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_lagerinventur_user_status ON lagerinventur(user_id, status);
 
 -- ============================================================
 -- Trigger

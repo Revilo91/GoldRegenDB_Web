@@ -35,8 +35,8 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     // Extract base article number (without suffix like _1, _2)
-    let artikelnummer = req.query.artikelnummer || 'unknown';
-    const baseArtikelnummer = artikelnummer.split('_')[0];
+    let artikelnummer = req.query.artikelnummer || "unknown";
+    const baseArtikelnummer = artikelnummer.split("_")[0];
     cb(null, `${baseArtikelnummer}${ext}`);
   },
 });
@@ -83,8 +83,7 @@ const PRODUKTART = {
   S: "Schlüsselanhänger",
 };
 
-const AUSSCHUSS_GRUND_CONSTRAINT =
-  "schmuckstueck_ausschuss_grund_required_chk";
+const AUSSCHUSS_GRUND_CONSTRAINT = "schmuckstueck_ausschuss_grund_required_chk";
 
 function resolveAusschussGrund(ausschuss, ausschussGrund) {
   const ausschussValue = Number(ausschuss) === 1 ? 1 : 0;
@@ -115,7 +114,9 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
       originalName: req.file.originalname,
     });
   } catch (err) {
-    logger.error('SCHMUCK', 'Fehler beim Upload des Fotos', { message: err.message });
+    logger.error("SCHMUCK", "Fehler beim Upload des Fotos", {
+      message: err.message,
+    });
     if (err.message.includes("Nur") || err.message.includes("erlaubt")) {
       res.status(400).json({ error: err.message });
     } else {
@@ -141,7 +142,11 @@ router.get("/foto/:fileName", (req, res) => {
       res.status(404).json({ error: "Foto nicht gefunden" });
     }
   } catch (err) {
-    logger.error('SCHMUCK', `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, { message: err.message });
+    logger.error(
+      "SCHMUCK",
+      `Fehler beim Abrufen des Fotos: ${req.params.fileName}`,
+      { message: err.message },
+    );
     res.status(500).json({ error: "Fehler beim Abrufen des Fotos" });
   }
 });
@@ -164,7 +169,11 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
       res.status(404).json({ error: "Foto nicht gefunden" });
     }
   } catch (err) {
-    logger.error('SCHMUCK', `Fehler beim Löschen des Fotos: ${req.params.fileName}`, { message: err.message });
+    logger.error(
+      "SCHMUCK",
+      `Fehler beim Löschen des Fotos: ${req.params.fileName}`,
+      { message: err.message },
+    );
     res.status(500).json({ error: "Fehler beim Löschen des Fotos" });
   }
 });
@@ -213,27 +222,27 @@ router.get("/", async (req, res) => {
         const paramIdx = builder.getNextParamIdx();
         builder.raw(
           `("Artikelnummer" ILIKE $${paramIdx} OR "Name" ILIKE $${paramIdx} OR "Material" ILIKE $${paramIdx})`,
-          `%${search}%`
+          `%${search}%`,
         );
       }
     }
-    
+
     if (req.query.grundmaterial) {
       builder.grundmaterial(req.query.grundmaterial);
     }
-    
+
     if (artikelnummer_art) {
       builder.produktart(artikelnummer_art);
     }
-    
+
     if (verkauft !== undefined) {
       builder.equals("Verkauft", parseInt(verkauft));
     }
-    
+
     if (ausgelagert !== undefined) {
       builder.equals("Ausgelagert", parseInt(ausgelagert));
     }
-    
+
     if (ausschuss !== undefined) {
       builder.equals("Ausschuss", parseInt(ausschuss));
     }
@@ -290,7 +299,9 @@ router.get("/", async (req, res) => {
       },
     });
   } catch (err) {
-    logger.error('SCHMUCK', 'Fehler beim Laden der Schmuckstücke', { message: err.message });
+    logger.error("SCHMUCK", "Fehler beim Laden der Schmuckstücke", {
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Laden der Schmuckstücke" });
   }
 });
@@ -299,75 +310,224 @@ router.get("/", async (req, res) => {
 router.get("/filter-options", async (req, res) => {
   try {
     const [
-      arten, farben, materialien, formen,
-      anhaenger_fassungen, anhaenger_formen, anhaenger_farben, anhaenger_groessen,
-      anhaenger_inhalt_materialien, anhaenger_inhalt_farben, anhaenger_inhalt_farbakzente, anhaenger_inhalt_zusatzmaterialien,
-      inhalt_materialien, inhalt_farben, inhalt_farbakzente, inhalt_zusatzmaterialien,
-      zwischenstuecke, fassungen, laengen, groessen, fotos, namen, verkaufspreise, herstellungskosten, ausschuesse, anhaenger, ausschussgruende
+      arten,
+      farben,
+      materialien,
+      formen,
+      anhaenger_fassungen,
+      anhaenger_formen,
+      anhaenger_farben,
+      anhaenger_groessen,
+      anhaenger_inhalt_materialien,
+      anhaenger_inhalt_farben,
+      anhaenger_inhalt_farbakzente,
+      anhaenger_inhalt_zusatzmaterialien,
+      inhalt_materialien,
+      inhalt_farben,
+      inhalt_farbakzente,
+      inhalt_zusatzmaterialien,
+      zwischenstuecke,
+      fassungen,
+      laengen,
+      groessen,
+      fotos,
+      namen,
+      verkaufspreise,
+      herstellungskosten,
+      ausschuesse,
+      anhaenger,
+      ausschussgruende,
     ] = await Promise.all([
-      db.query("SELECT DISTINCT \"Art\" FROM \"Schmuckstück\" WHERE \"Art\" IS NOT NULL AND \"Art\" != '' ORDER BY \"Art\""),
-      db.query("SELECT DISTINCT \"Farbe\" FROM \"Schmuckstück\" WHERE \"Farbe\" IS NOT NULL AND \"Farbe\" != '' ORDER BY \"Farbe\""),
-      db.query("SELECT DISTINCT \"Material\" FROM \"Schmuckstück\" WHERE \"Material\" IS NOT NULL AND \"Material\" != '' ORDER BY \"Material\""),
-      db.query("SELECT DISTINCT \"Form\" FROM \"Schmuckstück\" WHERE \"Form\" IS NOT NULL AND \"Form\" != '' ORDER BY \"Form\""),
-      db.query("SELECT DISTINCT \"Anhänger_Fassung\" FROM \"Schmuckstück\" WHERE \"Anhänger_Fassung\" IS NOT NULL AND \"Anhänger_Fassung\" != '' ORDER BY \"Anhänger_Fassung\""),
-      db.query("SELECT DISTINCT \"Anhänger_Form\" FROM \"Schmuckstück\" WHERE \"Anhänger_Form\" IS NOT NULL AND \"Anhänger_Form\" != '' ORDER BY \"Anhänger_Form\""),
-      db.query("SELECT DISTINCT \"Anhänger_Farbe\" FROM \"Schmuckstück\" WHERE \"Anhänger_Farbe\" IS NOT NULL AND \"Anhänger_Farbe\" != '' ORDER BY \"Anhänger_Farbe\""),
-      db.query("SELECT DISTINCT \"Anhänger_Grösse\" FROM \"Schmuckstück\" WHERE \"Anhänger_Grösse\" IS NOT NULL ORDER BY \"Anhänger_Grösse\""),
-      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Material\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Material\" IS NOT NULL AND \"Anhänger_Inhalt_Material\" != '' ORDER BY \"Anhänger_Inhalt_Material\""),
-      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Farbe\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Farbe\" IS NOT NULL AND \"Anhänger_Inhalt_Farbe\" != '' ORDER BY \"Anhänger_Inhalt_Farbe\""),
-      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Farbakzente\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Farbakzente\" IS NOT NULL AND \"Anhänger_Inhalt_Farbakzente\" != '' ORDER BY \"Anhänger_Inhalt_Farbakzente\""),
-      db.query("SELECT DISTINCT \"Anhänger_Inhalt_Zusatzmaterial\" FROM \"Schmuckstück\" WHERE \"Anhänger_Inhalt_Zusatzmaterial\" IS NOT NULL AND \"Anhänger_Inhalt_Zusatzmaterial\" != '' ORDER BY \"Anhänger_Inhalt_Zusatzmaterial\""),
-      db.query("SELECT DISTINCT \"Inhalt_Material\" FROM \"Schmuckstück\" WHERE \"Inhalt_Material\" IS NOT NULL AND \"Inhalt_Material\" != '' ORDER BY \"Inhalt_Material\""),
-      db.query("SELECT DISTINCT \"Inhalt_Farbe\" FROM \"Schmuckstück\" WHERE \"Inhalt_Farbe\" IS NOT NULL AND \"Inhalt_Farbe\" != '' ORDER BY \"Inhalt_Farbe\""),
-      db.query("SELECT DISTINCT \"Inhalt_Farbakzent\" FROM \"Schmuckstück\" WHERE \"Inhalt_Farbakzent\" IS NOT NULL AND \"Inhalt_Farbakzent\" != '' ORDER BY \"Inhalt_Farbakzent\""),
-      db.query("SELECT DISTINCT \"Inhalt_Zusatzmaterial\" FROM \"Schmuckstück\" WHERE \"Inhalt_Zusatzmaterial\" IS NOT NULL AND \"Inhalt_Zusatzmaterial\" != '' ORDER BY \"Inhalt_Zusatzmaterial\""),
-      db.query("SELECT DISTINCT \"Zwischenstück\" FROM \"Schmuckstück\" WHERE \"Zwischenstück\" IS NOT NULL AND \"Zwischenstück\" != '' ORDER BY \"Zwischenstück\""),
-      db.query("SELECT DISTINCT \"Fassung\" FROM \"Schmuckstück\" WHERE \"Fassung\" IS NOT NULL AND \"Fassung\" != '' ORDER BY \"Fassung\""),
-      db.query("SELECT DISTINCT \"Länge\" FROM \"Schmuckstück\" WHERE \"Länge\" IS NOT NULL ORDER BY \"Länge\""),
-      db.query("SELECT DISTINCT \"Grösse\" FROM \"Schmuckstück\" WHERE \"Grösse\" IS NOT NULL ORDER BY \"Grösse\""),
-      db.query("SELECT DISTINCT \"Foto\" FROM \"Schmuckstück\" WHERE \"Foto\" IS NOT NULL AND \"Foto\" != '' ORDER BY \"Foto\""),
-      db.query("SELECT DISTINCT \"Name\" FROM \"Schmuckstück\" WHERE \"Name\" IS NOT NULL AND \"Name\" != '' ORDER BY \"Name\""),
-      db.query("SELECT DISTINCT \"Verkaufspreis\" FROM \"Schmuckstück\" WHERE \"Verkaufspreis\" IS NOT NULL ORDER BY \"Verkaufspreis\""),
-      db.query("SELECT DISTINCT \"Herstellungskosten\" FROM \"Schmuckstück\" WHERE \"Herstellungskosten\" IS NOT NULL ORDER BY \"Herstellungskosten\""),
-      db.query("SELECT DISTINCT \"Ausschuss\" FROM \"Schmuckstück\" WHERE \"Ausschuss\" IS NOT NULL ORDER BY \"Ausschuss\""),
-      db.query("SELECT DISTINCT \"Anhänger\" FROM \"Schmuckstück\" WHERE \"Anhänger\" IS NOT NULL AND \"Anhänger\" != '' ORDER BY \"Anhänger\""),
-      db.query("SELECT DISTINCT \"Ausschuss_Grund\" FROM \"Schmuckstück\" WHERE \"Ausschuss_Grund\" IS NOT NULL AND \"Ausschuss_Grund\" != '' ORDER BY \"Ausschuss_Grund\""),
+      db.query(
+        'SELECT DISTINCT "Art" FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != \'\' ORDER BY "Art"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Farbe" FROM "Schmuckstück" WHERE "Farbe" IS NOT NULL AND "Farbe" != \'\' ORDER BY "Farbe"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Material" FROM "Schmuckstück" WHERE "Material" IS NOT NULL AND "Material" != \'\' ORDER BY "Material"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Form" FROM "Schmuckstück" WHERE "Form" IS NOT NULL AND "Form" != \'\' ORDER BY "Form"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Fassung" FROM "Schmuckstück" WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" != \'\' ORDER BY "Anhänger_Fassung"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Form" FROM "Schmuckstück" WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" != \'\' ORDER BY "Anhänger_Form"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" != \'\' ORDER BY "Anhänger_Farbe"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Grösse" FROM "Schmuckstück" WHERE "Anhänger_Grösse" IS NOT NULL ORDER BY "Anhänger_Grösse"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Inhalt_Material" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" != \'\' ORDER BY "Anhänger_Inhalt_Material"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Inhalt_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" != \'\' ORDER BY "Anhänger_Inhalt_Farbe"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Inhalt_Farbakzente" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" != \'\' ORDER BY "Anhänger_Inhalt_Farbakzente"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger_Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" != \'\' ORDER BY "Anhänger_Inhalt_Zusatzmaterial"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Inhalt_Material" FROM "Schmuckstück" WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" != \'\' ORDER BY "Inhalt_Material"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Inhalt_Farbe" FROM "Schmuckstück" WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" != \'\' ORDER BY "Inhalt_Farbe"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Inhalt_Farbakzent" FROM "Schmuckstück" WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" != \'\' ORDER BY "Inhalt_Farbakzent"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" != \'\' ORDER BY "Inhalt_Zusatzmaterial"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Zwischenstück" FROM "Schmuckstück" WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" != \'\' ORDER BY "Zwischenstück"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Fassung" FROM "Schmuckstück" WHERE "Fassung" IS NOT NULL AND "Fassung" != \'\' ORDER BY "Fassung"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Länge" FROM "Schmuckstück" WHERE "Länge" IS NOT NULL ORDER BY "Länge"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Grösse" FROM "Schmuckstück" WHERE "Grösse" IS NOT NULL ORDER BY "Grösse"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Foto" FROM "Schmuckstück" WHERE "Foto" IS NOT NULL AND "Foto" != \'\' ORDER BY "Foto"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Name" FROM "Schmuckstück" WHERE "Name" IS NOT NULL AND "Name" != \'\' ORDER BY "Name"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Verkaufspreis" FROM "Schmuckstück" WHERE "Verkaufspreis" IS NOT NULL ORDER BY "Verkaufspreis"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Herstellungskosten" FROM "Schmuckstück" WHERE "Herstellungskosten" IS NOT NULL ORDER BY "Herstellungskosten"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Ausschuss" FROM "Schmuckstück" WHERE "Ausschuss" IS NOT NULL ORDER BY "Ausschuss"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Anhänger" FROM "Schmuckstück" WHERE "Anhänger" IS NOT NULL AND "Anhänger" != \'\' ORDER BY "Anhänger"',
+      ),
+      db.query(
+        'SELECT DISTINCT "Ausschuss_Grund" FROM "Schmuckstück" WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" != \'\' ORDER BY "Ausschuss_Grund"',
+      ),
     ]);
     res.json({
-      arten: arten.rows.map(r => r.Art),
-      farben: farben.rows.map(r => r.Farbe),
-      materialien: materialien.rows.map(r => r.Material),
-      formen: formen.rows.map(r => r.Form),
-      anhaenger_fassungen: anhaenger_fassungen.rows.map(r => r.Anhänger_Fassung),
-      anhaenger_formen: anhaenger_formen.rows.map(r => r.Anhänger_Form),
-      anhaenger_farben: anhaenger_farben.rows.map(r => r.Anhänger_Farbe),
-      anhaenger_groessen: anhaenger_groessen.rows.map(r => r.Anhänger_Grösse),
-      anhaenger_inhalt_materialien: anhaenger_inhalt_materialien.rows.map(r => r.Anhänger_Inhalt_Material),
-      anhaenger_inhalt_farben: anhaenger_inhalt_farben.rows.map(r => r.Anhänger_Inhalt_Farbe),
-      anhaenger_inhalt_farbakzente: anhaenger_inhalt_farbakzente.rows.map(r => r.Anhänger_Inhalt_Farbakzente),
-      anhaenger_inhalt_zusatzmaterialien: anhaenger_inhalt_zusatzmaterialien.rows.map(r => r.Anhänger_Inhalt_Zusatzmaterial),
-      inhalt_materialien: inhalt_materialien.rows.map(r => r.Inhalt_Material),
-      inhalt_farben: inhalt_farben.rows.map(r => r.Inhalt_Farbe),
-      inhalt_farbakzente: inhalt_farbakzente.rows.map(r => r.Inhalt_Farbakzent),
-      inhalt_zusatzmaterialien: inhalt_zusatzmaterialien.rows.map(r => r.Inhalt_Zusatzmaterial),
-      zwischenstuecke: zwischenstuecke.rows.map(r => r.Zwischenstück),
-      fassungen: fassungen.rows.map(r => r.Fassung),
-      laengen: laengen.rows.map(r => r.Länge),
-      groessen: groessen.rows.map(r => r.Grösse),
-      fotos: fotos.rows.map(r => r.Foto),
-      namen: namen.rows.map(r => r.Name),
-      verkaufspreise: verkaufspreise.rows.map(r => r.Verkaufspreis),
-      herstellungskosten: herstellungskosten.rows.map(r => r.Herstellungskosten),
-      ausschuesse: ausschuesse.rows.map(r => r.Ausschuss),
-      anhaenger: anhaenger.rows.map(r => r.Anhänger),
-      ausschussgruende: ausschussgruende.rows.map(r => r.Ausschuss_Grund),
+      arten: arten.rows.map((r) => r.Art),
+      farben: farben.rows.map((r) => r.Farbe),
+      materialien: materialien.rows.map((r) => r.Material),
+      formen: formen.rows.map((r) => r.Form),
+      anhaenger_fassungen: anhaenger_fassungen.rows.map(
+        (r) => r.Anhänger_Fassung,
+      ),
+      anhaenger_formen: anhaenger_formen.rows.map((r) => r.Anhänger_Form),
+      anhaenger_farben: anhaenger_farben.rows.map((r) => r.Anhänger_Farbe),
+      anhaenger_groessen: anhaenger_groessen.rows.map((r) => r.Anhänger_Grösse),
+      anhaenger_inhalt_materialien: anhaenger_inhalt_materialien.rows.map(
+        (r) => r.Anhänger_Inhalt_Material,
+      ),
+      anhaenger_inhalt_farben: anhaenger_inhalt_farben.rows.map(
+        (r) => r.Anhänger_Inhalt_Farbe,
+      ),
+      anhaenger_inhalt_farbakzente: anhaenger_inhalt_farbakzente.rows.map(
+        (r) => r.Anhänger_Inhalt_Farbakzente,
+      ),
+      anhaenger_inhalt_zusatzmaterialien:
+        anhaenger_inhalt_zusatzmaterialien.rows.map(
+          (r) => r.Anhänger_Inhalt_Zusatzmaterial,
+        ),
+      inhalt_materialien: inhalt_materialien.rows.map((r) => r.Inhalt_Material),
+      inhalt_farben: inhalt_farben.rows.map((r) => r.Inhalt_Farbe),
+      inhalt_farbakzente: inhalt_farbakzente.rows.map(
+        (r) => r.Inhalt_Farbakzent,
+      ),
+      inhalt_zusatzmaterialien: inhalt_zusatzmaterialien.rows.map(
+        (r) => r.Inhalt_Zusatzmaterial,
+      ),
+      zwischenstuecke: zwischenstuecke.rows.map((r) => r.Zwischenstück),
+      fassungen: fassungen.rows.map((r) => r.Fassung),
+      laengen: laengen.rows.map((r) => r.Länge),
+      groessen: groessen.rows.map((r) => r.Grösse),
+      fotos: fotos.rows.map((r) => r.Foto),
+      namen: namen.rows.map((r) => r.Name),
+      verkaufspreise: verkaufspreise.rows.map((r) => r.Verkaufspreis),
+      herstellungskosten: herstellungskosten.rows.map(
+        (r) => r.Herstellungskosten,
+      ),
+      ausschuesse: ausschuesse.rows.map((r) => r.Ausschuss),
+      anhaenger: anhaenger.rows.map((r) => r.Anhänger),
+      ausschussgruende: ausschussgruende.rows.map((r) => r.Ausschuss_Grund),
     });
   } catch (err) {
-    logger.error('SCHMUCK', 'Fehler beim Laden der Filter-Optionen', { message: err.message });
+    logger.error("SCHMUCK", "Fehler beim Laden der Filter-Optionen", {
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Laden der Filter-Optionen" });
   }
 });
 
+// GET unique base artikelnummern (without _suffix)
+router.get("/unique-artikelnummern", async (req, res) => {
+  try {
+    const verkauft = req.query.verkauft;
+    const ausgelagert = req.query.ausgelagert;
+    const ausschuss = req.query.ausschuss;
+    const artikelnummer_art = req.query.artikelnummer_art;
+    console.log(req.query);
+    // Initialisiere WHERE-Builder
+    const builder = where();
+
+    if (verkauft !== undefined) {
+      builder.equals("Verkauft", parseInt(verkauft));
+    }
+    if (ausgelagert !== undefined) {
+      builder.equals("Ausgelagert", parseInt(ausgelagert));
+    }
+    if (ausschuss !== undefined) {
+      builder.equals("Ausschuss", parseInt(ausschuss));
+    }
+    if (artikelnummer_art) {
+      builder.produktart(artikelnummer_art);
+    }
+    if (req.query.grundmaterial) {
+      builder.grundmaterial(req.query.grundmaterial);
+    }
+
+    const whereClauseBuilderResult = builder.build();
+    let whereClause = whereClauseBuilderResult;
+
+    const params = builder.getParams();
+    console.log(whereClause);
+    console.log(params);
+    const { rows } = await db.query(
+      `SELECT base_nr FROM (
+         SELECT DISTINCT split_part("Artikelnummer", '_', 1) as "base_nr"
+         FROM "Schmuckstück"
+         ${whereClause}
+       ) ORDER BY length("base_nr"), "base_nr"`,
+      params,
+    );
+    res.json(rows.map((r) => r.base_nr));
+  } catch (err) {
+    logger.error(
+      "SCHMUCK",
+      "Fehler beim Laden der einzigartigen Artikelnummern",
+      { message: err.message },
+    );
+    res.status(500).json({
+      // error: "Fehler beim Laden der einzigartigen Artikelnummern",
+      error: String(err),
+    });
+  }
+});
 
 // GET single piece
 router.get("/:artikelnummer", async (req, res) => {
@@ -391,7 +551,11 @@ router.get("/:artikelnummer", async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    logger.error('SCHMUCK', `Fehler beim Laden des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
+    logger.error(
+      "SCHMUCK",
+      `Fehler beim Laden des Schmuckstücks: ${req.params.artikelnummer}`,
+      { message: err.message },
+    );
     res.status(500).json({ error: "Fehler beim Laden des Schmuckstücks" });
   }
 });
@@ -402,8 +566,12 @@ router.post("/", async (req, res) => {
   try {
     client = await db.connect();
   } catch (err) {
-    logger.error('SCHMUCK', 'Fehler beim Herstellen der DB-Verbindung', { message: err.message });
-    return res.status(500).json({ error: "Fehler beim Herstellen der Datenbankverbindung" });
+    logger.error("SCHMUCK", "Fehler beim Herstellen der DB-Verbindung", {
+      message: err.message,
+    });
+    return res
+      .status(500)
+      .json({ error: "Fehler beim Herstellen der Datenbankverbindung" });
   }
   try {
     const b = req.body;
@@ -545,16 +713,15 @@ router.post("/", async (req, res) => {
     res.status(201).json(quantity === 1 ? createdItems[0] : createdItems);
   } catch (err) {
     await client.query("ROLLBACK");
-    if (
-      err.code === "23514" &&
-      err.constraint === AUSSCHUSS_GRUND_CONSTRAINT
-    ) {
+    if (err.code === "23514" && err.constraint === AUSSCHUSS_GRUND_CONSTRAINT) {
       return res.status(400).json({
         error:
           "Wenn ein Schmuckstueck als Ausschuss markiert ist, muss ein Ausschuss Grund angegeben werden.",
       });
     }
-    logger.error('SCHMUCK', 'Fehler beim Erstellen des Schmuckstücks', { message: err.message });
+    logger.error("SCHMUCK", "Fehler beim Erstellen des Schmuckstücks", {
+      message: err.message,
+    });
     res.status(500).json({
       error: "Fehler beim Erstellen des Schmuckstücks: " + err.message,
     });
@@ -635,16 +802,17 @@ router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    if (
-      err.code === "23514" &&
-      err.constraint === AUSSCHUSS_GRUND_CONSTRAINT
-    ) {
+    if (err.code === "23514" && err.constraint === AUSSCHUSS_GRUND_CONSTRAINT) {
       return res.status(400).json({
         error:
           "Wenn ein Schmuckstueck als Ausschuss markiert ist, muss ein Ausschuss Grund angegeben werden.",
       });
     }
-    logger.error('SCHMUCK', `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
+    logger.error(
+      "SCHMUCK",
+      `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`,
+      { message: err.message },
+    );
     res
       .status(500)
       .json({ error: "Fehler beim Aktualisieren des Schmuckstücks" });
@@ -663,7 +831,11 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
     }
     res.json({ message: "Schmuckstück gelöscht" });
   } catch (err) {
-    logger.error('SCHMUCK', `Fehler beim Löschen des Schmuckstücks: ${req.params.artikelnummer}`, { message: err.message });
+    logger.error(
+      "SCHMUCK",
+      `Fehler beim Löschen des Schmuckstücks: ${req.params.artikelnummer}`,
+      { message: err.message },
+    );
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
   }
 });

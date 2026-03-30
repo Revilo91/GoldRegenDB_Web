@@ -391,12 +391,12 @@ async function ensureAppUsersTable() {
   }
 }
 
-// ---- Tabelle: lagerinventur_entwurf ----
+// ---- Tabelle: lagerinventur ----
 
 async function ensureLagerinventurEntwurfTable() {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS lagerinventur_entwurf (
+      CREATE TABLE IF NOT EXISTS lagerinventur (
           id SERIAL PRIMARY KEY,
           user_id INTEGER NOT NULL REFERENCES app_users(id),
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -405,11 +405,11 @@ async function ensureLagerinventurEntwurfTable() {
           data JSONB NOT NULL,
           kommentar TEXT
       );
-      CREATE INDEX IF NOT EXISTS idx_lagerinventur_user_status ON lagerinventur_entwurf(user_id, status);
+      CREATE INDEX IF NOT EXISTS idx_lagerinventur_user_status ON lagerinventur(user_id, status);
     `);
-    logger.info('DB', 'lagerinventur_entwurf Tabelle verifiziert');
+    logger.info('DB', 'lagerinventur Tabelle verifiziert');
   } catch (err) {
-    logger.error('DB', 'Fehler beim Verifizieren der lagerinventur_entwurf Tabelle', { message: err.message });
+    logger.error('DB', 'Fehler beim Verifizieren der lagerinventur Tabelle', { message: err.message });
   }
 }
 
@@ -494,8 +494,8 @@ async function ensureTriggers() {
 //   4. Rechnung
 //   5. Schmuckstück
 //   6. audit_log (wird von Audit-Trigger beschrieben)
-//   7. app_users (wird von lagerinventur_entwurf referenziert)
-//   8. lagerinventur_entwurf
+//   7. app_users (wird von lagerinventur referenziert)
+//   8. lagerinventur
 //   9. Constraints & Trigger (brauchen die Tabellen)
 
 pool.query('SELECT NOW() AS server_time')
