@@ -66,12 +66,19 @@ export default function EtikettPhomemo() {
   function addItemFromList(artikelnummer, q) {
     const addQty = Math.max(1, parseInt(String(q || 0), 10) || 1);
     setItems((prev) => {
-      const existingIdx = prev.findIndex((i) => i.artikelnummer === artikelnummer);
+      const existingIdx = prev.findIndex(
+        (i) => i.artikelnummer === artikelnummer,
+      );
       if (existingIdx >= 0) {
         const cp = [...prev];
         const existingQty = Number(cp[existingIdx].qty) || 0;
         cp[existingIdx] = { ...cp[existingIdx], qty: existingQty + addQty };
-        console.debug("[Etikett] merged item", { artikelnummer, existingQty, addQty, newQty: cp[existingIdx].qty });
+        console.debug("[Etikett] merged item", {
+          artikelnummer,
+          existingQty,
+          addQty,
+          newQty: cp[existingIdx].qty,
+        });
         return cp;
       }
       const entry = { artikelnummer, qty: addQty };
@@ -235,7 +242,9 @@ export default function EtikettPhomemo() {
                 {loadingOptions ? (
                   <div style={{ padding: 12 }}>Lade Artikel...</div>
                 ) : error ? (
-                  <div style={{ color: "var(--danger, #c53030)", padding: 12 }}>{error}</div>
+                  <div style={{ color: "var(--danger, #c53030)", padding: 12 }}>
+                    {error}
+                  </div>
                 ) : (
                   <DataTable
                     columns={columns}
@@ -311,8 +320,10 @@ export default function EtikettPhomemo() {
               <h3>Etikettengröße</h3>
             </div>
             <div className="card-body">
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label
+                  style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="radio"
                     name="labelSize"
@@ -322,7 +333,8 @@ export default function EtikettPhomemo() {
                   />
                   <span>Klein (30 × 20 mm)</span>
                 </label>
-                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label
+                  style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="radio"
                     name="labelSize"
@@ -332,7 +344,8 @@ export default function EtikettPhomemo() {
                   />
                   <span>Mittel (40 × 20 mm)</span>
                 </label>
-                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label
+                  style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="radio"
                     name="labelSize"
