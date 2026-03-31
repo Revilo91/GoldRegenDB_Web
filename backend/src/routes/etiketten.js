@@ -71,9 +71,11 @@ router.post("/preview", async (req, res) => {
     }
 
     // 2. Assets (QR, Logos, Warnhinweis) vorbereiten
-    const materialHints = Array.isArray(req.body.materialHints)
+    let materialHints = Array.isArray(req.body.materialHints)
       ? req.body.materialHints
       : [];
+    // Maximal 6 Hinweise zulassen
+    materialHints = materialHints.slice(0, 6);
 
     // QR Code für Homepage
     const qrUrl = "https://goldregenschmuckdesign.de";
@@ -186,11 +188,7 @@ router.post("/preview", async (req, res) => {
           ...new Set(
             materialHints.map((h) => String(h).trim()).filter(Boolean),
           ),
-        ];
-        const hintClass =
-          uniqueHints.length > 2 || uniqueHints.some((hint) => hint.length > 12)
-            ? "hints compact"
-            : "hints";
+        ].slice(0, 6); // Maximal 6 eindeutige Hinweise
         const artNrClass = num.length > 7 ? "artnr compact" : "artnr";
 
         // Brand-Logo: Soll in voller Breite gerendert werden
@@ -198,14 +196,27 @@ router.post("/preview", async (req, res) => {
           ? `<img src="${brandDataUrl}" class="brand-logo" alt="GoldRegen" />`
           : `<div class="brand-text">GoldRegen Schmuckdesign</div>`;
 
-        // Zusatzinfos (optional). Wenn leer, wird Platzhalter für Leerraum gesetzt
-        const hintsHtml =
-          uniqueHints.length > 0
-            ? `<div class="hints-container">
-               <p style="font-weight: bold;">Material Hinweise</p>
-               <ul class="${hintClass}">${uniqueHints.map((h) => `<li>${escapeHtml(h)}</li>`).join("")}</ul>
-             </div>`
-            : `<div class="empty-space"></div>`;
+        // Hinweise als zweispaltige Tabelle
+        let hintsHtml = `<div class="empty-space"></div>`;
+        if (uniqueHints.length > 0) {
+          // Tabelle mit 2 Spalten, von oben links nach unten rechts auffüllen
+          const rows = [];
+          for (let i = 0; i < 3; i++) {
+            const left = uniqueHints[i] ? `<td>${escapeHtml(uniqueHints[i])}</td>` : '<td></td>';
+            const right = uniqueHints[i + 3] ? `<td>${escapeHtml(uniqueHints[i + 3])}</td>` : '<td></td>';
+            rows.push(`<tr>${left}${right}</tr>`);
+          }
+          hintsHtml = `
+            <div class="hints-container">
+              <p style="font-weight: bold;">Material Hinweise</p>
+              <table class="hints-table">
+                <tbody>
+                  ${rows.join("\n")}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
 
         // Strukturiertes Layout nach Vorgabe
         // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
@@ -353,26 +364,20 @@ router.post("/preview", async (req, res) => {
         overflow: hidden;
         min-height: calc(var(--hint-size) * 2.6);
       }
-      .hints {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.45mm;
+      .hints-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      .hints-table td {
+        width: 50%;
+        text-align: left;
+        padding: 0.2mm 0.5mm;
         font-weight: bold;
-      }
-      .hints li {
-        margin: 0;
-        max-width: 100%;
-        line-height: 1.05;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .hints.compact li {
-        font-size: calc(var(--hint-size) * 0.7);
+        font-size: calc(var(--hint-size) * 0.9);
+        line-height: 1.1;
+        word-break: break-word;
+        vertical-align: top;
       }
       .empty-space {
         flex: 1 1 auto;

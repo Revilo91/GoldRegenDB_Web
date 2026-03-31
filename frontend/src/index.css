@@ -69,12 +69,7 @@ body {
 /* ============ PARAGRAPHS ============ */
 p {
   color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.75;
-  margin: 0 0 1rem 0;
-  max-width: 70ch; /* comfortable measure for reading */
-  hyphens: auto;
-  -webkit-font-smoothing: antialiased;
+  font-size: 0.9rem;
 }
 
 p.lead {
@@ -294,7 +289,7 @@ p.lead {
 }
 
 .card-header {
-  padding: 20px 24px;
+  padding: 20px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -309,7 +304,7 @@ p.lead {
 }
 
 .card-body {
-  padding: 0;
+  padding: 10px;
 }
 
 /* ============ ALERT CARDS ============ */
@@ -546,7 +541,7 @@ p.lead {
   font-weight: 600;
 }
 
-/* ===== EtikettPhomemo styles (moved from EtikettPhomemo.css) ===== */
+/* ===== Etiketten styles (moved from Etiketten.css) ===== */
 .hint-chip {
   display: inline-flex;
   align-items: center;
@@ -649,7 +644,7 @@ p.lead {
   }
 }
 
-/* ===== end EtikettPhomemo styles ===== */
+/* ===== end Etiketten styles ===== */
 
 .badge.success {
   background: var(--success-bg);
@@ -672,7 +667,7 @@ p.lead {
   color: var(--gold);
 }
 
-/* clickable badges used in EtikettPhomemo */
+/* clickable badges used in Etiketten */
 .badge.clickable {
   cursor: pointer;
   user-select: none;

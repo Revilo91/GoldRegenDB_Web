@@ -36,7 +36,7 @@ import Kunden from "./pages/Kunden";
 import Lieferscheine from "./pages/Lieferscheine";
 import Rechnungen from "./pages/Rechnungen";
 import Sumup from "./pages/Sumup";
-import EtikettPhomemo from "./pages/EtikettPhomemo";
+import Etiketten from "./pages/Etiketten";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
@@ -593,7 +593,7 @@ function AppLayout() {
             path="/etiketten"
             element={
               <ProtectedRoute bearbeiterOnly>
-                <EtikettPhomemo />
+                <Etiketten />
               </ProtectedRoute>
             }
           />

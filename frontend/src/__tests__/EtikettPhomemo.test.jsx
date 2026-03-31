@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
-import EtikettPhomemo from '../pages/EtikettPhomemo';
+import Etiketten from '../pages/Etiketten';
 import { api } from '../api';
 
 vi.mock('../api', () => ({
@@ -10,7 +10,7 @@ vi.mock('../api', () => ({
   },
 }));
 
-describe('EtikettPhomemo', () => {
+describe('Etiketten', () => {
   beforeEach(() => {
     api.getEtikettenOptions.mockResolvedValue([
       { artikelnummer: 'ART001_1', name: 'Test Artikel' },
@@ -19,7 +19,7 @@ describe('EtikettPhomemo', () => {
   });
 
   it('fügt eigenen Hinweis mit Enter hinzu und entfernt ihn', async () => {
-    render(<EtikettPhomemo />);
+    render(<Etiketten />);
 
     // wait for options to load
     await waitFor(() => expect(screen.getByText('Verfügbare Artikel')).toBeInTheDocument());
