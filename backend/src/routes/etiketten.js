@@ -372,11 +372,8 @@ router.post("/preview", async (req, res) => {
       .hints-table td {
         width: 50%;
         text-align: left;
-        padding: 0.2mm 0.5mm;
-        font-weight: bold;
-        font-size: calc(var(--hint-size) * 0.9);
+        font-size: calc(var(--hint-size) * 0.6);
         line-height: 1.1;
-        word-break: break-word;
         vertical-align: top;
       }
       .empty-space {

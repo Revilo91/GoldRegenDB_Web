@@ -98,15 +98,24 @@ export default function Etiketten() {
   }
 
   function toggleHint(h) {
-    setSelectedHints((prev) =>
-      prev.includes(h) ? prev.filter((x) => x !== h) : [...prev, h],
-    );
+    setSelectedHints((prev) => {
+      if (prev.includes(h)) {
+        return prev.filter((x) => x !== h);
+      } else {
+        if (prev.length >= 6) return prev; // Maximal 6 Hinweise
+        return [...prev, h];
+      }
+    });
   }
 
   function addCustomHint() {
     const val = customHint ? customHint.trim() : "";
     if (!val) return;
-    setSelectedHints((prev) => (prev.includes(val) ? prev : [...prev, val]));
+    setSelectedHints((prev) => {
+      if (prev.includes(val)) return prev;
+      if (prev.length >= 6) return prev; // Maximal 6 Hinweise
+      return [...prev, val];
+    });
     setCustomHint("");
   }
 
@@ -372,12 +381,13 @@ export default function Etiketten() {
                 <label
                   key={h}
                   htmlFor={`hint-${h}`}
-                  style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  style={{ display: "flex", gap: 6, alignItems: "center", opacity: selectedHints.length >= 6 && !selectedHints.includes(h) ? 0.5 : 1 }}>
                   <input
                     id={`hint-${h}`}
                     type="checkbox"
                     aria-label={`Materialhinweis ${h}`}
                     checked={selectedHints.includes(h)}
+                    disabled={!selectedHints.includes(h) && selectedHints.length >= 6}
                     onChange={() => toggleHint(h)}
                   />
                   <span>{h}</span>
@@ -398,12 +408,13 @@ export default function Etiketten() {
                 }}
                 aria-label="Eigener Hinweis"
                 style={{ flex: 1 }}
+                disabled={selectedHints.length >= 6}
               />
               <button
                 type="button"
                 className="btn"
                 onClick={addCustomHint}
-                disabled={!customHint || customHint.trim() === ""}>
+                disabled={!customHint || customHint.trim() === "" || selectedHints.length >= 6}>
                 Hinzufügen
               </button>
             </div>
