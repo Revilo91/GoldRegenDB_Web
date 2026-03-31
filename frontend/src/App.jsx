@@ -15,6 +15,7 @@ import {
   faFileInvoice,
   faCreditCard,
   faClipboardList,
+  faTag,
   faWrench,
   faUserLock,
   faDatabase,
@@ -35,6 +36,7 @@ import Kunden from "./pages/Kunden";
 import Lieferscheine from "./pages/Lieferscheine";
 import Rechnungen from "./pages/Rechnungen";
 import Sumup from "./pages/Sumup";
+import EtikettPhomemo from "./pages/EtikettPhomemo";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
@@ -212,6 +214,18 @@ function AppLayout() {
               <FontAwesomeIcon icon={faBox} />
             </span>
             <span>Lieferscheine</span>
+          </NavLink>
+          )}
+          {isBearbeiter && (
+          <NavLink
+            to="/etiketten"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">
+              <FontAwesomeIcon icon={faTag} />
+            </span>
+            <span>Etiketten</span>
           </NavLink>
           )}
           {isBearbeiter && (
@@ -572,6 +586,14 @@ function AppLayout() {
             element={
               <ProtectedRoute bearbeiterOnly>
                 <Sumup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/etiketten"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <EtikettPhomemo />
               </ProtectedRoute>
             }
           />

@@ -272,4 +272,24 @@ export const api = {
   updateInventurDraft: (id, data) => request(`/lagerinventur/drafts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   completeInventurDraft: (id) => request(`/lagerinventur/drafts/${id}/complete`, { method: 'POST', body: JSON.stringify({}) }),
   getInventurDiff: (id) => request(`/lagerinventur/drafts/${id}/diff`),
+
+  // Etiketten
+  getEtikettenOptions: () => request('/etiketten/options'),
+  getEtikettenPreview: async (payload) => {
+    const token = getToken();
+    const res = await fetch(`${API_URL}/etiketten/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const message = err.error || err.message || res.statusText || 'Request failed';
+      const e = new Error(message);
+      e.status = res.status;
+      e.payload = err;
+      throw e;
+    }
+    return res.text();
+  },
 };
