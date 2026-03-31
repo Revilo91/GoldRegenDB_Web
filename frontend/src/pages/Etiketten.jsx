@@ -467,6 +467,7 @@ export default function Etiketten() {
           className="btn"
           onClick={() => {
             setItems([]);
+            setSelectedHints([]);
           }}>
           Zurücksetzen
         </button>
