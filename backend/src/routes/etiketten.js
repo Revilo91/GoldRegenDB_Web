@@ -202,13 +202,17 @@ router.post("/preview", async (req, res) => {
           // Tabelle mit 2 Spalten, von oben links nach unten rechts auffüllen
           const rows = [];
           for (let i = 0; i < 3; i++) {
-            const left = uniqueHints[i] ? `<td>${escapeHtml(uniqueHints[i])}</td>` : '<td></td>';
-            const right = uniqueHints[i + 3] ? `<td>${escapeHtml(uniqueHints[i + 3])}</td>` : '<td></td>';
+            const left = uniqueHints[i]
+              ? `<td>${escapeHtml(uniqueHints[i])}</td>`
+              : "<td></td>";
+            const right = uniqueHints[i + 3]
+              ? `<td>${escapeHtml(uniqueHints[i + 3])}</td>`
+              : "<td></td>";
             rows.push(`<tr>${left}${right}</tr>`);
           }
           hintsHtml = `
             <div class="hints-container">
-              <p style="font-weight: bold;">Material Hinweise</p>
+              <p style="font-weight: bold;margin: 5px 0px;">Material Hinweise</p>
               <table class="hints-table">
                 <tbody>
                   ${rows.join("\n")}
@@ -357,12 +361,6 @@ router.post("/preview", async (req, res) => {
         width: 100%;
         text-align: center;
         font-size: calc(var(--hint-size) * 0.68);
-        flex: 1 1 auto;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        overflow: hidden;
-        min-height: calc(var(--hint-size) * 2.6);
       }
       .hints-table {
         width: 100%;
@@ -372,7 +370,7 @@ router.post("/preview", async (req, res) => {
       .hints-table td {
         width: 50%;
         text-align: left;
-        font-size: calc(var(--hint-size) * 0.6);
+        font-size: calc(var(--hint-size) * 0.68);
         line-height: 1.1;
         vertical-align: top;
       }
