@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 
-export default function EtikettPhomemo() {
+export default function Etiketten() {
   const [options, setOptions] = useState([]);
   const [error, setError] = useState("");
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -271,47 +271,45 @@ export default function EtikettPhomemo() {
               <h3>Ausgewählte Etiketten</h3>
             </div>
             <div className="card-body">
-              <div style={{ maxHeight: 420, overflow: "auto", padding: 5 }}>
-                {items.length === 0 ? (
-                  <p>Keine Artikel ausgewählt</p>
-                ) : (
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Artikelnummer</th>
-                        <th style={{ width: 92 }}>Anzahl</th>
-                        <th style={{ width: 140 }}>Aktion</th>
+              {items.length === 0 ? (
+                <p>Keine Artikel ausgewählt</p>
+              ) : (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Artikelnummer</th>
+                      <th style={{ width: 92 }}>Anzahl</th>
+                      <th style={{ width: 140 }}>Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((it, idx) => (
+                      <tr key={it.artikelnummer + "-" + idx}>
+                        <td>{it.artikelnummer}</td>
+                        <td>
+                          <input
+                            className="form-control"
+                            type="number"
+                            min="1"
+                            value={it.qty}
+                            onChange={(e) =>
+                              updateQty(idx, Number(e.target.value) || 1)
+                            }
+                            style={{ width: 92 }}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => removeIndex(idx)}>
+                            Entfernen
+                          </button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((it, idx) => (
-                        <tr key={it.artikelnummer + "-" + idx}>
-                          <td>{it.artikelnummer}</td>
-                          <td>
-                            <input
-                              className="form-control"
-                              type="number"
-                              min="1"
-                              value={it.qty}
-                              onChange={(e) =>
-                                updateQty(idx, Number(e.target.value) || 1)
-                              }
-                              style={{ width: 92 }}
-                            />
-                          </td>
-                          <td>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => removeIndex(idx)}>
-                              Entfernen
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
@@ -363,8 +361,10 @@ export default function EtikettPhomemo() {
 
       <div className="hints-wrapper">
         <div className="card">
-          <div className="card-body hints-card-body">
-            <h4 style={{ padding: 10 }}>Materialhinweise (wählbar)</h4>
+          <div className="card-header">
+            <h5>Materialhinweise (wählbar)</h5>
+          </div>
+          <div className="card-body">
             <div
               className="preset-hints"
               style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -410,34 +410,38 @@ export default function EtikettPhomemo() {
           </div>
         </div>
 
-        <div className="card-body active-hints-panel">
-          <h4>Aktive Hinweise</h4>
-          {selectedHints.length === 0 ? (
-            <div className="muted">Keine aktiven Hinweise</div>
-          ) : (
-            <div
-              style={{
-                marginTop: 6,
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-              }}>
-              {selectedHints.map((h) => (
-                <span key={h} className="hint-chip">
-                  <span>{h}</span>
-                  <button
-                    type="button"
-                    className="chip-remove"
-                    aria-label={`Hinweis ${h} entfernen`}
-                    onClick={() =>
-                      setSelectedHints((prev) => prev.filter((x) => x !== h))
-                    }>
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
+        <div className="card">
+          <div className="card-header">
+            <h5>Aktive Hinweise</h5>
+          </div>
+          <div className="card-body">
+            {selectedHints.length === 0 ? (
+              <p>Keine aktiven Hinweise</p>
+            ) : (
+              <div
+                style={{
+                  marginTop: 6,
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}>
+                {selectedHints.map((h) => (
+                  <span key={h} className="hint-chip">
+                    <span>{h}</span>
+                    <button
+                      type="button"
+                      className="chip-remove"
+                      aria-label={`Hinweis ${h} entfernen`}
+                      onClick={() =>
+                        setSelectedHints((prev) => prev.filter((x) => x !== h))
+                      }>
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
