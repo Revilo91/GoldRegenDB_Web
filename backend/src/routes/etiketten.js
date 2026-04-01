@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const logger = require("../utils/logger");
+const { where } = require("../utils/whereClauseBuilder");
 const QRCode = require("qrcode");
 const fs = require("fs").promises;
 const path = require("path");
@@ -456,12 +457,35 @@ const sendTextFile = async (res, filePath, contentType, notFoundResponse) => {
 // Liefert Liste eindeutiger Basis-Artikelnummern für Dropdowns
 router.get("/options", async (req, res) => {
   try {
-    const { rows } = await db.query(`
-      SELECT DISTINCT split_part("Artikelnummer", '_', 1) as artikel_base, MIN("Name") as name
+    const q = String(req.query.q || "").trim().toUpperCase();
+    const parsedLimit = Number.parseInt(String(req.query.limit || ""), 10);
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.max(10, Math.min(parsedLimit, 500))
+      : 200;
+
+    const builder = where();
+    builder.verfuegbar();
+    if (q) {
+      builder.conditions.push(
+        `(split_part("Artikelnummer", '_', 1) ILIKE $${builder.paramIdx} OR COALESCE("Name", '') ILIKE $${builder.paramIdx + 1})`,
+      );
+      builder.params.push(`%${q}%`, `%${q}%`);
+      builder.paramIdx += 2;
+    }
+
+    const limitParam = builder.paramIdx;
+
+    const query = `
+      SELECT split_part("Artikelnummer", '_', 1) AS artikel_base,
+             MIN("Name") AS name
       FROM "Schmuckstück"
+      ${builder.build()}
       GROUP BY artikel_base
       ORDER BY artikel_base
-    `);
+      LIMIT $${limitParam}
+    `;
+
+    const { rows } = await db.query(query, [...builder.getParams(), limit]);
     res.json(
       rows.map((r) => ({ artikelnummer: r.artikel_base, name: r.name })),
     );

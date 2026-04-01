@@ -274,7 +274,10 @@ export const api = {
   getInventurDiff: (id) => request(`/lagerinventur/drafts/${id}/diff`),
 
   // Etiketten
-  getEtikettenOptions: () => request('/etiketten/options'),
+  getEtikettenOptions: (params) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return request(`/etiketten/options${qs ? `?${qs}` : ''}`);
+  },
   getEtikettenPreview: async (payload) => {
     const token = getToken();
     const res = await fetch(`${API_URL}/etiketten/preview`, {

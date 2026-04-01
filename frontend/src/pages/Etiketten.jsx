@@ -6,8 +6,6 @@ export default function Etiketten({ showHeader = true }) {
   const [options, setOptions] = useState([]);
   const [error, setError] = useState("");
   const [loadingOptions, setLoadingOptions] = useState(false);
-  const [selected, setSelected] = useState("");
-  const [qty, setQty] = useState(1);
   const [items, setItems] = useState([]);
   const [presetHints] = useState([
     "Edelstahl",
@@ -19,6 +17,7 @@ export default function Etiketten({ showHeader = true }) {
   const [customHint, setCustomHint] = useState("");
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rowQty, setRowQty] = useState({});
   const [adding, setAdding] = useState({});
   const [labelSize, setLabelSize] = useState("small");
@@ -26,34 +25,36 @@ export default function Etiketten({ showHeader = true }) {
   const totalSelected = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   useEffect(() => {
-    fetchOptions();
-  }, []);
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 250);
+    return () => clearTimeout(timeoutId);
+  }, [search]);
 
-  async function fetchOptions() {
+  useEffect(() => {
+    fetchOptions({ q: debouncedSearch });
+  }, [debouncedSearch]);
+
+  async function fetchOptions(params = {}) {
     setLoadingOptions(true);
     setError("");
     try {
-      const json = await api.getEtikettenOptions();
-      const list = json || [];
-      const seen = {};
-      const unique = [];
-      for (const o of list) {
-        const art = (o.artikelnummer || "").split("_")[0];
-        if (!art) continue;
-        if (!Object.prototype.hasOwnProperty.call(seen, art)) {
-          seen[art] = true;
-          // keep name/preis from first occurrence but normalize artikelnummer to base
-          unique.push({ ...o, artikelnummer: art });
-        }
-      }
+      const query = {
+        q: (params.q ?? debouncedSearch) || "",
+        limit: "200",
+      };
+      const json = await api.getEtikettenOptions(query);
+      const unique = json || [];
       setOptions(unique);
-      if (unique.length > 0) {
-        setSelected(unique[0].artikelnummer);
-        // initialize rowQty for visible options to avoid undefined/NaN issues
-        const initialRowQty = {};
-        for (const u of unique) initialRowQty[u.artikelnummer] = 1;
-        setRowQty(initialRowQty);
-      }
+      setRowQty((prev) => {
+        const next = { ...prev };
+        for (const u of unique) {
+          if (next[u.artikelnummer] == null) {
+            next[u.artikelnummer] = 1;
+          }
+        }
+        return next;
+      });
     } catch (err) {
       console.error(err);
       setError(err.message || "Fehler beim Laden der Artikel");
@@ -205,7 +206,7 @@ export default function Etiketten({ showHeader = true }) {
         <div className="page-header">
           <div>
             <h2>Etiketten erstellen</h2>
-            <p>{options.length} Schmuckstücke</p>
+            <p>{options.length} Treffer (max. 200 pro Anfrage)</p>
           </div>
         </div>
       )}
@@ -259,15 +260,7 @@ export default function Etiketten({ showHeader = true }) {
                 ) : (
                   <DataTable
                     columns={columns}
-                    data={options.filter((o) => {
-                      if (!search) return true;
-                      const s = search.toLowerCase();
-                      const base = (o.artikelnummer || "").toLowerCase();
-                      return (
-                        base.includes(s) ||
-                        (o.name && o.name.toLowerCase().includes(s))
-                      );
-                    })}
+                    data={options}
                     getRowKey={(r) => r.artikelnummer}
                   />
                 )}
