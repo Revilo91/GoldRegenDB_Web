@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 
-export default function Etiketten() {
+export default function Etiketten({ showHeader = true }) {
   const [options, setOptions] = useState([]);
   const [error, setError] = useState("");
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -201,12 +201,14 @@ export default function Etiketten() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h2>Etiketten erstellen</h2>
-          <p>{options.length} Schmuckstücke</p>
+      {showHeader && (
+        <div className="page-header">
+          <div>
+            <h2>Etiketten erstellen</h2>
+            <p>{options.length} Schmuckstücke</p>
+          </div>
         </div>
-      </div>
+      )}
       <div
         className="toolbar"
         style={{

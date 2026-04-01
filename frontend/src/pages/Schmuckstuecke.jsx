@@ -16,6 +16,7 @@ import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
 import { useAuth } from "../context/AuthContext";
+import Etiketten from "./Etiketten";
 
 export default function Schmuckstuecke() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function Schmuckstuecke() {
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [activeTab, setActiveTab] = useState("schmuckstuecke");
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
     direction: "asc",
@@ -224,15 +226,36 @@ export default function Schmuckstuecke() {
       <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
-          <p>{p.total || 0} Stücke insgesamt</p>
+          <p>
+            {activeTab === "schmuckstuecke"
+              ? `${p.total || 0} Stücke insgesamt`
+              : "Etiketten erstellen"}
+          </p>
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button className="btn btn-primary" onClick={openNew}>
-            + Neues Schmuckstück
-          </button>
-        </div>
+        {activeTab === "schmuckstuecke" && (
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button className="btn btn-primary" onClick={openNew}>
+              + Neues Schmuckstück
+            </button>
+          </div>
+        )}
       </div>
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button
+          className={`btn btn-sm ${activeTab === "schmuckstuecke" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("schmuckstuecke")}>
+          Schmuckstücke
+        </button>
+        <button
+          className={`btn btn-sm ${activeTab === "etiketten" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("etiketten")}>
+          Etiketten
+        </button>
+      </div>
+
+      {activeTab === "schmuckstuecke" ? (
+        <>
       <TableToolbar
         search={search}
         onSearchChange={(value) => {
@@ -1202,6 +1225,11 @@ export default function Schmuckstuecke() {
             </div>
           </div>
         </div>
+      )}
+
+        </>
+      ) : (
+        <Etiketten showHeader={false} />
       )}
     </div>
   );

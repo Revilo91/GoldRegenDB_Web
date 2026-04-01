@@ -218,18 +218,6 @@ function AppLayout() {
           )}
           {isBearbeiter && (
           <NavLink
-            to="/etiketten"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faTag} />
-            </span>
-            <span>Etiketten</span>
-          </NavLink>
-          )}
-          {isBearbeiter && (
-          <NavLink
             to="/rechnungen"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
             onClick={closeMobileMenu}
