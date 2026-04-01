@@ -133,6 +133,15 @@ export default function Schmuckstuecke() {
     return kunde ? kunde.Name : `Kundennummer ${id}`;
   };
 
+  const getLengthUnit = ({ Artikelnummer } = {}) => {
+    console.log("🔍 Bestimme Längeneinheit für Artikelnummer:", Artikelnummer);
+    const produktartCode = String(Artikelnummer || "").charAt(2).toUpperCase();
+    if (produktartCode === "O") return "mm";
+    if (produktartCode === "H") return "cm";
+
+    return "cm";
+  };
+
   const p = data.pagination;
 
   const sortedData = useMemo(() => {
@@ -521,7 +530,12 @@ export default function Schmuckstuecke() {
                 ["Grundmaterial", selected.Grundmaterial],
                 ["Art", selected.Art],
                 ["Form", selected.Form],
-                ["Länge", selected["Länge"] ? `${selected["Länge"]} cm` : "–"],
+                [
+                  "Länge",
+                  selected["Länge"]
+                    ? `${selected["Länge"]} ${getLengthUnit(selected)}`
+                    : "–",
+                ],
                 ["Fassung", selected.Fassung],
                 ["Farbe", selected.Farbe],
                 ["Material", selected.Material],
@@ -746,7 +760,7 @@ export default function Schmuckstuecke() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Länge (cm)</label>
+                    <label>Länge ({getLengthUnit(form)})</label>
                     <input
                       className="form-control"
                       type="number"
