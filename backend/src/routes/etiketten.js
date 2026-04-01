@@ -4,8 +4,40 @@ const db = require("../config/db");
 const logger = require("../utils/logger");
 const QRCode = require("qrcode");
 const fs = require("fs").promises;
-const fsSync = require("fs");
 const path = require("path");
+
+const FRONTEND_CSS_PATH = path.resolve(
+  __dirname,
+  "../../../frontend/src/index.css",
+);
+const WARN_SVG_PATH = path.resolve(__dirname, "../assets/warn_0-3.svg");
+const BRAND_SVG_PATH = path.resolve(__dirname, "../assets/goldregen.svg");
+const QR_TARGET_URL = "https://goldregenschmuckdesign.de";
+const MAX_MATERIAL_HINTS = 6;
+
+const LABEL_SIZE_DEFAULTS = {
+  small: {
+    w: "48mm",
+    h: "30mm",
+    brandH: "8mm",
+    artSize: "8mm",
+    hintSize: "3.5mm",
+  },
+  medium: {
+    w: "60mm",
+    h: "36mm",
+    brandH: "10mm",
+    artSize: "10mm",
+    hintSize: "4mm",
+  },
+  large: {
+    w: "80mm",
+    h: "48mm",
+    brandH: "14mm",
+    artSize: "14mm",
+    hintSize: "5mm",
+  },
+};
 
 // Hilfsfunktion: HTML Escaping
 const escapeHtml = (str) => {
@@ -27,6 +59,397 @@ const getCssVar = (cssContent, name, fallback) => {
   );
   const m = cssContent.match(re);
   return m ? m[1].trim() : fallback;
+};
+
+const readTextFileIfExists = async (filePath) => {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return null;
+    }
+    throw err;
+  }
+};
+
+const toSvgDataUrl = (svgContent) => {
+  return `data:image/svg+xml;base64,${Buffer.from(svgContent).toString("base64")}`;
+};
+
+const normalizeRequestedItems = (items) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item) => ({
+      artikelnummer: String(item?.artikelnummer || "").trim(),
+      qty: parseInt(item?.qty, 10) || 1,
+    }))
+    .filter((item) => item.artikelnummer);
+};
+
+const normalizeMaterialHints = (materialHints) => {
+  if (!Array.isArray(materialHints)) {
+    return [];
+  }
+
+  return [...new Set(materialHints.map((hint) => String(hint).trim()).filter(Boolean))].slice(
+    0,
+    MAX_MATERIAL_HINTS,
+  );
+};
+
+const fetchLabelDetail = async ({ artikelnummer, qty }) => {
+  const { rows } = await db.query(
+    `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 OR "Artikelnummer" LIKE $2 ORDER BY "Artikelnummer" LIMIT 1`,
+    [artikelnummer, `${artikelnummer}\\_%`],
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return { row: rows[0], qty };
+};
+
+const fetchLabelDetails = async (items) => {
+  const details = await Promise.all(items.map(fetchLabelDetail));
+  return details.filter(Boolean);
+};
+
+const loadQrDataUrl = async () => {
+  try {
+    return await QRCode.toDataURL(QR_TARGET_URL, {
+      errorCorrectionLevel: "Q",
+      margin: 4,
+      width: 1200,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    });
+  } catch (err) {
+    logger.warn("ETIKETTEN", "QR-Code Fehler", {
+      message: err.message,
+    });
+    return "";
+  }
+};
+
+const loadSvgDataUrl = async (filePath, logMessage) => {
+  try {
+    const svgContent = await readTextFileIfExists(filePath);
+    return svgContent ? toSvgDataUrl(svgContent) : "";
+  } catch (err) {
+    if (logMessage) {
+      logger.warn("ETIKETTEN", logMessage, {
+        message: err.message,
+      });
+    }
+    return "";
+  }
+};
+
+const loadPreviewAssets = async () => {
+  const [qrDataUrl, warnDataUrl, brandDataUrl, cssContent] = await Promise.all([
+    loadQrDataUrl(),
+    loadSvgDataUrl(WARN_SVG_PATH),
+    loadSvgDataUrl(BRAND_SVG_PATH, "Brand-Logo konnte nicht gelesen werden"),
+    readTextFileIfExists(FRONTEND_CSS_PATH),
+  ]);
+
+  return {
+    qrDataUrl,
+    warnDataUrl,
+    brandDataUrl,
+    cssContent: cssContent || "",
+  };
+};
+
+const getLabelSizes = (cssContent) => {
+  return Object.fromEntries(
+    Object.entries(LABEL_SIZE_DEFAULTS).map(([size, defaults]) => [
+      size,
+      {
+        w: getCssVar(cssContent, `--label-${size}-w`, defaults.w),
+        h: getCssVar(cssContent, `--label-${size}-h`, defaults.h),
+        brandH: getCssVar(cssContent, `--label-${size}-brandH`, defaults.brandH),
+        artSize: getCssVar(cssContent, `--label-${size}-artSize`, defaults.artSize),
+        hintSize: getCssVar(cssContent, `--label-${size}-hintSize`, defaults.hintSize),
+      },
+    ]),
+  );
+};
+
+const resolveLabelSize = (labelSize, cssContent) => {
+  const sizes = getLabelSizes(cssContent);
+  return sizes[String(labelSize || "small")] || sizes.small;
+};
+
+const buildBrandHtml = (brandDataUrl) => {
+  return brandDataUrl
+    ? `<img src="${brandDataUrl}" class="brand-logo" alt="GoldRegen" />`
+    : '<div class="brand-text">GoldRegen Schmuckdesign</div>';
+};
+
+const buildHintsHtml = (materialHints) => {
+  if (materialHints.length === 0) {
+    return '<div class="empty-space"></div>';
+  }
+
+  const rows = [];
+  for (let index = 0; index < 3; index++) {
+    const left = materialHints[index]
+      ? `<td>${escapeHtml(materialHints[index])}</td>`
+      : "<td></td>";
+    const right = materialHints[index + 3]
+      ? `<td>${escapeHtml(materialHints[index + 3])}</td>`
+      : "<td></td>";
+    rows.push(`<tr>${left}${right}</tr>`);
+  }
+
+  return `
+    <div class="hints-container">
+      <p style="font-weight: bold;margin: 5px 0px;">Material Hinweise</p>
+      <table class="hints-table">
+        <tbody>
+          ${rows.join("\n")}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+const buildWarnImgHtml = (warnDataUrl) => {
+  return warnDataUrl
+    ? `<img src="${warnDataUrl}" class="warn-symbol" alt="Warnung" />`
+    : '<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Warnung" />';
+};
+
+const buildQrImgHtml = (qrDataUrl) => {
+  return qrDataUrl ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" />` : "";
+};
+
+const buildLabelMarkup = ({ row, qty }, templateData) => {
+  const articleNumber = String(row.Artikelnummer || "").split("_")[0];
+  const artNrClass = articleNumber.length > 7 ? "artnr compact" : "artnr";
+  const labels = [];
+
+  for (let index = 0; index < qty; index++) {
+    labels.push(`
+      <div class="label">
+        <div class="rot">
+          <div class="logo-container">${templateData.brandHtml}</div>
+          <div class="dotted-line"></div>
+          <div class="${artNrClass}">${escapeHtml(articleNumber)}</div>
+          ${templateData.hintsHtml}
+          <div class="bottom-row">
+            ${templateData.warnImgHtml}
+            ${templateData.qrImgHtml}
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  return labels.join("\n");
+};
+
+const buildLabelsMarkup = (details, templateData) => {
+  return details.map((detail) => buildLabelMarkup(detail, templateData)).join("\n");
+};
+
+const buildPrintCss = (sizeConfig) => {
+  return `
+    @page { size: ${sizeConfig.w} ${sizeConfig.h}; margin: 0mm; }
+    html, body {
+      width: ${sizeConfig.w};
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      overflow: hidden;
+    }
+    body.etiketten-body {
+      font-family: Arial, Helvetica, sans-serif;
+      width: ${sizeConfig.w};
+    }
+    :root {
+      --label-w: ${sizeConfig.w};
+      --label-h: ${sizeConfig.h};
+      --brand-h: ${sizeConfig.brandH};
+      --art-size: ${sizeConfig.artSize};
+      --hint-size: ${sizeConfig.hintSize};
+      --qr-size: min(calc(var(--label-w) * 0.44), calc(var(--label-h) * 0.44));
+    }
+    .sheet {
+      width: ${sizeConfig.w};
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+      margin: 0;
+    }
+
+    .label {
+      box-sizing: border-box;
+      width: ${sizeConfig.w};
+      height: ${sizeConfig.h};
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: none;
+      box-shadow: none;
+      margin: 0;
+      page-break-after: always;
+      break-after: page;
+      overflow: hidden;
+    }
+    .label:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .label .rot {
+      transform: rotate(90deg);
+      transform-origin: center center;
+      width: ${sizeConfig.h};
+      height: ${sizeConfig.w};
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8mm 1.1mm;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .logo-container {
+      width: 100%;
+      flex: 0 0 calc(var(--brand-h) * 1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    .brand-logo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .brand-text {
+      text-align: center;
+      font-weight: bold;
+      font-size: calc(var(--brand-h) * 0.95);
+      width: 100%;
+      line-height: 1;
+    }
+
+    .dotted-line {
+      width: 100%;
+      border-bottom: 1px dotted #000;
+      margin: 1mm;
+      flex-shrink: 0;
+    }
+
+    .artnr {
+      text-align: center;
+      font-weight: bold;
+      font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
+      line-height: 1;
+      letter-spacing: 0.1mm;
+    }
+    .artnr.compact {
+      font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
+      letter-spacing: 0.02mm;
+    }
+
+    .hints-container {
+      width: 100%;
+      text-align: center;
+      font-size: calc(var(--hint-size) * 0.68);
+    }
+    .hints-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .hints-table td {
+      width: 50%;
+      text-align: left;
+      font-size: calc(var(--hint-size) * 0.68);
+      line-height: 1.1;
+      vertical-align: top;
+    }
+    .empty-space {
+      flex: 1 1 auto;
+    }
+
+    .bottom-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      padding-top: 0.6mm;
+    }
+    .warn-symbol {
+      height: auto;
+      max-height: calc(var(--qr-size) * 1.0);
+      width: auto;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .qr-img {
+      width: calc(var(--qr-size) * 1.2);
+      height: calc(var(--qr-size) * 1.2);
+      object-fit: contain;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      image-rendering: auto;
+      image-rendering: crisp-edges;
+    }
+
+    @media print {
+      html, body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  `;
+};
+
+const buildPreviewHtml = ({ sizeConfig, labelsMarkup }) => {
+  return `<!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Etiketten Vorschau</title>
+      <style>${buildPrintCss(sizeConfig)}</style>
+    </head>
+    <body class="etiketten-body">
+      <div class="sheet">
+        ${labelsMarkup}
+      </div>
+      <script>window.onload = function(){ window.focus(); };</script>
+    </body>
+    </html>`;
+};
+
+const sendTextFile = async (res, filePath, contentType, notFoundResponse) => {
+  try {
+    const content = await readTextFileIfExists(filePath);
+    if (content == null) {
+      return res.status(404).send(notFoundResponse);
+    }
+    res.set("Content-Type", contentType);
+    return res.send(content);
+  } catch (err) {
+    return res.status(500).send(notFoundResponse === "" ? "" : "/* error */");
+  }
 };
 
 // --- GET OPTIONS ---
@@ -54,377 +477,22 @@ router.get("/options", async (req, res) => {
 // Generiert die HTML-Vorschau und das Drucklayout der Etiketten
 router.post("/preview", async (req, res) => {
   try {
-    const items = Array.isArray(req.body.items) ? req.body.items : [];
-    if (items.length === 0)
+    const items = normalizeRequestedItems(req.body.items);
+    if (items.length === 0) {
       return res.status(400).json({ error: "Keine Artikel übergeben" });
-
-    // 1. Artikeldaten aus der DB sammeln
-    const details = [];
-    for (const it of items) {
-      const artikelnummer = it.artikelnummer;
-      const qty = parseInt(it.qty) || 1;
-      const { rows } = await db.query(
-        `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 OR "Artikelnummer" LIKE $2 ORDER BY "Artikelnummer" LIMIT 1`,
-        [artikelnummer, artikelnummer + "\\_%"],
-      );
-      if (rows.length > 0) details.push({ row: rows[0], qty });
     }
 
-    // 2. Assets (QR, Logos, Warnhinweis) vorbereiten
-    let materialHints = Array.isArray(req.body.materialHints)
-      ? req.body.materialHints
-      : [];
-    // Maximal 6 Hinweise zulassen
-    materialHints = materialHints.slice(0, 6);
-
-    // QR Code für Homepage
-    const qrUrl = "https://goldregenschmuckdesign.de";
-    let qrDataUrl = "";
-    // try {
-    //   // SVG bleibt beim Druck deutlich schaerfer als PNG bei kleinen Labels.
-    //   const qrSvg = await QRCode.toString(qrUrl, {
-    //     type: "svg",
-    //     errorCorrectionLevel: "Q",
-    //     margin: 4,
-    //     color: {
-    //       dark: "#000000",
-    //       light: "#FFFFFF",
-    //     },
-    //   });
-    //   qrDataUrl = `data:image/svg+xml;base64,${Buffer.from(qrSvg).toString("base64")}`;
-    // } catch (e) {
-    //   logger.warn("ETIKETTEN", "QR-SVG Fehler, fallback auf PNG", {
-    //     message: e.message,
-    //   });
-    try {
-      qrDataUrl = await QRCode.toDataURL(qrUrl, {
-        errorCorrectionLevel: "Q",
-        margin: 4,
-        width: 1200,
-        color: {
-          dark: "#000000",
-          light: "#FFFFFF",
-        },
-      });
-    } catch (fallbackErr) {
-      logger.warn("ETIKETTEN", "QR-Code Fehler", {
-        message: fallbackErr.message,
-      });
-    }
-
-    // Warn-SVG einlesen
-    let warnDataUrl = "";
-    try {
-      const warnSvgPath = path.resolve(__dirname, "../assets/warn_0-3.svg");
-      if (fsSync.existsSync(warnSvgPath)) {
-        const svgContent = await fs.readFile(warnSvgPath, "utf8");
-        warnDataUrl = `data:image/svg+xml;base64,${Buffer.from(svgContent).toString("base64")}`;
-      }
-    } catch (e) {}
-
-    // Neues Logo (goldregen.svg) einlesen
-    let brandDataUrl = "";
-    try {
-      const brandSvgPath = path.resolve(__dirname, "../assets/goldregen.svg");
-      if (fsSync.existsSync(brandSvgPath)) {
-        const brandContent = await fs.readFile(brandSvgPath, "utf8");
-        brandDataUrl = `data:image/svg+xml;base64,${Buffer.from(brandContent).toString("base64")}`;
-      }
-    } catch (e) {
-      logger.warn("ETIKETTEN", "Brand-Logo konnte nicht gelesen werden", {
-        message: e.message,
-      });
-    }
-
-    // 3. Label Größen aus CSS laden
-    let cssContent = "";
-    try {
-      const cssPath = path.resolve(__dirname, "../../frontend/src/index.css");
-      if (fsSync.existsSync(cssPath))
-        cssContent = await fs.readFile(cssPath, "utf8");
-    } catch (e) {}
-
-    const labelSize = (req.body.labelSize || "small").toString();
-    const sizes = {
-      small: {
-        w: getCssVar(cssContent, "--label-small-w", "48mm"),
-        h: getCssVar(cssContent, "--label-small-h", "30mm"),
-        brandH: getCssVar(cssContent, "--label-small-brandH", "8mm"),
-        artSize: getCssVar(cssContent, "--label-small-artSize", "8mm"),
-        hintSize: getCssVar(cssContent, "--label-small-hintSize", "3.5mm"),
-      },
-      medium: {
-        w: getCssVar(cssContent, "--label-medium-w", "60mm"),
-        h: getCssVar(cssContent, "--label-medium-h", "36mm"),
-        brandH: getCssVar(cssContent, "--label-medium-brandH", "10mm"),
-        artSize: getCssVar(cssContent, "--label-medium-artSize", "10mm"),
-        hintSize: getCssVar(cssContent, "--label-medium-hintSize", "4mm"),
-      },
-      large: {
-        w: getCssVar(cssContent, "--label-large-w", "80mm"),
-        h: getCssVar(cssContent, "--label-large-h", "48mm"),
-        brandH: getCssVar(cssContent, "--label-large-brandH", "14mm"),
-        artSize: getCssVar(cssContent, "--label-large-artSize", "14mm"),
-        hintSize: getCssVar(cssContent, "--label-large-hintSize", "5mm"),
-      },
-    };
-    const s = sizes[labelSize] || sizes.small;
-
-    // 4. HTML für jedes Label aufbauen
-    const labelHtmlParts = [];
-
-    // Fallback-Warnhinweis, falls das Inline scheitert
-    const warnImgHtml = warnDataUrl
-      ? `<img src="${warnDataUrl}" class="warn-symbol" alt="Warnung" />`
-      : `<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Warnung" />`;
-    const qrImgHtml = qrDataUrl
-      ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" />`
-      : "";
-
-    for (const d of details) {
-      for (let i = 0; i < d.qty; i++) {
-        const num = (d.row.Artikelnummer || "").split("_")[0];
-        const uniqueHints = [
-          ...new Set(
-            materialHints.map((h) => String(h).trim()).filter(Boolean),
-          ),
-        ].slice(0, 6); // Maximal 6 eindeutige Hinweise
-        const artNrClass = num.length > 7 ? "artnr compact" : "artnr";
-
-        // Brand-Logo: Soll in voller Breite gerendert werden
-        const brandHtml = brandDataUrl
-          ? `<img src="${brandDataUrl}" class="brand-logo" alt="GoldRegen" />`
-          : `<div class="brand-text">GoldRegen Schmuckdesign</div>`;
-
-        // Hinweise als zweispaltige Tabelle
-        let hintsHtml = `<div class="empty-space"></div>`;
-        if (uniqueHints.length > 0) {
-          // Tabelle mit 2 Spalten, von oben links nach unten rechts auffüllen
-          const rows = [];
-          for (let i = 0; i < 3; i++) {
-            const left = uniqueHints[i]
-              ? `<td>${escapeHtml(uniqueHints[i])}</td>`
-              : "<td></td>";
-            const right = uniqueHints[i + 3]
-              ? `<td>${escapeHtml(uniqueHints[i + 3])}</td>`
-              : "<td></td>";
-            rows.push(`<tr>${left}${right}</tr>`);
-          }
-          hintsHtml = `
-            <div class="hints-container">
-              <p style="font-weight: bold;margin: 5px 0px;">Material Hinweise</p>
-              <table class="hints-table">
-                <tbody>
-                  ${rows.join("\n")}
-                </tbody>
-              </table>
-            </div>
-          `;
-        }
-
-        // Strukturiertes Layout nach Vorgabe
-        // Wrapper: .label bleibt die page-box, .rot dreht den inneren Inhalt 90deg
-        labelHtmlParts.push(`
-          <div class="label">
-            <div class="rot">
-              <div class="logo-container">${brandHtml}</div>
-              <div class="dotted-line"></div>
-              <div class="${artNrClass}">${escapeHtml(num)}</div>
-              ${hintsHtml}
-              <div class="bottom-row">
-                ${warnImgHtml}
-                ${qrImgHtml}
-              </div>
-            </div>
-          </div>
-        `);
-      }
-    }
-
-    // 5. Minimales Print-CSS
-    const printCss = `
-      @page { size: ${s.w} ${s.h}; margin: 0mm; }
-      html, body {
-        width: ${s.w};
-        margin: 0;
-        padding: 0;
-        background: #fff;
-        overflow: hidden;
-      }
-      body.etiketten-body {
-        font-family: Arial, Helvetica, sans-serif;
-        width: ${s.w};
-      }
-      /* Sheet auf Seitenhöhe bringen und Label vertikal zentrieren */
-      :root {
-        --label-w: ${s.w};
-        --label-h: ${s.h};
-        --brand-h: ${s.brandH};
-        --art-size: ${s.artSize};
-        --hint-size: ${s.hintSize};
-        /* QR nur einmal zentral aus dem kleineren Etikettenmass ableiten */
-        --qr-size: min(calc(var(--label-w) * 0.44), calc(var(--label-h) * 0.44));
-      }
-      .sheet {
-        width: ${s.w};
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0;
-        padding: 0;
-        margin: 0;
-      }
-
-      .label {
-        box-sizing: border-box;
-        width: ${s.w};
-        height: ${s.h};
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        border: none;
-        box-shadow: none;
-        margin: 0;
-        page-break-after: always;
-        break-after: page;
-        overflow: hidden;
-      }
-      .label:last-child {
-        page-break-after: auto;
-        break-after: auto;
-      }
-
-      /* Innencontainer, der um 90° gedreht wird */
-      .label .rot {
-        transform: rotate(90deg);
-        transform-origin: center center;
-        width: ${s.h};
-        height: ${s.w};
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.8mm 1.1mm;
-        box-sizing: border-box;
-        overflow: hidden;
-      }
-
-      /* 1. Logo: feste Höhe nach CSS-Variable, Inhalt skaliert sauber */
-      .logo-container {
-        width: 100%;
-        flex: 0 0 calc(var(--brand-h) * 1);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-      }
-      .brand-logo {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        object-position: center;
-        display: block;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .brand-text {
-        text-align: center;
-        font-weight: bold;
-        font-size: calc(var(--brand-h) * 0.95);
-        width: 100%;
-        line-height: 1;
-      }
-
-      /* 2. Linie */
-      .dotted-line {
-        width: 100%;
-        border-bottom: 1px dotted #000;
-        margin: 1mm;
-        flex-shrink: 0;
-      }
-
-      /* 3. Artikelnummer */
-      .artnr {
-        text-align: center;
-        font-weight: bold;
-        font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
-        line-height: 1;
-        letter-spacing: 0.1mm;
-      }
-      .artnr.compact {
-        font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
-        letter-spacing: 0.02mm;
-      }
-
-      /* 4. Zusatzinfos / Leerraum */
-      .hints-container {
-        width: 100%;
-        text-align: center;
-        font-size: calc(var(--hint-size) * 0.68);
-      }
-      .hints-table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-      }
-      .hints-table td {
-        width: 50%;
-        text-align: left;
-        font-size: calc(var(--hint-size) * 0.68);
-        line-height: 1.1;
-        vertical-align: top;
-      }
-      .empty-space {
-        flex: 1 1 auto;
-      }
-
-      /* 5. GANZ UNTEN: QR Code und Warnhinweis */
-      .bottom-row {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        padding-top: 0.6mm;
-      }
-      .warn-symbol {
-        height: auto;
-        max-height: calc(var(--qr-size) * 1.0);
-        width: auto;
-        object-fit: contain;
-        flex-shrink: 0;
-      }
-      .qr-img {
-        width: calc(var(--qr-size) * 1.2);
-        height: calc(var(--qr-size) * 1.2);
-        object-fit: contain;
-        flex-shrink: 0;
-        box-sizing: border-box;
-        image-rendering: auto;
-        image-rendering: crisp-edges;
-      }
-
-      @media print {
-        html, body {
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-      }
-    `;
-
-    // 6. Finales HTML ausgeben
-    const html = `<!doctype html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Etiketten Vorschau</title>
-        <style>${printCss}</style>
-      </head>
-      <body class="etiketten-body">
-        <div class="sheet">
-          ${labelHtmlParts.join("\n")}
-        </div>
-        <script>window.onload = function(){ window.focus(); };</script>
-      </body>
-      </html>`;
+    const materialHints = normalizeMaterialHints(req.body.materialHints);
+    const details = await fetchLabelDetails(items);
+    const assets = await loadPreviewAssets();
+    const sizeConfig = resolveLabelSize(req.body.labelSize, assets.cssContent);
+    const labelsMarkup = buildLabelsMarkup(details, {
+      brandHtml: buildBrandHtml(assets.brandDataUrl),
+      hintsHtml: buildHintsHtml(materialHints),
+      warnImgHtml: buildWarnImgHtml(assets.warnDataUrl),
+      qrImgHtml: buildQrImgHtml(assets.qrDataUrl),
+    });
+    const html = buildPreviewHtml({ sizeConfig, labelsMarkup });
 
     res.set("Content-Type", "text/html; charset=utf-8");
     res.send(html);
@@ -440,29 +508,17 @@ router.post("/preview", async (req, res) => {
 
 // --- GET CSS FOREGROUND (für Vorschau) ---
 router.get("/styles.css", async (req, res) => {
-  try {
-    const cssPath = path.resolve(__dirname, "../../frontend/src/index.css");
-    if (!fsSync.existsSync(cssPath))
-      return res.status(404).send("/* not found */");
-    const css = await fs.readFile(cssPath, "utf8");
-    res.set("Content-Type", "text/css; charset=utf-8");
-    res.send(css);
-  } catch (err) {
-    res.status(500).send("/* error */");
-  }
+  return sendTextFile(
+    res,
+    FRONTEND_CSS_PATH,
+    "text/css; charset=utf-8",
+    "/* not found */",
+  );
 });
 
 // --- GET WARN SVG ---
 router.get("/warn.svg", async (req, res) => {
-  try {
-    const imgPath = path.resolve(__dirname, "../assets/warn_0-3.svg");
-    if (!fsSync.existsSync(imgPath)) return res.status(404).send("");
-    const svg = await fs.readFile(imgPath, "utf8");
-    res.set("Content-Type", "image/svg+xml; charset=utf-8");
-    res.send(svg);
-  } catch (err) {
-    res.status(500).send("");
-  }
+  return sendTextFile(res, WARN_SVG_PATH, "image/svg+xml; charset=utf-8", "");
 });
 
 module.exports = router;
