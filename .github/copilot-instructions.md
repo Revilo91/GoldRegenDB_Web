@@ -222,8 +222,7 @@ const result = await db.query(query, builder.getParams());
 
 **📖 Vollständige Dokumentation:** [`backend/src/utils/WHERE_BUILDER.md`](../backend/src/utils/WHERE_BUILDER.md)
 
-**✅ Migrierte Routes:** dashboard.js, schmuckstuecke.js, sumup.js, kunden.js, inventur.js
-**⏳ Noch zu migrieren:** lieferscheine.js, rechnungen.js
+**✅ Alle Routes migriert:** dashboard.js, schmuckstuecke.js, sumup.js, kunden.js, inventur.js, lieferscheine.js, rechnungen.js
 
 ---
 

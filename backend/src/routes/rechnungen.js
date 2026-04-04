@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { where } = require('../utils/whereClauseBuilder');
 
 // GET all invoices
 router.get('/', async (req, res) => {
@@ -34,9 +35,11 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
 
+    const builder = where();
+    builder.mitRechnung(req.params.id);
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      `SELECT * FROM "Schmuckstück" ${builder.build()} ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      builder.getParams()
     );
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
@@ -61,9 +64,11 @@ router.get('/:id/excel', async (req, res) => {
 
     if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
 
+    const builder = where();
+    builder.mitRechnung(req.params.id);
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
-      [req.params.id]
+      `SELECT * FROM "Schmuckstück" ${builder.build()} ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      builder.getParams()
     );
 
     // Compute invoice period from Lieferschein dates of the pieces
@@ -146,7 +151,12 @@ router.put('/:id', async (req, res) => {
     }
 
     // Reset old associations
-    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
+    const resetBuilder = where();
+    resetBuilder.mitRechnung(req.params.id);
+    await db.query(
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 ${resetBuilder.build()}`,
+      resetBuilder.getParams()
+    );
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
@@ -168,9 +178,11 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     // Reset associations before deleting
+    const resetBuilder = where();
+    resetBuilder.mitRechnung(req.params.id);
     await db.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`,
-      [req.params.id]
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 ${resetBuilder.build()}`,
+      resetBuilder.getParams()
     );
     const { rowCount } = await db.query(
       'DELETE FROM "Rechnung" WHERE "ID" = $1',
