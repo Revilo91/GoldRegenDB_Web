@@ -40,6 +40,7 @@ import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import Datensicherung from "./pages/Datensicherung";
 import Inventur from "./pages/Inventur";
+import Lagerinventur from "./pages/Lagerinventur";
 import "./index.css";
 
 function AppLayout() {
@@ -247,7 +248,19 @@ function AppLayout() {
             <span className="nav-icon">
               <FontAwesomeIcon icon={faWarehouse} />
             </span>
-            <span>Inventur</span>
+            <span>Kunden-Inventur</span>
+          </NavLink>
+          )}
+          {isBearbeiter && (
+          <NavLink
+            to="/lagerinventur"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">
+              <FontAwesomeIcon icon={faClipboardList} />
+            </span>
+            <span>Lager-Inventur</span>
           </NavLink>
           )}
           {isAdmin && (
@@ -580,6 +593,14 @@ function AppLayout() {
             element={
               <ProtectedRoute bearbeiterOnly>
                 <Inventur />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lagerinventur"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <Lagerinventur />
               </ProtectedRoute>
             }
           />

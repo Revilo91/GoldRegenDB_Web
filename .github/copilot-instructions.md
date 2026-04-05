@@ -388,7 +388,8 @@ GoldRegenDB_Web/
 │           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung (nutzt DocumentManager)
 │           ├── Rechnungen.jsx      # Rechnungs-Verwaltung (nutzt DocumentManager)
 │           ├── Sumup.jsx           # SumUp CSV-Import/-Export
-│           ├── Inventur.jsx        # Inventurübersicht pro Kunde + Lager-Inventur-Entwürfe (bearbeiter; Tabs: Kunden/Lager)
+│           ├── Inventur.jsx        # Kunden-Inventur: Ausgelagerte Artikel pro Kunde (bearbeiter)
+│           ├── Lagerinventur.jsx   # Lager-Inventur: Draft-basierte Inventur mit Barcode-Scan (bearbeiter)
 │           ├── AuditLog.jsx        # Änderungsprotokoll (Admin)
 │           ├── Debug.jsx           # Debug-Oberfläche (Admin)
 │           ├── Benutzerverwaltung.jsx  # Benutzerverwaltung (Admin)
@@ -665,6 +666,8 @@ VITE_API_URL=http://localhost:3001/api
 - [x] Lieferscheine & Rechnungen: Gemeinsame Verwaltung über DocumentManager.jsx (maximaler Code- und UI-Reuse)
 - [x] Lieferscheine: Liste, Erstellen (nutzt DocumentManager)
 - [x] Rechnungen: Liste, Erstellen (nutzt DocumentManager)
+- [x] Kunden-Inventur (Inventur.jsx): Übersicht ausgelagerter Artikel pro Kunde, Excel-Export, Rücklagern, Rechnung erstellen
+- [x] Lager-Inventur (Lagerinventur.jsx): Entwurfsbasierte Inventur mit Barcode-Scan, Diff-Auswertung (Soll/Ist-Vergleich)
 - [x] Audit-Log: Anzeige der letzten Änderungen (Admin)
 ---
 
@@ -675,6 +678,40 @@ Die Seiten **Lieferscheine.jsx** und **Rechnungen.jsx** verwenden eine gemeinsam
 **Wichtig:** Änderungen an der Dokumentenverwaltung (Logik, UI, Filter, Stückauswahl etc.) sollten immer zuerst in `DocumentManager.jsx` erfolgen. Die Seiten `Lieferscheine.jsx` und `Rechnungen.jsx` enthalten nur noch die jeweilige Typ-spezifische Konfiguration und binden die zentrale Komponente ein.
 
 Siehe auch: `/frontend/src/pages/DocumentManager.jsx`
+
+## Frontend Architektur: Inventurverwaltung (Kunden/Lager)
+
+Das Inventursystem wurde in **Phase 2 des Code-Audits** in zwei separate Seiten aufgeteilt, um die Trennung der Verantwortlichkeiten zu verbessern:
+
+### Kunden-Inventur (`Inventur.jsx`)
+- **Zweck**: Verwaltet ausgelagerte Schmuckstücke bei Kunden/Händlern
+- **Funktionen**:
+  - Übersicht aller Kunden mit ausgelagerten Stücken
+  - Statistiken pro Kunde (gesamt, nicht verkauft, verkauft, ausschuss, Warenwert)
+  - Detailansicht mit Rücklagern-Funktion
+  - Rechnungserstellung direkt aus der Inventur
+  - Excel-Export pro Kunde
+- **API-Endpunkte**: `/api/inventur`, `/api/inventur/:kundeId`, `/api/inventur/:kundeId/excel`
+- **Route**: `/inventur` (bearbeiter)
+
+### Lager-Inventur (`Lagerinventur.jsx`)
+- **Zweck**: Draft-basierte Inventurzählung des Hauptlagers
+- **Funktionen**:
+  - Erfassung von Stückzahlen per Barcode-Scanner oder manueller Eingabe
+  - Entwurfsverwaltung (erstellen, bearbeiten, abschließen)
+  - Autosave-Funktion (800ms Delay)
+  - Soll/Ist-Vergleich (Diff-Auswertung):
+    - Fehlende Artikel (im Soll, aber nicht gescannt)
+    - Unbekannte Artikel (gescannt, aber nicht im Soll)
+    - Gefundene Artikel (übereinstimmend)
+  - Autocomplete für Artikelnummern
+- **API-Endpunkte**: `/api/lagerinventur/drafts`, `/api/lagerinventur/drafts/:id`, `/api/lagerinventur/drafts/:id/diff`, `/api/lagerinventur/drafts/:id/complete`
+- **Route**: `/lagerinventur` (bearbeiter)
+- **Backend**: `backend/src/routes/lagerinventur.js` + DB-Tabelle `lagerinventur`
+
+**Wichtig:** Die beiden Seiten teilen KEINE gemeinsamen Komponenten – jede Seite ist vollständig eigenständig und für ihren spezifischen Anwendungsfall optimiert.
+
+Siehe auch: `backend/src/routes/lagerinventur.md`, `CODE_AUDIT_REPORT.md`
 
 ### Phase 2: Erweiterte Features ✅ (teilweise)
 
