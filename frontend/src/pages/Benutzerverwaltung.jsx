@@ -216,10 +216,16 @@ export default function Benutzerverwaltung() {
                       <input className="form-control" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
                     </div>
                     {editing === "new" && (
-                      <div className="form-group">
-                        <label className="form-label">Passwort *</label>
-                        <input type="password" className="form-control" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mindestens 8 Zeichen" />
-                      </div>
+                      <>
+                        <div className="form-group">
+                          <label className="form-label">Passwort *</label>
+                          <input type="password" className="form-control" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mindestens 8 Zeichen" />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Passwort wiederholen *</label>
+                          <input type="password" className="form-control" value={form.passwordConfirm} onChange={(e) => setForm({ ...form, passwordConfirm: e.target.value })} placeholder="Passwort erneut eingeben" />
+                        </div>
+                      </>
                     )}
                     <div className="form-group">
                       <label className="form-label">E-Mail</label>
