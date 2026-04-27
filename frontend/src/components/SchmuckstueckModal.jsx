@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGem, faTimes, faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
+import {
+  faGem,
+  faTimes,
+  faPen,
+  faTrash,
+} from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 /**
@@ -11,7 +16,12 @@ import { api } from "../api";
  *   onEdit         – (optional) Callback für Bearbeiten-Button
  *   onDelete       – (optional) Callback für Löschen-Button
  */
-export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onDelete }) {
+export default function SchmuckstueckModal({
+  artikelnummer,
+  onClose,
+  onEdit,
+  onDelete,
+}) {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [kunden, setKunden] = useState([]);
@@ -48,12 +58,8 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
   };
 
   return (
-    <div
-      className="modal-overlay schmuck-modal-overlay-top"
-      onClick={onClose}>
-      <div
-        className="modal schmuck-modal"
-        onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay schmuck-modal-overlay-top" onClick={onClose}>
+      <div className="modal schmuck-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-header-title">
             <h3>
@@ -63,12 +69,17 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
             {item && (
               <div className="modal-header-badge">
                 {item.Verkauft === 1 ? (
-                  <span className="badge success">Verkauft</span>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <span className="badge success">Verkauft</span>
+                    <span className="badge gold">
+                      {getKundenName(item.Ausgelagert)}
+                    </span>
+                  </div>
                 ) : item.Ausschuss === 1 ? (
                   <span className="badge danger">Ausschuss</span>
                 ) : item.Ausgelagert > 0 ? (
                   <span className="badge gold">
-                    Ausgelagert: {getKundenName(item.Ausgelagert)}
+                    {getKundenName(item.Ausgelagert)}
                   </span>
                 ) : (
                   <span className="badge warning">Lager</span>
@@ -79,9 +90,7 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
           {(onEdit || onDelete) && (
             <div className="modal-header-actions">
               {onEdit && (
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={onEdit}>
+                <button className="btn btn-secondary btn-sm" onClick={onEdit}>
                   <FontAwesomeIcon icon={faPen} /> Bearbeiten
                 </button>
               )}
@@ -106,10 +115,7 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
             {/* Foto */}
             <div className="schmuck-modal-photo">
               {photo ? (
-                <img
-                  src={photo}
-                  alt={item.Artikelnummer}
-                />
+                <img src={photo} alt={item.Artikelnummer} />
               ) : item.Foto && photoLoading ? (
                 <div className="schmuck-modal-photo-placeholder loading">
                   <span>⏳</span>
@@ -147,9 +153,7 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
                 ["Zwischenstück", item["Zwischenstück"]],
                 [
                   "Herstellungskosten",
-                  item.Herstellungskosten
-                    ? `${item.Herstellungskosten}€`
-                    : "–",
+                  item.Herstellungskosten ? `${item.Herstellungskosten}€` : "–",
                 ],
                 [
                   "Verkaufspreis",
@@ -182,9 +186,7 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
             </div>
           </>
         ) : (
-          <div className="empty-state">
-            Schmuckstück nicht gefunden.
-          </div>
+          <div className="empty-state">Schmuckstück nicht gefunden.</div>
         )}
       </div>
     </div>
