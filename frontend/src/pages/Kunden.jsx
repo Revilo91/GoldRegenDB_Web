@@ -110,20 +110,21 @@ export default function Kunden() {
         onSearchChange={setSearch}
         placeholder="Suche nach Name, Ort oder Email..."
         right={
-          <select
-            className="form-control"
-            value={filters.aktiv ?? ""}
-            onChange={(e) => {
-              const { aktiv, ...rest } = filters;
-              setFilters(
-                e.target.value !== "" ? { ...rest, aktiv: e.target.value } : rest,
-              );
-            }}
-          >
-            <option value="">Alle Status</option>
-            <option value="1">Aktiv</option>
-            <option value="0">Inaktiv</option>
-          </select>
+          <div className="filter-group">
+            <select
+              className="form-control"
+              value={filters.aktiv ?? ""}
+              onChange={(e) => {
+                const { aktiv, ...rest } = filters;
+                setFilters(
+                  e.target.value !== "" ? { ...rest, aktiv: e.target.value } : rest,
+                );
+              }}>
+              <option value="">Alle Status</option>
+              <option value="1">Aktiv</option>
+              <option value="0">Inaktiv</option>
+            </select>
+          </div>
         }
       />
 
