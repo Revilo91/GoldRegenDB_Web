@@ -14,7 +14,12 @@ export default function DataTable({
   const sorted = useMemo(() => {
     const arr = [...data];
     if (!sortConfig.key) return arr;
+    const activeCol = columns.find((c) => c.key === sortConfig.key);
     arr.sort((a, b) => {
+      if (activeCol?.comparator) {
+        const result = activeCol.comparator(a, b);
+        return sortConfig.direction === "asc" ? result : -result;
+      }
       const aV = a[sortConfig.key];
       const bV = b[sortConfig.key];
       if (aV < bV) return sortConfig.direction === "asc" ? -1 : 1;
@@ -22,7 +27,7 @@ export default function DataTable({
       return 0;
     });
     return arr;
-  }, [data, sortConfig]);
+  }, [data, sortConfig, columns]);
 
   const requestSort = (key) => {
     let direction = "asc";

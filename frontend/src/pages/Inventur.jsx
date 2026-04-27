@@ -112,100 +112,27 @@ function ItemsTable({
   toggleForRechnung,
   selectAllForRechnung,
 }) {
-  const [sortConfig, setSortConfig] = useState({
-    key: "Artikelnummer",
-    direction: "asc",
-  });
-
-  const sorted = useMemo(() => {
-    let sortableData = [...items];
-    if (sortConfig.key !== null) {
-      sortableData.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        // Numeric sort for prices
-        if (sortConfig.key === "Verkaufspreis") {
-          aValue = Number(aValue) || 0;
-          bValue = Number(bValue) || 0;
-        } else if (sortConfig.key === "Erstelldatum") {
-          const aDate = getBelegdatumForTab(a, tab);
-          const bDate = getBelegdatumForTab(b, tab);
-          aValue = aDate ? new Date(aDate).getTime() : null;
-          bValue = bDate ? new Date(bDate).getTime() : null;
-
-          if (aValue === null && bValue === null) return 0;
-          if (aValue === null) return sortConfig.direction === "asc" ? 1 : -1;
-          if (bValue === null) return sortConfig.direction === "asc" ? -1 : 1;
-
-          if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-          if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-          return 0;
-        } else if (sortConfig.key === "Artikelnummer") {
-          return sortConfig.direction === "asc"
-            ? String(aValue || "").localeCompare(
-                String(bValue || ""),
-                undefined,
-                {
-                  numeric: true,
-                },
-              )
-            : String(bValue || "").localeCompare(
-                String(aValue || ""),
-                undefined,
-                {
-                  numeric: true,
-                },
-              );
-        } else {
-          // Case-insensitive string comparison
-          if (typeof aValue === "string") aValue = aValue.toUpperCase();
-          if (typeof bValue === "string") bValue = bValue.toUpperCase();
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableData;
-  }, [items, sortConfig]);
-
   const allSelected =
     selectedForReturn &&
-    sorted.length > 0 &&
-    selectedForReturn.size === sorted.length;
+    items.length > 0 &&
+    selectedForReturn.size === items.length;
   const allSelectedForRechnung =
     selectedForRechnung &&
-    sorted.length > 0 &&
-    selectedForRechnung.size === sorted.length;
+    items.length > 0 &&
+    selectedForRechnung.size === items.length;
 
   const total = useMemo(
-    () =>
-      sorted.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
-    [sorted],
+    () => items.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    [items],
   );
-
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
 
   return (
     <div style={{ overflowX: "auto" }}>
       <DataTable
-        data={sorted}
+        data={items}
         className="inventur-items-table"
         getRowKey={(item) => item.Artikelnummer}
-        defaultSort={{ key: sortConfig.key, direction: sortConfig.direction }}
+        defaultSort={{ key: "Artikelnummer", direction: "asc" }}
         onRowClick={undefined}
         columns={[
           selectedForReturn && {
@@ -272,14 +199,14 @@ function ItemsTable({
           },
           {
             key: "Artikelnummer",
-            label: (
-              <span
-                style={{ cursor: "pointer" }}
-                onClick={() => requestSort("Artikelnummer")}>
-                Artikelnummer {getSortIcon("Artikelnummer")}
-              </span>
-            ),
+            label: "Artikelnummer",
             sortable: true,
+            comparator: (a, b) =>
+              String(a.Artikelnummer || "").localeCompare(
+                String(b.Artikelnummer || ""),
+                undefined,
+                { numeric: true },
+              ),
             render: (item) => (
               <>
                 <strong>
@@ -295,28 +222,27 @@ function ItemsTable({
           },
           {
             key: "Verkaufspreis",
-            label: (
-              <span
-                className="hide-on-mobile"
-                style={{ cursor: "pointer" }}
-                onClick={() => requestSort("Verkaufspreis")}>
-                Verkaufspreis {getSortIcon("Verkaufspreis")}
-              </span>
-            ),
+            label: "Verkaufspreis",
             className: "hide-on-mobile",
             sortable: true,
+            comparator: (a, b) =>
+              (Number(a.Verkaufspreis) || 0) - (Number(b.Verkaufspreis) || 0),
             render: (item) => formatEur(item.Verkaufspreis),
           },
           {
             key: "Erstelldatum",
-            label: (
-              <span
-                style={{ cursor: "pointer" }}
-                onClick={() => requestSort("Erstelldatum")}>
-                {getBelegdatumLabel(tab)} {getSortIcon("Erstelldatum")}
-              </span>
-            ),
+            label: getBelegdatumLabel(tab),
             sortable: true,
+            comparator: (a, b) => {
+              const aDate = getBelegdatumForTab(a, tab);
+              const bDate = getBelegdatumForTab(b, tab);
+              const aMs = aDate ? new Date(aDate).getTime() : null;
+              const bMs = bDate ? new Date(bDate).getTime() : null;
+              if (aMs === null && bMs === null) return 0;
+              if (aMs === null) return 1;
+              if (bMs === null) return -1;
+              return aMs - bMs;
+            },
             render: (item) => formatDateDE(getBelegdatumForTab(item, tab)),
           },
         ].filter(Boolean)}
