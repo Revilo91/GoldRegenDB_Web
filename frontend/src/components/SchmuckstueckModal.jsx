@@ -55,11 +55,13 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
         className="modal schmuck-modal"
         onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>
-            <FontAwesomeIcon icon={faGem} />{" "}
-            {item ? item.Artikelnummer : artikelnummer}{" "}
+          <div className="modal-header-title">
+            <h3>
+              <FontAwesomeIcon icon={faGem} />{" "}
+              {item ? item.Artikelnummer : artikelnummer}
+            </h3>
             {item && (
-              <>
+              <div className="modal-header-badge">
                 {item.Verkauft === 1 ? (
                   <span className="badge success">Verkauft</span>
                 ) : item.Ausschuss === 1 ? (
@@ -71,9 +73,9 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
                 ) : (
                   <span className="badge warning">Lager</span>
                 )}
-              </>
+              </div>
             )}
-          </h3>
+          </div>
           {(onEdit || onDelete) && (
             <div className="modal-header-actions">
               {onEdit && (
