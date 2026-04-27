@@ -15,6 +15,7 @@ import { api } from "../api";
 import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
+import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { useAuth } from "../context/AuthContext";
 
 export default function Schmuckstuecke() {
@@ -30,7 +31,6 @@ export default function Schmuckstuecke() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
     direction: "asc",
@@ -107,17 +107,6 @@ export default function Schmuckstuecke() {
   useEffect(() => {
     load();
   }, [page, search, filters]);
-
-  useEffect(() => {
-    if (selected && selected.Foto) {
-      api
-        .loadPhotoAsDataUrl(selected.Foto)
-        .then(setSelectedPhoto)
-        .catch(console.error);
-    } else {
-      setSelectedPhoto(null);
-    }
-  }, [selected]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -405,169 +394,12 @@ export default function Schmuckstuecke() {
       </div>
 
       {selected && (
-        <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>
-                <FontAwesomeIcon icon={faGem} /> {selected.Artikelnummer}{" "}
-                {selected.Verkauft === 1 ? (
-                  <span className="badge success">Verkauft</span>
-                ) : selected.Ausschuss === 1 ? (
-                  <span className="badge danger">Ausschuss</span>
-                ) : selected.Ausgelagert > 0 ? (
-                  <span className="badge gold">
-                    Ausgelagert: {getKundenName(selected.Ausgelagert)}
-                  </span>
-                ) : (
-                  <span className="badge warning">Lager</span>
-                )}
-              </h3>
-              <div style={{ marginLeft: "auto", marginRight: 16 }}>
-                {canEdit && (
-                  <>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ marginRight: 8 }}
-                      onClick={() => openEdit(selected)}>
-                      <FontAwesomeIcon icon={faPen} /> Bearbeiten
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(selected.Artikelnummer)}>
-                      <FontAwesomeIcon icon={faTrash} /> Löschen
-                    </button>
-                  </>
-                )}
-              </div>
-              <button className="modal-close" onClick={() => setSelected(null)}>
-                ×
-              </button>
-            </div>
-
-            <div
-              style={{
-                textAlign: "center",
-                padding: "16px 0",
-                borderBottom: "1px solid #ddd",
-                backgroundColor: "#f9f9f9",
-              }}>
-              {selectedPhoto ? (
-                <img
-                  src={selectedPhoto}
-                  alt={selected.Artikelnummer}
-                  style={{
-                    maxWidth: "200px",
-                    maxHeight: "200px",
-                    borderRadius: "8px",
-                  }}
-                />
-              ) : selected.Foto ? (
-                <div
-                  style={{
-                    width: "200px",
-                    height: "200px",
-                    margin: "0 auto",
-                    borderRadius: "8px",
-                    backgroundColor: "#e0e0e0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#999",
-                    fontSize: "14px",
-                    border: "2px dashed #ccc",
-                  }}>
-                  <div>
-                    <div style={{ marginBottom: "8px" }}>⏳</div>
-                    Bild wird geladen...
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    width: "200px",
-                    height: "200px",
-                    margin: "0 auto",
-                    borderRadius: "8px",
-                    backgroundColor: "#f0f0f0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#bbb",
-                    fontSize: "14px",
-                    border: "2px dashed #ddd",
-                  }}>
-                  <div>
-                    <div style={{ marginBottom: "8px", fontSize: "24px" }}>
-                      📷
-                    </div>
-                    Kein Bild vorhanden
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="detail-grid">
-              {[
-                ["Grundmaterial", selected.Grundmaterial],
-                ["Art", selected.Art],
-                ["Form", selected.Form],
-                ["Länge", selected["Länge"] ? `${selected["Länge"]} cm` : "–"],
-                ["Fassung", selected.Fassung],
-                ["Farbe", selected.Farbe],
-                ["Material", selected.Material],
-                ["Größe", selected["Grösse"]],
-                ["Inhalt Material", selected.Inhalt_Material],
-                ["Inhalt Farbe", selected.Inhalt_Farbe],
-                ["Inhalt Farbakzent", selected.Inhalt_Farbakzent],
-                ["Inhalt Zusatzmaterial", selected.Inhalt_Zusatzmaterial],
-                ["Anhänger Fassung", selected["Anhänger_Fassung"]],
-                ["Anhänger Form", selected["Anhänger_Form"]],
-                ["Anhänger Farbe", selected["Anhänger_Farbe"]],
-                ["Anhänger Größe", selected["Anhänger_Grösse"]],
-                [
-                  "Anhänger Inhalt Material",
-                  selected["Anhänger_Inhalt_Material"],
-                ],
-                ["Anhänger Inhalt Farbe", selected["Anhänger_Inhalt_Farbe"]],
-                ["Zwischenstück", selected["Zwischenstück"]],
-                [
-                  "Herstellungskosten",
-                  selected.Herstellungskosten
-                    ? `${selected.Herstellungskosten}€`
-                    : "–",
-                ],
-                [
-                  "Verkaufspreis",
-                  selected.Verkaufspreis ? `${selected.Verkaufspreis}€` : "–",
-                ],
-                [
-                  "Erstellt",
-                  selected.Erstelldatum
-                    ? new Date(selected.Erstelldatum).toLocaleDateString(
-                        "de-DE",
-                        { day: "2-digit", month: "2-digit", year: "numeric" },
-                      )
-                    : "–",
-                ],
-                [
-                  "Letzte Änderung",
-                  selected["Letzte_Änderung"]
-                    ? new Date(selected["Letzte_Änderung"]).toLocaleString(
-                        "de-DE",
-                      )
-                    : "–",
-                ],
-              ]
-                .filter(([, v]) => v && v !== "–" && v !== 0 && v !== "0")
-                .map(([label, value]) => (
-                  <div className="detail-item" key={label}>
-                    <label>{label}</label>
-                    <div className="detail-value">{value}</div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
+        <SchmuckstueckModal
+          artikelnummer={selected.Artikelnummer}
+          onClose={() => setSelected(null)}
+          onEdit={canEdit ? () => { setSelected(null); openEdit(selected); } : undefined}
+          onDelete={canEdit ? () => handleDelete(selected.Artikelnummer) : undefined}
+        />
       )}
 
       {editing !== null && (

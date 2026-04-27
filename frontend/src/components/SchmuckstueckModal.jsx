@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGem, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faGem, faTimes, faPen, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
 /**
@@ -8,8 +8,10 @@ import { api } from "../api";
  * Props:
  *   artikelnummer  – Artikelnummer des anzuzeigenden Stücks
  *   onClose        – Callback zum Schließen
+ *   onEdit         – (optional) Callback für Bearbeiten-Button
+ *   onDelete       – (optional) Callback für Löschen-Button
  */
-export default function SchmuckstueckModal({ artikelnummer, onClose }) {
+export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onDelete }) {
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [kunden, setKunden] = useState([]);
@@ -74,6 +76,23 @@ export default function SchmuckstueckModal({ artikelnummer, onClose }) {
               </>
             )}
           </h3>
+          {(onEdit || onDelete) && (
+            <div style={{ marginLeft: "auto", marginRight: 16 }}>
+              {onEdit && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginRight: 8 }}
+                  onClick={onEdit}>
+                  <FontAwesomeIcon icon={faPen} /> Bearbeiten
+                </button>
+              )}
+              {onDelete && (
+                <button className="btn btn-danger btn-sm" onClick={onDelete}>
+                  <FontAwesomeIcon icon={faTrash} /> Löschen
+                </button>
+              )}
+            </div>
+          )}
           <button className="modal-close" onClick={onClose}>
             <FontAwesomeIcon icon={faTimes} />
           </button>
