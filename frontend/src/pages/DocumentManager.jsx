@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
+import SchmuckstueckModal from "../components/SchmuckstueckModal";
 
 /**
  * Props:
@@ -37,6 +38,7 @@ export default function DocumentManager({
   const [sortConfig, setSortConfig] = useState({ key: "Datum", direction: "desc" });
   const [groupByKunde, setGroupByKunde] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
 
   // Laden
   const load = () => {
@@ -511,9 +513,13 @@ export default function DocumentManager({
                         .map((s) => (
                           <tr key={s.Artikelnummer}>
                             <td>
-                              <span className="badge gold">
-                                {s.Artikelnummer.split("_")[0]}
-                              </span>
+                              <button
+                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                                onClick={(e) => { e.stopPropagation(); setSchmuckstueckOverlay(s.Artikelnummer); }}>
+                                <span className="badge gold">
+                                  {s.Artikelnummer.split("_")[0]}
+                                </span>
+                              </button>
                             </td>
                             <td>{s.Art}</td>
                             <td>{Number(s.Verkaufspreis).toFixed(0)}€</td>
@@ -718,6 +724,12 @@ export default function DocumentManager({
             </div>
           </div>
         </div>
+      )}
+      {schmuckstueckOverlay && (
+        <SchmuckstueckModal
+          artikelnummer={schmuckstueckOverlay}
+          onClose={() => setSchmuckstueckOverlay(null)}
+        />
       )}
     </div>
   );

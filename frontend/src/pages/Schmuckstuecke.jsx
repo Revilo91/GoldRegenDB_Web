@@ -110,20 +110,11 @@ export default function Schmuckstuecke() {
 
   useEffect(() => {
     if (selected && selected.Foto) {
-      console.log(
-        "📷 Selected Schmuckstück mit Foto:",
-        selected.Artikelnummer,
-        selected.Foto,
-      );
       api
         .loadPhotoAsDataUrl(selected.Foto)
-        .then((dataUrl) => {
-          console.log("📸 Photo DataUrl geladen:", dataUrl ? "Ja" : "Nein");
-          setSelectedPhoto(dataUrl);
-        })
+        .then(setSelectedPhoto)
         .catch(console.error);
     } else {
-      console.log("📷 Kein Foto vorhanden für:", selected?.Artikelnummer);
       setSelectedPhoto(null);
     }
   }, [selected]);
@@ -453,7 +444,6 @@ export default function Schmuckstuecke() {
               </button>
             </div>
 
-            {/* Photo Display */}
             <div
               style={{
                 textAlign: "center",
