@@ -405,7 +405,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       return;
     }
 
-    const confirm_msg = `Möchtest du ${selectedForReturn.size} Artikel von "${kundeName}" zurück ins Lager lagern (Ausgelagert = 0)?`;
+    const confirm_msg = `Möchtest du ${selectedForReturn.size} Artikel von "${kundeName}" zurück ins Lager lagern?`;
     if (!window.confirm(confirm_msg)) return;
 
     setRestocking(true);
