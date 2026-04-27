@@ -51,9 +51,15 @@ router.get('/:kundeId', async (req, res) => {
     builder.ausgelagert(kundeId);
 
     const { rows: items } = await db.query(
-      `SELECT * FROM "Schmuckstück"
-       ${builder.build()}
-       ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      `SELECT
+         s.*,
+         l."Datum" AS "Lieferschein_Datum",
+         r."Datum" AS "Rechnung_Datum"
+       FROM "Schmuckstück" s
+       LEFT JOIN "Lieferschein" l ON l."ID" = s."Lieferschein_ID"
+       LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
+      ${builder.build()}
+       ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       builder.getParams()
     );
 
@@ -94,9 +100,15 @@ router.get('/:kundeId/excel', async (req, res) => {
     builder.ausgelagert(kundeId);
 
     const { rows: items } = await db.query(
-      `SELECT * FROM "Schmuckstück"
-       ${builder.build()}
-       ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      `SELECT
+         s.*,
+         l."Datum" AS "Lieferschein_Datum",
+         r."Datum" AS "Rechnung_Datum"
+       FROM "Schmuckstück" s
+       LEFT JOIN "Lieferschein" l ON l."ID" = s."Lieferschein_ID"
+       LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
+      ${builder.build()}
+       ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       builder.getParams()
     );
 

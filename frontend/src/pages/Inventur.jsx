@@ -32,6 +32,28 @@ function formatEur(value) {
   });
 }
 
+function getBelegdatumForTab(item, tab) {
+  if (tab === "verkauft") return item?.Rechnung_Datum || null;
+  // aktiv, ausschuss, alle → Lieferscheindatum
+  return item?.Lieferschein_Datum || null;
+}
+
+function getBelegdatumLabel(tab) {
+  if (tab === "verkauft") return "Rechnungsdatum";
+  return "Lieferscheindatum";
+}
+
+function formatDateDE(dateValue) {
+  if (!dateValue) return "–";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "–";
+  return date.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function TablePhoto({ foto, artikelnummer }) {
   const [photoSrc, setPhotoSrc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,6 +104,7 @@ function TablePhoto({ foto, artikelnummer }) {
 
 function ItemsTable({
   items,
+  tab,
   selectedForReturn,
   toggleItemSelection,
   selectAll,
@@ -105,6 +128,19 @@ function ItemsTable({
         if (sortConfig.key === "Verkaufspreis") {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
+        } else if (sortConfig.key === "Erstelldatum") {
+          const aDate = getBelegdatumForTab(a, tab);
+          const bDate = getBelegdatumForTab(b, tab);
+          aValue = aDate ? new Date(aDate).getTime() : null;
+          bValue = bDate ? new Date(bDate).getTime() : null;
+
+          if (aValue === null && bValue === null) return 0;
+          if (aValue === null) return sortConfig.direction === "asc" ? 1 : -1;
+          if (bValue === null) return sortConfig.direction === "asc" ? -1 : 1;
+
+          if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+          if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+          return 0;
         } else if (sortConfig.key === "Artikelnummer") {
           return sortConfig.direction === "asc"
             ? String(aValue || "").localeCompare(
@@ -277,18 +313,11 @@ function ItemsTable({
               <span
                 style={{ cursor: "pointer" }}
                 onClick={() => requestSort("Erstelldatum")}>
-                Erstellt {getSortIcon("Erstelldatum")}
+                {getBelegdatumLabel(tab)} {getSortIcon("Erstelldatum")}
               </span>
             ),
             sortable: true,
-            render: (item) =>
-              item.Erstelldatum
-                ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })
-                : "–",
+            render: (item) => formatDateDE(getBelegdatumForTab(item, tab)),
           },
         ].filter(Boolean)}
         footer={
@@ -597,6 +626,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
                 <ItemsTable
                   items={tabItems}
+                  tab={tab}
                   selectedForReturn={
                     tab === "aktiv" ? selectedForReturn : undefined
                   }
