@@ -49,12 +49,10 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
 
   return (
     <div
-      className="modal-overlay"
-      style={{ zIndex: 1600 }}
+      className="modal-overlay schmuck-modal-overlay-top"
       onClick={onClose}>
       <div
-        className="modal"
-        style={{ maxWidth: 680 }}
+        className="modal schmuck-modal"
         onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
@@ -77,11 +75,10 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
             )}
           </h3>
           {(onEdit || onDelete) && (
-            <div style={{ marginLeft: "auto", marginRight: 16 }}>
+            <div className="modal-header-actions">
               {onEdit && (
                 <button
                   className="btn btn-secondary btn-sm"
-                  style={{ marginRight: 8 }}
                   onClick={onEdit}>
                   <FontAwesomeIcon icon={faPen} /> Bearbeiten
                 </button>
@@ -99,70 +96,27 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
         </div>
 
         {loading ? (
-          <div className="loading" style={{ padding: "32px" }}>
+          <div className="loading">
             <div className="spinner"></div>Lade…
           </div>
         ) : item ? (
           <>
             {/* Foto */}
-            <div
-              style={{
-                textAlign: "center",
-                padding: "16px 0",
-                borderBottom: "1px solid #ddd",
-                backgroundColor: "#f9f9f9",
-              }}>
+            <div className="schmuck-modal-photo">
               {photo ? (
                 <img
                   src={photo}
                   alt={item.Artikelnummer}
-                  style={{
-                    maxWidth: "200px",
-                    maxHeight: "200px",
-                    borderRadius: "8px",
-                  }}
                 />
               ) : item.Foto && photoLoading ? (
-                <div
-                  style={{
-                    width: "200px",
-                    height: "200px",
-                    margin: "0 auto",
-                    borderRadius: "8px",
-                    backgroundColor: "#e0e0e0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#999",
-                    fontSize: "14px",
-                    border: "2px dashed #ccc",
-                  }}>
-                  <div>
-                    <div style={{ marginBottom: "8px" }}>⏳</div>
-                    Bild wird geladen...
-                  </div>
+                <div className="schmuck-modal-photo-placeholder loading">
+                  <span>⏳</span>
+                  Bild wird geladen...
                 </div>
               ) : (
-                <div
-                  style={{
-                    width: "200px",
-                    height: "200px",
-                    margin: "0 auto",
-                    borderRadius: "8px",
-                    backgroundColor: "#f0f0f0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#bbb",
-                    fontSize: "14px",
-                    border: "2px dashed #ddd",
-                  }}>
-                  <div>
-                    <div style={{ marginBottom: "8px", fontSize: "24px" }}>
-                      📷
-                    </div>
-                    Kein Bild vorhanden
-                  </div>
+                <div className="schmuck-modal-photo-placeholder empty">
+                  <span className="photo-icon">📷</span>
+                  Kein Bild vorhanden
                 </div>
               )}
             </div>
@@ -226,7 +180,7 @@ export default function SchmuckstueckModal({ artikelnummer, onClose, onEdit, onD
             </div>
           </>
         ) : (
-          <div style={{ padding: "24px", textAlign: "center", color: "#999" }}>
+          <div className="empty-state">
             Schmuckstück nicht gefunden.
           </div>
         )}

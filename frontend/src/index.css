@@ -835,6 +835,71 @@ select.form-control {
   color: var(--text-primary);
 }
 
+/* ============ SCHMUCKSTUECK MODAL ============ */
+.schmuck-modal-overlay-top {
+  z-index: 1600;
+}
+
+.schmuck-modal {
+  max-width: 680px;
+}
+
+.schmuck-modal .modal-header-actions {
+  margin-left: auto;
+  margin-right: 16px;
+}
+
+.schmuck-modal .modal-header-actions .btn:not(:last-child) {
+  margin-right: 8px;
+}
+
+.schmuck-modal .loading {
+  padding: 32px;
+}
+
+.schmuck-modal-photo {
+  text-align: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-secondary);
+}
+
+.schmuck-modal-photo img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+}
+
+.schmuck-modal-photo-placeholder {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border: 2px dashed;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schmuck-modal-photo-placeholder.loading {
+  background-color: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.schmuck-modal-photo-placeholder.empty {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.schmuck-modal-photo-placeholder.empty .photo-icon {
+  font-size: 24px;
+}
+
 /* ============ ANIMATIONS ============ */
 @keyframes fadeIn {
   from {
