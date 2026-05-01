@@ -101,13 +101,21 @@ router.post('/', async (req, res) => {
 
     const lieferscheinId = rows[0].ID;
 
-    // Only assign products and mark as outsourced if status is 'final'
-    // Drafts don't modify Schmuckstück records
-    if (status === 'final' && Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-        [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
-      );
+    // Always assign Lieferschein_ID to track which pieces belong to this document
+    // But only set Ausgelagert flag if status is 'final'
+    if (Artikelnummern && Artikelnummern.length > 0) {
+      if (status === 'final') {
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
+          [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
+        );
+      } else {
+        // Draft: only set Lieferschein_ID, don't change Ausgelagert
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [lieferscheinId, Artikelnummern]
+        );
+      }
     }
 
     logger.info('LIEFERSCHEINE', `Lieferschein erstellt: ${rows[0].Nummer} (ID=${lieferscheinId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
@@ -142,16 +150,22 @@ router.put('/:id', async (req, res) => {
 
     const currentStatus = rows[0].status;
 
-    // Only modify Schmuckstück records if status is 'final'
-    if (currentStatus === 'final') {
-      // Reset old associations
-      await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`, [req.params.id]);
+    // Always reset old associations first (both Lieferschein_ID and Ausgelagert)
+    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`, [req.params.id]);
 
-      // Set new associations
-      if (Artikelnummern && Artikelnummern.length > 0) {
+    // Set new associations
+    if (Artikelnummern && Artikelnummern.length > 0) {
+      if (currentStatus === 'final') {
+        // Final: set both Lieferschein_ID and Ausgelagert
         await db.query(
           `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
           [req.params.id, parseInt(Kundennummer), Artikelnummern]
+        );
+      } else {
+        // Draft: only set Lieferschein_ID, don't change Ausgelagert
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [req.params.id, Artikelnummern]
         );
       }
     }

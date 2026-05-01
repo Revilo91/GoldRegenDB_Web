@@ -125,13 +125,21 @@ router.post('/', async (req, res) => {
 
     const rechnungId = rows[0].ID;
 
-    // Only assign products and mark as sold if status is 'final'
-    // Drafts don't modify Schmuckstück records
-    if (status === 'final' && Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [rechnungId, Artikelnummern]
-      );
+    // Always assign Rechnung_ID to track which pieces belong to this document
+    // But only set Verkauft flag if status is 'final'
+    if (Artikelnummern && Artikelnummern.length > 0) {
+      if (status === 'final') {
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [rechnungId, Artikelnummern]
+        );
+      } else {
+        // Draft: only set Rechnung_ID, don't change Verkauft
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [rechnungId, Artikelnummern]
+        );
+      }
     }
 
     logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
@@ -166,15 +174,21 @@ router.put('/:id', async (req, res) => {
 
     const currentStatus = rows[0].status;
 
-    // Only modify Schmuckstück records if status is 'final'
-    if (currentStatus === 'final') {
-      // Reset old associations
-      await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
+    // Always reset old associations first (both Rechnung_ID and Verkauft)
+    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
 
-      // Set new associations
-      if (Artikelnummern && Artikelnummern.length > 0) {
+    // Set new associations
+    if (Artikelnummern && Artikelnummern.length > 0) {
+      if (currentStatus === 'final') {
+        // Final: set both Rechnung_ID and Verkauft
         await db.query(
           `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [req.params.id, Artikelnummern]
+        );
+      } else {
+        // Draft: only set Rechnung_ID, don't change Verkauft
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
           [req.params.id, Artikelnummern]
         );
       }
