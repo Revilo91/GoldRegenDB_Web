@@ -596,52 +596,57 @@ export default function DocumentManager({
                       onChange={(e) => setPieceSearch(e.target.value)}
                       disabled={pieceSelectMode === "byKunde" && !form.Kundennummer}
                     />
-                    <DataTable
-                      data={availablePieces
-                        .filter((p) =>
-                          pieceSearch.trim() === ""
-                            ? true
-                            : [
-                                p.Artikelnummer,
-                                p.Art,
-                                String(p.Verkaufspreis),
-                              ]
-                                .join(" ")
-                                .toLowerCase()
-                                .includes(pieceSearch.trim().toLowerCase()),
-                        )}
-                      columns={[
-                        {
-                          key: "select",
-                          label: "",
-                          render: (p) => (
-                            <input
-                              type="checkbox"
-                              checked={form.Artikelnummern.includes(p.Artikelnummer)}
-                              readOnly
-                            />
-                          ),
-                          width: 40,
-                        },
-                        { key: "Artikelnummer", label: "Artikelnr.", sortable: true },
-                        { key: "Art", label: "Art", sortable: true },
-                        {
-                          key: "Verkaufspreis",
-                          label: "Preis",
-                          sortable: true,
-                          render: (p) => `${p.Verkaufspreis}€`,
-                        },
-                      ]}
-                      onRowClick={(p) => togglePiece(p.Artikelnummer)}
-                      rowProps={(p) => ({
-                        draggable: true,
-                        onDragStart: (e) =>
-                          e.dataTransfer.setData("artikelnummer", p.Artikelnummer),
-                        style: { cursor: "grab" },
-                      })}
-                      style={{ maxHeight: 400, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
-                      disabled={pieceSelectMode === "byKunde" && !form.Kundennummer}
-                    />
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "2px dashed var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}>
+                      <DataTable
+                        data={availablePieces
+                          .filter((p) =>
+                            pieceSearch.trim() === ""
+                              ? true
+                              : [
+                                  p.Artikelnummer,
+                                  p.Art,
+                                  String(p.Verkaufspreis),
+                                ]
+                                  .join(" ")
+                                  .toLowerCase()
+                                  .includes(pieceSearch.trim().toLowerCase()),
+                          )}
+                        columns={[
+                          {
+                            key: "select",
+                            label: "",
+                            render: (p) => (
+                              <input
+                                type="checkbox"
+                                checked={form.Artikelnummern.includes(p.Artikelnummer)}
+                                readOnly
+                              />
+                            ),
+                            width: 40,
+                          },
+                          { key: "Artikelnummer", label: "Artikelnr.", sortable: true },
+                          { key: "Art", label: "Art", sortable: true },
+                          {
+                            key: "Verkaufspreis",
+                            label: "Preis",
+                            sortable: true,
+                            render: (p) => `${p.Verkaufspreis}€`,
+                          },
+                        ]}
+                        onRowClick={(p) => togglePiece(p.Artikelnummer)}
+                        rowProps={(p) => ({
+                          draggable: true,
+                          onDragStart: (e) =>
+                            e.dataTransfer.setData("artikelnummer", p.Artikelnummer),
+                        })}
+                      />
+                    </div>
                   </div>
                   {/* Rechte Seite: Selektierte Stücke */}
                   <div style={{ flex: 1, minWidth: 0 }}>

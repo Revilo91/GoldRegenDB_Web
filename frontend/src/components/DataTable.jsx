@@ -5,11 +5,13 @@ export default function DataTable({
   data = [],
   className = "",
   onRowClick,
+  rowProps,
   defaultSort = { key: null, direction: "asc" },
   getRowKey = (r) => r.id || r.ID || JSON.stringify(r),
   footer = null,
 }) {
   const [sortConfig, setSortConfig] = useState(defaultSort);
+  const [draggingRowKey, setDraggingRowKey] = useState(null);
 
   const sorted = useMemo(() => {
     const arr = [...data];
@@ -65,15 +67,62 @@ export default function DataTable({
         </tr>
       </thead>
       <tbody>
-        {sorted.map((row) => (
-          <tr key={getRowKey(row)} onClick={() => onRowClick && onRowClick(row)} style={{ cursor: onRowClick ? "pointer" : "default" }}>
-            {columns.map((c) => (
-              <td key={(c.key || c.label) + getRowKey(row)} className={c.className || ""}>
-                {c.render ? c.render(row) : row[c.key]}
-              </td>
-            ))}
-          </tr>
-        ))}
+        {sorted.map((row) => {
+          const rowKey = getRowKey(row);
+          const customRowProps = rowProps ? rowProps(row) || {} : {};
+          const {
+            onClick: customOnClick,
+            onDragStart: customOnDragStart,
+            onDragEnd: customOnDragEnd,
+            style: customStyle,
+            ...restCustomRowProps
+          } = customRowProps;
+
+          const isDraggable = Boolean(restCustomRowProps.draggable);
+          const baseCursor = isDraggable
+            ? draggingRowKey === rowKey
+              ? "grabbing"
+              : "grab"
+            : onRowClick
+              ? "pointer"
+              : "default";
+
+          return (
+            <tr
+              key={rowKey}
+              onClick={(event) => {
+                if (typeof customOnClick === "function") {
+                  customOnClick(event);
+                }
+                if (onRowClick) {
+                  onRowClick(row);
+                }
+              }}
+              onDragStart={(event) => {
+                setDraggingRowKey(rowKey);
+                if (typeof customOnDragStart === "function") {
+                  customOnDragStart(event);
+                }
+              }}
+              onDragEnd={(event) => {
+                setDraggingRowKey(null);
+                if (typeof customOnDragEnd === "function") {
+                  customOnDragEnd(event);
+                }
+              }}
+              style={{
+                cursor: baseCursor,
+                ...customStyle,
+              }}
+              {...restCustomRowProps}>
+              {columns.map((c) => (
+                <td key={(c.key || c.label) + getRowKey(row)} className={c.className || ""}>
+                  {c.render ? c.render(row) : row[c.key]}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
       </tbody>
       {footer ? <tfoot>{footer}</tfoot> : null}
     </table>
