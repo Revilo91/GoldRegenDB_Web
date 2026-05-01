@@ -70,6 +70,10 @@ export default function Schmuckstuecke() {
     key: "Artikelnummer",
     direction: "asc",
   });
+  const [nextArtikelnummerPreview, setNextArtikelnummerPreview] = useState("");
+  const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
+    useState(false);
+  const [nextArtikelnummerError, setNextArtikelnummerError] = useState("");
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
     if (!hersteller || !grundmaterial || !produktart) return "";
@@ -186,6 +190,49 @@ export default function Schmuckstuecke() {
   useEffect(() => {
     load();
   }, [page, search, filters]);
+
+  useEffect(() => {
+    if (editing !== "new") {
+      setNextArtikelnummerPreview("");
+      setNextArtikelnummerError("");
+      setNextArtikelnummerLoading(false);
+      return;
+    }
+
+    const prefix = String(form.Artikelnummer || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(prefix)) {
+      setNextArtikelnummerPreview("");
+      setNextArtikelnummerError("");
+      setNextArtikelnummerLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setNextArtikelnummerLoading(true);
+    setNextArtikelnummerError("");
+
+    api
+      .getNextArtikelnummer(prefix)
+      .then((result) => {
+        if (isCancelled) return;
+        setNextArtikelnummerPreview(result.artikelnummer || "");
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        setNextArtikelnummerPreview("");
+        setNextArtikelnummerError(
+          err.message || "Nächste Artikelnummer konnte nicht geladen werden.",
+        );
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setNextArtikelnummerLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [editing, form.Artikelnummer]);
 
   useEffect(() => {
     const openEditArtikelnummer = location.state?.openEdit;
@@ -531,16 +578,16 @@ export default function Schmuckstuecke() {
                 <h4>
                   <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
                 </h4>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Artikelnummer*</label>
-                    {editing === "new" ? (
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr 1fr",
-                          gap: "10px",
-                        }}>
+                {editing === "new" ? (
+                  <>
+                    <div
+                      className="form-row"
+                      style={{
+                        gridTemplateColumns: "1fr 1fr 1fr 120px",
+                        alignItems: "end",
+                      }}>
+                      <div className="form-group">
+                        <label>Hersteller*</label>
                         <select
                           className="form-control"
                           value={form.HerstellerCode || ""}
@@ -564,6 +611,9 @@ export default function Schmuckstuecke() {
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Grundmaterial*</label>
                         <select
                           className="form-control"
                           value={form.GrundmaterialCode || ""}
@@ -587,6 +637,9 @@ export default function Schmuckstuecke() {
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Produktart*</label>
                         <select
                           className="form-control"
                           value={form.ProduktartCode || ""}
@@ -611,38 +664,54 @@ export default function Schmuckstuecke() {
                           ))}
                         </select>
                       </div>
-                    ) : (
+                      <div className="form-group">
+                        <label>Anzahl</label>
+                        <input
+                          className="form-control"
+                          type="number"
+                          min="1"
+                          value={form.Anzahl || 1}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              Anzahl: parseInt(e.target.value) || 1,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Artikelnummer*</label>
+                        <div className="form-control" style={{ display: "flex", alignItems: "center" }}>
+                          {nextArtikelnummerPreview || form.Artikelnummer || "---"}
+                        </div>
+                        <small style={{ display: "block", marginTop: "6px" }}>
+                          Präfix: <strong>{form.Artikelnummer || "---"}</strong>
+                          {nextArtikelnummerLoading
+                            ? " | Nächste Nummer wird aus der Datenbank geladen..."
+                            : nextArtikelnummerPreview
+                              ? ` | Vorschau: ${nextArtikelnummerPreview}`
+                              : nextArtikelnummerError
+                                ? ` | Hinweis: ${nextArtikelnummerError}`
+                                : " | Die laufende Nummer wird beim Speichern automatisch aus der Datenbank vergeben."}
+                        </small>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Artikelnummer*</label>
                       <input
                         className="form-control"
                         disabled
                         value={form.Artikelnummer || ""}
                       />
-                    )}
-                    {editing === "new" && (
-                      <small style={{ display: "block", marginTop: "6px" }}>
-                        Präfix: <strong>{form.Artikelnummer || "---"}</strong>
-                        . Die laufende Nummer wird beim Speichern automatisch aus
-                        der Datenbank vergeben.
-                      </small>
-                    )}
-                  </div>
-                  {editing === "new" && (
-                    <div className="form-group" style={{ maxWidth: "100px" }}>
-                      <label>Anzahl</label>
-                      <input
-                        className="form-control"
-                        type="number"
-                        min="1"
-                        value={form.Anzahl || 1}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            Anzahl: parseInt(e.target.value) || 1,
-                          })
-                        }
-                      />
                     </div>
-                  )}
+                  </div>
+                )}
+                <div className="form-row">
                   <div className="form-group">
                     <label>Name</label>
                     <input
@@ -1115,23 +1184,6 @@ export default function Schmuckstuecke() {
                   </div>
                 </div>
                 <div className="form-row" style={{ marginTop: "16px" }}>
-                  <div
-                    className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      id="form-verkauft"
-                      checked={form.Verkauft === 1}
-                      disabled
-                      onChange={(e) =>
-                        setForm({ ...form, Verkauft: e.target.checked ? 1 : 0 })
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                    <label htmlFor="form-verkauft" style={{ marginBottom: 0 }}>
-                      Verkauft
-                    </label>
-                  </div>
                   <div
                     className="form-group"
                     style={{ display: "flex", alignItems: "center" }}>

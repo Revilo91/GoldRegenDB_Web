@@ -157,6 +157,7 @@ export const api = {
     return request(`/schmuckstuecke/unique-artikelnummern?${qs}`);
   },
   getFilterOptions: () => request('/schmuckstuecke/filter-options'),
+  getNextArtikelnummer: (prefix) => request(`/schmuckstuecke/next-artikelnummer?${new URLSearchParams({ prefix }).toString()}`),
   getSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`),
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
   updateSchmuckstueck: (nr, data) => request(`/schmuckstuecke/${nr}`, { method: 'PUT', body: JSON.stringify(data) }),
