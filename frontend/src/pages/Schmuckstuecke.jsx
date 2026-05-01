@@ -164,6 +164,7 @@ export default function Schmuckstuecke() {
       Lieferschein_ID,
       Rechnung_ID,
       Grundmaterial,
+      Foto,
       ...copyData
     } = s;
     const baseArtikelnummer = String(s.Artikelnummer || "").split("_")[0];
@@ -175,6 +176,7 @@ export default function Schmuckstuecke() {
       GrundmaterialCode: baseArtikelnummer[1] || "",
       ProduktartCode: baseArtikelnummer[2] || "",
       Anzahl: 1,
+      Foto: "",
       Ausgelagert: 0,
       Verkauft: 0,
       Ausschuss: 0,
@@ -553,7 +555,7 @@ export default function Schmuckstuecke() {
       )}
 
       {editing !== null && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}

@@ -324,7 +324,7 @@ function AppLayout() {
 
       {/* User Menu Modal */}
       {showUserMenu && (
-        <div className="modal-overlay" onClick={closeUserMenu}>
+        <div className="modal-overlay">
           <div className="modal user-menu-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
@@ -379,7 +379,7 @@ function AppLayout() {
       )}
 
       {isPasswordModalVisible && (
-        <div className="modal-overlay" onClick={closePasswordModal}>
+        <div className="modal-overlay">
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
