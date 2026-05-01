@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
@@ -52,7 +53,7 @@ export default function AuditLog() {
   const p = data.pagination;
   const columns = [
     { key: "id", label: "ID", sortable: true },
-    { key: "artikelnummer_id", label: "Artikel", sortable: true, render: (r) => <span className="badge gold">{r.artikelnummer_id}</span> },
+    { key: "artikelnummer_id", label: "Artikel", sortable: true, render: (r) => <Link to={`/schmuckstuecke/${r.artikelnummer_id}`} className="badge gold" style={{ textDecoration: "none" }}>{r.artikelnummer_id}</Link> },
     { key: "column_name", label: "Spalte", sortable: true },
     { key: "old_value", label: "Alter Wert" },
     { key: "new_value", label: "Neuer Wert" },

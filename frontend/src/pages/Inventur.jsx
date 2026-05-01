@@ -17,6 +17,7 @@ import {
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import SchmuckstueckModal from "../components/SchmuckstueckModal";
 
 const TABS = [
   { id: "aktiv", label: "Nicht verkauft" },
@@ -111,6 +112,7 @@ function ItemsTable({
   selectedForRechnung,
   toggleForRechnung,
   selectAllForRechnung,
+  onItemClick,
 }) {
   const allSelected =
     selectedForReturn &&
@@ -208,7 +210,10 @@ function ItemsTable({
                 { numeric: true },
               ),
             render: (item) => (
-              <>
+              <button
+                className="btn-link"
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none", color: "inherit" }}
+                onClick={(e) => { e.stopPropagation(); onItemClick(item.Artikelnummer); }}>
                 <strong>
                   {String(item.Artikelnummer || "").split("_")[0]}
                 </strong>
@@ -217,7 +222,7 @@ function ItemsTable({
                     {String(item.Artikelnummer || "").split("_")[1]}
                   </span>
                 )}
-              </>
+              </button>
             ),
           },
           {
@@ -278,6 +283,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const [selectedForReturn, setselectedForReturn] = useState(new Set());
   const [selectedForRechnung, setSelectedForRechnung] = useState(new Set());
   const [creatingRechnung, setCreatingRechnung] = useState(false);
+  const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -563,6 +569,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                   }
                   toggleForRechnung={toggleForRechnung}
                   selectAllForRechnung={selectAllForRechnung}
+                  onItemClick={(nr) => setSchmuckstueckOverlay(nr)}
                 />
               </>
             )
@@ -623,6 +630,12 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
           </div>
         </div>
       </div>
+      {schmuckstueckOverlay && (
+        <SchmuckstueckModal
+          artikelnummer={schmuckstueckOverlay}
+          onClose={() => setSchmuckstueckOverlay(null)}
+        />
+      )}
     </div>
   );
 }

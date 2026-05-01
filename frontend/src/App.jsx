@@ -40,6 +40,7 @@ import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import Datensicherung from "./pages/Datensicherung";
 import Inventur from "./pages/Inventur";
+import SchmuckstueckDetail from "./pages/SchmuckstueckDetail";
 import "./index.css";
 
 function AppLayout() {
@@ -540,6 +541,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <Schmuckstuecke />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/schmuckstuecke/:artikelnummer"
+            element={
+              <ProtectedRoute>
+                <SchmuckstueckDetail />
               </ProtectedRoute>
             }
           />

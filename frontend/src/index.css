@@ -694,13 +694,28 @@ select.form-control {
   padding: 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
   background: var(--bg-card);
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.modal-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-header-badge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .modal-header h3 {
@@ -833,6 +848,70 @@ select.form-control {
 .detail-item .detail-value {
   font-size: 15px;
   color: var(--text-primary);
+}
+
+/* ============ SCHMUCKSTUECK MODAL ============ */
+.schmuck-modal-overlay-top {
+  z-index: 1600;
+}
+
+.schmuck-modal {
+  max-width: 680px;
+}
+
+.schmuck-modal .modal-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  margin-right: 4px;
+}
+
+.schmuck-modal .loading {
+  padding: 32px;
+}
+
+.schmuck-modal-photo {
+  text-align: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-secondary);
+}
+
+.schmuck-modal-photo img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+}
+
+.schmuck-modal-photo-placeholder {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border: 2px dashed;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schmuck-modal-photo-placeholder.loading {
+  background-color: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.schmuck-modal-photo-placeholder.empty {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.schmuck-modal-photo-placeholder.empty .photo-icon {
+  font-size: 24px;
 }
 
 /* ============ ANIMATIONS ============ */

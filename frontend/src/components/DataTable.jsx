@@ -22,6 +22,15 @@ export default function DataTable({
       }
       const aV = a[sortConfig.key];
       const bV = b[sortConfig.key];
+
+      if (typeof aV === "string" && typeof bV === "string") {
+        const result = aV.localeCompare(bV, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+        return sortConfig.direction === "asc" ? result : -result;
+      }
+
       if (aV < bV) return sortConfig.direction === "asc" ? -1 : 1;
       if (aV > bV) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
