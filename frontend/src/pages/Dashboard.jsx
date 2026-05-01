@@ -191,52 +191,66 @@ export default function Dashboard() {
           <div className="stat-icon">
             <FontAwesomeIcon icon={faGem} />
           </div>
-          <div className="stat-value">{s.totalPieces}</div>
-          <div className="stat-label">Gesamt Stücke</div>
+          <div className="stat-content">
+            <div className="stat-value">{s.totalPieces}</div>
+            <div className="stat-label">Gesamt Stücke</div>
+          </div>
         </div>
         <div className="stat-card info">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faWarehouse} />
           </div>
-          <div className="stat-value">{s.inStockPieces}</div>
-          <div className="stat-label">Im Lager</div>
+          <div className="stat-content">
+            <div className="stat-value">{s.inStockPieces}</div>
+            <div className="stat-label">Im Lager</div>
+          </div>
         </div>
         <div className="stat-card warning">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faBox} />
           </div>
-          <div className="stat-value">{s.outsourcedPieces}</div>
-          <div className="stat-label">Ausgelagert</div>
+          <div className="stat-content">
+            <div className="stat-value">{s.outsourcedPieces}</div>
+            <div className="stat-label">Ausgelagert</div>
+          </div>
         </div>
         <div className="stat-card success">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faCheckCircle} />
           </div>
-          <div className="stat-value">{s.soldPieces}</div>
-          <div className="stat-label">Verkauft</div>
+          <div className="stat-content">
+            <div className="stat-value">{s.soldPieces}</div>
+            <div className="stat-label">Verkauft</div>
+          </div>
         </div>
         <div className="stat-card danger">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faTimesCircle} />
           </div>
-          <div className="stat-value">{s.rejectPieces}</div>
-          <div className="stat-label">Ausschuss</div>
+          <div className="stat-content">
+            <div className="stat-value">{s.rejectPieces}</div>
+            <div className="stat-label">Ausschuss</div>
+          </div>
         </div>
         <div className="stat-card gold">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faEuroSign} />
           </div>
-          <div className="stat-value">{s.totalRevenue.toFixed(0)}€</div>
-          <div className="stat-label">Umsatz (verkauft)</div>
+          <div className="stat-content">
+            <div className="stat-value">{s.totalRevenue.toFixed(0)}€</div>
+            <div className="stat-label">Umsatz (verkauft)</div>
+          </div>
         </div>
         <div className="stat-card info">
           <div className="stat-icon">
             <FontAwesomeIcon icon={faUsers} />
           </div>
-          <div className="stat-value">
-            {s.activeCustomers}/{s.totalCustomers}
+          <div className="stat-content">
+            <div className="stat-value">
+              {s.activeCustomers}/{s.totalCustomers}
+            </div>
+            <div className="stat-label">Aktive Kunden</div>
           </div>
-          <div className="stat-label">Aktive Kunden</div>
         </div>
       </div>
 
@@ -264,41 +278,49 @@ export default function Dashboard() {
             <div style={{ padding: 16 }}>
               <div className="stats-grid" style={{ marginBottom: 0 }}>
                 <div className="stat-card info" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {mStats.total}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Gesamt
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {mStats.total}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Gesamt
+                    </div>
                   </div>
                 </div>
                 <div
                   className="stat-card success"
                   style={{ minHeight: "auto" }}
                 >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {mStats.verfuegbar}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Verfügbar
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {mStats.verfuegbar}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Verfügbar
+                    </div>
                   </div>
                 </div>
                 <div
                   className="stat-card warning"
                   style={{ minHeight: "auto" }}
                 >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {mStats.ausgelagert}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Ausgelagert
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {mStats.ausgelagert}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Ausgelagert
+                    </div>
                   </div>
                 </div>
                 <div className="stat-card gold" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {mStats.verkauft}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Verkauft
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {mStats.verkauft}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Verkauft
+                    </div>
                   </div>
                 </div>
               </div>
@@ -337,41 +359,49 @@ export default function Dashboard() {
             <div style={{ padding: 16 }}>
               <div className="stats-grid" style={{ marginBottom: 0 }}>
                 <div className="stat-card info" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {sStats.total}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Gesamt
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {sStats.total}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Gesamt
+                    </div>
                   </div>
                 </div>
                 <div
                   className="stat-card success"
                   style={{ minHeight: "auto" }}
                 >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {sStats.verfuegbar}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Verfügbar
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {sStats.verfuegbar}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Verfügbar
+                    </div>
                   </div>
                 </div>
                 <div
                   className="stat-card warning"
                   style={{ minHeight: "auto" }}
                 >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {sStats.ausgelagert}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Ausgelagert
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {sStats.ausgelagert}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Ausgelagert
+                    </div>
                   </div>
                 </div>
                 <div className="stat-card gold" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
-                    {sStats.verkauft}
-                  </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
-                    Verkauft
+                  <div className="stat-content">
+                    <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                      {sStats.verkauft}
+                    </div>
+                    <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                      Verkauft
+                    </div>
                   </div>
                 </div>
               </div>
