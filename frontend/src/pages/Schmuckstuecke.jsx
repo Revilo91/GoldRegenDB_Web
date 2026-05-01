@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
+  faHashtag,
   faGem,
   faPen,
   faTrash,
@@ -576,7 +577,7 @@ export default function Schmuckstuecke() {
             <div className="modal-body">
               <div className="form-section">
                 <h4>
-                  <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
+                  <FontAwesomeIcon icon={faHashtag} /> Artikelnummer
                 </h4>
                 {editing === "new" ? (
                   <>
@@ -686,16 +687,7 @@ export default function Schmuckstuecke() {
                         <div className="form-control" style={{ display: "flex", alignItems: "center" }}>
                           {nextArtikelnummerPreview || form.Artikelnummer || "---"}
                         </div>
-                        <small style={{ display: "block", marginTop: "6px" }}>
-                          Präfix: <strong>{form.Artikelnummer || "---"}</strong>
-                          {nextArtikelnummerLoading
-                            ? " | Nächste Nummer wird aus der Datenbank geladen..."
-                            : nextArtikelnummerPreview
-                              ? ` | Vorschau: ${nextArtikelnummerPreview}`
-                              : nextArtikelnummerError
-                                ? ` | Hinweis: ${nextArtikelnummerError}`
-                                : " | Die laufende Nummer wird beim Speichern automatisch aus der Datenbank vergeben."}
-                        </small>
+
                       </div>
                     </div>
                   </>
@@ -711,6 +703,11 @@ export default function Schmuckstuecke() {
                     </div>
                   </div>
                 )}
+                </div>
+                 <div className="form-section">
+                <h4>
+                  <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
+                </h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Name</label>
@@ -928,7 +925,7 @@ export default function Schmuckstuecke() {
 
               <div className="form-section">
                 <h4>
-                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment
+                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger
                 </h4>
                 <div className="form-row">
                   <div className="form-group">
