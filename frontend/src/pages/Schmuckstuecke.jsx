@@ -60,7 +60,7 @@ export default function Schmuckstuecke() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async ({ closeAfterSave = true } = {}) => {
     try {
       const dataToSave = { ...form };
 
@@ -69,7 +69,9 @@ export default function Schmuckstuecke() {
       } else {
         await api.updateSchmuckstueck(editing, dataToSave);
       }
-      setEditing(null);
+      if (closeAfterSave || editing !== "new") {
+        setEditing(null);
+      }
       load();
     } catch (err) {
       alert(err.message);
@@ -1054,9 +1056,26 @@ export default function Schmuckstuecke() {
                 onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
-              </button>
+              {editing === "new" ? (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleSave({ closeAfterSave: true })}>
+                    Speichern + Schließen
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleSave({ closeAfterSave: false })}>
+                    Speichern + Weiter
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleSave({ closeAfterSave: true })}>
+                  Speichern
+                </button>
+              )}
             </div>
           </div>
         </div>
