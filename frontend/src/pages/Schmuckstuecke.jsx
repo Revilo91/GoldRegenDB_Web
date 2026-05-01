@@ -553,7 +553,7 @@ export default function Schmuckstuecke() {
       )}
 
       {editing !== null && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}

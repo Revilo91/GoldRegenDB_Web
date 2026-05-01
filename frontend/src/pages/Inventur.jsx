@@ -433,7 +433,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="modal"
         style={{ maxWidth: 960, width: "95%" }}
@@ -654,7 +654,7 @@ function InventurDiffModal({ draftId, onClose }) {
   }, [draftId]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="modal"
         style={{

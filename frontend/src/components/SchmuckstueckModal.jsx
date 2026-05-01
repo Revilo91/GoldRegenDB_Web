@@ -61,7 +61,7 @@ export default function SchmuckstueckModal({
   };
 
   return (
-    <div className="modal-overlay schmuck-modal-overlay-top" onClick={onClose}>
+    <div className="modal-overlay schmuck-modal-overlay-top">
       <div className="modal schmuck-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-header-title">

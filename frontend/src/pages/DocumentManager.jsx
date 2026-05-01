@@ -455,7 +455,7 @@ export default function DocumentManager({
 
       {/* Detail-Modal */}
       {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)}>
+        <div className="modal-overlay">
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
@@ -542,7 +542,7 @@ export default function DocumentManager({
 
       {/* Modal für neues Dokument */}
       {editing === "new" && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}

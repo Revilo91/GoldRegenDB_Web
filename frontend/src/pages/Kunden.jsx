@@ -152,7 +152,7 @@ export default function Kunden() {
       </div>
 
       {editing !== null && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editing === "new" ? "Neuer Kunde" : "Kunde bearbeiten"}</h3>
