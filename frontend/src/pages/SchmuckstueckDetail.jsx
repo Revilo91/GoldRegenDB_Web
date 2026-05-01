@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faGem,
+  faCopy,
   faPen,
   faTrash,
   faArrowLeft,
@@ -71,6 +72,10 @@ export default function SchmuckstueckDetail() {
     navigate("/schmuckstuecke", { state: { openEdit: artikelnummer } });
   };
 
+  const handleDuplicate = () => {
+    navigate("/schmuckstuecke", { state: { openDuplicate: artikelnummer } });
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -112,6 +117,11 @@ export default function SchmuckstueckDetail() {
         </div>
         {canEdit && (
           <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="btn btn-secondary"
+              onClick={handleDuplicate}>
+              <FontAwesomeIcon icon={faCopy} /> Duplizieren
+            </button>
             <button
               className="btn btn-secondary"
               onClick={handleEdit}>

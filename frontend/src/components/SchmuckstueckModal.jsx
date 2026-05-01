@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faGem,
   faTimes,
+  faCopy,
   faPen,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
@@ -13,12 +14,14 @@ import { api } from "../api";
  * Props:
  *   artikelnummer  – Artikelnummer des anzuzeigenden Stücks
  *   onClose        – Callback zum Schließen
+ *   onDuplicate    – (optional) Callback für Duplizieren-Button
  *   onEdit         – (optional) Callback für Bearbeiten-Button
  *   onDelete       – (optional) Callback für Löschen-Button
  */
 export default function SchmuckstueckModal({
   artikelnummer,
   onClose,
+  onDuplicate,
   onEdit,
   onDelete,
 }) {
@@ -87,8 +90,16 @@ export default function SchmuckstueckModal({
               </div>
             )}
           </div>
-          {(onEdit || onDelete) && (
+          {(onDuplicate || onEdit || onDelete) && (
             <div className="modal-header-actions">
+              {onDuplicate && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => onDuplicate(item)}
+                  disabled={!item}>
+                  <FontAwesomeIcon icon={faCopy} /> Duplizieren
+                </button>
+              )}
               {onEdit && (
                 <button className="btn btn-secondary btn-sm" onClick={onEdit}>
                   <FontAwesomeIcon icon={faPen} /> Bearbeiten

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
@@ -19,6 +20,8 @@ import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { useAuth } from "../context/AuthContext";
 
 export default function Schmuckstuecke() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = user && (user.role === "admin" || user.role === "bearbeiter");
   const [data, setData] = useState({ data: [], pagination: {} });
@@ -99,6 +102,30 @@ export default function Schmuckstuecke() {
     setEditing(s.Artikelnummer);
   };
 
+  const openDuplicate = (s) => {
+    const {
+      ID,
+      Erstelldatum,
+      Letzte_Änderung,
+      Lieferschein_ID,
+      Rechnung_ID,
+      Grundmaterial,
+      ...copyData
+    } = s;
+    const baseArtikelnummer = String(s.Artikelnummer || "").split("_")[0];
+
+    setForm({
+      ...copyData,
+      Artikelnummer: baseArtikelnummer,
+      Anzahl: 1,
+      Ausgelagert: 0,
+      Verkauft: 0,
+      Ausschuss: 0,
+      Ausschuss_Grund: "",
+    });
+    setEditing("new");
+  };
+
   useEffect(() => {
     api.getFilterOptions().then(setFilterOptions).catch(console.error);
     api.getKunden().then(setKunden).catch(console.error);
@@ -107,6 +134,28 @@ export default function Schmuckstuecke() {
   useEffect(() => {
     load();
   }, [page, search, filters]);
+
+  useEffect(() => {
+    const openEditArtikelnummer = location.state?.openEdit;
+    const openDuplicateArtikelnummer = location.state?.openDuplicate;
+    const targetArtikelnummer = openEditArtikelnummer || openDuplicateArtikelnummer;
+
+    if (!targetArtikelnummer) return;
+
+    api
+      .getSchmuckstueck(targetArtikelnummer)
+      .then((item) => {
+        if (openEditArtikelnummer) {
+          openEdit(item);
+        } else {
+          openDuplicate(item);
+        }
+      })
+      .catch(console.error)
+      .finally(() => {
+        navigate(location.pathname, { replace: true, state: {} });
+      });
+  }, [location.pathname, location.state, navigate]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -397,6 +446,7 @@ export default function Schmuckstuecke() {
         <SchmuckstueckModal
           artikelnummer={selected.Artikelnummer}
           onClose={() => setSelected(null)}
+          onDuplicate={canEdit ? (item) => { setSelected(null); item && openDuplicate(item); } : undefined}
           onEdit={canEdit ? () => { setSelected(null); openEdit(selected); } : undefined}
           onDelete={canEdit ? () => handleDelete(selected.Artikelnummer) : undefined}
         />
