@@ -55,6 +55,7 @@ function TableCheckboxList({ tables, selected, onChange, disabled }) {
         }}>
         <input
           type="checkbox"
+          className="form-checkbox"
           checked={allChecked}
           onChange={toggleAll}
           disabled={disabled}
@@ -73,6 +74,7 @@ function TableCheckboxList({ tables, selected, onChange, disabled }) {
             }}>
             <input
               type="checkbox"
+              className="form-checkbox"
               checked={selected.includes(key)}
               onChange={() => toggle(key)}
               disabled={disabled}

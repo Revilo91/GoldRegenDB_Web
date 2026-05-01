@@ -520,6 +520,96 @@ select.form-control {
   gap: 16px;
 }
 
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.form-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  transition: var(--transition);
+}
+
+.form-checkbox:hover {
+  border-color: var(--accent-hover);
+}
+
+.form-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.form-checkbox:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px 14px;
+}
+
+.form-checkbox:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.checkbox-label {
+  margin-bottom: 0;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.table-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-input);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  vertical-align: middle;
+  transition: var(--transition);
+}
+
+.table-checkbox:hover {
+  border-color: var(--accent-hover);
+}
+
+.table-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.table-checkbox:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+}
+
+.table-checkbox:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.table-checkbox-header {
+  margin-top: 2px;
+}
+
 /* ============ TOOLBAR ============ */
 .toolbar {
   display: flex;

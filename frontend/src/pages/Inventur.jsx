@@ -165,11 +165,11 @@ function ItemsTable({
                 <div style={{ fontSize: 8 }}>Zurück</div>
                 <input
                   type="checkbox"
+                  className="table-checkbox table-checkbox-header"
                   checked={allSelected}
                   onChange={selectAll}
                   title={allSelected ? "Alle abwählen" : "Alle auswählen"}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ marginTop: 2 }}
                 />
               </>
             ),
@@ -177,6 +177,7 @@ function ItemsTable({
             render: (item) => (
               <input
                 type="checkbox"
+                className="table-checkbox"
                 checked={selectedForReturn.has(item.Artikelnummer)}
                 onChange={() => toggleItemSelection(item.Artikelnummer)}
                 onClick={(e) => e.stopPropagation()}
@@ -190,6 +191,7 @@ function ItemsTable({
                 <div style={{ fontSize: 8 }}>Rechnung</div>
                 <input
                   type="checkbox"
+                  className="table-checkbox table-checkbox-header"
                   checked={allSelectedForRechnung}
                   onChange={selectAllForRechnung}
                   title={
@@ -198,7 +200,6 @@ function ItemsTable({
                       : "Alle für Rechnung auswählen"
                   }
                   onClick={(e) => e.stopPropagation()}
-                  style={{ marginTop: 2 }}
                 />
               </>
             ),
@@ -206,6 +207,7 @@ function ItemsTable({
             render: (item) => (
               <input
                 type="checkbox"
+                className="table-checkbox"
                 checked={selectedForRechnung.has(item.Artikelnummer)}
                 onChange={() => toggleForRechnung(item.Artikelnummer)}
                 onClick={(e) => e.stopPropagation()}

@@ -31,11 +31,18 @@ export default function DocumentManager({
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({});
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ Nummer: "", Kundennummer: "", Artikelnummern: [] });
+  const [form, setForm] = useState({
+    Nummer: "",
+    Kundennummer: "",
+    Artikelnummern: [],
+  });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
   const [artikelnummerInput, setArtikelnummerInput] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "Datum", direction: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "Datum",
+    direction: "desc",
+  });
   const [groupByKunde, setGroupByKunde] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
@@ -43,7 +50,8 @@ export default function DocumentManager({
   // Laden
   const load = () => {
     setLoading(true);
-    api.getList()
+    api
+      .getList()
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -119,7 +127,11 @@ export default function DocumentManager({
       }
     });
     const nextNr = String(maxNr + 1).padStart(3, "0");
-    setForm({ Nummer: `${year}-${nextNr}`, Kundennummer: "", Artikelnummern: [] });
+    setForm({
+      Nummer: `${year}-${nextNr}`,
+      Kundennummer: "",
+      Artikelnummern: [],
+    });
     setPieceSearch("");
     setArtikelnummerInput("");
     setEditing("new");
@@ -128,9 +140,16 @@ export default function DocumentManager({
 
   // Stückauswahl nach Kunde (nur für Rechnungen)
   useEffect(() => {
-    if (pieceSelectMode === "byKunde" && editing === "new" && form.Kundennummer) {
+    if (
+      pieceSelectMode === "byKunde" &&
+      editing === "new" &&
+      form.Kundennummer
+    ) {
       loadAvailablePieces();
-    } else if (pieceSelectMode === "byKunde" && (!form.Kundennummer || editing !== "new")) {
+    } else if (
+      pieceSelectMode === "byKunde" &&
+      (!form.Kundennummer || editing !== "new")
+    ) {
       setAvailablePieces([]);
     }
     // Lieferschein: alle Stücke werden beim Öffnen geladen
@@ -171,7 +190,10 @@ export default function DocumentManager({
       return;
     }
     if (!form.Artikelnummern.includes(piece.Artikelnummer)) {
-      setForm({ ...form, Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer] });
+      setForm({
+        ...form,
+        Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer],
+      });
     }
     setArtikelnummerInput("");
   };
@@ -275,7 +297,9 @@ export default function DocumentManager({
       <div className="page-header">
         <div>
           <h2>{labels.header}</h2>
-          <p>{data.length} {labels.header}</p>
+          <p>
+            {data.length} {labels.header}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openNew}>
           {labels.newBtn}
@@ -340,6 +364,7 @@ export default function DocumentManager({
             }}>
             <input
               type="checkbox"
+              className="form-checkbox"
               checked={groupByKunde}
               onChange={(e) => setGroupByKunde(e.target.checked)}
             />
@@ -459,7 +484,8 @@ export default function DocumentManager({
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <FontAwesomeIcon icon={icons.modal} /> {labels.header} {detail.Nummer} ({detail.ID})
+                <FontAwesomeIcon icon={icons.modal} /> {labels.header}{" "}
+                {detail.Nummer} ({detail.ID})
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -520,8 +546,16 @@ export default function DocumentManager({
                           <tr key={s.Artikelnummer}>
                             <td>
                               <button
-                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                                onClick={(e) => { e.stopPropagation(); setSchmuckstueckOverlay(s.Artikelnummer); }}>
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSchmuckstueckOverlay(s.Artikelnummer);
+                                }}>
                                 <span className="badge gold">
                                   {s.Artikelnummer.split("_")[0]}
                                 </span>
@@ -553,7 +587,9 @@ export default function DocumentManager({
               maxHeight: "800px",
             }}>
             <div className="modal-header">
-              <h3>{labels.modalTitle} ({form.Nummer})</h3>
+              <h3>
+                {labels.modalTitle} ({form.Nummer})
+              </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
@@ -566,7 +602,13 @@ export default function DocumentManager({
                     className="form-control"
                     value={form.Kundennummer}
                     onChange={(e) =>
-                      setForm({ ...form, Kundennummer: e.target.value, ...(pieceSelectMode === "byKunde" ? { Artikelnummern: [] } : {}) })
+                      setForm({
+                        ...form,
+                        Kundennummer: e.target.value,
+                        ...(pieceSelectMode === "byKunde"
+                          ? { Artikelnummern: [] }
+                          : {}),
+                      })
                     }>
                     <option value="">Bitte wählen...</option>
                     {aktiveKunden.map((k) => (
@@ -594,7 +636,9 @@ export default function DocumentManager({
                       placeholder="Schmuckstücke suchen..."
                       value={pieceSearch}
                       onChange={(e) => setPieceSearch(e.target.value)}
-                      disabled={pieceSelectMode === "byKunde" && !form.Kundennummer}
+                      disabled={
+                        pieceSelectMode === "byKunde" && !form.Kundennummer
+                      }
                     />
                     <div
                       style={{
@@ -604,19 +648,14 @@ export default function DocumentManager({
                         borderRadius: "var(--radius-sm)",
                       }}>
                       <DataTable
-                        data={availablePieces
-                          .filter((p) =>
-                            pieceSearch.trim() === ""
-                              ? true
-                              : [
-                                  p.Artikelnummer,
-                                  p.Art,
-                                  String(p.Verkaufspreis),
-                                ]
-                                  .join(" ")
-                                  .toLowerCase()
-                                  .includes(pieceSearch.trim().toLowerCase()),
-                          )}
+                        data={availablePieces.filter((p) =>
+                          pieceSearch.trim() === ""
+                            ? true
+                            : [p.Artikelnummer, p.Art, String(p.Verkaufspreis)]
+                                .join(" ")
+                                .toLowerCase()
+                                .includes(pieceSearch.trim().toLowerCase()),
+                        )}
                         columns={[
                           {
                             key: "select",
@@ -624,13 +663,20 @@ export default function DocumentManager({
                             render: (p) => (
                               <input
                                 type="checkbox"
-                                checked={form.Artikelnummern.includes(p.Artikelnummer)}
+                                className="form-checkbox"
+                                checked={form.Artikelnummern.includes(
+                                  p.Artikelnummer,
+                                )}
                                 readOnly
                               />
                             ),
                             width: 40,
                           },
-                          { key: "Artikelnummer", label: "Artikelnr.", sortable: true },
+                          {
+                            key: "Artikelnummer",
+                            label: "Artikelnr.",
+                            sortable: true,
+                          },
                           { key: "Art", label: "Art", sortable: true },
                           {
                             key: "Verkaufspreis",
@@ -643,7 +689,10 @@ export default function DocumentManager({
                         rowProps={(p) => ({
                           draggable: true,
                           onDragStart: (e) =>
-                            e.dataTransfer.setData("artikelnummer", p.Artikelnummer),
+                            e.dataTransfer.setData(
+                              "artikelnummer",
+                              p.Artikelnummer,
+                            ),
                         })}
                       />
                     </div>
@@ -663,12 +712,16 @@ export default function DocumentManager({
                         onKeyDown={(e) =>
                           e.key === "Enter" && addByArtikelnummer()
                         }
-                        disabled={pieceSelectMode === "byKunde" && !form.Kundennummer}
+                        disabled={
+                          pieceSelectMode === "byKunde" && !form.Kundennummer
+                        }
                       />
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={addByArtikelnummer}
-                        disabled={pieceSelectMode === "byKunde" && !form.Kundennummer}>
+                        disabled={
+                          pieceSelectMode === "byKunde" && !form.Kundennummer
+                        }>
                         Hinzufügen
                       </button>
                     </div>

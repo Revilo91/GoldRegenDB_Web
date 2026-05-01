@@ -202,7 +202,9 @@ export default function Schmuckstuecke() {
       return;
     }
 
-    const prefix = String(form.Artikelnummer || "").trim().toUpperCase();
+    const prefix = String(form.Artikelnummer || "")
+      .trim()
+      .toUpperCase();
     if (!/^[A-Z]{3}$/.test(prefix)) {
       setNextArtikelnummerPreview("");
       setNextArtikelnummerError("");
@@ -240,7 +242,8 @@ export default function Schmuckstuecke() {
   useEffect(() => {
     const openEditArtikelnummer = location.state?.openEdit;
     const openDuplicateArtikelnummer = location.state?.openDuplicate;
-    const targetArtikelnummer = openEditArtikelnummer || openDuplicateArtikelnummer;
+    const targetArtikelnummer =
+      openEditArtikelnummer || openDuplicateArtikelnummer;
 
     if (!targetArtikelnummer) return;
 
@@ -573,9 +576,25 @@ export default function Schmuckstuecke() {
         <SchmuckstueckModal
           artikelnummer={selected.Artikelnummer}
           onClose={() => setSelected(null)}
-          onDuplicate={canEdit ? (item) => { setSelected(null); item && openDuplicate(item); } : undefined}
-          onEdit={canEdit ? () => { setSelected(null); openEdit(selected); } : undefined}
-          onDelete={canEdit ? () => handleDelete(selected.Artikelnummer) : undefined}
+          onDuplicate={
+            canEdit
+              ? (item) => {
+                  setSelected(null);
+                  item && openDuplicate(item);
+                }
+              : undefined
+          }
+          onEdit={
+            canEdit
+              ? () => {
+                  setSelected(null);
+                  openEdit(selected);
+                }
+              : undefined
+          }
+          onDelete={
+            canEdit ? () => handleDelete(selected.Artikelnummer) : undefined
+          }
         />
       )}
 
@@ -711,10 +730,13 @@ export default function Schmuckstuecke() {
                     <div className="form-row">
                       <div className="form-group">
                         <label>Artikelnummer*</label>
-                        <div className="form-control" style={{ display: "flex", alignItems: "center" }}>
-                          {nextArtikelnummerPreview || form.Artikelnummer || "---"}
+                        <div
+                          className="form-control"
+                          style={{ display: "flex", alignItems: "center" }}>
+                          {nextArtikelnummerPreview ||
+                            form.Artikelnummer ||
+                            "---"}
                         </div>
-
                       </div>
                     </div>
                   </>
@@ -730,8 +752,8 @@ export default function Schmuckstuecke() {
                     </div>
                   </div>
                 )}
-                </div>
-                 <div className="form-section">
+              </div>
+              <div className="form-section">
                 <h4>
                   <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
                 </h4>
@@ -1207,54 +1229,61 @@ export default function Schmuckstuecke() {
                     </select>
                   </div>
                 </div>
-                <div className="form-row" style={{ marginTop: "16px" }}>
-                  <div
-                    className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      id="form-ausschuss"
-                      checked={form.Ausschuss === 1}
-                      disabled={editing === "new"}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Ausschuss: e.target.checked ? 1 : 0,
-                          Ausschuss_Grund: e.target.checked
-                            ? form.Ausschuss_Grund || "Defekt"
-                            : "",
-                        })
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                    <label htmlFor="form-ausschuss" style={{ marginBottom: 0 }}>
-                      Ausschuss
-                    </label>
-                  </div>
-                </div>
-                {form.Ausschuss === 1 && (
-                  <div className="form-row" style={{ marginTop: "12px" }}>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label>Ausschuss Grund</label>
-                      <input
-                        list="ausschussgruende-list"
-                        className="form-control"
-                        value={form.Ausschuss_Grund || ""}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            Ausschuss_Grund: e.target.value,
-                          })
-                        }
-                        placeholder="z.B. Defekt"
-                      />
-                      <datalist id="ausschussgruende-list">
-                        {filterOptions.ausschussgruende?.map((g) => (
-                          <option key={g} value={g} />
-                        ))}
-                      </datalist>
+                {editing !== "new" ? (
+                  <>
+                    <div className="form-row" style={{ marginTop: "16px" }}>
+                        <div className="form-group checkbox-field">
+                          <input
+                            type="checkbox"
+                            id="form-ausschuss"
+                            className="form-checkbox"
+                            checked={form.Ausschuss === 1}
+                            disabled={editing === "new"}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                Ausschuss: e.target.checked ? 1 : 0,
+                                Ausschuss_Grund: e.target.checked
+                                  ? form.Ausschuss_Grund || "Defekt"
+                                  : "",
+                              })
+                            }
+                          />
+                          <label
+                            htmlFor="form-ausschuss"
+                            className="checkbox-label">
+                            Ausschuss
+                          </label>
+                        </div>
+
+                      {form.Ausschuss === 1 && (
+                        <div className="form-row" style={{ marginTop: "12px" }}>
+                          <div className="form-group" style={{ flex: 1 }}>
+                            <label>Ausschuss Grund</label>
+                            <input
+                              list="ausschussgruende-list"
+                              className="form-control"
+                              value={form.Ausschuss_Grund || ""}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  Ausschuss_Grund: e.target.value,
+                                })
+                              }
+                              placeholder="z.B. Defekt"
+                            />
+                            <datalist id="ausschussgruende-list">
+                              {filterOptions.ausschussgruende?.map((g) => (
+                                <option key={g} value={g} />
+                              ))}
+                            </datalist>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </>
+                ) : (
+                  ""
                 )}
               </div>
             </div>
