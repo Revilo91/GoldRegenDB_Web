@@ -155,13 +155,13 @@ export default function DocumentManager({
     // Lieferschein: alle Stücke werden beim Öffnen geladen
   }, [form.Kundennummer, editing]);
 
-  const handleSave = async () => {
+  const handleSave = async (status = 'final') => {
     if (!form.Kundennummer) {
       alert(labels.kundeRequired);
       return;
     }
     try {
-      await api.createItem(form);
+      await api.createItem({ ...form, status });
       setEditing(null);
       load();
       if (pieceSelectMode === "all") loadAvailablePieces();
@@ -472,6 +472,25 @@ export default function DocumentManager({
                         })
                       : "",
                 },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (r) => {
+                    if (r.status === 'entwurf') {
+                      return (
+                        <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'white' }}>
+                          Entwurf
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="badge" style={{ backgroundColor: 'var(--success)', color: 'white' }}>
+                        Abgeschlossen
+                      </span>
+                    );
+                  },
+                },
               ]}
             />
           )}
@@ -486,6 +505,11 @@ export default function DocumentManager({
               <h3>
                 <FontAwesomeIcon icon={icons.modal} /> {labels.header}{" "}
                 {detail.Nummer} ({detail.ID})
+                {detail.status === 'entwurf' && (
+                  <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'white', marginLeft: '8px' }}>
+                    Entwurf
+                  </span>
+                )}
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -787,8 +811,14 @@ export default function DocumentManager({
                 onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleSave('entwurf')}
+                style={{ marginLeft: 'auto' }}>
+                Als Entwurf speichern
+              </button>
+              <button className="btn btn-primary" onClick={() => handleSave('final')}>
+                Speichern &amp; Abschließen
               </button>
             </div>
           </div>

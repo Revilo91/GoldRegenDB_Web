@@ -6,13 +6,21 @@ const logger = require('../utils/logger');
 // GET all invoices
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await db.query(
-      `SELECT r.*, k."Name" as "KundenName"
+    const { status } = req.query; // Optional filter: ?status=entwurf or ?status=final
+    let query = `SELECT r.*, k."Name" as "KundenName"
        FROM "Rechnung" r
-       LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
-       ORDER BY r."Datum" DESC`
-    );
-    logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen`);
+       LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"`;
+    const params = [];
+
+    if (status) {
+      query += ` WHERE r.status = $1`;
+      params.push(status);
+    }
+
+    query += ` ORDER BY r."Datum" DESC`;
+
+    const { rows } = await db.query(query, params);
+    logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen${status ? ` (status=${status})` : ''}`);
     res.json(rows);
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnungen', { message: err.message });
@@ -108,23 +116,25 @@ router.get('/:id/excel', async (req, res) => {
 // POST create
 router.post('/', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf' } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer")
-       VALUES ($1, $2) RETURNING *`,
-      [Nummer, Kundennummer]
+      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [Nummer, Kundennummer, status]
     );
 
     const rechnungId = rows[0].ID;
 
-    if (Artikelnummern && Artikelnummern.length > 0) {
+    // Only assign products and mark as sold if status is 'final'
+    // Drafts don't modify Schmuckstück records
+    if (status === 'final' && Artikelnummern && Artikelnummern.length > 0) {
       await db.query(
         `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
         [rechnungId, Artikelnummern]
       );
     }
 
-    logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
     res.status(201).json(rows[0]);
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Erstellen der Rechnung', { message: err.message });
@@ -135,28 +145,42 @@ router.post('/', async (req, res) => {
 // PUT update
 router.put('/:id', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer } = req.body;
-    const { rows } = await db.query(
-      `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2
-       WHERE "ID" = $3 RETURNING *`,
-      [Nummer, Kundennummer, req.params.id]
-    );
+    const { Nummer, Artikelnummern, Kundennummer, status } = req.body;
+
+    // Build update query
+    let updateQuery = `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2`;
+    const params = [Nummer, Kundennummer];
+
+    if (status !== undefined) {
+      updateQuery += `, status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;
+    params.push(req.params.id);
+
+    const { rows } = await db.query(updateQuery, params);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
 
-    // Reset old associations
-    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
+    const currentStatus = rows[0].status;
 
-    // Set new associations
-    if (Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [req.params.id, Artikelnummern]
-      );
+    // Only modify Schmuckstück records if status is 'final'
+    if (currentStatus === 'final') {
+      // Reset old associations
+      await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
+
+      // Set new associations
+      if (Artikelnummern && Artikelnummern.length > 0) {
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [req.params.id, Artikelnummern]
+        );
+      }
     }
 
-    logger.info('RECHNUNGEN', `Rechnung aktualisiert: ID=${req.params.id}`);
+    logger.info('RECHNUNGEN', `Rechnung aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
     res.json(rows[0]);
   } catch (err) {
     logger.error('RECHNUNGEN', `Fehler beim Aktualisieren der Rechnung ID=${req.params.id}`, { message: err.message });
