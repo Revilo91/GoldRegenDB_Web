@@ -554,10 +554,9 @@ async function generateExcel(type, data, logoPath) {
   };
 
   // Footer
-  const footerText = `&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
+  const footerText = `&"Calibri,Regular"&8&L${contact.name}\n${BUSINESS_ADDRESS}&C${contact.mobile}\n${contact.email}\n${contact.website}&R${contact.bank}`;
   worksheet.headerFooter.oddFooter = footerText;
   worksheet.headerFooter.evenFooter = footerText;
-  worksheet.headerFooter.font = { name: "Calibri", size: 8 };
 
   // Auto-fit column widths based on content
   autoFitColumns(worksheet);
