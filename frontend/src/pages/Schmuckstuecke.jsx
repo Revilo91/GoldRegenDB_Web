@@ -19,6 +19,38 @@ import TableToolbar from "../components/TableToolbar";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { useAuth } from "../context/AuthContext";
 
+const HERSTELLER_OPTIONS = [
+  { code: "M", label: "Marina" },
+  { code: "S", label: "Saskia" },
+];
+
+const GRUNDMATERIAL_OPTIONS = [
+  { code: "A", label: "Alkoholtinte" },
+  { code: "B", label: "Beton" },
+  { code: "C", label: "Cucio" },
+  { code: "E", label: "Edelstahl" },
+  { code: "F", label: "Fimo" },
+  { code: "H", label: "Harz" },
+  { code: "I", label: "Phiole" },
+  { code: "J", label: "Papier" },
+  { code: "K", label: "Kordel" },
+  { code: "L", label: "Leder" },
+  { code: "M", label: "Makramee" },
+  { code: "N", label: "Naturstein" },
+  { code: "P", label: "Perle" },
+  { code: "S", label: "Schrumpffolie" },
+  { code: "W", label: "Holz" },
+  { code: "X", label: "3D-Druck" },
+  { code: "Y", label: "Cabochon" },
+];
+
+const PRODUKTART_OPTIONS = [
+  { code: "A", label: "Armband" },
+  { code: "H", label: "Halskette" },
+  { code: "O", label: "Ohrring" },
+  { code: "S", label: "Schlüsselanhänger" },
+];
+
 export default function Schmuckstuecke() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -38,6 +70,11 @@ export default function Schmuckstuecke() {
     key: "Artikelnummer",
     direction: "asc",
   });
+
+  const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
+    if (!hersteller || !grundmaterial || !produktart) return "";
+    return `${hersteller}${grundmaterial}${produktart}`;
+  };
 
   const load = () => {
     setLoading(true);
@@ -64,6 +101,13 @@ export default function Schmuckstuecke() {
     try {
       const dataToSave = { ...form };
 
+      if (editing === "new" && !dataToSave.Artikelnummer) {
+        alert(
+          "Bitte Hersteller, Grundmaterial und Produktart auswählen, damit die Artikelnummer erzeugt werden kann.",
+        );
+        return;
+      }
+
       if (editing === "new") {
         await api.createSchmuckstueck(dataToSave);
       } else {
@@ -81,6 +125,9 @@ export default function Schmuckstuecke() {
   const openNew = () => {
     setForm({
       Artikelnummer: "",
+      HerstellerCode: "",
+      GrundmaterialCode: "",
+      ProduktartCode: "",
       Anzahl: 1,
       Name: "",
       Art: "",
@@ -119,6 +166,9 @@ export default function Schmuckstuecke() {
     setForm({
       ...copyData,
       Artikelnummer: baseArtikelnummer,
+      HerstellerCode: baseArtikelnummer[0] || "",
+      GrundmaterialCode: baseArtikelnummer[1] || "",
+      ProduktartCode: baseArtikelnummer[2] || "",
       Anzahl: 1,
       Ausgelagert: 0,
       Verkauft: 0,
@@ -484,15 +534,97 @@ export default function Schmuckstuecke() {
                 <div className="form-row">
                   <div className="form-group">
                     <label>Artikelnummer*</label>
-                    <input
-                      className="form-control"
-                      disabled={editing !== "new"}
-                      value={form.Artikelnummer || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Artikelnummer: e.target.value })
-                      }
-                      placeholder="z.B. MHO oder MHO112"
-                    />
+                    {editing === "new" ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1fr",
+                          gap: "10px",
+                        }}>
+                        <select
+                          className="form-control"
+                          value={form.HerstellerCode || ""}
+                          onChange={(e) => {
+                            const hersteller = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              hersteller,
+                              form.GrundmaterialCode,
+                              form.ProduktartCode,
+                            );
+                            setForm({
+                              ...form,
+                              HerstellerCode: hersteller,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Hersteller</option>
+                          {HERSTELLER_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          className="form-control"
+                          value={form.GrundmaterialCode || ""}
+                          onChange={(e) => {
+                            const grundmaterial = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              form.HerstellerCode,
+                              grundmaterial,
+                              form.ProduktartCode,
+                            );
+                            setForm({
+                              ...form,
+                              GrundmaterialCode: grundmaterial,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Grundmaterial</option>
+                          {GRUNDMATERIAL_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          className="form-control"
+                          value={form.ProduktartCode || ""}
+                          onChange={(e) => {
+                            const produktart = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              form.HerstellerCode,
+                              form.GrundmaterialCode,
+                              produktart,
+                            );
+                            setForm({
+                              ...form,
+                              ProduktartCode: produktart,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Produktart</option>
+                          {PRODUKTART_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <input
+                        className="form-control"
+                        disabled
+                        value={form.Artikelnummer || ""}
+                      />
+                    )}
+                    {editing === "new" && (
+                      <small style={{ display: "block", marginTop: "6px" }}>
+                        Präfix: <strong>{form.Artikelnummer || "---"}</strong>
+                        . Die laufende Nummer wird beim Speichern automatisch aus
+                        der Datenbank vergeben.
+                      </small>
+                    )}
                   </div>
                   {editing === "new" && (
                     <div className="form-group" style={{ maxWidth: "100px" }}>
