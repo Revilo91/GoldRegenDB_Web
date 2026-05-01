@@ -185,6 +185,11 @@ export default function DocumentManager({
     return Array.from(y).sort((a, b) => b - a);
   }, [data]);
 
+  const aktiveKunden = useMemo(
+    () => kunden.filter((kunde) => kunde.Aktiv === true || kunde.Aktiv === 1),
+    [kunden],
+  );
+
   const filteredData = useMemo(() => {
     return data.filter((d) => {
       if (search) {
@@ -564,7 +569,7 @@ export default function DocumentManager({
                       setForm({ ...form, Kundennummer: e.target.value, ...(pieceSelectMode === "byKunde" ? { Artikelnummern: [] } : {}) })
                     }>
                     <option value="">Bitte wählen...</option>
-                    {kunden.map((k) => (
+                    {aktiveKunden.map((k) => (
                       <option key={k.ID} value={k.ID}>
                         {k.Name}
                       </option>
