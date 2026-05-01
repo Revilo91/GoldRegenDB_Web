@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 
 export default function DataTable({
   columns = [],
@@ -12,6 +12,7 @@ export default function DataTable({
 }) {
   const [sortConfig, setSortConfig] = useState(defaultSort);
   const [draggingRowKey, setDraggingRowKey] = useState(null);
+  const suppressClickUntilRef = useRef(0);
 
   const sorted = useMemo(() => {
     const arr = [...data];
@@ -91,6 +92,10 @@ export default function DataTable({
             <tr
               key={rowKey}
               onClick={(event) => {
+                if (Date.now() < suppressClickUntilRef.current) {
+                  event.preventDefault();
+                  return;
+                }
                 if (typeof customOnClick === "function") {
                   customOnClick(event);
                 }
@@ -106,6 +111,8 @@ export default function DataTable({
               }}
               onDragEnd={(event) => {
                 setDraggingRowKey(null);
+                // Prevent synthetic click firing right after a drag/drop interaction.
+                suppressClickUntilRef.current = Date.now() + 250;
                 if (typeof customOnDragEnd === "function") {
                   customOnDragEnd(event);
                 }
