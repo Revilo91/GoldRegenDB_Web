@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
+  faHashtag,
   faGem,
   faPen,
   faTrash,
@@ -18,6 +19,38 @@ import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { useAuth } from "../context/AuthContext";
+
+const HERSTELLER_OPTIONS = [
+  { code: "M", label: "Marina" },
+  { code: "S", label: "Saskia" },
+];
+
+const GRUNDMATERIAL_OPTIONS = [
+  { code: "A", label: "Alkoholtinte" },
+  { code: "B", label: "Beton" },
+  { code: "C", label: "Cucio" },
+  { code: "E", label: "Edelstahl" },
+  { code: "F", label: "Fimo" },
+  { code: "H", label: "Harz" },
+  { code: "I", label: "Phiole" },
+  { code: "J", label: "Papier" },
+  { code: "K", label: "Kordel" },
+  { code: "L", label: "Leder" },
+  { code: "M", label: "Makramee" },
+  { code: "N", label: "Naturstein" },
+  { code: "P", label: "Perle" },
+  { code: "S", label: "Schrumpffolie" },
+  { code: "W", label: "Holz" },
+  { code: "X", label: "3D-Druck" },
+  { code: "Y", label: "Cabochon" },
+];
+
+const PRODUKTART_OPTIONS = [
+  { code: "A", label: "Armband" },
+  { code: "H", label: "Halskette" },
+  { code: "O", label: "Ohrring" },
+  { code: "S", label: "Schlüsselanhänger" },
+];
 
 export default function Schmuckstuecke() {
   const location = useLocation();
@@ -38,6 +71,15 @@ export default function Schmuckstuecke() {
     key: "Artikelnummer",
     direction: "asc",
   });
+  const [nextArtikelnummerPreview, setNextArtikelnummerPreview] = useState("");
+  const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
+    useState(false);
+  const [nextArtikelnummerError, setNextArtikelnummerError] = useState("");
+
+  const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
+    if (!hersteller || !grundmaterial || !produktart) return "";
+    return `${hersteller}${grundmaterial}${produktart}`;
+  };
 
   const load = () => {
     setLoading(true);
@@ -60,16 +102,25 @@ export default function Schmuckstuecke() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async ({ closeAfterSave = true } = {}) => {
     try {
       const dataToSave = { ...form };
+
+      if (editing === "new" && !dataToSave.Artikelnummer) {
+        alert(
+          "Bitte Hersteller, Grundmaterial und Produktart auswählen, damit die Artikelnummer erzeugt werden kann.",
+        );
+        return;
+      }
 
       if (editing === "new") {
         await api.createSchmuckstueck(dataToSave);
       } else {
         await api.updateSchmuckstueck(editing, dataToSave);
       }
-      setEditing(null);
+      if (closeAfterSave || editing !== "new") {
+        setEditing(null);
+      }
       load();
     } catch (err) {
       alert(err.message);
@@ -79,6 +130,9 @@ export default function Schmuckstuecke() {
   const openNew = () => {
     setForm({
       Artikelnummer: "",
+      HerstellerCode: "",
+      GrundmaterialCode: "",
+      ProduktartCode: "",
       Anzahl: 1,
       Name: "",
       Art: "",
@@ -117,6 +171,9 @@ export default function Schmuckstuecke() {
     setForm({
       ...copyData,
       Artikelnummer: baseArtikelnummer,
+      HerstellerCode: baseArtikelnummer[0] || "",
+      GrundmaterialCode: baseArtikelnummer[1] || "",
+      ProduktartCode: baseArtikelnummer[2] || "",
       Anzahl: 1,
       Ausgelagert: 0,
       Verkauft: 0,
@@ -134,6 +191,49 @@ export default function Schmuckstuecke() {
   useEffect(() => {
     load();
   }, [page, search, filters]);
+
+  useEffect(() => {
+    if (editing !== "new") {
+      setNextArtikelnummerPreview("");
+      setNextArtikelnummerError("");
+      setNextArtikelnummerLoading(false);
+      return;
+    }
+
+    const prefix = String(form.Artikelnummer || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(prefix)) {
+      setNextArtikelnummerPreview("");
+      setNextArtikelnummerError("");
+      setNextArtikelnummerLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setNextArtikelnummerLoading(true);
+    setNextArtikelnummerError("");
+
+    api
+      .getNextArtikelnummer(prefix)
+      .then((result) => {
+        if (isCancelled) return;
+        setNextArtikelnummerPreview(result.artikelnummer || "");
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        setNextArtikelnummerPreview("");
+        setNextArtikelnummerError(
+          err.message || "Nächste Artikelnummer konnte nicht geladen werden.",
+        );
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setNextArtikelnummerLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [editing, form.Artikelnummer]);
 
   useEffect(() => {
     const openEditArtikelnummer = location.state?.openEdit;
@@ -477,38 +577,138 @@ export default function Schmuckstuecke() {
             <div className="modal-body">
               <div className="form-section">
                 <h4>
+                  <FontAwesomeIcon icon={faHashtag} /> Artikelnummer
+                </h4>
+                {editing === "new" ? (
+                  <>
+                    <div
+                      className="form-row"
+                      style={{
+                        gridTemplateColumns: "1fr 1fr 1fr 120px",
+                        alignItems: "end",
+                      }}>
+                      <div className="form-group">
+                        <label>Hersteller*</label>
+                        <select
+                          className="form-control"
+                          value={form.HerstellerCode || ""}
+                          onChange={(e) => {
+                            const hersteller = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              hersteller,
+                              form.GrundmaterialCode,
+                              form.ProduktartCode,
+                            );
+                            setForm({
+                              ...form,
+                              HerstellerCode: hersteller,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Hersteller</option>
+                          {HERSTELLER_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Grundmaterial*</label>
+                        <select
+                          className="form-control"
+                          value={form.GrundmaterialCode || ""}
+                          onChange={(e) => {
+                            const grundmaterial = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              form.HerstellerCode,
+                              grundmaterial,
+                              form.ProduktartCode,
+                            );
+                            setForm({
+                              ...form,
+                              GrundmaterialCode: grundmaterial,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Grundmaterial</option>
+                          {GRUNDMATERIAL_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Produktart*</label>
+                        <select
+                          className="form-control"
+                          value={form.ProduktartCode || ""}
+                          onChange={(e) => {
+                            const produktart = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              form.HerstellerCode,
+                              form.GrundmaterialCode,
+                              produktart,
+                            );
+                            setForm({
+                              ...form,
+                              ProduktartCode: produktart,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Produktart</option>
+                          {PRODUKTART_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Anzahl</label>
+                        <input
+                          className="form-control"
+                          type="number"
+                          min="1"
+                          value={form.Anzahl || 1}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              Anzahl: parseInt(e.target.value) || 1,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Artikelnummer*</label>
+                        <div className="form-control" style={{ display: "flex", alignItems: "center" }}>
+                          {nextArtikelnummerPreview || form.Artikelnummer || "---"}
+                        </div>
+
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Artikelnummer*</label>
+                      <input
+                        className="form-control"
+                        disabled
+                        value={form.Artikelnummer || ""}
+                      />
+                    </div>
+                  </div>
+                )}
+                </div>
+                 <div className="form-section">
+                <h4>
                   <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
                 </h4>
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Artikelnummer*</label>
-                    <input
-                      className="form-control"
-                      disabled={editing !== "new"}
-                      value={form.Artikelnummer || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Artikelnummer: e.target.value })
-                      }
-                      placeholder="z.B. MHO oder MHO112"
-                    />
-                  </div>
-                  {editing === "new" && (
-                    <div className="form-group" style={{ maxWidth: "100px" }}>
-                      <label>Anzahl</label>
-                      <input
-                        className="form-control"
-                        type="number"
-                        min="1"
-                        value={form.Anzahl || 1}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            Anzahl: parseInt(e.target.value) || 1,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
                   <div className="form-group">
                     <label>Name</label>
                     <input
@@ -725,7 +925,7 @@ export default function Schmuckstuecke() {
 
               <div className="form-section">
                 <h4>
-                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment
+                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger
                 </h4>
                 <div className="form-row">
                   <div className="form-group">
@@ -986,23 +1186,6 @@ export default function Schmuckstuecke() {
                     style={{ display: "flex", alignItems: "center" }}>
                     <input
                       type="checkbox"
-                      id="form-verkauft"
-                      checked={form.Verkauft === 1}
-                      disabled
-                      onChange={(e) =>
-                        setForm({ ...form, Verkauft: e.target.checked ? 1 : 0 })
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                    <label htmlFor="form-verkauft" style={{ marginBottom: 0 }}>
-                      Verkauft
-                    </label>
-                  </div>
-                  <div
-                    className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
-                    <input
-                      type="checkbox"
                       id="form-ausschuss"
                       checked={form.Ausschuss === 1}
                       disabled={editing === "new"}
@@ -1054,9 +1237,26 @@ export default function Schmuckstuecke() {
                 onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
-              </button>
+              {editing === "new" ? (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleSave({ closeAfterSave: true })}>
+                    Speichern + Schließen
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleSave({ closeAfterSave: false })}>
+                    Speichern + Weiter
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleSave({ closeAfterSave: true })}>
+                  Speichern
+                </button>
+              )}
             </div>
           </div>
         </div>
