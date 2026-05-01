@@ -30,13 +30,9 @@ export default function SchmuckstueckModal({
   const [kunden, setKunden] = useState([]);
   const [photo, setPhoto] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
-  const [showPhoto, setShowPhoto] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    setShowPhoto(false);
-    setPhoto(null);
-    setPhotoLoading(false);
     Promise.all([api.getSchmuckstueck(artikelnummer), api.getKunden()])
       .then(([s, k]) => {
         setItem(s);
@@ -47,7 +43,7 @@ export default function SchmuckstueckModal({
   }, [artikelnummer]);
 
   useEffect(() => {
-    if (showPhoto && item?.Foto) {
+    if (item?.Foto) {
       setPhotoLoading(true);
       api
         .loadPhotoAsDataUrl(item.Foto)
@@ -57,7 +53,7 @@ export default function SchmuckstueckModal({
     } else {
       setPhoto(null);
     }
-  }, [item, showPhoto]);
+  }, [item]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -135,16 +131,6 @@ export default function SchmuckstueckModal({
                 <div className="schmuck-modal-photo-placeholder loading">
                   <span>⏳</span>
                   Bild wird geladen...
-                </div>
-              ) : item.Foto && !showPhoto ? (
-                <div className="schmuck-modal-photo-placeholder empty">
-                  <span className="photo-icon">📷</span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setShowPhoto(true)}>
-                    Bild laden
-                  </button>
                 </div>
               ) : (
                 <div className="schmuck-modal-photo-placeholder empty">

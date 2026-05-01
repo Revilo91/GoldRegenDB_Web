@@ -55,32 +55,52 @@ function formatDateDE(dateValue) {
   });
 }
 
-function TablePhoto({ foto, artikelnummer }) {
+function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
   const [photoSrc, setPhotoSrc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
+    const controller = new AbortController();
 
     if (!foto) {
       setPhotoSrc(null);
       setIsLoading(false);
       return () => {
         isCancelled = true;
+        controller.abort();
+      };
+    }
+
+    if (pauseLoading) {
+      setIsLoading(false);
+      return () => {
+        isCancelled = true;
+        controller.abort();
       };
     }
 
     setIsLoading(true);
-    api.loadPhotoAsDataUrl(foto).then((dataUrl) => {
-      if (isCancelled) return;
-      setPhotoSrc(dataUrl);
-      setIsLoading(false);
-    });
+    api
+      .loadPhotoAsDataUrl(foto, { signal: controller.signal })
+      .then((dataUrl) => {
+        if (isCancelled) return;
+        setPhotoSrc(dataUrl);
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setPhotoSrc(null);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setIsLoading(false);
+      });
 
     return () => {
       isCancelled = true;
+      controller.abort();
     };
-  }, [foto]);
+  }, [foto, pauseLoading]);
 
   if (!photoSrc) {
     return (
@@ -113,6 +133,7 @@ function ItemsTable({
   toggleForRechnung,
   selectAllForRechnung,
   onItemClick,
+  pausePhotoLoading = false,
 }) {
   const allSelected =
     selectedForReturn &&
@@ -196,7 +217,11 @@ function ItemsTable({
             label: "Foto",
             className: "photo-col",
             render: (item) => (
-              <TablePhoto foto={item.Foto} artikelnummer={item.Artikelnummer} />
+              <TablePhoto
+                foto={item.Foto}
+                artikelnummer={item.Artikelnummer}
+                pauseLoading={pausePhotoLoading}
+              />
             ),
           },
           {
@@ -284,6 +309,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const [selectedForRechnung, setSelectedForRechnung] = useState(new Set());
   const [creatingRechnung, setCreatingRechnung] = useState(false);
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
+  const isForegroundModalOpen = schmuckstueckOverlay !== null;
 
   useEffect(() => {
     setLoading(true);
@@ -570,6 +596,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                   toggleForRechnung={toggleForRechnung}
                   selectAllForRechnung={selectAllForRechnung}
                   onItemClick={(nr) => setSchmuckstueckOverlay(nr)}
+                  pausePhotoLoading={isForegroundModalOpen}
                 />
               </>
             )

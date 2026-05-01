@@ -91,9 +91,10 @@ async function requestFormData(url, options = {}) {
   }
 }
 
-async function downloadBlob(url) {
+async function downloadBlob(url, options = {}) {
   const token = getToken();
   const headers = {};
+  const { signal } = options;
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -101,7 +102,7 @@ async function downloadBlob(url) {
   logInfo(`→ GET ${url} (Download)`);
   const startTime = Date.now();
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers });
+    const res = await fetch(`${API_URL}${url}`, { headers, signal });
     const duration = Date.now() - startTime;
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -169,14 +170,15 @@ export const api = {
     return requestFormData(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
-  loadPhotoAsDataUrl: async (fileName) => {
+  loadPhotoAsDataUrl: async (fileName, options = {}) => {
     if (!fileName) return null;
+    const { signal } = options;
     try {
       console.log('🔍 Versuche Foto zu laden:', fileName);
       // Entferne "uploads/" Prefix falls vorhanden (für alte DB-Einträge)
       const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
       console.log('📝 Bereinigter Dateiname:', cleanFileName);
-      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
+      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`, { signal });
       console.log('✅ Foto erfolgreich heruntergeladen, Größe:', blob.size);
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -187,6 +189,9 @@ export const api = {
         reader.readAsDataURL(blob);
       });
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        return null;
+      }
       console.error('❌ Fehler beim Laden des Fotos:', fileName, err);
       return null;
     }
