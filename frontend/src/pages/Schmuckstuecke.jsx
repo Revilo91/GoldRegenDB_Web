@@ -265,6 +265,7 @@ export default function Schmuckstuecke() {
   };
 
   const p = data.pagination;
+  const isForegroundModalOpen = selected !== null || editing !== null;
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];
@@ -294,32 +295,52 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
-  function TablePhoto({ foto, artikelnummer }) {
+  function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
     const [photoSrc, setPhotoSrc] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
       let isCancelled = false;
+      const controller = new AbortController();
 
       if (!foto) {
         setPhotoSrc(null);
         setIsLoading(false);
         return () => {
           isCancelled = true;
+          controller.abort();
+        };
+      }
+
+      if (pauseLoading) {
+        setIsLoading(false);
+        return () => {
+          isCancelled = true;
+          controller.abort();
         };
       }
 
       setIsLoading(true);
-      api.loadPhotoAsDataUrl(foto).then((dataUrl) => {
-        if (isCancelled) return;
-        setPhotoSrc(dataUrl);
-        setIsLoading(false);
-      });
+      api
+        .loadPhotoAsDataUrl(foto, { signal: controller.signal })
+        .then((dataUrl) => {
+          if (isCancelled) return;
+          setPhotoSrc(dataUrl);
+        })
+        .catch(() => {
+          if (isCancelled) return;
+          setPhotoSrc(null);
+        })
+        .finally(() => {
+          if (isCancelled) return;
+          setIsLoading(false);
+        });
 
       return () => {
         isCancelled = true;
+        controller.abort();
       };
-    }, [foto]);
+    }, [foto, pauseLoading]);
 
     if (!photoSrc) {
       return (
@@ -440,7 +461,11 @@ export default function Schmuckstuecke() {
                   label: "Foto",
                   className: "photo-col",
                   render: (r) => (
-                    <TablePhoto foto={r.Foto} artikelnummer={r.Artikelnummer} />
+                    <TablePhoto
+                      foto={r.Foto}
+                      artikelnummer={r.Artikelnummer}
+                      pauseLoading={isForegroundModalOpen}
+                    />
                   ),
                 },
                 {
