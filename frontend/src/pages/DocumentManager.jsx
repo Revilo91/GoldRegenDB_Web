@@ -47,6 +47,45 @@ export default function DocumentManager({
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
 
+  // Entwurf bearbeiten
+  const openEditDraft = async (doc) => {
+    try {
+      const d = await api.getDetail(doc.ID);
+      setForm({
+        Nummer: d.Nummer,
+        Kundennummer: d.Kundennummer,
+        Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
+      });
+      setPieceSearch("");
+      setArtikelnummerInput("");
+      setEditing(doc.ID); // Edit mode with document ID
+      setDetail(null); // Close detail modal
+      await loadAvailablePieces();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // Entwurf finalisieren
+  const finalizeDraft = async (id) => {
+    if (!confirm('Möchten Sie diesen Entwurf wirklich abschließen? Nach dem Abschließen werden die Schmuckstücke zugewiesen und der Status kann nicht mehr geändert werden.')) {
+      return;
+    }
+    try {
+      const d = await api.getDetail(id);
+      await api.updateItem(id, {
+        Nummer: d.Nummer,
+        Kundennummer: d.Kundennummer,
+        Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
+        status: 'final'
+      });
+      setDetail(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   // Laden
   const load = () => {
     setLoading(true);
@@ -161,8 +200,14 @@ export default function DocumentManager({
       return;
     }
     try {
-      await api.createItem({ ...form, status });
+      if (editing === 'new') {
+        await api.createItem({ ...form, status });
+      } else {
+        // Editing existing document
+        await api.updateItem(editing, { ...form, status });
+      }
       setEditing(null);
+      setDetail(null);
       load();
       if (pieceSelectMode === "all") loadAvailablePieces();
     } catch (err) {
@@ -511,12 +556,30 @@ export default function DocumentManager({
                   </span>
                 )}
               </h3>
-              <button
-                className="btn btn-primary btn-sm"
-                style={{ marginLeft: "auto", marginRight: 8 }}
-                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
-                {labels.excel}
-              </button>
+              {detail.status === 'entwurf' && (
+                <>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ marginLeft: "auto", marginRight: 8 }}
+                    onClick={() => openEditDraft(detail)}>
+                    Bearbeiten
+                  </button>
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ marginRight: 8 }}
+                    onClick={() => finalizeDraft(detail.ID)}>
+                    Abschließen
+                  </button>
+                </>
+              )}
+              {detail.status === 'final' && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ marginLeft: "auto", marginRight: 8 }}
+                  onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
+                  {labels.excel}
+                </button>
+              )}
               <button
                 className="btn btn-danger btn-sm"
                 style={{ marginRight: 16 }}
@@ -598,8 +661,8 @@ export default function DocumentManager({
         </div>
       )}
 
-      {/* Modal für neues Dokument */}
-      {editing === "new" && (
+      {/* Modal für neues Dokument / Entwurf bearbeiten */}
+      {editing && (
         <div className="modal-overlay">
           <div
             className="modal modal-lg"
@@ -612,7 +675,12 @@ export default function DocumentManager({
             }}>
             <div className="modal-header">
               <h3>
-                {labels.modalTitle} ({form.Nummer})
+                {editing === 'new' ? labels.modalTitle : `${labels.header} ${form.Nummer} bearbeiten`}
+                {editing !== 'new' && (
+                  <span className="badge" style={{ backgroundColor: 'var(--warning)', color: 'white', marginLeft: '8px' }}>
+                    Entwurf
+                  </span>
+                )}
               </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×

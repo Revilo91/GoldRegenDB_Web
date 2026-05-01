@@ -20,6 +20,7 @@ export default function Lieferscheine() {
         getDetail: api.getLieferschein,
         deleteItem: api.deleteLieferschein,
         createItem: api.createLieferschein,
+        updateItem: api.updateLieferschein,
         exportExcel: api.exportLieferscheinExcel,
         getKunden: api.getKunden,
         getPieces: (filter) => api.getSchmuckstuecke(filter),
