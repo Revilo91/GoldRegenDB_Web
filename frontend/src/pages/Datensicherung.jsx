@@ -126,6 +126,11 @@ export default function Datensicherung() {
     URL.revokeObjectURL(url);
   };
 
+  const uploadsActionButtonStyle = {
+    height: "40px",
+    boxSizing: "border-box",
+  };
+
   // --- Export ---
   const handleExport = async () => {
     if (exportSelected.length === 0 && !exportIncludeUploads) {
@@ -500,7 +505,10 @@ export default function Datensicherung() {
                 <label
                   htmlFor="uploads-only-file"
                   className="btn btn-secondary"
-                  style={{ cursor: uploadsOnlyUploading ? "not-allowed" : "pointer" }}>
+                  style={{
+                    ...uploadsActionButtonStyle,
+                    cursor: uploadsOnlyUploading ? "not-allowed" : "pointer",
+                  }}>
                   <FontAwesomeIcon icon={faFolderOpen} /> Upload-ZIP wählen
                 </label>
                 <input
@@ -537,6 +545,7 @@ export default function Datensicherung() {
                 <button
                   className="btn btn-primary"
                   onClick={handleUploadsOnlyImport}
+                  style={uploadsActionButtonStyle}
                   disabled={uploadsOnlyUploading || !uploadsOnlyFile}>
                   {uploadsOnlyUploading ? "Lade Bilder hoch…" : "Bilder jetzt importieren"}
                 </button>
