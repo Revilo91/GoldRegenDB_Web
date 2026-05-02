@@ -145,7 +145,8 @@ function ItemsTable({
     selectedForRechnung.size === items.length;
 
   const total = useMemo(
-    () => items.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    () =>
+      items.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
     [items],
   );
 
@@ -239,8 +240,18 @@ function ItemsTable({
             render: (item) => (
               <button
                 className="btn-link"
-                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "none", color: "inherit" }}
-                onClick={(e) => { e.stopPropagation(); onItemClick(item.Artikelnummer); }}>
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onItemClick(item.Artikelnummer);
+                }}>
                 <strong>
                   {String(item.Artikelnummer || "").split("_")[0]}
                 </strong>
@@ -431,26 +442,20 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       return;
     }
 
-    const nummer = window.prompt(
-      `Rechnungsnummer für ${selectedForRechnung.size} Artikel von "${kundeName}" eingeben:`,
-    );
-    if (!nummer || !nummer.trim()) return;
-
     const totalValue = tabItems
       .filter((i) => selectedForRechnung.has(i.Artikelnummer))
       .reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
 
-    const confirmMsg = `Rechnung "${nummer.trim()}" für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) von "${kundeName}" erstellen?`;
+    const confirmMsg = `Rechnung für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) für "${kundeName}" erstellen?`;
     if (!window.confirm(confirmMsg)) return;
 
     setCreatingRechnung(true);
     try {
-      await api.createRechnung({
-        Nummer: nummer.trim(),
+      const created = await api.createRechnung({
         Kundennummer: kundeId,
         Artikelnummern: Array.from(selectedForRechnung),
       });
-      alert(`Rechnung "${nummer.trim()}" erfolgreich erstellt!`);
+      alert(`Rechnung "${created?.Nummer}" erfolgreich erstellt!`);
       onRestock?.();
       onClose();
     } catch (err) {
