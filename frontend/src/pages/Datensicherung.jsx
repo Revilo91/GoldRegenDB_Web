@@ -542,13 +542,17 @@ export default function Datensicherung() {
                       : ""}
                   </div>
                 )}
-                <button
-                  className="btn btn-primary"
-                  onClick={handleUploadsOnlyImport}
-                  style={uploadsActionButtonStyle}
-                  disabled={uploadsOnlyUploading || !uploadsOnlyFile}>
-                  {uploadsOnlyUploading ? "Lade Bilder hoch…" : "Bilder jetzt importieren"}
-                </button>
+                {uploadsOnlyFile && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleUploadsOnlyImport}
+                    style={uploadsActionButtonStyle}
+                    disabled={uploadsOnlyUploading}>
+                    {uploadsOnlyUploading
+                      ? "Lade Bilder hoch…"
+                      : "Bilder jetzt importieren"}
+                  </button>
+                )}
               </div>
             </>
           ) : (
