@@ -17,6 +17,7 @@ export default function Rechnungen() {
       type="rechnung"
       api={{
         getList: api.getRechnungen,
+        getNextNumber: api.getNextRechnungsnummer,
         getDetail: api.getRechnung,
         deleteItem: api.deleteRechnung,
         createItem: api.createRechnung,

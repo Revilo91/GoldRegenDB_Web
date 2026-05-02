@@ -199,6 +199,7 @@ export const api = {
 
   // Lieferscheine
   getLieferscheine: () => request('/lieferscheine'),
+  getNextLieferscheinnummer: () => request('/lieferscheine/next-number'),
   getLieferschein: (id) => request(`/lieferscheine/${id}`),
   createLieferschein: (data) => request('/lieferscheine', { method: 'POST', body: JSON.stringify(data) }),
   updateLieferschein: (id, data) => request(`/lieferscheine/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -206,6 +207,7 @@ export const api = {
 
   // Rechnungen
   getRechnungen: () => request('/rechnungen'),
+  getNextRechnungsnummer: () => request('/rechnungen/next-number'),
   getRechnung: (id) => request(`/rechnungen/${id}`),
   createRechnung: (data) => request('/rechnungen', { method: 'POST', body: JSON.stringify(data) }),
   updateRechnung: (id, data) => request(`/rechnungen/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

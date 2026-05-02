@@ -7,6 +7,18 @@ function formatJahresNummer(jahr, laufnummer) {
   return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
 }
 
+async function getNextLieferscheinnummer(queryable) {
+  const aktuellesJahr = new Date().getFullYear();
+  const { rows: nummerRows } = await queryable.query(
+    `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+     FROM "Lieferschein"
+     WHERE "Nummer" ~ $1`,
+    [`^${aktuellesJahr}-[0-9]+$`]
+  );
+
+  return formatJahresNummer(aktuellesJahr, Number(nummerRows[0].max_num) + 1);
+}
+
 // GET all delivery notes
 router.get('/', async (req, res) => {
   try {
@@ -25,6 +37,16 @@ router.get('/', async (req, res) => {
 });
 
 // GET single
+router.get('/next-number', async (_req, res) => {
+  try {
+    const nextNummer = await getNextLieferscheinnummer(db);
+    res.json({ Nummer: nextNummer });
+  } catch (err) {
+    logger.error('LIEFERSCHEINE', 'Fehler beim Ermitteln der nächsten Lieferscheinnummer', { message: err.message });
+    res.status(500).json({ error: 'Fehler beim Ermitteln der nächsten Lieferscheinnummer' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -96,17 +118,7 @@ router.post('/', async (req, res) => {
 
     let lieferscheinNummer = String(Nummer || '').trim();
     if (!lieferscheinNummer) {
-      const aktuellesJahr = new Date().getFullYear();
-      const { rows: nummerRows } = await client.query(
-        `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
-         FROM "Lieferschein"
-         WHERE "Nummer" ~ $1`,
-        [`^${aktuellesJahr}-[0-9]+$`]
-      );
-      lieferscheinNummer = formatJahresNummer(
-        aktuellesJahr,
-        Number(nummerRows[0].max_num) + 1,
-      );
+      lieferscheinNummer = await getNextLieferscheinnummer(client);
     }
 
     const { rows } = await client.query(

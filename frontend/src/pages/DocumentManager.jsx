@@ -112,23 +112,18 @@ export default function DocumentManager({
 
   // Neues Dokument anlegen
   const openNew = async () => {
-    const year = new Date().getFullYear();
-    const yearDocs = data.filter((d) => {
-      if (!d.Nummer) return false;
-      const match = d.Nummer.match(/(\d{4})-(\d{3})$/);
-      return match && match[1] === String(year);
-    });
-    let maxNr = 0;
-    yearDocs.forEach((d) => {
-      const match = d.Nummer.match(/(\d{4})-(\d{3})$/);
-      if (match) {
-        const nr = parseInt(match[2], 10);
-        if (nr > maxNr) maxNr = nr;
+    let nummer = "";
+    if (typeof api.getNextNumber === "function") {
+      try {
+        const response = await api.getNextNumber();
+        nummer = String(response?.Nummer || "").trim();
+      } catch (err) {
+        console.error(err);
       }
-    });
-    const nextNr = String(maxNr + 1).padStart(3, "0");
+    }
+
     setForm({
-      Nummer: `${year}-${nextNr}`,
+      Nummer: nummer,
       Kundennummer: "",
       Artikelnummern: [],
     });
@@ -485,7 +480,7 @@ export default function DocumentManager({
             <div className="modal-header">
               <h3>
                 <FontAwesomeIcon icon={icons.modal} /> {labels.header}{" "}
-                {detail.Nummer} ({detail.ID})
+                {detail.Nummer}
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -588,7 +583,8 @@ export default function DocumentManager({
             }}>
             <div className="modal-header">
               <h3>
-                {labels.modalTitle} ({form.Nummer})
+                {labels.modalTitle}
+                {form.Nummer ? ` (${form.Nummer})` : ""}
               </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×

@@ -17,6 +17,7 @@ export default function Lieferscheine() {
       type="lieferschein"
       api={{
         getList: api.getLieferscheine,
+        getNextNumber: api.getNextLieferscheinnummer,
         getDetail: api.getLieferschein,
         deleteItem: api.deleteLieferschein,
         createItem: api.createLieferschein,
