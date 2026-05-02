@@ -75,6 +75,8 @@ export default function Schmuckstuecke() {
   const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
     useState(false);
   const [nextArtikelnummerError, setNextArtikelnummerError] = useState("");
+  const [nextArtikelnummerRefreshKey, setNextArtikelnummerRefreshKey] =
+    useState(0);
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
     if (!hersteller || !grundmaterial || !produktart) return "";
@@ -106,6 +108,10 @@ export default function Schmuckstuecke() {
     try {
       const dataToSave = { ...form };
 
+      if (editing === "new" && nextArtikelnummerPreview) {
+        dataToSave.Artikelnummer = nextArtikelnummerPreview;
+      }
+
       if (editing === "new" && !dataToSave.Artikelnummer) {
         alert(
           "Bitte Hersteller, Grundmaterial und Produktart auswählen, damit die Artikelnummer erzeugt werden kann.",
@@ -114,7 +120,13 @@ export default function Schmuckstuecke() {
       }
 
       if (editing === "new") {
+        console.log("Creating new Schmuckstück with data:", dataToSave);
         await api.createSchmuckstueck(dataToSave);
+        if (!closeAfterSave) {
+          setForm((prev) => ({ ...prev, Foto: "" }));
+          setNextArtikelnummerRefreshKey((prev) => prev + 1);
+          alert(`${dataToSave.Artikelnummer} wurde erstellt.`);
+        }
       } else {
         await api.updateSchmuckstueck(editing, dataToSave);
       }
@@ -237,7 +249,7 @@ export default function Schmuckstuecke() {
     return () => {
       isCancelled = true;
     };
-  }, [editing, form.Artikelnummer]);
+  }, [editing, form.Artikelnummer, nextArtikelnummerRefreshKey]);
 
   useEffect(() => {
     const openEditArtikelnummer = location.state?.openEdit;
@@ -824,7 +836,8 @@ export default function Schmuckstuecke() {
               <div className="form-section">
                 <h4>� Foto</h4>
                 <PhotoUpload
-                  artikelnummer={form.Artikelnummer}
+                  artikelnummer={editing === "new" ? nextArtikelnummerPreview : form.Artikelnummer}
+                  disabled={editing === "new" && !nextArtikelnummerPreview}
                   initialPhoto={form.Foto}
                   onPhotoSelected={(photoPath) => {
                     setForm({ ...form, Foto: photoPath });
@@ -1232,29 +1245,29 @@ export default function Schmuckstuecke() {
                 {editing !== "new" ? (
                   <>
                     <div className="form-row" style={{ marginTop: "16px" }}>
-                        <div className="form-group checkbox-field">
-                          <input
-                            type="checkbox"
-                            id="form-ausschuss"
-                            className="form-checkbox"
-                            checked={form.Ausschuss === 1}
-                            disabled={editing === "new"}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                Ausschuss: e.target.checked ? 1 : 0,
-                                Ausschuss_Grund: e.target.checked
-                                  ? form.Ausschuss_Grund || "Defekt"
-                                  : "",
-                              })
-                            }
-                          />
-                          <label
-                            htmlFor="form-ausschuss"
-                            className="checkbox-label">
-                            Ausschuss
-                          </label>
-                        </div>
+                      <div className="form-group checkbox-field">
+                        <input
+                          type="checkbox"
+                          id="form-ausschuss"
+                          className="form-checkbox"
+                          checked={form.Ausschuss === 1}
+                          disabled={editing === "new"}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              Ausschuss: e.target.checked ? 1 : 0,
+                              Ausschuss_Grund: e.target.checked
+                                ? form.Ausschuss_Grund || "Defekt"
+                                : "",
+                            })
+                          }
+                        />
+                        <label
+                          htmlFor="form-ausschuss"
+                          className="checkbox-label">
+                          Ausschuss
+                        </label>
+                      </div>
 
                       {form.Ausschuss === 1 && (
                         <div className="form-row" style={{ marginTop: "12px" }}>
