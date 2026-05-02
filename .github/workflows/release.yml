@@ -265,3 +265,26 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push # Name deines vorherigen Jobs
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          username: ${{ secrets.NAS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 2200
+          script: |
+            # Zum Projektordner navigieren
+            cd /volume1/docker/goldregendb
+
+            # Neue Images ziehen
+            docker-compose pull
+
+            # Container aktualisieren (stoppt, löscht und startet neu, wenn nötig)
+            docker-compose up -d --remove-orphans
+
+            # Alte, ungenutzte Images löschen (spart Speicher auf der NAS)
+            docker image prune -f
