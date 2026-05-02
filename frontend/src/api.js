@@ -260,12 +260,25 @@ export const api = {
 
   // Datensicherung (Backup / Restore)
   exportBackup: (tables) => {
-    const query = tables && tables.length ? `?tables=${tables.map(encodeURIComponent).join(',')}` : '';
+    const params = new URLSearchParams();
+    if (tables && tables.length) {
+      params.set('tables', tables.join(','));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
     return downloadBlob(`/backup/export${query}`);
   },
+  exportBackupUploadsZip: () => downloadBlob('/backup/export-uploads'),
   importBackup: (data, selectedTables) => {
-    const payload = { backupData: data, selectedTables: selectedTables || null };
+    const payload = {
+      backupData: data,
+      selectedTables: selectedTables || null,
+    };
     return request('/backup/import', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  importBackupUploadsZip: (file) => {
+    const formData = new FormData();
+    formData.append('uploadsZip', file);
+    return requestFormData('/backup/import-uploads-zip', { method: 'POST', body: formData });
   },
 
   // Inventur
