@@ -95,10 +95,11 @@ const normalizeMaterialHints = (materialHints) => {
     return [];
   }
 
-  return [...new Set(materialHints.map((hint) => String(hint).trim()).filter(Boolean))].slice(
-    0,
-    MAX_MATERIAL_HINTS,
-  );
+  return [
+    ...new Set(
+      materialHints.map((hint) => String(hint).trim()).filter(Boolean),
+    ),
+  ].slice(0, MAX_MATERIAL_HINTS);
 };
 
 const fetchLabelDetail = async ({ artikelnummer, qty }) => {
@@ -175,9 +176,21 @@ const getLabelSizes = (cssContent) => {
       {
         w: getCssVar(cssContent, `--label-${size}-w`, defaults.w),
         h: getCssVar(cssContent, `--label-${size}-h`, defaults.h),
-        brandH: getCssVar(cssContent, `--label-${size}-brandH`, defaults.brandH),
-        artSize: getCssVar(cssContent, `--label-${size}-artSize`, defaults.artSize),
-        hintSize: getCssVar(cssContent, `--label-${size}-hintSize`, defaults.hintSize),
+        brandH: getCssVar(
+          cssContent,
+          `--label-${size}-brandH`,
+          defaults.brandH,
+        ),
+        artSize: getCssVar(
+          cssContent,
+          `--label-${size}-artSize`,
+          defaults.artSize,
+        ),
+        hintSize: getCssVar(
+          cssContent,
+          `--label-${size}-hintSize`,
+          defaults.hintSize,
+        ),
       },
     ]),
   );
@@ -212,7 +225,7 @@ const buildHintsHtml = (materialHints) => {
 
   return `
     <div class="hints-container">
-      <p style="font-weight: bold;margin: 5px 0px;">Material Hinweise</p>
+      <p class="hints-title">Material Hinweise</p>
       <table class="hints-table">
         <tbody>
           ${rows.join("\n")}
@@ -258,7 +271,9 @@ const buildLabelMarkup = ({ row, qty }, templateData) => {
 };
 
 const buildLabelsMarkup = (details, templateData) => {
-  return details.map((detail) => buildLabelMarkup(detail, templateData)).join("\n");
+  return details
+    .map((detail) => buildLabelMarkup(detail, templateData))
+    .join("\n");
 };
 
 const buildPrintCss = (sizeConfig) => {
@@ -319,7 +334,7 @@ const buildPrintCss = (sizeConfig) => {
       height: ${sizeConfig.w};
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       padding: 0.8mm 1.1mm;
       box-sizing: border-box;
@@ -328,6 +343,7 @@ const buildPrintCss = (sizeConfig) => {
 
     .logo-container {
       width: 100%;
+      margin: 0.5em 0;
       flex: 0 0 calc(var(--brand-h) * 1);
       display: flex;
       justify-content: center;
@@ -372,20 +388,31 @@ const buildPrintCss = (sizeConfig) => {
 
     .hints-container {
       width: 100%;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
       text-align: center;
-      font-size: calc(var(--hint-size) * 0.68);
+      font-size: calc(var(--hint-size) * 0.8);
+    }
+    .hints-title {
+      margin: 0.7mm 0 0.4mm;
+      font-weight: 700;
+      font-size: calc(var(--hint-size) * 1.05);
+      line-height: 1;
     }
     .hints-table {
-      width: 100%;
+      margin: 0.7mm 0.2em 0.4mm;
       border-collapse: collapse;
-      table-layout: fixed;
     }
     .hints-table td {
       width: 50%;
       text-align: left;
-      font-size: calc(var(--hint-size) * 0.68);
-      line-height: 1.1;
+      font-size: calc(var(--hint-size) * 0.92);
+      line-height: 1.2;
+      font-weight: 600;
       vertical-align: top;
+      padding: 0.2mm 0;
     }
     .empty-space {
       flex: 1 1 auto;
@@ -395,7 +422,7 @@ const buildPrintCss = (sizeConfig) => {
       width: 100%;
       display: flex;
       align-items: center;
-      padding-top: 0.6mm;
+      margin-top: auto;
     }
     .warn-symbol {
       height: auto;
@@ -457,7 +484,9 @@ const sendTextFile = async (res, filePath, contentType, notFoundResponse) => {
 // Liefert Liste eindeutiger Basis-Artikelnummern für Dropdowns
 router.get("/options", async (req, res) => {
   try {
-    const q = String(req.query.q || "").trim().toUpperCase();
+    const q = String(req.query.q || "")
+      .trim()
+      .toUpperCase();
     const parsedLimit = Number.parseInt(String(req.query.limit || ""), 10);
     const limit = Number.isFinite(parsedLimit)
       ? Math.max(10, Math.min(parsedLimit, 500))
