@@ -5,6 +5,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
+import SchmuckstueckModal from "../components/SchmuckstueckModal";
 
 /**
  * Props:
@@ -30,18 +31,27 @@ export default function DocumentManager({
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({});
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ Nummer: "", Kundennummer: "", Artikelnummern: [] });
+  const [form, setForm] = useState({
+    Nummer: "",
+    Kundennummer: "",
+    Artikelnummern: [],
+  });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
   const [artikelnummerInput, setArtikelnummerInput] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "Datum", direction: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "Datum",
+    direction: "desc",
+  });
   const [groupByKunde, setGroupByKunde] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
 
   // Laden
   const load = () => {
     setLoading(true);
-    api.getList()
+    api
+      .getList()
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -102,22 +112,22 @@ export default function DocumentManager({
 
   // Neues Dokument anlegen
   const openNew = async () => {
-    const year = new Date().getFullYear();
-    const yearDocs = data.filter((d) => {
-      if (!d.Nummer) return false;
-      const match = d.Nummer.match(/(\d{4})-(\d{3})$/);
-      return match && match[1] === String(year);
-    });
-    let maxNr = 0;
-    yearDocs.forEach((d) => {
-      const match = d.Nummer.match(/(\d{4})-(\d{3})$/);
-      if (match) {
-        const nr = parseInt(match[2], 10);
-        if (nr > maxNr) maxNr = nr;
+    let nummer = "";
+    if (typeof api.getNextNumber === "function") {
+      try {
+        const response = await api.getNextNumber();
+        nummer = String(response?.Nummer || "").trim();
+      } catch (err) {
+        console.error(err);
       }
+    }
+
+    setForm({
+      Nummer: nummer,
+      Kundennummer: "",
+      Artikelnummern: [],
     });
-    const nextNr = String(maxNr + 1).padStart(3, "0");
-    setForm({ Nummer: `${year}-${nextNr}`, Kundennummer: "", Artikelnummern: [] });
+    setPieceSearch("");
     setArtikelnummerInput("");
     setEditing("new");
     loadAvailablePieces();
@@ -125,9 +135,16 @@ export default function DocumentManager({
 
   // Stückauswahl nach Kunde (nur für Rechnungen)
   useEffect(() => {
-    if (pieceSelectMode === "byKunde" && editing === "new" && form.Kundennummer) {
+    if (
+      pieceSelectMode === "byKunde" &&
+      editing === "new" &&
+      form.Kundennummer
+    ) {
       loadAvailablePieces();
-    } else if (pieceSelectMode === "byKunde" && (!form.Kundennummer || editing !== "new")) {
+    } else if (
+      pieceSelectMode === "byKunde" &&
+      (!form.Kundennummer || editing !== "new")
+    ) {
       setAvailablePieces([]);
     }
     // Lieferschein: alle Stücke werden beim Öffnen geladen
@@ -168,7 +185,10 @@ export default function DocumentManager({
       return;
     }
     if (!form.Artikelnummern.includes(piece.Artikelnummer)) {
-      setForm({ ...form, Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer] });
+      setForm({
+        ...form,
+        Artikelnummern: [...form.Artikelnummern, piece.Artikelnummer],
+      });
     }
     setArtikelnummerInput("");
   };
@@ -181,6 +201,11 @@ export default function DocumentManager({
     });
     return Array.from(y).sort((a, b) => b - a);
   }, [data]);
+
+  const aktiveKunden = useMemo(
+    () => kunden.filter((kunde) => kunde.Aktiv === true || kunde.Aktiv === 1),
+    [kunden],
+  );
 
   const filteredData = useMemo(() => {
     return data.filter((d) => {
@@ -267,7 +292,9 @@ export default function DocumentManager({
       <div className="page-header">
         <div>
           <h2>{labels.header}</h2>
-          <p>{data.length} {labels.header}</p>
+          <p>
+            {data.length} {labels.header}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openNew}>
           {labels.newBtn}
@@ -332,6 +359,7 @@ export default function DocumentManager({
             }}>
             <input
               type="checkbox"
+              className="form-checkbox"
               checked={groupByKunde}
               onChange={(e) => setGroupByKunde(e.target.checked)}
             />
@@ -447,11 +475,12 @@ export default function DocumentManager({
 
       {/* Detail-Modal */}
       {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)}>
+        <div className="modal-overlay">
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <FontAwesomeIcon icon={icons.modal} /> {labels.header} {detail.Nummer} ({detail.ID})
+                <FontAwesomeIcon icon={icons.modal} /> {labels.header}{" "}
+                {detail.Nummer}
               </h3>
               <button
                 className="btn btn-primary btn-sm"
@@ -511,9 +540,21 @@ export default function DocumentManager({
                         .map((s) => (
                           <tr key={s.Artikelnummer}>
                             <td>
-                              <span className="badge gold">
-                                {s.Artikelnummer.split("_")[0]}
-                              </span>
+                              <button
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSchmuckstueckOverlay(s.Artikelnummer);
+                                }}>
+                                <span className="badge gold">
+                                  {s.Artikelnummer.split("_")[0]}
+                                </span>
+                              </button>
                             </td>
                             <td>{s.Art}</td>
                             <td>{Number(s.Verkaufspreis).toFixed(0)}€</td>
@@ -530,7 +571,7 @@ export default function DocumentManager({
 
       {/* Modal für neues Dokument */}
       {editing === "new" && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
@@ -541,7 +582,10 @@ export default function DocumentManager({
               maxHeight: "800px",
             }}>
             <div className="modal-header">
-              <h3>{labels.modalTitle} ({form.Nummer})</h3>
+              <h3>
+                {labels.modalTitle}
+                {form.Nummer ? ` (${form.Nummer})` : ""}
+              </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
               </button>
@@ -554,10 +598,16 @@ export default function DocumentManager({
                     className="form-control"
                     value={form.Kundennummer}
                     onChange={(e) =>
-                      setForm({ ...form, Kundennummer: e.target.value, ...(pieceSelectMode === "byKunde" ? { Artikelnummern: [] } : {}) })
+                      setForm({
+                        ...form,
+                        Kundennummer: e.target.value,
+                        ...(pieceSelectMode === "byKunde"
+                          ? { Artikelnummern: [] }
+                          : {}),
+                      })
                     }>
                     <option value="">Bitte wählen...</option>
-                    {kunden.map((k) => (
+                    {aktiveKunden.map((k) => (
                       <option key={k.ID} value={k.ID}>
                         {k.Name}
                       </option>
@@ -576,133 +626,154 @@ export default function DocumentManager({
                   {/* Linke Seite: Stückauswahl */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h5>Alle Schmuckstücke</h5>
-                    <DataTable
-                      data={availablePieces
-                        .filter((p) =>
+                    <input
+                      className="form-control search-input"
+                      style={{ marginBottom: 8 }}
+                      placeholder="Schmuckstücke suchen..."
+                      value={pieceSearch}
+                      onChange={(e) => setPieceSearch(e.target.value)}
+                      disabled={
+                        pieceSelectMode === "byKunde" && !form.Kundennummer
+                      }
+                    />
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "2px dashed var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}>
+                      <DataTable
+                        data={availablePieces.filter((p) =>
                           pieceSearch.trim() === ""
                             ? true
-                            : [
-                                p.Artikelnummer,
-                                p.Art,
-                                String(p.Verkaufspreis),
-                              ]
+                            : [p.Artikelnummer, p.Art, String(p.Verkaufspreis)]
                                 .join(" ")
                                 .toLowerCase()
                                 .includes(pieceSearch.trim().toLowerCase()),
                         )}
-                      columns={[
-                        {
-                          key: "select",
-                          label: "",
-                          render: (p) => (
-                            <input
-                              type="checkbox"
-                              checked={form.Artikelnummern.includes(p.Artikelnummer)}
-                              readOnly
-                            />
-                          ),
-                          width: 40,
-                        },
-                        { key: "Artikelnummer", label: "Artikelnr.", sortable: true },
-                        { key: "Art", label: "Art", sortable: true },
-                        {
-                          key: "Verkaufspreis",
-                          label: "Preis",
-                          sortable: true,
-                          render: (p) => `${p.Verkaufspreis}€`,
-                        },
-                      ]}
-                      onRowClick={(p) => togglePiece(p.Artikelnummer)}
-                      rowProps={(p) => ({
-                        draggable: true,
-                        onDragStart: (e) =>
-                          e.dataTransfer.setData("artikelnummer", p.Artikelnummer),
-                        style: { cursor: "grab" },
-                      })}
-                      searchValue={pieceSearch}
-                      onSearchChange={setPieceSearch}
-                      searchPlaceholder="Suchen..."
-                      style={{ maxHeight: 400, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}
-                      disabled={pieceSelectMode === "byKunde" && !form.Kundennummer}
-                    />
-                  </div>
-                  {/* Rechte Seite: Selektierte Stücke (nur bei Lieferschein) */}
-                  {pieceSelectMode === "all" && (
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h5>
-                        Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
-                      </h5>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                        <input
-                          className="form-control"
-                          style={{ flex: 1 }}
-                          placeholder="Artikelnummer eingeben..."
-                          value={artikelnummerInput}
-                          onChange={(e) => setArtikelnummerInput(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && addByArtikelnummer()
-                          }
-                        />
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={addByArtikelnummer}>
-                          Hinzufügen
-                        </button>
-                      </div>
-                      <div
-                        style={{
-                          maxHeight: "400px",
-                          overflowY: "auto",
-                          border: "2px dashed var(--border)",
-                          borderRadius: "var(--radius-sm)",
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const nr = e.dataTransfer.getData("artikelnummer");
-                          if (nr && !form.Artikelnummern.includes(nr)) {
-                            setForm({
-                              ...form,
-                              Artikelnummern: [...form.Artikelnummern, nr],
-                            });
-                          }
-                        }}>
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th>Artikelnr.</th>
-                              <th>Art</th>
-                              <th>Preis</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {form.Artikelnummern.map((nr) => {
-                              const piece = availablePieces.find(
-                                (p) => p.Artikelnummer === nr,
-                              );
-                              if (!piece) return null;
-                              return (
-                                <tr key={nr}>
-                                  <td>{piece.Artikelnummer}</td>
-                                  <td>{piece.Art}</td>
-                                  <td>{piece.Verkaufspreis}€</td>
-                                  <td>
-                                    <button
-                                      className="btn btn-danger btn-sm"
-                                      title="Entfernen"
-                                      onClick={() => togglePiece(nr)}>
-                                      <FontAwesomeIcon icon={icons.times} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                        columns={[
+                          {
+                            key: "select",
+                            label: "",
+                            render: (p) => (
+                              <input
+                                type="checkbox"
+                                className="form-checkbox"
+                                checked={form.Artikelnummern.includes(
+                                  p.Artikelnummer,
+                                )}
+                                readOnly
+                              />
+                            ),
+                            width: 40,
+                          },
+                          {
+                            key: "Artikelnummer",
+                            label: "Artikelnr.",
+                            sortable: true,
+                          },
+                          { key: "Art", label: "Art", sortable: true },
+                          {
+                            key: "Verkaufspreis",
+                            label: "Preis",
+                            sortable: true,
+                            render: (p) => `${p.Verkaufspreis}€`,
+                          },
+                        ]}
+                        onRowClick={(p) => togglePiece(p.Artikelnummer)}
+                        rowProps={(p) => ({
+                          draggable: true,
+                          onDragStart: (e) =>
+                            e.dataTransfer.setData(
+                              "artikelnummer",
+                              p.Artikelnummer,
+                            ),
+                        })}
+                      />
                     </div>
-                  )}
+                  </div>
+                  {/* Rechte Seite: Selektierte Stücke */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h5>
+                      Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
+                    </h5>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <input
+                        className="form-control"
+                        style={{ flex: 1 }}
+                        placeholder="Artikelnummer eingeben..."
+                        value={artikelnummerInput}
+                        onChange={(e) => setArtikelnummerInput(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && addByArtikelnummer()
+                        }
+                        disabled={
+                          pieceSelectMode === "byKunde" && !form.Kundennummer
+                        }
+                      />
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={addByArtikelnummer}
+                        disabled={
+                          pieceSelectMode === "byKunde" && !form.Kundennummer
+                        }>
+                        Hinzufügen
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        maxHeight: "400px",
+                        overflowY: "auto",
+                        border: "2px dashed var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const nr = e.dataTransfer.getData("artikelnummer");
+                        if (nr && !form.Artikelnummern.includes(nr)) {
+                          setForm({
+                            ...form,
+                            Artikelnummern: [...form.Artikelnummern, nr],
+                          });
+                        }
+                      }}>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Artikelnr.</th>
+                            <th>Art</th>
+                            <th>Preis</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {form.Artikelnummern.map((nr) => {
+                            const piece = availablePieces.find(
+                              (p) => p.Artikelnummer === nr,
+                            );
+                            if (!piece) return null;
+                            return (
+                              <tr key={nr}>
+                                <td>{piece.Artikelnummer}</td>
+                                <td>{piece.Art}</td>
+                                <td>{piece.Verkaufspreis}€</td>
+                                <td>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    title="Entfernen"
+                                    onClick={() => togglePiece(nr)}>
+                                    <FontAwesomeIcon icon={icons.times} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -718,6 +789,12 @@ export default function DocumentManager({
             </div>
           </div>
         </div>
+      )}
+      {schmuckstueckOverlay && (
+        <SchmuckstueckModal
+          artikelnummer={schmuckstueckOverlay}
+          onClose={() => setSchmuckstueckOverlay(null)}
+        />
       )}
     </div>
   );

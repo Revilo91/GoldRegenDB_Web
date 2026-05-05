@@ -3,6 +3,22 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 
+function formatJahresNummer(jahr, laufnummer) {
+  return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
+}
+
+async function getNextLieferscheinnummer(queryable) {
+  const aktuellesJahr = new Date().getFullYear();
+  const { rows: nummerRows } = await queryable.query(
+    `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+     FROM "Lieferschein"
+     WHERE "Nummer" ~ $1`,
+    [`^${aktuellesJahr}-[0-9]+$`]
+  );
+
+  return formatJahresNummer(aktuellesJahr, Number(nummerRows[0].max_num) + 1);
+}
+
 // GET all delivery notes
 router.get('/', async (req, res) => {
   try {
@@ -21,6 +37,16 @@ router.get('/', async (req, res) => {
 });
 
 // GET single
+router.get('/next-number', async (_req, res) => {
+  try {
+    const nextNummer = await getNextLieferscheinnummer(db);
+    res.json({ Nummer: nextNummer });
+  } catch (err) {
+    logger.error('LIEFERSCHEINE', 'Fehler beim Ermitteln der nächsten Lieferscheinnummer', { message: err.message });
+    res.status(500).json({ error: 'Fehler beim Ermitteln der nächsten Lieferscheinnummer' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -83,29 +109,55 @@ router.get('/:id/excel', async (req, res) => {
 
 // POST create
 router.post('/', async (req, res) => {
+  let client;
   try {
     const { Nummer, Artikelnummern, Kundennummer } = req.body;
-    const { rows } = await db.query(
+    client = await db.connect();
+    await client.query('BEGIN');
+    await client.query('LOCK TABLE "Lieferschein" IN SHARE ROW EXCLUSIVE MODE');
+
+    let lieferscheinNummer = String(Nummer || '').trim();
+    if (!lieferscheinNummer) {
+      lieferscheinNummer = await getNextLieferscheinnummer(client);
+    }
+
+    const { rows } = await client.query(
       `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer")
        VALUES ($1, $2) RETURNING *`,
-      [Nummer, Kundennummer]
+      [lieferscheinNummer, Kundennummer]
     );
 
     const lieferscheinId = rows[0].ID;
 
     // Assign products to this delivery note and mark as outsourced to customer
     if (Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
+      await client.query(
         `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
         [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
       );
     }
 
+    await client.query('COMMIT');
+
     logger.info('LIEFERSCHEINE', `Lieferschein erstellt: ${rows[0].Nummer} (ID=${lieferscheinId})`, { artikelAnzahl: Artikelnummern?.length || 0 });
     res.status(201).json(rows[0]);
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('LIEFERSCHEINE', 'Rollback fehlgeschlagen bei Lieferscheinerstellung', { message: rollbackErr.message });
+      }
+    }
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Lieferscheinnummer existiert bereits' });
+    }
     logger.error('LIEFERSCHEINE', 'Fehler beim Erstellen des Lieferscheins', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Lieferscheins' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 

@@ -17,17 +17,13 @@ export default function Rechnungen() {
       type="rechnung"
       api={{
         getList: api.getRechnungen,
+        getNextNumber: api.getNextRechnungsnummer,
         getDetail: api.getRechnung,
         deleteItem: api.deleteRechnung,
         createItem: api.createRechnung,
         exportExcel: api.exportRechnungExcel,
         getKunden: api.getKunden,
-        getPieces: (filter) => api.getSchmuckstuecke({
-          ausgelagert: filter.Kundennummer,
-          verkauft: "0",
-          ausschuss: "0",
-          limit: -1,
-        }),
+        getPieces: (filter) => api.getSchmuckstuecke(filter),
       }}
       icons={{ header: faFileInvoice, modal: faFileInvoice, user: faUser, trash: faTrash, times: faTimes }}
       labels={{

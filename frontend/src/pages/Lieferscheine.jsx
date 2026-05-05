@@ -17,18 +17,13 @@ export default function Lieferscheine() {
       type="lieferschein"
       api={{
         getList: api.getLieferscheine,
+        getNextNumber: api.getNextLieferscheinnummer,
         getDetail: api.getLieferschein,
         deleteItem: api.deleteLieferschein,
         createItem: api.createLieferschein,
         exportExcel: api.exportLieferscheinExcel,
         getKunden: api.getKunden,
-        getPieces: (filter) => api.getSchmuckstuecke({
-          ausgelagert: "0",
-          verkauft: "0",
-          ausschuss: "0",
-          limit: -1,
-          ...filter,
-        }),
+        getPieces: (filter) => api.getSchmuckstuecke(filter),
       }}
       icons={{ header: faBox, modal: faBox, user: faUser, trash: faTrash, times: faTimes }}
       labels={{

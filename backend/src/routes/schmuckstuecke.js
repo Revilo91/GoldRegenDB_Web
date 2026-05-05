@@ -180,6 +180,53 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
 
 // ========== FILTER-OPTIONS ROUTES ==========
 
+// GET next artikelnummer preview by prefix (e.g. MBO -> MBO127)
+router.get("/next-artikelnummer", async (req, res) => {
+  try {
+    const rawPrefix = String(req.query.prefix || "").toUpperCase().trim();
+
+    if (!/^[A-Z]{3}$/.test(rawPrefix)) {
+      return res.status(400).json({
+        error: "Ungültiger Präfix. Erwartet werden genau 3 Buchstaben.",
+      });
+    }
+
+    const [herstellerCode, grundmaterialCode, produktartCode] = rawPrefix;
+    if (
+      !["M", "S"].includes(herstellerCode) ||
+      !GRUNDMATERIAL[grundmaterialCode] ||
+      !PRODUKTART[produktartCode]
+    ) {
+      return res.status(400).json({
+        error: "Ungültige Präfix-Kombination für Hersteller, Material oder Produktart.",
+      });
+    }
+
+    const { rows } = await db.query(
+      `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 4, 3) AS INTEGER)) as max_num
+       FROM "Schmuckstück"
+       WHERE "Artikelnummer" LIKE $1`,
+      [`${rawPrefix}%`],
+    );
+
+    const nextNum = (rows[0]?.max_num || 0) + 1;
+    const artikelnummer = `${rawPrefix}${nextNum.toString().padStart(3, "0")}`;
+
+    res.json({
+      prefix: rawPrefix,
+      nextNum,
+      artikelnummer,
+    });
+  } catch (err) {
+    logger.error("SCHMUCK", "Fehler beim Ermitteln der nächsten Artikelnummer", {
+      message: err.message,
+    });
+    res.status(500).json({
+      error: "Fehler beim Ermitteln der nächsten Artikelnummer",
+    });
+  }
+});
+
 // GET with pagination, search and filters
 router.get("/", async (req, res) => {
   try {

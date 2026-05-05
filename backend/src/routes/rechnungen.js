@@ -3,6 +3,22 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 
+function formatJahresNummer(jahr, laufnummer) {
+  return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
+}
+
+async function getNextRechnungsnummer(queryable) {
+  const aktuellesJahr = new Date().getFullYear();
+  const { rows: nummerRows } = await queryable.query(
+    `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+     FROM "Rechnung"
+     WHERE "Nummer" ~ $1`,
+    [`^${aktuellesJahr}-[0-9]+$`]
+  );
+
+  return formatJahresNummer(aktuellesJahr, Number(nummerRows[0].max_num) + 1);
+}
+
 // GET all invoices
 router.get('/', async (req, res) => {
   try {
@@ -21,6 +37,16 @@ router.get('/', async (req, res) => {
 });
 
 // GET single
+router.get('/next-number', async (_req, res) => {
+  try {
+    const nextNummer = await getNextRechnungsnummer(db);
+    res.json({ Nummer: nextNummer });
+  } catch (err) {
+    logger.error('RECHNUNGEN', 'Fehler beim Ermitteln der nächsten Rechnungsnummer', { message: err.message });
+    res.status(500).json({ error: 'Fehler beim Ermitteln der nächsten Rechnungsnummer' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -107,28 +133,54 @@ router.get('/:id/excel', async (req, res) => {
 
 // POST create
 router.post('/', async (req, res) => {
+  let client;
   try {
     const { Nummer, Artikelnummern, Kundennummer } = req.body;
-    const { rows } = await db.query(
+    client = await db.connect();
+    await client.query('BEGIN');
+    await client.query('LOCK TABLE "Rechnung" IN SHARE ROW EXCLUSIVE MODE');
+
+    let rechnungsNummer = String(Nummer || '').trim();
+    if (!rechnungsNummer) {
+      rechnungsNummer = await getNextRechnungsnummer(client);
+    }
+
+    const { rows } = await client.query(
       `INSERT INTO "Rechnung" ("Nummer", "Kundennummer")
        VALUES ($1, $2) RETURNING *`,
-      [Nummer, Kundennummer]
+      [rechnungsNummer, Kundennummer]
     );
 
     const rechnungId = rows[0].ID;
 
     if (Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
+      await client.query(
         `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
         [rechnungId, Artikelnummern]
       );
     }
 
+    await client.query('COMMIT');
+
     logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId})`, { artikelAnzahl: Artikelnummern?.length || 0 });
     res.status(201).json(rows[0]);
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('RECHNUNGEN', 'Rollback fehlgeschlagen bei Rechnungserstellung', { message: rollbackErr.message });
+      }
+    }
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Rechnungsnummer existiert bereits' });
+    }
     logger.error('RECHNUNGEN', 'Fehler beim Erstellen der Rechnung', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen der Rechnung' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 

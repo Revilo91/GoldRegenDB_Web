@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
+  faHashtag,
   faGem,
   faPen,
   faTrash,
@@ -15,10 +17,45 @@ import { api } from "../api";
 import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
+import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 
+const HERSTELLER_OPTIONS = [
+  { code: "M", label: "Marina" },
+  { code: "S", label: "Saskia" },
+];
+
+const GRUNDMATERIAL_OPTIONS = [
+  { code: "A", label: "Alkoholtinte" },
+  { code: "B", label: "Beton" },
+  { code: "C", label: "Cucio" },
+  { code: "E", label: "Edelstahl" },
+  { code: "F", label: "Fimo" },
+  { code: "H", label: "Harz" },
+  { code: "I", label: "Phiole" },
+  { code: "J", label: "Papier" },
+  { code: "K", label: "Kordel" },
+  { code: "L", label: "Leder" },
+  { code: "M", label: "Makramee" },
+  { code: "N", label: "Naturstein" },
+  { code: "P", label: "Perle" },
+  { code: "S", label: "Schrumpffolie" },
+  { code: "W", label: "Holz" },
+  { code: "X", label: "3D-Druck" },
+  { code: "Y", label: "Cabochon" },
+];
+
+const PRODUKTART_OPTIONS = [
+  { code: "A", label: "Armband" },
+  { code: "H", label: "Halskette" },
+  { code: "O", label: "Ohrring" },
+  { code: "S", label: "Schlüsselanhänger" },
+];
+
 export default function Schmuckstuecke() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = user && (user.role === "admin" || user.role === "bearbeiter");
   const [data, setData] = useState({ data: [], pagination: {} });
@@ -31,12 +68,22 @@ export default function Schmuckstuecke() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [activeTab, setActiveTab] = useState("schmuckstuecke");
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
     direction: "asc",
   });
+  const [nextArtikelnummerPreview, setNextArtikelnummerPreview] = useState("");
+  const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
+    useState(false);
+  const [nextArtikelnummerError, setNextArtikelnummerError] = useState("");
+  const [nextArtikelnummerRefreshKey, setNextArtikelnummerRefreshKey] =
+    useState(0);
+
+  const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
+    if (!hersteller || !grundmaterial || !produktart) return "";
+    return `${hersteller}${grundmaterial}${produktart}`;
+  };
 
   const load = () => {
     setLoading(true);
@@ -59,16 +106,35 @@ export default function Schmuckstuecke() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async ({ closeAfterSave = true } = {}) => {
     try {
       const dataToSave = { ...form };
 
+      if (editing === "new" && nextArtikelnummerPreview) {
+        dataToSave.Artikelnummer = nextArtikelnummerPreview;
+      }
+
+      if (editing === "new" && !dataToSave.Artikelnummer) {
+        alert(
+          "Bitte Hersteller, Grundmaterial und Produktart auswählen, damit die Artikelnummer erzeugt werden kann.",
+        );
+        return;
+      }
+
       if (editing === "new") {
+        console.log("Creating new Schmuckstück with data:", dataToSave);
         await api.createSchmuckstueck(dataToSave);
+        if (!closeAfterSave) {
+          setForm((prev) => ({ ...prev, Foto: "" }));
+          setNextArtikelnummerRefreshKey((prev) => prev + 1);
+          alert(`${dataToSave.Artikelnummer} wurde erstellt.`);
+        }
       } else {
         await api.updateSchmuckstueck(editing, dataToSave);
       }
-      setEditing(null);
+      if (closeAfterSave || editing !== "new") {
+        setEditing(null);
+      }
       load();
     } catch (err) {
       alert(err.message);
@@ -78,6 +144,9 @@ export default function Schmuckstuecke() {
   const openNew = () => {
     setForm({
       Artikelnummer: "",
+      HerstellerCode: "",
+      GrundmaterialCode: "",
+      ProduktartCode: "",
       Anzahl: 1,
       Name: "",
       Art: "",
@@ -101,6 +170,35 @@ export default function Schmuckstuecke() {
     setEditing(s.Artikelnummer);
   };
 
+  const openDuplicate = (s) => {
+    const {
+      ID,
+      Erstelldatum,
+      Letzte_Änderung,
+      Lieferschein_ID,
+      Rechnung_ID,
+      Grundmaterial,
+      Foto,
+      ...copyData
+    } = s;
+    const baseArtikelnummer = String(s.Artikelnummer || "").split("_")[0];
+
+    setForm({
+      ...copyData,
+      Artikelnummer: baseArtikelnummer,
+      HerstellerCode: baseArtikelnummer[0] || "",
+      GrundmaterialCode: baseArtikelnummer[1] || "",
+      ProduktartCode: baseArtikelnummer[2] || "",
+      Anzahl: 1,
+      Foto: "",
+      Ausgelagert: 0,
+      Verkauft: 0,
+      Ausschuss: 0,
+      Ausschuss_Grund: "",
+    });
+    setEditing("new");
+  };
+
   useEffect(() => {
     api.getFilterOptions().then(setFilterOptions).catch(console.error);
     api.getKunden().then(setKunden).catch(console.error);
@@ -111,24 +209,72 @@ export default function Schmuckstuecke() {
   }, [page, search, filters]);
 
   useEffect(() => {
-    if (selected && selected.Foto) {
-      console.log(
-        "📷 Selected Schmuckstück mit Foto:",
-        selected.Artikelnummer,
-        selected.Foto,
-      );
-      api
-        .loadPhotoAsDataUrl(selected.Foto)
-        .then((dataUrl) => {
-          console.log("📸 Photo DataUrl geladen:", dataUrl ? "Ja" : "Nein");
-          setSelectedPhoto(dataUrl);
-        })
-        .catch(console.error);
-    } else {
-      console.log("📷 Kein Foto vorhanden für:", selected?.Artikelnummer);
-      setSelectedPhoto(null);
+    if (editing !== "new") {
+      setNextArtikelnummerPreview("");
+      setNextArtikelnummerError("");
+      setNextArtikelnummerLoading(false);
+      return;
     }
-  }, [selected]);
+
+    const prefix = String(form.Artikelnummer || "")
+      .trim()
+      .toUpperCase();
+    if (!/^[A-Z]{3}$/.test(prefix)) {
+      setNextArtikelnummerPreview("");
+      setNextArtikelnummerError("");
+      setNextArtikelnummerLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setNextArtikelnummerLoading(true);
+    setNextArtikelnummerError("");
+
+    api
+      .getNextArtikelnummer(prefix)
+      .then((result) => {
+        if (isCancelled) return;
+        setNextArtikelnummerPreview(result.artikelnummer || "");
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        setNextArtikelnummerPreview("");
+        setNextArtikelnummerError(
+          err.message || "Nächste Artikelnummer konnte nicht geladen werden.",
+        );
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setNextArtikelnummerLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [editing, form.Artikelnummer, nextArtikelnummerRefreshKey]);
+
+  useEffect(() => {
+    const openEditArtikelnummer = location.state?.openEdit;
+    const openDuplicateArtikelnummer = location.state?.openDuplicate;
+    const targetArtikelnummer =
+      openEditArtikelnummer || openDuplicateArtikelnummer;
+
+    if (!targetArtikelnummer) return;
+
+    api
+      .getSchmuckstueck(targetArtikelnummer)
+      .then((item) => {
+        if (openEditArtikelnummer) {
+          openEdit(item);
+        } else {
+          openDuplicate(item);
+        }
+      })
+      .catch(console.error)
+      .finally(() => {
+        navigate(location.pathname, { replace: true, state: {} });
+      });
+  }, [location.pathname, location.state, navigate]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -145,6 +291,7 @@ export default function Schmuckstuecke() {
   };
 
   const p = data.pagination;
+  const isForegroundModalOpen = selected !== null || editing !== null;
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];
@@ -174,32 +321,52 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
-  function TablePhoto({ foto, artikelnummer }) {
+  function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
     const [photoSrc, setPhotoSrc] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
       let isCancelled = false;
+      const controller = new AbortController();
 
       if (!foto) {
         setPhotoSrc(null);
         setIsLoading(false);
         return () => {
           isCancelled = true;
+          controller.abort();
+        };
+      }
+
+      if (pauseLoading) {
+        setIsLoading(false);
+        return () => {
+          isCancelled = true;
+          controller.abort();
         };
       }
 
       setIsLoading(true);
-      api.loadPhotoAsDataUrl(foto).then((dataUrl) => {
-        if (isCancelled) return;
-        setPhotoSrc(dataUrl);
-        setIsLoading(false);
-      });
+      api
+        .loadPhotoAsDataUrl(foto, { signal: controller.signal })
+        .then((dataUrl) => {
+          if (isCancelled) return;
+          setPhotoSrc(dataUrl);
+        })
+        .catch(() => {
+          if (isCancelled) return;
+          setPhotoSrc(null);
+        })
+        .finally(() => {
+          if (isCancelled) return;
+          setIsLoading(false);
+        });
 
       return () => {
         isCancelled = true;
+        controller.abort();
       };
-    }, [foto]);
+    }, [foto, pauseLoading]);
 
     if (!photoSrc) {
       return (
@@ -341,7 +508,11 @@ export default function Schmuckstuecke() {
                   label: "Foto",
                   className: "photo-col",
                   render: (r) => (
-                    <TablePhoto foto={r.Foto} artikelnummer={r.Artikelnummer} />
+                    <TablePhoto
+                      foto={r.Foto}
+                      artikelnummer={r.Artikelnummer}
+                      pauseLoading={isForegroundModalOpen}
+                    />
                   ),
                 },
                 {
@@ -446,179 +617,33 @@ export default function Schmuckstuecke() {
       </div>
 
       {selected && (
-        <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>
-                <FontAwesomeIcon icon={faGem} /> {selected.Artikelnummer}{" "}
-                {selected.Verkauft === 1 ? (
-                  <span className="badge success">Verkauft</span>
-                ) : selected.Ausschuss === 1 ? (
-                  <span className="badge danger">Ausschuss</span>
-                ) : selected.Ausgelagert > 0 ? (
-                  <span className="badge gold">
-                    Ausgelagert: {getKundenName(selected.Ausgelagert)}
-                  </span>
-                ) : (
-                  <span className="badge warning">Lager</span>
-                )}
-              </h3>
-              <div style={{ marginLeft: "auto", marginRight: 16 }}>
-                {canEdit && (
-                  <>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ marginRight: 8 }}
-                      onClick={() => openEdit(selected)}>
-                      <FontAwesomeIcon icon={faPen} /> Bearbeiten
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(selected.Artikelnummer)}>
-                      <FontAwesomeIcon icon={faTrash} /> Löschen
-                    </button>
-                  </>
-                )}
-              </div>
-              <button className="modal-close" onClick={() => setSelected(null)}>
-                ×
-              </button>
-            </div>
-
-            {/* Photo Display */}
-            <div
-              style={{
-                textAlign: "center",
-                padding: "16px 0",
-                borderBottom: "1px solid #ddd",
-                backgroundColor: "#f9f9f9",
-              }}>
-              {selectedPhoto ? (
-                <img
-                  src={selectedPhoto}
-                  alt={selected.Artikelnummer}
-                  style={{
-                    maxWidth: "200px",
-                    maxHeight: "200px",
-                    borderRadius: "8px",
-                  }}
-                />
-              ) : selected.Foto ? (
-                <div
-                  style={{
-                    width: "200px",
-                    height: "200px",
-                    margin: "0 auto",
-                    borderRadius: "8px",
-                    backgroundColor: "#e0e0e0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#999",
-                    fontSize: "14px",
-                    border: "2px dashed #ccc",
-                  }}>
-                  <div>
-                    <div style={{ marginBottom: "8px" }}>⏳</div>
-                    Bild wird geladen...
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    width: "200px",
-                    height: "200px",
-                    margin: "0 auto",
-                    borderRadius: "8px",
-                    backgroundColor: "#f0f0f0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#bbb",
-                    fontSize: "14px",
-                    border: "2px dashed #ddd",
-                  }}>
-                  <div>
-                    <div style={{ marginBottom: "8px", fontSize: "24px" }}>
-                      📷
-                    </div>
-                    Kein Bild vorhanden
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="detail-grid">
-              {[
-                ["Grundmaterial", selected.Grundmaterial],
-                ["Art", selected.Art],
-                ["Form", selected.Form],
-                [
-                  "Länge",
-                  selected["Länge"]
-                    ? `${selected["Länge"]} ${getLengthUnit(selected)}`
-                    : "–",
-                ],
-                ["Fassung", selected.Fassung],
-                ["Farbe", selected.Farbe],
-                ["Material", selected.Material],
-                ["Größe", selected["Grösse"]],
-                ["Inhalt Material", selected.Inhalt_Material],
-                ["Inhalt Farbe", selected.Inhalt_Farbe],
-                ["Inhalt Farbakzent", selected.Inhalt_Farbakzent],
-                ["Inhalt Zusatzmaterial", selected.Inhalt_Zusatzmaterial],
-                ["Anhänger Fassung", selected["Anhänger_Fassung"]],
-                ["Anhänger Form", selected["Anhänger_Form"]],
-                ["Anhänger Farbe", selected["Anhänger_Farbe"]],
-                ["Anhänger Größe", selected["Anhänger_Grösse"]],
-                [
-                  "Anhänger Inhalt Material",
-                  selected["Anhänger_Inhalt_Material"],
-                ],
-                ["Anhänger Inhalt Farbe", selected["Anhänger_Inhalt_Farbe"]],
-                ["Zwischenstück", selected["Zwischenstück"]],
-                [
-                  "Herstellungskosten",
-                  selected.Herstellungskosten
-                    ? `${selected.Herstellungskosten}€`
-                    : "–",
-                ],
-                [
-                  "Verkaufspreis",
-                  selected.Verkaufspreis ? `${selected.Verkaufspreis}€` : "–",
-                ],
-                [
-                  "Erstellt",
-                  selected.Erstelldatum
-                    ? new Date(selected.Erstelldatum).toLocaleDateString(
-                        "de-DE",
-                        { day: "2-digit", month: "2-digit", year: "numeric" },
-                      )
-                    : "–",
-                ],
-                [
-                  "Letzte Änderung",
-                  selected["Letzte_Änderung"]
-                    ? new Date(selected["Letzte_Änderung"]).toLocaleString(
-                        "de-DE",
-                      )
-                    : "–",
-                ],
-              ]
-                .filter(([, v]) => v && v !== "–" && v !== 0 && v !== "0")
-                .map(([label, value]) => (
-                  <div className="detail-item" key={label}>
-                    <label>{label}</label>
-                    <div className="detail-value">{value}</div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
+        <SchmuckstueckModal
+          artikelnummer={selected.Artikelnummer}
+          onClose={() => setSelected(null)}
+          onDuplicate={
+            canEdit
+              ? (item) => {
+                  setSelected(null);
+                  item && openDuplicate(item);
+                }
+              : undefined
+          }
+          onEdit={
+            canEdit
+              ? () => {
+                  setSelected(null);
+                  openEdit(selected);
+                }
+              : undefined
+          }
+          onDelete={
+            canEdit ? () => handleDelete(selected.Artikelnummer) : undefined
+          }
+        />
       )}
 
       {editing !== null && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div
             className="modal modal-lg"
             onClick={(e) => e.stopPropagation()}
@@ -642,38 +667,141 @@ export default function Schmuckstuecke() {
             <div className="modal-body">
               <div className="form-section">
                 <h4>
+                  <FontAwesomeIcon icon={faHashtag} /> Artikelnummer
+                </h4>
+                {editing === "new" ? (
+                  <>
+                    <div
+                      className="form-row"
+                      style={{
+                        gridTemplateColumns: "1fr 1fr 1fr 120px",
+                        alignItems: "end",
+                      }}>
+                      <div className="form-group">
+                        <label>Hersteller*</label>
+                        <select
+                          className="form-control"
+                          value={form.HerstellerCode || ""}
+                          onChange={(e) => {
+                            const hersteller = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              hersteller,
+                              form.GrundmaterialCode,
+                              form.ProduktartCode,
+                            );
+                            setForm({
+                              ...form,
+                              HerstellerCode: hersteller,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Hersteller</option>
+                          {HERSTELLER_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Grundmaterial*</label>
+                        <select
+                          className="form-control"
+                          value={form.GrundmaterialCode || ""}
+                          onChange={(e) => {
+                            const grundmaterial = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              form.HerstellerCode,
+                              grundmaterial,
+                              form.ProduktartCode,
+                            );
+                            setForm({
+                              ...form,
+                              GrundmaterialCode: grundmaterial,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Grundmaterial</option>
+                          {GRUNDMATERIAL_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Produktart*</label>
+                        <select
+                          className="form-control"
+                          value={form.ProduktartCode || ""}
+                          onChange={(e) => {
+                            const produktart = e.target.value;
+                            const artikelnummer = buildPrefixFromCodes(
+                              form.HerstellerCode,
+                              form.GrundmaterialCode,
+                              produktart,
+                            );
+                            setForm({
+                              ...form,
+                              ProduktartCode: produktart,
+                              Artikelnummer: artikelnummer,
+                            });
+                          }}>
+                          <option value="">Produktart</option>
+                          {PRODUKTART_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.code} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Anzahl</label>
+                        <input
+                          className="form-control"
+                          type="number"
+                          min="1"
+                          value={form.Anzahl || 1}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              Anzahl: parseInt(e.target.value) || 1,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Artikelnummer*</label>
+                        <div
+                          className="form-control"
+                          style={{ display: "flex", alignItems: "center" }}>
+                          {nextArtikelnummerPreview ||
+                            form.Artikelnummer ||
+                            "---"}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Artikelnummer*</label>
+                      <input
+                        className="form-control"
+                        disabled
+                        value={form.Artikelnummer || ""}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="form-section">
+                <h4>
                   <FontAwesomeIcon icon={faBoxOpen} /> Basis-Informationen
                 </h4>
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Artikelnummer*</label>
-                    <input
-                      className="form-control"
-                      disabled={editing !== "new"}
-                      value={form.Artikelnummer || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Artikelnummer: e.target.value })
-                      }
-                      placeholder="z.B. MHO oder MHO112"
-                    />
-                  </div>
-                  {editing === "new" && (
-                    <div className="form-group" style={{ maxWidth: "100px" }}>
-                      <label>Anzahl</label>
-                      <input
-                        className="form-control"
-                        type="number"
-                        min="1"
-                        value={form.Anzahl || 1}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            Anzahl: parseInt(e.target.value) || 1,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
                   <div className="form-group">
                     <label>Name</label>
                     <input
@@ -740,7 +868,8 @@ export default function Schmuckstuecke() {
               <div className="form-section">
                 <h4>� Foto</h4>
                 <PhotoUpload
-                  artikelnummer={form.Artikelnummer}
+                  artikelnummer={editing === "new" ? nextArtikelnummerPreview : form.Artikelnummer}
+                  disabled={editing === "new" && !nextArtikelnummerPreview}
                   initialPhoto={form.Foto}
                   onPhotoSelected={(photoPath) => {
                     setForm({ ...form, Foto: photoPath });
@@ -890,7 +1019,7 @@ export default function Schmuckstuecke() {
 
               <div className="form-section">
                 <h4>
-                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger / Attachment
+                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger
                 </h4>
                 <div className="form-row">
                   <div className="form-group">
@@ -1145,71 +1274,61 @@ export default function Schmuckstuecke() {
                     </select>
                   </div>
                 </div>
-                <div className="form-row" style={{ marginTop: "16px" }}>
-                  <div
-                    className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      id="form-verkauft"
-                      checked={form.Verkauft === 1}
-                      disabled
-                      onChange={(e) =>
-                        setForm({ ...form, Verkauft: e.target.checked ? 1 : 0 })
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                    <label htmlFor="form-verkauft" style={{ marginBottom: 0 }}>
-                      Verkauft
-                    </label>
-                  </div>
-                  <div
-                    className="form-group"
-                    style={{ display: "flex", alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      id="form-ausschuss"
-                      checked={form.Ausschuss === 1}
-                      disabled={editing === "new"}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Ausschuss: e.target.checked ? 1 : 0,
-                          Ausschuss_Grund: e.target.checked
-                            ? form.Ausschuss_Grund || "Defekt"
-                            : "",
-                        })
-                      }
-                      style={{ marginRight: "8px" }}
-                    />
-                    <label htmlFor="form-ausschuss" style={{ marginBottom: 0 }}>
-                      Ausschuss
-                    </label>
-                  </div>
-                </div>
-                {form.Ausschuss === 1 && (
-                  <div className="form-row" style={{ marginTop: "12px" }}>
-                    <div className="form-group" style={{ flex: 1 }}>
-                      <label>Ausschuss Grund</label>
-                      <input
-                        list="ausschussgruende-list"
-                        className="form-control"
-                        value={form.Ausschuss_Grund || ""}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            Ausschuss_Grund: e.target.value,
-                          })
-                        }
-                        placeholder="z.B. Defekt"
-                      />
-                      <datalist id="ausschussgruende-list">
-                        {filterOptions.ausschussgruende?.map((g) => (
-                          <option key={g} value={g} />
-                        ))}
-                      </datalist>
+                {editing !== "new" ? (
+                  <>
+                    <div className="form-row" style={{ marginTop: "16px" }}>
+                      <div className="form-group checkbox-field">
+                        <input
+                          type="checkbox"
+                          id="form-ausschuss"
+                          className="form-checkbox"
+                          checked={form.Ausschuss === 1}
+                          disabled={editing === "new"}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              Ausschuss: e.target.checked ? 1 : 0,
+                              Ausschuss_Grund: e.target.checked
+                                ? form.Ausschuss_Grund || "Defekt"
+                                : "",
+                            })
+                          }
+                        />
+                        <label
+                          htmlFor="form-ausschuss"
+                          className="checkbox-label">
+                          Ausschuss
+                        </label>
+                      </div>
+
+                      {form.Ausschuss === 1 && (
+                        <div className="form-row" style={{ marginTop: "12px" }}>
+                          <div className="form-group" style={{ flex: 1 }}>
+                            <label>Ausschuss Grund</label>
+                            <input
+                              list="ausschussgruende-list"
+                              className="form-control"
+                              value={form.Ausschuss_Grund || ""}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  Ausschuss_Grund: e.target.value,
+                                })
+                              }
+                              placeholder="z.B. Defekt"
+                            />
+                            <datalist id="ausschussgruende-list">
+                              {filterOptions.ausschussgruende?.map((g) => (
+                                <option key={g} value={g} />
+                              ))}
+                            </datalist>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </>
+                ) : (
+                  ""
                 )}
               </div>
             </div>
@@ -1219,9 +1338,26 @@ export default function Schmuckstuecke() {
                 onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
-              </button>
+              {editing === "new" ? (
+                <>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleSave({ closeAfterSave: true })}>
+                    Speichern + Schließen
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handleSave({ closeAfterSave: false })}>
+                    Speichern + Weiter
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleSave({ closeAfterSave: true })}>
+                  Speichern
+                </button>
+              )}
             </div>
           </div>
         </div>

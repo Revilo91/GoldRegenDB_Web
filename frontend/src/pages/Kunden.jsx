@@ -110,20 +110,23 @@ export default function Kunden() {
         onSearchChange={setSearch}
         placeholder="Suche nach Name, Ort oder Email..."
         right={
-          <select
-            className="form-control"
-            value={filters.aktiv ?? ""}
-            onChange={(e) => {
-              const { aktiv, ...rest } = filters;
-              setFilters(
-                e.target.value !== "" ? { ...rest, aktiv: e.target.value } : rest,
-              );
-            }}
-          >
-            <option value="">Alle Status</option>
-            <option value="1">Aktiv</option>
-            <option value="0">Inaktiv</option>
-          </select>
+          <div className="filter-group">
+            <select
+              className="form-control"
+              value={filters.aktiv ?? ""}
+              onChange={(e) => {
+                const { aktiv, ...rest } = filters;
+                setFilters(
+                  e.target.value !== ""
+                    ? { ...rest, aktiv: e.target.value }
+                    : rest,
+                );
+              }}>
+              <option value="">Alle Status</option>
+              <option value="1">Aktiv</option>
+              <option value="0">Inaktiv</option>
+            </select>
+          </div>
         }
       />
 
@@ -140,10 +143,36 @@ export default function Kunden() {
               onRowClick={(k) => openEdit(k)}
               columns={[
                 { key: "Name", label: "Name", sortable: true },
-                { key: "Ort", label: "Ort", className: "hide-on-mobile", sortable: true },
-                { key: "PLZ", label: "PLZ", className: "hide-on-mobile", sortable: true },
-                { key: "Provision", label: "Provision", className: "hide-on-mobile", render: (r) => `${r.Provision}%`, sortable: true },
-                { key: "Aktiv", label: "Status", render: (r) => (r.Aktiv ? <span className="badge success">Aktiv</span> : <span className="badge danger">Inaktiv</span>), sortable: true },
+                {
+                  key: "Ort",
+                  label: "Ort",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                },
+                {
+                  key: "PLZ",
+                  label: "PLZ",
+                  className: "hide-on-mobile",
+                  sortable: true,
+                },
+                {
+                  key: "Provision",
+                  label: "Provision",
+                  className: "hide-on-mobile",
+                  render: (r) => `${r.Provision}%`,
+                  sortable: true,
+                },
+                {
+                  key: "Aktiv",
+                  label: "Status",
+                  render: (r) =>
+                    r.Aktiv ? (
+                      <span className="badge success">Aktiv</span>
+                    ) : (
+                      <span className="badge danger">Inaktiv</span>
+                    ),
+                  sortable: true,
+                },
               ]}
             />
           )}
@@ -151,7 +180,7 @@ export default function Kunden() {
       </div>
 
       {editing !== null && (
-        <div className="modal-overlay" onClick={() => setEditing(null)}>
+        <div className="modal-overlay">
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editing === "new" ? "Neuer Kunde" : "Kunde bearbeiten"}</h3>
@@ -251,6 +280,7 @@ export default function Kunden() {
                   <label>
                     <input
                       type="checkbox"
+                      className="form-checkbox"
                       checked={form.Aktiv || false}
                       onChange={(e) =>
                         setForm({ ...form, Aktiv: e.target.checked })
@@ -264,6 +294,7 @@ export default function Kunden() {
                   <label>
                     <input
                       type="checkbox"
+                      className="form-checkbox"
                       checked={form.Artikelnummern_Erforderlich || false}
                       onChange={(e) =>
                         setForm({
@@ -280,22 +311,19 @@ export default function Kunden() {
             </div>
             <div
               className="modal-footer"
-              style={{ justifyContent: "space-between" }}
-            >
+              style={{ justifyContent: "space-between" }}>
               <button
                 className="btn btn-danger"
                 onClick={() => {
                   handleDelete(form.ID);
                   setEditing(null);
-                }}
-              >
+                }}>
                 Löschen
               </button>
               <div className="btn-group">
                 <button
                   className="btn btn-secondary"
-                  onClick={() => setEditing(null)}
-                >
+                  onClick={() => setEditing(null)}>
                   Abbrechen
                 </button>
                 <button className="btn btn-primary" onClick={handleSave}>

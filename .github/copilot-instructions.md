@@ -106,6 +106,16 @@ erDiagram
         timestamp created_at
         timestamp last_login
     }
+
+    lagerinventur {
+        serial id PK
+        integer user_id FK
+        jsonb data
+        text kommentar
+        varchar20 status
+        timestamp created_at
+        timestamp updated_at
+    }
 ```
 
 ### Tabellen-Übersicht
@@ -118,6 +128,7 @@ erDiagram
 | `Schmuckstück` | Schmuckstücke mit 34 Attributen | `Artikelnummer`     | ~4.000+ Einträge   |
 | `audit_log`    | Änderungsprotokoll              | `id`                | ~4.000+ Einträge   |
 | `app_users`    | Anwendungsbenutzer              | `id` (UK: `username`) | Wenige Einträge  |
+| `lagerinventur` | Lager-Inventur-Entwürfe (gezählte Stückzahlen pro Benutzer) | `id` | Wenige Einträge |
 
 ### Beziehungen (Foreign Keys)
 
@@ -169,6 +180,7 @@ erDiagram
 - **Verkauft**: SMALLINT (0 = nicht verkauft, 1 = verkauft)
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
+- **lagerinventur**: speichert Inventur-Entwürfe pro Benutzer; `data` ist JSONB (`{ [artikelnummer]: anzahl }`); `status` ist `entwurf` oder `abgeschlossen`; FK auf `app_users.id`; Index auf `(user_id, status)`; wird via `db.js`-Startup-Migration angelegt
 ## WHERE Clause Builder (PFLICHT!)
 
 **WICHTIG:** Für alle Datenbank-Queries, die Schmuckstücke filtern, **MUSS** der zentrale WHERE-Builder verwendet werden!
@@ -206,6 +218,8 @@ const query = `SELECT * FROM "Schmuckstück" ${builder.build()}`;
 const result = await db.query(query, builder.getParams());
 ```
 
+> **Signatur:** `where(startParamIdx = 1, tenantId = null)` – `tenantId` ist für zukünftige Multi-Mandanten-Unterstützung vorgesehen und fügt automatisch eine `tenant_id`-Bedingung ein, wenn ein Wert übergeben wird.
+
 **📖 Vollständige Dokumentation:** [`backend/src/utils/WHERE_BUILDER.md`](../backend/src/utils/WHERE_BUILDER.md)
 
 **✅ Migrierte Routes:** dashboard.js, schmuckstuecke.js, sumup.js, kunden.js, inventur.js
@@ -232,6 +246,9 @@ const result = await db.query(query, builder.getParams());
 | **Container**     | Docker + Docker Compose                  |
 | **Dev-Umgebung**  | Docker Compose (dev) mit Hot-Reload      |
 | **Produktion**    | Docker Compose (prod) mit Nginx          |
+| **Backend-Tests** | Jest (`npm test` in `backend/`)          |
+| **Frontend-Tests** | Vitest (`npm test` in `frontend/`)      |
+| **CI**            | GitHub Actions (`.github/workflows/tests.yml`) |
 
 ---
 
@@ -244,7 +261,7 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 | Rolle        | Seiten / Berechtigungen                                                                      |
 | ------------ | -------------------------------------------------------------------------------------------- |
 | `user`       | Schmuckstücke erstellen (nur POST /api/schmuckstuecke)                                       |
-| `bearbeiter` | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp, Inventur                 |
+| `bearbeiter` | Dashboard, Kunden, Schmuckstücke, Lieferscheine, Rechnungen, SumUp, Inventur, Lager-Inventur |
 | `admin`      | Alles wie `bearbeiter` + Audit Log, Debug, Benutzerverwaltung, Datensicherung                |
 
 ### Technische Details
@@ -274,7 +291,12 @@ GoldRegenDB_Web/
 ├── docker-compose.dev.yml          # Entwicklung (Hot Reload)
 ├── docker-compose.synology.yml     # Synology-NAS-spezifisch
 ├── .env.example                    # Vorlage für Umgebungsvariablen
-├── .github/copilot-instructions.md # Diese Datei
+├── .github/
+│   ├── copilot-instructions.md     # Diese Datei
+│   └── workflows/
+│       ├── tests.yml               # CI: Backend (Jest) + Frontend (Vitest) bei jedem PR
+│       ├── check-copilot-instructions.yml  # CI: Prüft ob copilot-instructions.md aktuell ist
+│       └── release.yml             # CI: Release-Workflow
 ├── GoldRegenDB.sql                 # Vollständiger PostgreSQL-Dump (Struktur + Daten)
 ├── GoldRegenDB_data.sql            # Original MySQL/MariaDB Datenexport
 ├── GoldRegenDB_structure.sql       # Original MySQL/MariaDB Struktur-Dump
@@ -296,6 +318,15 @@ GoldRegenDB_Web/
 │   ├── Dockerfile                  # Produktions-Image
 │   ├── Dockerfile.dev              # Entwicklungs-Image (watch mode)
 │   ├── package.json
+│   ├── __tests__/                  # Jest-Tests
+│   │   ├── auth.middleware.test.js
+│   │   ├── auth.routes.test.js
+│   │   ├── users.routes.test.js
+│   │   ├── lagerinventur.routes.test.js
+│   │   ├── schmuckstuecke.utils.test.js
+│   │   ├── sumup.utils.test.js
+│   │   ├── whereClauseBuilder.test.js
+│   │   └── logger.test.js
 │   ├── scripts/
 │   │   ├── dev-start.sh            # Startskript für Entwicklungs-Container
 │   │   └── sync-photo-column.js    # Hilfsskript: Foto-Spalte mit vorhandenen Dateien synchronisieren
@@ -313,6 +344,8 @@ GoldRegenDB_Web/
 │       │   ├── rechnungen.js       # Rechnungen CRUD + Excel-Export
 │       │   ├── sumup.js            # SumUp CSV Import/Export
 │       │   ├── inventur.js         # Inventurübersicht pro Kunde + Excel-Export
+│       │   ├── lagerinventur.js    # Lager-Inventur-Entwürfe CRUD + Diff-Auswertung (bearbeiter)
+│       │   ├── lagerinventur.md    # API-Dokumentation für Lager-Inventur-Endpunkte
 │       │   ├── backup.js           # Datensicherung Export/Import (Admin)
 │       │   ├── auditLog.js         # Audit-Log (Admin)
 │       │   └── debug.js            # Debug-Endpunkte (Admin)
@@ -320,6 +353,8 @@ GoldRegenDB_Web/
 │       │   └── auth.js             # JWT-Middleware (authenticate, requireAdmin, requireBearbeiter)
 │       └── utils/
 │           ├── excelService.js     # Excel-Export (generateExcel, generateInventurExcel)
+│           ├── whereClauseBuilder.js  # WHERE-Clause-Builder für konsistente Schmuckstück-Queries
+│           ├── WHERE_BUILDER.md    # Dokumentation des WHERE-Clause-Builders
 │           └── logger.js           # Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix
 │
 ├── frontend/
@@ -337,10 +372,14 @@ GoldRegenDB_Web/
 │       ├── context/
 │       │   └── AuthContext.jsx     # Authentifizierungs-Context
 │       ├── components/
+│       │   ├── DataTable.jsx       # Generische sortierbare Tabellen-Komponente (wiederverwendbar)
+│       │   ├── TableToolbar.jsx    # Toolbar-Komponente für Tabellen (Suche, Filter, Aktionen)
 │       │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Preview)
 │       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly / bearbeiterOnly props)
 │       ├── utils/
 │       │   └── hashPassword.js     # SHA-256-Passwort-Hashing (Web Crypto API + Fallback)
+│       ├── __tests__/              # Vitest-Tests
+│       │   └── hashPassword.test.js
 │       └── pages/
 │           ├── Login.jsx           # Anmeldeseite
 │           ├── Dashboard.jsx       # Statistik-Übersicht
@@ -350,7 +389,7 @@ GoldRegenDB_Web/
 │           ├── Lieferscheine.jsx   # Lieferscheine-Verwaltung (nutzt DocumentManager)
 │           ├── Rechnungen.jsx      # Rechnungs-Verwaltung (nutzt DocumentManager)
 │           ├── Sumup.jsx           # SumUp CSV-Import/-Export
-│           ├── Inventur.jsx        # Inventurübersicht pro Kunde (bearbeiter)
+│           ├── Inventur.jsx        # Inventurübersicht pro Kunde + Lager-Inventur-Entwürfe (bearbeiter; Tabs: Kunden/Lager)
 │           ├── AuditLog.jsx        # Änderungsprotokoll (Admin)
 │           ├── Debug.jsx           # Debug-Oberfläche (Admin)
 │           ├── Benutzerverwaltung.jsx  # Benutzerverwaltung (Admin)
@@ -382,6 +421,7 @@ GoldRegenDB_Web/
 | PUT     | `/api/kunden/:id/restock-selective` | Ausgewählte Artikel zurücklagern |
 | GET/POST | `/api/schmuckstuecke`  | Schmuckstücke abrufen / anlegen       |
 | GET     | `/api/schmuckstuecke/filter-options` | Verfügbare Filter-Optionen (Art, Farbe usw.) |
+| GET     | `/api/schmuckstuecke/unique-artikelnummern` | Eindeutige Basis-Artikelnummern (ohne Suffix, für Inventur-Zählung) |
 | GET/PUT/DELETE | `/api/schmuckstuecke/:artikelnummer` | Schmuckstück-Detail, bearbeiten, löschen |
 | POST    | `/api/schmuckstuecke/upload` | Foto hochladen (multer, max. 5 MB, jpg/png/gif) |
 | GET     | `/api/schmuckstuecke/foto/:fileName` | Foto abrufen                |
@@ -397,6 +437,12 @@ GoldRegenDB_Web/
 | GET     | `/api/inventur`        | Inventurübersicht aller Kunden mit ausgelagerten Stücken |
 | GET     | `/api/inventur/:kundeId` | Inventurdetail für einen Kunden      |
 | GET     | `/api/inventur/:kundeId/excel` | Inventur als Excel-Datei herunterladen |
+| GET     | `/api/lagerinventur/drafts` | Eigene Lager-Inventur-Entwürfe abrufen (status=entwurf) |
+| GET     | `/api/lagerinventur/drafts/:id` | Einzelnen Entwurf abrufen |
+| POST    | `/api/lagerinventur/drafts` | Neuen Entwurf anlegen (`{ data: { [artikelnummer]: anzahl }, kommentar? }`) |
+| PUT     | `/api/lagerinventur/drafts/:id` | Entwurf aktualisieren (nur solange status=entwurf) |
+| POST    | `/api/lagerinventur/drafts/:id/complete` | Entwurf abschließen (status → abgeschlossen) |
+| GET     | `/api/lagerinventur/drafts/:id/diff` | Soll/Ist-Vergleich des Entwurfs mit aktuellem Lagerbestand |
 
 ### Admin-Only
 
@@ -580,6 +626,21 @@ cd frontend && npm run lint
 node --check backend/src/index.js
 ```
 
+### Tests
+
+```bash
+# Backend-Tests (Jest)
+cd backend && npm test
+
+# Frontend-Tests (Vitest)
+cd frontend && npm test
+```
+
+Tests laufen automatisch via GitHub Actions (`.github/workflows/tests.yml`) bei jedem Pull Request.
+- Backend-Testdateien: `backend/__tests__/*.test.js` (Jest, `testEnvironment: node`)
+- Frontend-Testdateien: `frontend/src/__tests__/*.test.js` (Vitest)
+- Backend-Route-Tests mocken `../src/config/db` und `../src/utils/logger` via `jest.mock()` und setzen `process.env.JWT_SECRET` vor dem Import der Auth-Middleware.
+
 ### Umgebungsvariablen (`.env`)
 
 ```
@@ -623,6 +684,7 @@ Siehe auch: `/frontend/src/pages/DocumentManager.jsx`
 - [x] SumUp CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
 - [x] Foto-Upload für Schmuckstücke (Drag & Drop, Vorschau; gespeichert in `backend/src/assets/uploads/`)
 - [x] Inventur-Übersicht: ausgelagerte Stücke pro Kunde mit Statistiken und Excel-Export
+- [x] Lager-Inventur-Entwürfe: Stückzahlen erfassen, speichern, abschließen und mit Lagerbestand vergleichen (bearbeiter)
 - [x] Datensicherung: Datenbank-Backup als JSON exportieren und importieren (Admin)
 - [ ] PDF-Generierung für Lieferscheine und Rechnungen
 - [ ] Barcode-/QR-Code-Scanner für Artikelnummern

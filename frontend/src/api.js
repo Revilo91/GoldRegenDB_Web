@@ -91,9 +91,10 @@ async function requestFormData(url, options = {}) {
   }
 }
 
-async function downloadBlob(url) {
+async function downloadBlob(url, options = {}) {
   const token = getToken();
   const headers = {};
+  const { signal } = options;
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -101,7 +102,7 @@ async function downloadBlob(url) {
   logInfo(`→ GET ${url} (Download)`);
   const startTime = Date.now();
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers });
+    const res = await fetch(`${API_URL}${url}`, { headers, signal });
     const duration = Date.now() - startTime;
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -157,6 +158,7 @@ export const api = {
     return request(`/schmuckstuecke/unique-artikelnummern?${qs}`);
   },
   getFilterOptions: () => request('/schmuckstuecke/filter-options'),
+  getNextArtikelnummer: (prefix) => request(`/schmuckstuecke/next-artikelnummer?${new URLSearchParams({ prefix }).toString()}`),
   getSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`),
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
   updateSchmuckstueck: (nr, data) => request(`/schmuckstuecke/${nr}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -168,14 +170,15 @@ export const api = {
     return requestFormData(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
-  loadPhotoAsDataUrl: async (fileName) => {
+  loadPhotoAsDataUrl: async (fileName, options = {}) => {
     if (!fileName) return null;
+    const { signal } = options;
     try {
       console.log('🔍 Versuche Foto zu laden:', fileName);
       // Entferne "uploads/" Prefix falls vorhanden (für alte DB-Einträge)
       const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
       console.log('📝 Bereinigter Dateiname:', cleanFileName);
-      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
+      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`, { signal });
       console.log('✅ Foto erfolgreich heruntergeladen, Größe:', blob.size);
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -186,6 +189,9 @@ export const api = {
         reader.readAsDataURL(blob);
       });
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        return null;
+      }
       console.error('❌ Fehler beim Laden des Fotos:', fileName, err);
       return null;
     }
@@ -193,6 +199,7 @@ export const api = {
 
   // Lieferscheine
   getLieferscheine: () => request('/lieferscheine'),
+  getNextLieferscheinnummer: () => request('/lieferscheine/next-number'),
   getLieferschein: (id) => request(`/lieferscheine/${id}`),
   createLieferschein: (data) => request('/lieferscheine', { method: 'POST', body: JSON.stringify(data) }),
   updateLieferschein: (id, data) => request(`/lieferscheine/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -200,6 +207,7 @@ export const api = {
 
   // Rechnungen
   getRechnungen: () => request('/rechnungen'),
+  getNextRechnungsnummer: () => request('/rechnungen/next-number'),
   getRechnung: (id) => request(`/rechnungen/${id}`),
   createRechnung: (data) => request('/rechnungen', { method: 'POST', body: JSON.stringify(data) }),
   updateRechnung: (id, data) => request(`/rechnungen/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -252,12 +260,25 @@ export const api = {
 
   // Datensicherung (Backup / Restore)
   exportBackup: (tables) => {
-    const query = tables && tables.length ? `?tables=${tables.map(encodeURIComponent).join(',')}` : '';
+    const params = new URLSearchParams();
+    if (tables && tables.length) {
+      params.set('tables', tables.join(','));
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
     return downloadBlob(`/backup/export${query}`);
   },
+  exportBackupUploadsZip: () => downloadBlob('/backup/export-uploads'),
   importBackup: (data, selectedTables) => {
-    const payload = { backupData: data, selectedTables: selectedTables || null };
+    const payload = {
+      backupData: data,
+      selectedTables: selectedTables || null,
+    };
     return request('/backup/import', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  importBackupUploadsZip: (file) => {
+    const formData = new FormData();
+    formData.append('uploadsZip', file);
+    return requestFormData('/backup/import-uploads-zip', { method: 'POST', body: formData });
   },
 
   // Inventur

@@ -3,7 +3,7 @@ name: Release für Synology
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 env:
   REGISTRY: ghcr.io
@@ -265,3 +265,4 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+

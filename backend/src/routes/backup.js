@@ -1,7 +1,130 @@
 const express = require("express");
 const router = express.Router();
+const fs = require("fs/promises");
+const path = require("path");
+const multer = require("multer");
+const AdmZip = require("adm-zip");
 const db = require("../config/db");
 const logger = require("../utils/logger");
+
+const UPLOADS_DIR = process.env.BACKUP_UPLOADS_DIR
+  ? path.resolve(process.env.BACKUP_UPLOADS_DIR)
+  : path.resolve(__dirname, "../assets/uploads");
+const uploadZip = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
+
+function sanitizeUploadFileName(fileName) {
+  const base = path.basename(String(fileName || "").trim());
+  if (!base) return null;
+  return base.replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
+async function listUploadFiles() {
+  let entries = [];
+  try {
+    entries = await fs.readdir(UPLOADS_DIR, { withFileTypes: true });
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return [];
+    }
+    throw err;
+  }
+
+  const files = [];
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+
+    const safeName = sanitizeUploadFileName(entry.name);
+    if (!safeName) continue;
+
+    const filePath = path.join(UPLOADS_DIR, safeName);
+    files.push({ name: safeName, filePath });
+  }
+
+  return files;
+}
+
+async function exportUploadsZipBuffer() {
+  const files = await listUploadFiles();
+  const zip = new AdmZip();
+
+  for (const file of files) {
+    const content = await fs.readFile(file.filePath);
+    zip.addFile(file.name, content);
+  }
+
+  return {
+    zipBuffer: zip.toBuffer(),
+    fileCount: files.length,
+  };
+}
+
+async function importUploads(uploads) {
+  if (!uploads || !Array.isArray(uploads.files)) {
+    return { restored: 0, skipped: 0 };
+  }
+
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+
+  let restored = 0;
+  let skipped = 0;
+
+  for (const item of uploads.files) {
+    const safeName = sanitizeUploadFileName(item?.name);
+    const base64Data = item?.dataBase64;
+    if (!safeName || typeof base64Data !== "string" || base64Data.length === 0) {
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      const filePath = path.join(UPLOADS_DIR, safeName);
+      const fileBuffer = Buffer.from(base64Data, "base64");
+      await fs.writeFile(filePath, fileBuffer);
+      restored += 1;
+    } catch (_err) {
+      skipped += 1;
+    }
+  }
+
+  return { restored, skipped };
+}
+
+async function importUploadsFromZipBuffer(zipBuffer) {
+  if (!zipBuffer || zipBuffer.length === 0) {
+    return { restored: 0, skipped: 0 };
+  }
+
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+
+  const zip = new AdmZip(zipBuffer);
+  const entries = zip.getEntries();
+  let restored = 0;
+  let skipped = 0;
+
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+
+    const safeName = sanitizeUploadFileName(path.basename(entry.entryName));
+    if (!safeName) {
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      const outPath = path.join(UPLOADS_DIR, safeName);
+      const data = entry.getData();
+      await fs.writeFile(outPath, data);
+      restored += 1;
+    } catch (_err) {
+      skipped += 1;
+    }
+  }
+
+  return { restored, skipped };
+}
 
 // Zentrale Tabellenliste für Export/Import (Reihenfolge: FK-sicher für Import und Truncate)
 const ALL_TABLES = [
@@ -62,11 +185,61 @@ router.get("/export", async (req, res) => {
   }
 });
 
+// GET /api/backup/export-uploads – Export backend/src/assets/uploads as ZIP
+router.get("/export-uploads", async (_req, res) => {
+  try {
+    const { zipBuffer } = await exportUploadsZipBuffer();
+    const formattedTimestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, 19);
+    const filename = `goldregendb_uploads_${formattedTimestamp}.zip`;
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(zipBuffer);
+  } catch (err) {
+    logger.error("BACKUP", "Fehler beim Exportieren der Upload-Bilder", {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Exportieren der Upload-Bilder" });
+  }
+});
+
+// POST /api/backup/import-uploads-zip – Import upload images from ZIP file
+router.post(
+  "/import-uploads-zip",
+  uploadZip.single("uploadsZip"),
+  async (req, res) => {
+    try {
+      if (!req.file || !req.file.buffer) {
+        return res.status(400).json({
+          error: "Keine ZIP-Datei hochgeladen. Feldname: uploadsZip",
+        });
+      }
+
+      const result = await importUploadsFromZipBuffer(req.file.buffer);
+      res.json({ success: true, uploads: result });
+    } catch (err) {
+      logger.error("BACKUP", "Fehler beim Importieren der Upload-Bilder", {
+        message: err.message,
+      });
+      res
+        .status(500)
+        .json({ error: `Fehler beim Importieren der Upload-Bilder: ${err.message}` });
+    }
+  },
+);
+
 // Helper function to normalize different backup formats
 function normalizeBackupData(data) {
   // Format 1: Standard backup format { version, timestamp, tables: { Kunde: [...], ... } }
   if (data.tables && typeof data.tables === "object" && data.version) {
-    return { version: data.version, tables: data.tables };
+    return {
+      version: data.version,
+      tables: data.tables,
+      uploads: data.uploads,
+    };
   }
 
   // Format 2: SQL Export format [{ type: "header" }, { type: "table", name: "...", data: [...] }, ...]
@@ -101,6 +274,7 @@ function normalizeBackupData(data) {
 router.post("/import", async (req, res) => {
   let rawData;
   let selectedTables;
+  let restoreUploads = false;
 
   const body = req.body;
 
@@ -116,10 +290,12 @@ router.post("/import", async (req, res) => {
     selectedTables = Array.isArray(body.selectedTables)
       ? body.selectedTables
       : null;
+    restoreUploads = Boolean(body.restoreUploads);
   } else {
     // Legacy direct format (backward compat for direct API calls)
     rawData = body;
     selectedTables = null;
+    restoreUploads = false;
   }
 
   // Try to normalize the incoming data (supports multiple formats)
@@ -132,7 +308,7 @@ router.post("/import", async (req, res) => {
     });
   }
 
-  const { tables, version } = normalized;
+  const { tables, version, uploads } = normalized;
 
   // Bestimme, welche Tabellen importiert werden sollen (FK-sichere Reihenfolge)
   let tablesToImport;
@@ -257,7 +433,17 @@ router.post("/import", async (req, res) => {
       counts[t] = (tables[t] || []).length;
     }
 
-    res.json({ success: true, message: "Import erfolgreich", counts });
+    let uploadImportResult = null;
+    if (restoreUploads && uploads) {
+      uploadImportResult = await importUploads(uploads);
+    }
+
+    res.json({
+      success: true,
+      message: "Import erfolgreich",
+      counts,
+      uploads: uploadImportResult,
+    });
     logger.info("BACKUP", "Import erfolgreich abgeschlossen", counts);
   } catch (err) {
     if (client) await client.query("ROLLBACK");

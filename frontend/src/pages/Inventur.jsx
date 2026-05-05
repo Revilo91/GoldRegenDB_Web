@@ -17,6 +17,7 @@ import {
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import SchmuckstueckModal from "../components/SchmuckstueckModal";
 
 const TABS = [
   { id: "aktiv", label: "Nicht verkauft" },
@@ -32,32 +33,74 @@ function formatEur(value) {
   });
 }
 
-function TablePhoto({ foto, artikelnummer }) {
+function getBelegdatumForTab(item, tab) {
+  if (tab === "verkauft") return item?.Rechnung_Datum || null;
+  // aktiv, ausschuss, alle → Lieferscheindatum
+  return item?.Lieferschein_Datum || null;
+}
+
+function getBelegdatumLabel(tab) {
+  if (tab === "verkauft") return "Rechnungsdatum";
+  return "Lieferscheindatum";
+}
+
+function formatDateDE(dateValue) {
+  if (!dateValue) return "–";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "–";
+  return date.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
   const [photoSrc, setPhotoSrc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
+    const controller = new AbortController();
 
     if (!foto) {
       setPhotoSrc(null);
       setIsLoading(false);
       return () => {
         isCancelled = true;
+        controller.abort();
+      };
+    }
+
+    if (pauseLoading) {
+      setIsLoading(false);
+      return () => {
+        isCancelled = true;
+        controller.abort();
       };
     }
 
     setIsLoading(true);
-    api.loadPhotoAsDataUrl(foto).then((dataUrl) => {
-      if (isCancelled) return;
-      setPhotoSrc(dataUrl);
-      setIsLoading(false);
-    });
+    api
+      .loadPhotoAsDataUrl(foto, { signal: controller.signal })
+      .then((dataUrl) => {
+        if (isCancelled) return;
+        setPhotoSrc(dataUrl);
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setPhotoSrc(null);
+      })
+      .finally(() => {
+        if (isCancelled) return;
+        setIsLoading(false);
+      });
 
     return () => {
       isCancelled = true;
+      controller.abort();
     };
-  }, [foto]);
+  }, [foto, pauseLoading]);
 
   if (!photoSrc) {
     return (
@@ -82,94 +125,38 @@ function TablePhoto({ foto, artikelnummer }) {
 
 function ItemsTable({
   items,
+  tab,
   selectedForReturn,
   toggleItemSelection,
   selectAll,
   selectedForRechnung,
   toggleForRechnung,
   selectAllForRechnung,
+  onItemClick,
+  pausePhotoLoading = false,
 }) {
-  const [sortConfig, setSortConfig] = useState({
-    key: "Artikelnummer",
-    direction: "asc",
-  });
-
-  const sorted = useMemo(() => {
-    let sortableData = [...items];
-    if (sortConfig.key !== null) {
-      sortableData.sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-
-        // Numeric sort for prices
-        if (sortConfig.key === "Verkaufspreis") {
-          aValue = Number(aValue) || 0;
-          bValue = Number(bValue) || 0;
-        } else if (sortConfig.key === "Artikelnummer") {
-          return sortConfig.direction === "asc"
-            ? String(aValue || "").localeCompare(
-                String(bValue || ""),
-                undefined,
-                {
-                  numeric: true,
-                },
-              )
-            : String(bValue || "").localeCompare(
-                String(aValue || ""),
-                undefined,
-                {
-                  numeric: true,
-                },
-              );
-        } else {
-          // Case-insensitive string comparison
-          if (typeof aValue === "string") aValue = aValue.toUpperCase();
-          if (typeof bValue === "string") bValue = bValue.toUpperCase();
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableData;
-  }, [items, sortConfig]);
-
   const allSelected =
     selectedForReturn &&
-    sorted.length > 0 &&
-    selectedForReturn.size === sorted.length;
+    items.length > 0 &&
+    selectedForReturn.size === items.length;
   const allSelectedForRechnung =
     selectedForRechnung &&
-    sorted.length > 0 &&
-    selectedForRechnung.size === sorted.length;
+    items.length > 0 &&
+    selectedForRechnung.size === items.length;
 
   const total = useMemo(
     () =>
-      sorted.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
-    [sorted],
+      items.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    [items],
   );
-
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
 
   return (
     <div style={{ overflowX: "auto" }}>
       <DataTable
-        data={sorted}
+        data={items}
         className="inventur-items-table"
         getRowKey={(item) => item.Artikelnummer}
-        defaultSort={{ key: sortConfig.key, direction: sortConfig.direction }}
+        defaultSort={{ key: "Artikelnummer", direction: "asc" }}
         onRowClick={undefined}
         columns={[
           selectedForReturn && {
@@ -179,11 +166,11 @@ function ItemsTable({
                 <div style={{ fontSize: 8 }}>Zurück</div>
                 <input
                   type="checkbox"
+                  className="table-checkbox table-checkbox-header"
                   checked={allSelected}
                   onChange={selectAll}
                   title={allSelected ? "Alle abwählen" : "Alle auswählen"}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ marginTop: 2 }}
                 />
               </>
             ),
@@ -191,6 +178,7 @@ function ItemsTable({
             render: (item) => (
               <input
                 type="checkbox"
+                className="table-checkbox"
                 checked={selectedForReturn.has(item.Artikelnummer)}
                 onChange={() => toggleItemSelection(item.Artikelnummer)}
                 onClick={(e) => e.stopPropagation()}
@@ -204,6 +192,7 @@ function ItemsTable({
                 <div style={{ fontSize: 8 }}>Rechnung</div>
                 <input
                   type="checkbox"
+                  className="table-checkbox table-checkbox-header"
                   checked={allSelectedForRechnung}
                   onChange={selectAllForRechnung}
                   title={
@@ -212,7 +201,6 @@ function ItemsTable({
                       : "Alle für Rechnung auswählen"
                   }
                   onClick={(e) => e.stopPropagation()}
-                  style={{ marginTop: 2 }}
                 />
               </>
             ),
@@ -220,6 +208,7 @@ function ItemsTable({
             render: (item) => (
               <input
                 type="checkbox"
+                className="table-checkbox"
                 checked={selectedForRechnung.has(item.Artikelnummer)}
                 onChange={() => toggleForRechnung(item.Artikelnummer)}
                 onClick={(e) => e.stopPropagation()}
@@ -231,21 +220,38 @@ function ItemsTable({
             label: "Foto",
             className: "photo-col",
             render: (item) => (
-              <TablePhoto foto={item.Foto} artikelnummer={item.Artikelnummer} />
+              <TablePhoto
+                foto={item.Foto}
+                artikelnummer={item.Artikelnummer}
+                pauseLoading={pausePhotoLoading}
+              />
             ),
           },
           {
             key: "Artikelnummer",
-            label: (
-              <span
-                style={{ cursor: "pointer" }}
-                onClick={() => requestSort("Artikelnummer")}>
-                Artikelnummer {getSortIcon("Artikelnummer")}
-              </span>
-            ),
+            label: "Artikelnummer",
             sortable: true,
+            comparator: (a, b) =>
+              String(a.Artikelnummer || "").localeCompare(
+                String(b.Artikelnummer || ""),
+                undefined,
+                { numeric: true },
+              ),
             render: (item) => (
-              <>
+              <button
+                className="btn-link"
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onItemClick(item.Artikelnummer);
+                }}>
                 <strong>
                   {String(item.Artikelnummer || "").split("_")[0]}
                 </strong>
@@ -254,41 +260,33 @@ function ItemsTable({
                     {String(item.Artikelnummer || "").split("_")[1]}
                   </span>
                 )}
-              </>
+              </button>
             ),
           },
           {
             key: "Verkaufspreis",
-            label: (
-              <span
-                className="hide-on-mobile"
-                style={{ cursor: "pointer" }}
-                onClick={() => requestSort("Verkaufspreis")}>
-                Verkaufspreis {getSortIcon("Verkaufspreis")}
-              </span>
-            ),
+            label: "Verkaufspreis",
             className: "hide-on-mobile",
             sortable: true,
+            comparator: (a, b) =>
+              (Number(a.Verkaufspreis) || 0) - (Number(b.Verkaufspreis) || 0),
             render: (item) => formatEur(item.Verkaufspreis),
           },
           {
             key: "Erstelldatum",
-            label: (
-              <span
-                style={{ cursor: "pointer" }}
-                onClick={() => requestSort("Erstelldatum")}>
-                Erstellt {getSortIcon("Erstelldatum")}
-              </span>
-            ),
+            label: getBelegdatumLabel(tab),
             sortable: true,
-            render: (item) =>
-              item.Erstelldatum
-                ? new Date(item.Erstelldatum).toLocaleDateString("de-DE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })
-                : "–",
+            comparator: (a, b) => {
+              const aDate = getBelegdatumForTab(a, tab);
+              const bDate = getBelegdatumForTab(b, tab);
+              const aMs = aDate ? new Date(aDate).getTime() : null;
+              const bMs = bDate ? new Date(bDate).getTime() : null;
+              if (aMs === null && bMs === null) return 0;
+              if (aMs === null) return 1;
+              if (bMs === null) return -1;
+              return aMs - bMs;
+            },
+            render: (item) => formatDateDE(getBelegdatumForTab(item, tab)),
           },
         ].filter(Boolean)}
         footer={
@@ -323,6 +321,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const [selectedForReturn, setselectedForReturn] = useState(new Set());
   const [selectedForRechnung, setSelectedForRechnung] = useState(new Set());
   const [creatingRechnung, setCreatingRechnung] = useState(false);
+  const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
+  const isForegroundModalOpen = schmuckstueckOverlay !== null;
 
   useEffect(() => {
     setLoading(true);
@@ -376,7 +376,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       return;
     }
 
-    const confirm_msg = `Möchtest du ${selectedForReturn.size} Artikel von "${kundeName}" zurück ins Lager lagern (Ausgelagert = 0)?`;
+    const confirm_msg = `Möchtest du ${selectedForReturn.size} Artikel von "${kundeName}" zurück ins Lager lagern?`;
     if (!window.confirm(confirm_msg)) return;
 
     setRestocking(true);
@@ -442,26 +442,20 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       return;
     }
 
-    const nummer = window.prompt(
-      `Rechnungsnummer für ${selectedForRechnung.size} Artikel von "${kundeName}" eingeben:`,
-    );
-    if (!nummer || !nummer.trim()) return;
-
     const totalValue = tabItems
       .filter((i) => selectedForRechnung.has(i.Artikelnummer))
       .reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
 
-    const confirmMsg = `Rechnung "${nummer.trim()}" für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) von "${kundeName}" erstellen?`;
+    const confirmMsg = `Rechnung für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) für "${kundeName}" erstellen?`;
     if (!window.confirm(confirmMsg)) return;
 
     setCreatingRechnung(true);
     try {
-      await api.createRechnung({
-        Nummer: nummer.trim(),
+      const created = await api.createRechnung({
         Kundennummer: kundeId,
         Artikelnummern: Array.from(selectedForRechnung),
       });
-      alert(`Rechnung "${nummer.trim()}" erfolgreich erstellt!`);
+      alert(`Rechnung "${created?.Nummer}" erfolgreich erstellt!`);
       onRestock?.();
       onClose();
     } catch (err) {
@@ -472,7 +466,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="modal"
         style={{ maxWidth: 960, width: "95%" }}
@@ -597,6 +591,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
                 <ItemsTable
                   items={tabItems}
+                  tab={tab}
                   selectedForReturn={
                     tab === "aktiv" ? selectedForReturn : undefined
                   }
@@ -607,6 +602,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                   }
                   toggleForRechnung={toggleForRechnung}
                   selectAllForRechnung={selectAllForRechnung}
+                  onItemClick={(nr) => setSchmuckstueckOverlay(nr)}
+                  pausePhotoLoading={isForegroundModalOpen}
                 />
               </>
             )
@@ -667,6 +664,12 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
           </div>
         </div>
       </div>
+      {schmuckstueckOverlay && (
+        <SchmuckstueckModal
+          artikelnummer={schmuckstueckOverlay}
+          onClose={() => setSchmuckstueckOverlay(null)}
+        />
+      )}
     </div>
   );
 }
@@ -685,7 +688,7 @@ function InventurDiffModal({ draftId, onClose }) {
   }, [draftId]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div
         className="modal"
         style={{
@@ -1643,6 +1646,25 @@ export default function Inventur() {
             search={search}
             onSearchChange={setSearch}
             placeholder="Suche nach Kunde, Ort…"
+            right={
+              <div className="filter-group">
+                <select
+                  className="form-control"
+                  value={filters.aktiv ?? ""}
+                  onChange={(e) => {
+                    const { aktiv, ...rest } = filters;
+                    setFilters(
+                      e.target.value !== ""
+                        ? { ...rest, aktiv: e.target.value }
+                        : rest,
+                    );
+                  }}>
+                  <option value="">Alle Status</option>
+                  <option value="1">Aktiv</option>
+                  <option value="0">Inaktiv</option>
+                </select>
+              </div>
+            }
           />
 
           <div className="card">

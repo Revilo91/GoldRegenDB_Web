@@ -1,24 +1,52 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { api } from "../api";
 
-export default function PhotoUpload({ artikelnummer, onPhotoSelected, initialPhoto }) {
+export default function PhotoUpload({
+  artikelnummer,
+  onPhotoSelected,
+  initialPhoto,
+  disabled = false,
+}) {
+  const inputId = useId();
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
     if (initialPhoto) {
-      api.loadPhotoAsDataUrl(initialPhoto).then((dataUrl) => {
-        if (dataUrl) {
-          setPreview(dataUrl);
-        }
-      });
+      api
+        .loadPhotoAsDataUrl(initialPhoto, { signal: controller.signal })
+        .then((dataUrl) => {
+          if (cancelled) return;
+          if (dataUrl) {
+            setPreview(dataUrl);
+          } else {
+            setPreview(null);
+          }
+        });
+    } else {
+      setPreview(null);
     }
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [initialPhoto]);
 
   const handleFile = async (file) => {
     if (!file) return;
+
+    if (disabled || !artikelnummer || !/\d/.test(String(artikelnummer))) {
+      setError(
+        "Bitte zuerst eine gültige Artikelnummer erzeugen, dann das Foto hochladen.",
+      );
+      return;
+    }
 
     // Validiere Dateityp
     if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
@@ -94,17 +122,22 @@ export default function PhotoUpload({ artikelnummer, onPhotoSelected, initialPho
       >
         <input
           type="file"
-          id="foto-input"
+          id={inputId}
           accept="image/jpeg,image/png,image/gif"
           onChange={handleFileInput}
-          disabled={uploading}
+          disabled={uploading || disabled}
           style={{ display: "none" }}
         />
-        <label htmlFor="foto-input" className="upload-label">
+        <label htmlFor={inputId} className="upload-label">
           <div className="upload-content">
             <div className="upload-icon">📸</div>
             <p>Ziehe Foto hier hin oder klicke zum Auswählen</p>
             <small>JPG, PNG, GIF (max. 5 MB)</small>
+            {disabled && (
+              <small style={{ color: "#666" }}>
+                Bitte zuerst Hersteller, Grundmaterial und Produktart auswählen.
+              </small>
+            )}
           </div>
         </label>
       </div>
