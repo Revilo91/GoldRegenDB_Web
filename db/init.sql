@@ -80,6 +80,7 @@ CREATE TABLE "Lieferschein" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'final',
     PRIMARY KEY ("Nummer"),
     UNIQUE ("ID"),
     CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
@@ -90,6 +91,7 @@ CREATE TABLE "Rechnung" (
     "Nummer" VARCHAR(20) NOT NULL,
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'final',
     PRIMARY KEY ("Nummer"),
     CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
