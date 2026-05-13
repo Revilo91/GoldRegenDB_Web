@@ -58,6 +58,20 @@ function isNotFoundError(error) {
   return error?.status === 404 || /\bnot found\b/i.test(message);
 }
 
+function isTransientExportStatusError(error) {
+  if (!error) return false;
+
+  const status = error?.status;
+  if (status === 502 || status === 503 || status === 504 || status === 429) {
+    return true;
+  }
+
+  const message = typeof error === "string" ? error : error.message || "";
+  return /timeout|timed out|gateway|failed to fetch|netzwerk|backend nicht erreichbar/i.test(
+    message,
+  );
+}
+
 function TableCheckboxList({ tables, selected, onChange, disabled }) {
   const allChecked = tables.every((t) => selected.includes(t.key));
   const toggleAll = () => {
@@ -178,9 +192,38 @@ export default function Datensicherung() {
   };
 
   const waitForUploadsExportJob = async (jobId) => {
+    const startedAt = Date.now();
+    const maxWaitMs = 30 * 60 * 1000;
+    let consecutiveTransientErrors = 0;
+
     while (true) {
-      const result = await api.getBackupUploadsExportJob(jobId);
-      const job = result?.job;
+      if (Date.now() - startedAt > maxWaitMs) {
+        throw new Error(
+          "Zeitüberschreitung beim Erstellen der Bild-ZIP. Bitte erneut versuchen.",
+        );
+      }
+
+      let job;
+      try {
+        const result = await api.getBackupUploadsExportJob(jobId);
+        job = result?.job;
+        consecutiveTransientErrors = 0;
+      } catch (err) {
+        if (!isTransientExportStatusError(err)) {
+          throw err;
+        }
+
+        consecutiveTransientErrors += 1;
+        if (consecutiveTransientErrors >= 30) {
+          throw new Error(
+            "Statusabfrage für Bild-Export mehrfach fehlgeschlagen (Gateway/Timeout). Bitte erneut versuchen.",
+          );
+        }
+
+        const retryDelayMs = Math.min(1000 + consecutiveTransientErrors * 250, 5000);
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        continue;
+      }
 
       setUploadsProgressSafe((prev) => ({
         ...prev,
