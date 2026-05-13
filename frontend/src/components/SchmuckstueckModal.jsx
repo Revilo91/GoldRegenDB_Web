@@ -67,6 +67,8 @@ export default function SchmuckstueckModal({
     return kunde ? kunde.Name : `Kundennummer ${id}`;
   };
 
+  const displayName = item?.Name?.trim();
+
   return (
     <div className="modal-overlay schmuck-modal-overlay-top">
       <div className="modal schmuck-modal" onClick={(e) => e.stopPropagation()}>
@@ -130,6 +132,13 @@ export default function SchmuckstueckModal({
           </div>
         ) : item ? (
           <>
+            {displayName && (
+              <div className="schmuck-modal-name">
+                <span className="schmuck-modal-name-label">Name</span>
+                <div className="schmuck-modal-name-value">{displayName}</div>
+              </div>
+            )}
+
             {/* Foto */}
             <div className="schmuck-modal-photo">
               {photo ? (
