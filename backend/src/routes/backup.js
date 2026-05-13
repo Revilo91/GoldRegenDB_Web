@@ -39,8 +39,11 @@ async function listUploadFiles() {
     const safeName = sanitizeUploadFileName(entry.name);
     if (!safeName) continue;
 
-    const filePath = path.join(UPLOADS_DIR, safeName);
-    files.push({ name: safeName, filePath });
+    files.push({
+      name: safeName,
+      originalName: entry.name,
+      filePath: path.join(UPLOADS_DIR, entry.name),
+    });
   }
 
   return files;
@@ -51,8 +54,18 @@ async function exportUploadsZipBuffer() {
   const zip = new AdmZip();
 
   for (const file of files) {
-    const content = await fs.readFile(file.filePath);
-    zip.addFile(file.name, content);
+    try {
+      const content = await fs.readFile(file.filePath);
+      zip.addFile(file.name, content);
+    } catch (err) {
+      const wrappedError = new Error(
+        `Bild konnte nicht gelesen werden: ${file.originalName || file.name}`,
+      );
+      wrappedError.cause = err;
+      wrappedError.fileName = file.originalName || file.name;
+      wrappedError.filePath = file.filePath;
+      throw wrappedError;
+    }
   }
 
   return {
@@ -201,8 +214,17 @@ router.get("/export-uploads", async (_req, res) => {
   } catch (err) {
     logger.error("BACKUP", "Fehler beim Exportieren der Upload-Bilder", {
       message: err.message,
+      fileName: err.fileName,
+      filePath: err.filePath,
+      cause: err.cause?.message,
     });
-    res.status(500).json({ error: "Fehler beim Exportieren der Upload-Bilder" });
+    res.status(500).json({
+      error: "Fehler beim Exportieren der Upload-Bilder",
+      details: err.message,
+      fileName: err.fileName,
+      filePath: err.filePath,
+      cause: err.cause?.message,
+    });
   }
 });
 

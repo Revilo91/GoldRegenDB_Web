@@ -105,9 +105,33 @@ async function downloadBlob(url, options = {}) {
     const res = await fetch(`${API_URL}${url}`, { headers, signal });
     const duration = Date.now() - startTime;
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      logError(`← GET ${url} → ${res.status} (${duration}ms): Download fehlgeschlagen`);
-      throw new Error(err.error || err.message || res.statusText || 'Download fehlgeschlagen');
+      const contentType = res.headers.get('content-type') || '';
+      let err = {};
+
+      if (contentType.includes('application/json')) {
+        err = await res.json().catch(() => ({}));
+      } else {
+        const text = await res.text().catch(() => '');
+        err = text ? { error: text } : {};
+      }
+
+      const errorMessage = err.error || err.message || res.statusText || 'Download fehlgeschlagen';
+      const detailedMessage = [
+        errorMessage,
+        `HTTP ${res.status}`,
+        err.requestedFileName ? `Datei: ${err.requestedFileName}` : null,
+        err.resolvedFileName ? `Auflösung: ${err.resolvedBy || 'unbekannt'} (${err.resolvedFileName})` : null,
+        err.details ? `Details: ${err.details}` : null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      logError(`← GET ${url} → ${res.status} (${duration}ms): ${detailedMessage}`);
+
+      const requestError = new Error(detailedMessage);
+      requestError.status = res.status;
+      requestError.payload = err;
+      throw requestError;
     }
     logInfo(`← GET ${url} → ${res.status} (${duration}ms)`);
     return res.blob();
@@ -193,8 +217,16 @@ export const api = {
       if (err?.name === 'AbortError') {
         return null;
       }
-      console.error('❌ Fehler beim Laden des Fotos:', fileName, err);
-      return null;
+      const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
+      console.error('❌ Fehler beim Laden des Fotos:', fileName, {
+        message,
+        status: err.status,
+        payload: err.payload,
+      });
+      const photoError = new Error(message);
+      photoError.status = err.status;
+      photoError.payload = err.payload;
+      throw photoError;
     }
   },
 

@@ -91,6 +91,7 @@ export default function Datensicherung() {
   // --- Export state ---
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
+  const [exportUploadsError, setExportUploadsError] = useState(null);
   const [exportSelected, setExportSelected] = useState(
     ALL_TABLES.map((t) => t.key),
   );
@@ -141,6 +142,7 @@ export default function Datensicherung() {
     }
     setExporting(true);
     setExportError(null);
+    setExportUploadsError(null);
     try {
       const formattedDate = new Date().toISOString().slice(0, 10);
 
@@ -156,6 +158,9 @@ export default function Datensicherung() {
         triggerDownload(uploadsZip, zipFilename);
       }
     } catch (err) {
+      if (exportIncludeUploads) {
+        setExportUploadsError(err.message);
+      }
       setExportError(err.message);
     } finally {
       setExporting(false);
@@ -410,6 +415,19 @@ export default function Datensicherung() {
             <p style={{ marginBottom: "16px", color: "#b45309" }}>
               Hinweis: Es werden zwei Dateien heruntergeladen (JSON + ZIP).
             </p>
+          )}
+          {exportUploadsError && (
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                backgroundColor: "#fff4e5",
+                color: "#7a4b00",
+                border: "1px solid #f0c36d",
+              }}>
+              <strong>Bild-Export fehlgeschlagen:</strong> {exportUploadsError}
+            </div>
           )}
           {exportError && (
             <div className="badge danger" style={{ marginBottom: "20px" }}>
