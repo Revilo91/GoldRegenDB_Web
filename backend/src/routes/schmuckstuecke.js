@@ -76,6 +76,43 @@ const GRUNDMATERIAL = {
   Y: "Cabochon",
 };
 
+const SEARCHABLE_FIELDS = [
+  "Artikelnummer",
+  "Name",
+  "Foto",
+  "Art",
+  "Form",
+  "Länge",
+  "Fassung",
+  "Farbe",
+  "Inhalt_Material",
+  "Inhalt_Farbe",
+  "Inhalt_Farbakzent",
+  "Inhalt_Zusatzmaterial",
+  "Anhänger_Fassung",
+  "Anhänger_Form",
+  "Anhänger_Farbe",
+  "Anhänger_Grösse",
+  "Anhänger_Inhalt_Material",
+  "Anhänger_Inhalt_Farbe",
+  "Anhänger_Inhalt_Farbakzente",
+  "Anhänger_Inhalt_Zusatzmaterial",
+  "Material",
+  "Grösse",
+  "Anhänger",
+  "Zwischenstück",
+  "Herstellungskosten",
+  "Verkaufspreis",
+  "Ausgelagert",
+  "Verkauft",
+  "Ausschuss",
+  "Ausschuss_Grund",
+  "Lieferschein_ID",
+  "Rechnung_ID",
+  "Erstelldatum",
+  "Letzte_Änderung",
+];
+
 const PRODUKTART = {
   A: "Armband",
   H: "Halskette",
@@ -467,10 +504,13 @@ router.get("/", async (req, res) => {
         // Wenn das Suchfeld einem Material entspricht, suche nach dem Code
         builder.grundmaterial(materialCode);
       } else {
-        // Normale Textsuche (nach Artikelnummer, Name, Material)
+        // Textsuche über alle Schmuckstück-Felder
         const paramIdx = builder.getNextParamIdx();
+        const searchClause = SEARCHABLE_FIELDS.map(
+          (field) => `COALESCE("${field}"::text, '') ILIKE $${paramIdx}`,
+        ).join(" OR ");
         builder.raw(
-          `("Artikelnummer" ILIKE $${paramIdx} OR "Name" ILIKE $${paramIdx} OR "Material" ILIKE $${paramIdx})`,
+          `(${searchClause})`,
           `%${search}%`,
         );
       }
