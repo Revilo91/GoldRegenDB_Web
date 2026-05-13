@@ -96,6 +96,42 @@ function resolveAusschussGrund(ausschuss, ausschussGrund) {
   return normalizedGrund || null;
 }
 
+function normalizeBulkArtikelnummern(input) {
+  if (Array.isArray(input)) {
+    return input.map((value) => String(value || "").trim().toUpperCase());
+  }
+
+  if (typeof input === "string") {
+    return input
+      .split(/[\n,;]+/)
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function parseBulkItemsFromPayload(payload) {
+  if (Array.isArray(payload?.items)) {
+    return payload.items
+      .map((item) => ({ ...(item || {}) }))
+      .filter((item) => Object.keys(item).length > 0)
+      .map((item) => ({
+        ...item,
+        Artikelnummer: String(item.Artikelnummer || "")
+          .trim()
+          .toUpperCase(),
+      }));
+  }
+
+  const template = payload?.template || {};
+  const artikelnummern = normalizeBulkArtikelnummern(payload?.artikelnummern);
+  return artikelnummern.map((artikelnummer) => ({
+    ...template,
+    Artikelnummer: artikelnummer,
+  }));
+}
+
 // ========== SPECIAL ROUTES (MUST BE BEFORE /:artikelnummer) ==========
 
 // POST upload photo
@@ -224,6 +260,172 @@ router.get("/next-artikelnummer", async (req, res) => {
     res.status(500).json({
       error: "Fehler beim Ermitteln der nächsten Artikelnummer",
     });
+  }
+});
+
+// POST bulk-create missing pieces by explicit article numbers
+router.post("/bulk", requireBearbeiter, async (req, res) => {
+  let client;
+  try {
+    client = await db.connect();
+  } catch (err) {
+    logger.error("SCHMUCK", "Fehler beim Herstellen der DB-Verbindung", {
+      message: err.message,
+    });
+    return res
+      .status(500)
+      .json({ error: "Fehler beim Herstellen der Datenbankverbindung" });
+  }
+
+  try {
+    const payload = req.body || {};
+    const items = parseBulkItemsFromPayload(payload);
+
+    if (items.length === 0) {
+      return res.status(400).json({
+        error: "Bitte mindestens einen Tabellen-Eintrag angeben.",
+      });
+    }
+
+    if (items.length > 200) {
+      return res.status(400).json({
+        error: "Es koennen maximal 200 Artikelnummern pro Mehrfach-Erfassung verarbeitet werden.",
+      });
+    }
+
+    const artikelnummern = items.map((item) => item.Artikelnummer);
+
+    if (artikelnummern.some((value) => !value)) {
+      return res.status(400).json({
+        error: "Jede Tabellen-Zeile muss eine Artikelnummer enthalten.",
+      });
+    }
+
+    const invalidArtikelnummern = artikelnummern.filter(
+      (value) => !/^[A-Z]{3}\d{3}_\d+$/.test(value),
+    );
+    if (invalidArtikelnummern.length > 0) {
+      return res.status(400).json({
+        error:
+          "Ungueltige Artikelnummern gefunden. Erlaubtes Format: ABC123_1 (Praefix + 3 Ziffern + Suffix).",
+        invalidArtikelnummern,
+      });
+    }
+
+    const seen = new Set();
+    const duplicateInRequest = [];
+    for (const artikelnummer of artikelnummern) {
+      if (seen.has(artikelnummer)) {
+        duplicateInRequest.push(artikelnummer);
+      }
+      seen.add(artikelnummer);
+    }
+    if (duplicateInRequest.length > 0) {
+      return res.status(400).json({
+        error: "Mindestens eine Artikelnummer ist in der Tabelle doppelt enthalten.",
+        duplicateArtikelnummern: [...new Set(duplicateInRequest)],
+      });
+    }
+
+    await client.query("BEGIN");
+
+    const { rows: existingRows } = await client.query(
+      'SELECT "Artikelnummer" FROM "Schmuckstück" WHERE "Artikelnummer" = ANY($1::text[])',
+      [artikelnummern],
+    );
+    const existingArtikelnummern = existingRows.map((row) => row.Artikelnummer);
+
+    if (existingArtikelnummern.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error:
+          "Mindestens eine Artikelnummer existiert bereits. Es wurden keine Daten gespeichert.",
+        existingArtikelnummern,
+      });
+    }
+
+    const createdItems = [];
+    for (const item of items) {
+      const ausschussGrundValue = resolveAusschussGrund(
+        item.Ausschuss,
+        item.Ausschuss_Grund,
+      );
+      const { rows } = await client.query(
+        `INSERT INTO "Schmuckstück" (
+            "Artikelnummer", "Name", "Foto", "Art", "Form", "Länge", "Fassung", "Farbe",
+            "Inhalt_Material", "Inhalt_Farbe", "Inhalt_Farbakzent", "Inhalt_Zusatzmaterial",
+            "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
+            "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
+            "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
+            "Herstellungskosten", "Verkaufspreis", "Ausgelagert", "Verkauft", "Ausschuss", "Ausschuss_Grund"
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+          ) RETURNING *`,
+        [
+          item.Artikelnummer,
+          item.Name || "",
+          item.Foto || "",
+          item.Art || "",
+          item.Form || "",
+          item.Länge || 0,
+          item.Fassung || "",
+          item.Farbe || "",
+          item.Inhalt_Material || "",
+          item.Inhalt_Farbe || "",
+          item.Inhalt_Farbakzent || "",
+          item.Inhalt_Zusatzmaterial || "",
+          item.Anhänger_Fassung || "",
+          item.Anhänger_Form || "",
+          item.Anhänger_Farbe || "",
+          item.Anhänger_Grösse || 0,
+          item.Anhänger_Inhalt_Material || "",
+          item.Anhänger_Inhalt_Farbe || "",
+          item.Anhänger_Inhalt_Farbakzente || "",
+          item.Anhänger_Inhalt_Zusatzmaterial || "",
+          item.Material || "",
+          item.Grösse || 0,
+          item.Anhänger || "",
+          item.Zwischenstück || "",
+          item.Herstellungskosten || 0,
+          item.Verkaufspreis || 0,
+          0,
+          0,
+          0,
+          ausschussGrundValue,
+        ],
+      );
+
+      createdItems.push(rows[0]);
+      await client.query(
+        `INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
+           VALUES ('Schmuckstück', $1, 'Erstellung Mehrfach', NULL, $2, 'INSERT', COALESCE(current_setting('app.current_user', true), current_user))`,
+        [item.Artikelnummer, JSON.stringify(rows[0])],
+      );
+    }
+
+    await client.query("COMMIT");
+    res.status(201).json({
+      createdCount: createdItems.length,
+      createdArtikelnummern: createdItems.map((item) => item.Artikelnummer),
+      items: createdItems,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.code === "23514" && err.constraint === AUSSCHUSS_GRUND_CONSTRAINT) {
+      return res.status(400).json({
+        error:
+          "Wenn ein Schmuckstueck als Ausschuss markiert ist, muss ein Ausschuss Grund angegeben werden.",
+      });
+    }
+
+    logger.error("SCHMUCK", "Fehler bei der Mehrfach-Erfassung von Schmuckstücken", {
+      message: err.message,
+    });
+    res.status(500).json({
+      error: "Fehler bei der Mehrfach-Erfassung von Schmuckstuecken: " + err.message,
+    });
+  } finally {
+    client.release();
   }
 });
 

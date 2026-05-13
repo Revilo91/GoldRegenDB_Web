@@ -22,13 +22,21 @@ async function getNextLieferscheinnummer(queryable) {
 // GET all delivery notes
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await db.query(
-      `SELECT l.*, k."Name" as "KundenName"
+    const { status } = req.query; // Optional filter: ?status=entwurf or ?status=final
+    let query = `SELECT l.*, k."Name" as "KundenName"
        FROM "Lieferschein" l
-       LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"
-       ORDER BY l."Datum" DESC`
-    );
-    logger.info('LIEFERSCHEINE', `${rows.length} Lieferscheine geladen`);
+       LEFT JOIN "Kunde" k ON l."Kundennummer" = k."ID"`;
+    const params = [];
+
+    if (status) {
+      query += ` WHERE l.status = $1`;
+      params.push(status);
+    }
+
+    query += ` ORDER BY l."Datum" DESC`;
+
+    const { rows } = await db.query(query, params);
+    logger.info('LIEFERSCHEINE', `${rows.length} Lieferscheine geladen${status ? ` (status=${status})` : ''}`);
     res.json(rows);
   } catch (err) {
     logger.error('LIEFERSCHEINE', 'Fehler beim Laden der Lieferscheine', { message: err.message });
@@ -111,7 +119,7 @@ router.get('/:id/excel', async (req, res) => {
 router.post('/', async (req, res) => {
   let client;
   try {
-    const { Nummer, Artikelnummern, Kundennummer } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf' } = req.body;
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE "Lieferschein" IN SHARE ROW EXCLUSIVE MODE');
@@ -122,24 +130,33 @@ router.post('/', async (req, res) => {
     }
 
     const { rows } = await client.query(
-      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer")
-       VALUES ($1, $2) RETURNING *`,
-      [lieferscheinNummer, Kundennummer]
+      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", status)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [lieferscheinNummer, Kundennummer, status]
     );
 
     const lieferscheinId = rows[0].ID;
 
-    // Assign products to this delivery note and mark as outsourced to customer
+    // Always assign Lieferschein_ID to track which pieces belong to this document
+    // But only set Ausgelagert flag if status is 'final'
     if (Artikelnummern && Artikelnummern.length > 0) {
-      await client.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-        [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
-      );
+      if (status === 'final') {
+        await client.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
+          [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
+        );
+      } else {
+        // Draft: only set Lieferschein_ID, don't change Ausgelagert
+        await client.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [lieferscheinId, Artikelnummern]
+        );
+      }
     }
 
     await client.query('COMMIT');
 
-    logger.info('LIEFERSCHEINE', `Lieferschein erstellt: ${rows[0].Nummer} (ID=${lieferscheinId})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('LIEFERSCHEINE', `Lieferschein erstellt: ${rows[0].Nummer} (ID=${lieferscheinId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) {
@@ -164,28 +181,48 @@ router.post('/', async (req, res) => {
 // PUT update
 router.put('/:id', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer } = req.body;
-    const { rows } = await db.query(
-      `UPDATE "Lieferschein" SET "Nummer" = $1, "Kundennummer" = $2
-       WHERE "ID" = $3 RETURNING *`,
-      [Nummer, Kundennummer, req.params.id]
-    );
+    const { Nummer, Artikelnummern, Kundennummer, status } = req.body;
+
+    // Build update query
+    let updateQuery = `UPDATE "Lieferschein" SET "Nummer" = $1, "Kundennummer" = $2`;
+    const params = [Nummer, Kundennummer];
+
+    if (status !== undefined) {
+      updateQuery += `, status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;
+    params.push(req.params.id);
+
+    const { rows } = await db.query(updateQuery, params);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
     }
 
-    // Reset old associations
+    const currentStatus = rows[0].status;
+
+    // Always reset old associations first (both Lieferschein_ID and Ausgelagert)
     await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`, [req.params.id]);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
-        `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-        [req.params.id, parseInt(Kundennummer), Artikelnummern]
-      );
+      if (currentStatus === 'final') {
+        // Final: set both Lieferschein_ID and Ausgelagert
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
+          [req.params.id, parseInt(Kundennummer), Artikelnummern]
+        );
+      } else {
+        // Draft: only set Lieferschein_ID, don't change Ausgelagert
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [req.params.id, Artikelnummern]
+        );
+      }
     }
 
-    logger.info('LIEFERSCHEINE', `Lieferschein aktualisiert: ID=${req.params.id}`);
+    logger.info('LIEFERSCHEINE', `Lieferschein aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
     res.json(rows[0]);
   } catch (err) {
     logger.error('LIEFERSCHEINE', `Fehler beim Aktualisieren des Lieferscheins ID=${req.params.id}`, { message: err.message });
