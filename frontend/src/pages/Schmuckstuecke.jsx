@@ -69,6 +69,18 @@ const createEmptyMehrfachRow = () => ({
   Fassung: "",
 });
 
+const normalizeMehrfachArtikelnummer = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return "";
+
+  // Wenn nur Basisnummer eingegeben wurde, beim Speichern automatisch _1 setzen.
+  if (/^[A-Z]{3}\d{3}$/.test(normalized)) {
+    return `${normalized}_1`;
+  }
+
+  return normalized;
+};
+
 export default function Schmuckstuecke() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -261,10 +273,18 @@ export default function Schmuckstuecke() {
         });
 
         const matchingItems = (result?.data || [])
-          .filter((row) => String(row.Artikelnummer || "").startsWith(`${input}_`))
+          .filter((row) =>
+            String(row.Artikelnummer || "").startsWith(`${input}_`),
+          )
           .sort((a, b) => {
-            const aSuffix = parseInt(String(a.Artikelnummer).split("_")[1] || "0", 10);
-            const bSuffix = parseInt(String(b.Artikelnummer).split("_")[1] || "0", 10);
+            const aSuffix = parseInt(
+              String(a.Artikelnummer).split("_")[1] || "0",
+              10,
+            );
+            const bSuffix = parseInt(
+              String(b.Artikelnummer).split("_")[1] || "0",
+              10,
+            );
             return aSuffix - bSuffix;
           });
 
@@ -306,9 +326,7 @@ export default function Schmuckstuecke() {
         const { _rowId, ...payloadRow } = row;
         return {
           ...payloadRow,
-          Artikelnummer: String(row.Artikelnummer || "")
-            .trim()
-            .toUpperCase(),
+          Artikelnummer: normalizeMehrfachArtikelnummer(row.Artikelnummer),
         };
       })
       .filter((row) => row.Artikelnummer);
@@ -816,9 +834,12 @@ export default function Schmuckstuecke() {
             style={{ maxWidth: "100%" }}>
             <div className="modal-header">
               <h3>
-                <FontAwesomeIcon icon={faPlus} /> Mehrere Schmuckstücke nachtragen
+                <FontAwesomeIcon icon={faPlus} /> Mehrere Schmuckstücke
+                nachtragen
               </h3>
-              <button className="modal-close" onClick={() => setBulkModalOpen(false)}>
+              <button
+                className="modal-close"
+                onClick={() => setBulkModalOpen(false)}>
                 ×
               </button>
             </div>
@@ -829,13 +850,20 @@ export default function Schmuckstuecke() {
                 </h4>
                 <div
                   className="form-row"
-                  style={{ gridTemplateColumns: "1fr 220px", alignItems: "end" }}>
+                  style={{
+                    gridTemplateColumns: "1fr 220px",
+                    alignItems: "end",
+                  }}>
                   <div className="form-group">
                     <label>Bestehendes Schmuckstück laden</label>
                     <input
                       className="form-control"
                       value={bulkTemplateArtikelnummer}
-                      onChange={(e) => setBulkTemplateArtikelnummer(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setBulkTemplateArtikelnummer(
+                          e.target.value.toUpperCase(),
+                        )
+                      }
                       placeholder="z.B. MBH001_1"
                     />
                   </div>
@@ -844,7 +872,9 @@ export default function Schmuckstuecke() {
                       className="btn btn-secondary"
                       onClick={loadBulkTemplate}
                       disabled={bulkLoadingTemplate}>
-                      {bulkLoadingTemplate ? "Lade Vorlage..." : "Als neue Zeile übernehmen"}
+                      {bulkLoadingTemplate
+                        ? "Lade Vorlage..."
+                        : "Als neue Zeile übernehmen"}
                     </button>
                   </div>
                 </div>
@@ -852,7 +882,8 @@ export default function Schmuckstuecke() {
 
               <div className="form-section">
                 <h4>
-                  <FontAwesomeIcon icon={faHashtag} /> Tabelle für Mehrfach-Erfassung
+                  <FontAwesomeIcon icon={faHashtag} /> Tabelle für
+                  Mehrfach-Erfassung
                 </h4>
                 <div className="table-container" style={{ overflowX: "auto" }}>
                   <DataTable
@@ -865,7 +896,8 @@ export default function Schmuckstuecke() {
                         key: "rownum",
                         label: "#",
                         render: (row) =>
-                          bulkRows.findIndex((r) => r._rowId === row._rowId) + 1,
+                          bulkRows.findIndex((r) => r._rowId === row._rowId) +
+                          1,
                       },
                       {
                         key: "Artikelnummer",
@@ -896,7 +928,11 @@ export default function Schmuckstuecke() {
                               className="form-control"
                               value={row.Name || ""}
                               onChange={(e) =>
-                                setBulkRowValue(row._rowId, "Name", e.target.value)
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Name",
+                                  e.target.value,
+                                )
                               }
                             />
                           );
@@ -912,7 +948,11 @@ export default function Schmuckstuecke() {
                               className="form-control"
                               value={row.Art || ""}
                               onChange={(e) =>
-                                setBulkRowValue(row._rowId, "Art", e.target.value)
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Art",
+                                  e.target.value,
+                                )
                               }
                             />
                           );
@@ -928,7 +968,11 @@ export default function Schmuckstuecke() {
                               className="form-control"
                               value={row.Material || ""}
                               onChange={(e) =>
-                                setBulkRowValue(row._rowId, "Material", e.target.value)
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Material",
+                                  e.target.value,
+                                )
                               }
                             />
                           );
@@ -944,7 +988,11 @@ export default function Schmuckstuecke() {
                               className="form-control"
                               value={row.Farbe || ""}
                               onChange={(e) =>
-                                setBulkRowValue(row._rowId, "Farbe", e.target.value)
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Farbe",
+                                  e.target.value,
+                                )
                               }
                             />
                           );
@@ -972,27 +1020,6 @@ export default function Schmuckstuecke() {
                         },
                       },
                       {
-                        key: "Herstellungskosten",
-                        label: "HK (€)",
-                        render: (row) => {
-                          return (
-                            <input
-                              className="form-control"
-                              type="number"
-                              step="0.01"
-                              value={row.Herstellungskosten || 0}
-                              onChange={(e) =>
-                                setBulkRowValue(
-                                  row._rowId,
-                                  "Herstellungskosten",
-                                  parseFloat(e.target.value) || 0,
-                                )
-                              }
-                            />
-                          );
-                        },
-                      },
-                      {
                         key: "Form",
                         label: "Form",
                         render: (row) => {
@@ -1002,7 +1029,11 @@ export default function Schmuckstuecke() {
                               className="form-control"
                               value={row.Form || ""}
                               onChange={(e) =>
-                                setBulkRowValue(row._rowId, "Form", e.target.value)
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Form",
+                                  e.target.value,
+                                )
                               }
                             />
                           );
@@ -1018,7 +1049,11 @@ export default function Schmuckstuecke() {
                               className="form-control"
                               value={row.Fassung || ""}
                               onChange={(e) =>
-                                setBulkRowValue(row._rowId, "Fassung", e.target.value)
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Fassung",
+                                  e.target.value,
+                                )
                               }
                             />
                           );
@@ -1091,7 +1126,10 @@ export default function Schmuckstuecke() {
                 disabled={bulkSaving}>
                 Abbrechen
               </button>
-              <button className="btn btn-primary" onClick={handleBulkSave} disabled={bulkSaving}>
+              <button
+                className="btn btn-primary"
+                onClick={handleBulkSave}
+                disabled={bulkSaving}>
                 {bulkSaving ? "Speichere..." : "Mehrfach speichern"}
               </button>
             </div>
@@ -1325,7 +1363,11 @@ export default function Schmuckstuecke() {
               <div className="form-section">
                 <h4>� Foto</h4>
                 <PhotoUpload
-                  artikelnummer={editing === "new" ? nextArtikelnummerPreview : form.Artikelnummer}
+                  artikelnummer={
+                    editing === "new"
+                      ? nextArtikelnummerPreview
+                      : form.Artikelnummer
+                  }
                   disabled={editing === "new" && !nextArtikelnummerPreview}
                   initialPhoto={form.Foto}
                   onPhotoSelected={(photoPath) => {
