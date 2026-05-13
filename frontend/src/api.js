@@ -94,7 +94,7 @@ async function requestFormData(url, options = {}) {
 async function downloadBlob(url, options = {}) {
   const token = getToken();
   const headers = {};
-  const { signal } = options;
+  const { signal, onProgress, returnMetadata = false } = options;
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -133,8 +133,60 @@ async function downloadBlob(url, options = {}) {
       requestError.payload = err;
       throw requestError;
     }
+    const totalBytesHeader = res.headers.get('content-length');
+    const totalBytes = totalBytesHeader ? Number(totalBytesHeader) : null;
+    const uploadFileCountHeader = res.headers.get('x-upload-file-count');
+    const uploadFileCount = uploadFileCountHeader ? Number(uploadFileCountHeader) : null;
+
+    let blob;
+    if (res.body && typeof res.body.getReader === 'function') {
+      const reader = res.body.getReader();
+      const chunks = [];
+      let loadedBytes = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          loadedBytes += value.length;
+          if (onProgress) {
+            onProgress({
+              loadedBytes,
+              totalBytes,
+              progressPercent: totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : null,
+              uploadFileCount,
+            });
+          }
+        }
+      }
+
+      blob = new Blob(chunks, { type: res.headers.get('content-type') || 'application/octet-stream' });
+    } else {
+      blob = await res.blob();
+      if (onProgress) {
+        onProgress({
+          loadedBytes: blob.size,
+          totalBytes: blob.size,
+          progressPercent: 100,
+          uploadFileCount,
+        });
+      }
+    }
+
     logInfo(`← GET ${url} → ${res.status} (${duration}ms)`);
-    return res.blob();
+    if (returnMetadata) {
+      return {
+        blob,
+        metadata: {
+          totalBytes,
+          uploadFileCount,
+          contentType: res.headers.get('content-type'),
+        },
+      };
+    }
+
+    return blob;
   } catch (err) {
     if (!err.message || err.message === 'Failed to fetch') {
       const duration = Date.now() - startTime;
@@ -300,7 +352,11 @@ export const api = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return downloadBlob(`/backup/export${query}`);
   },
-  exportBackupUploadsZip: () => downloadBlob('/backup/export-uploads'),
+  exportBackupUploadsZip: (options = {}) => downloadBlob('/backup/export-uploads', options),
+  startBackupUploadsExportJob: () => request('/backup/export-uploads-jobs', { method: 'POST' }),
+  getBackupUploadsExportJob: (jobId) => request(`/backup/export-uploads-jobs/${jobId}`),
+  downloadBackupUploadsExportJob: (jobId, options = {}) =>
+    downloadBlob(`/backup/export-uploads-jobs/${jobId}/download`, options),
   importBackup: (data, selectedTables) => {
     const payload = {
       backupData: data,

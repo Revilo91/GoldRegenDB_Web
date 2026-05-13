@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const fs = require("fs/promises");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const multer = require("multer");
 const AdmZip = require("adm-zip");
 const db = require("../config/db");
@@ -14,6 +15,8 @@ const uploadZip = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
+const exportUploadJobs = new Map();
+const EXPORT_JOB_TTL_MS = 30 * 60 * 1000;
 
 function sanitizeUploadFileName(fileName) {
   const base = path.basename(String(fileName || "").trim());
@@ -49,14 +52,66 @@ async function listUploadFiles() {
   return files;
 }
 
-async function exportUploadsZipBuffer() {
+function cleanupExportJob(jobId) {
+  exportUploadJobs.delete(jobId);
+}
+
+function scheduleExportJobCleanup(jobId, ttlMs = EXPORT_JOB_TTL_MS) {
+  setTimeout(() => cleanupExportJob(jobId), ttlMs).unref();
+}
+
+function serializeExportJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    totalFiles: job.totalFiles,
+    processedFiles: job.processedFiles,
+    currentFileName: job.currentFileName,
+    fileName: job.fileName,
+    error: job.error,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    progressPercent:
+      job.totalFiles === 0
+        ? job.status === "completed"
+          ? 100
+          : 0
+        : Math.round((job.processedFiles / job.totalFiles) * 100),
+  };
+}
+
+async function exportUploadsZipBuffer(onProgress) {
   const files = await listUploadFiles();
   const zip = new AdmZip();
 
+  if (onProgress) {
+    await onProgress({
+      totalFiles: files.length,
+      processedFiles: 0,
+      currentFileName: null,
+    });
+  }
+
   for (const file of files) {
     try {
+      if (onProgress) {
+        await onProgress({
+          totalFiles: files.length,
+          processedFiles: zip.getEntries().length,
+          currentFileName: file.originalName || file.name,
+        });
+      }
+
       const content = await fs.readFile(file.filePath);
       zip.addFile(file.name, content);
+
+      if (onProgress) {
+        await onProgress({
+          totalFiles: files.length,
+          processedFiles: zip.getEntries().length,
+          currentFileName: file.originalName || file.name,
+        });
+      }
     } catch (err) {
       const wrappedError = new Error(
         `Bild konnte nicht gelesen werden: ${file.originalName || file.name}`,
@@ -72,6 +127,71 @@ async function exportUploadsZipBuffer() {
     zipBuffer: zip.toBuffer(),
     fileCount: files.length,
   };
+}
+
+function createExportUploadsJob() {
+  const jobId = randomUUID();
+  const formattedTimestamp = new Date()
+    .toISOString()
+    .replace(/[:.]/g, "-")
+    .slice(0, 19);
+
+  const job = {
+    id: jobId,
+    status: "pending",
+    totalFiles: 0,
+    processedFiles: 0,
+    currentFileName: null,
+    fileName: `goldregendb_uploads_${formattedTimestamp}.zip`,
+    error: null,
+    zipBuffer: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  exportUploadJobs.set(jobId, job);
+  scheduleExportJobCleanup(jobId);
+
+  (async () => {
+    try {
+      job.status = "running";
+      job.updatedAt = new Date().toISOString();
+
+      const { zipBuffer, fileCount } = await exportUploadsZipBuffer(
+        async ({ totalFiles, processedFiles, currentFileName }) => {
+          job.totalFiles = totalFiles;
+          job.processedFiles = processedFiles;
+          job.currentFileName = currentFileName;
+          job.updatedAt = new Date().toISOString();
+        },
+      );
+
+      job.zipBuffer = zipBuffer;
+      job.totalFiles = fileCount;
+      job.processedFiles = fileCount;
+      job.currentFileName = null;
+      job.status = "completed";
+      job.updatedAt = new Date().toISOString();
+    } catch (err) {
+      job.status = "failed";
+      job.error = {
+        message: err.message,
+        fileName: err.fileName,
+        filePath: err.filePath,
+        cause: err.cause?.message,
+      };
+      job.updatedAt = new Date().toISOString();
+      logger.error("BACKUP", "Fehler beim Erstellen des Upload-Export-Jobs", {
+        jobId,
+        message: err.message,
+        fileName: err.fileName,
+        filePath: err.filePath,
+        cause: err.cause?.message,
+      });
+    }
+  })();
+
+  return job;
 }
 
 async function importUploads(uploads) {
@@ -201,7 +321,7 @@ router.get("/export", async (req, res) => {
 // GET /api/backup/export-uploads – Export backend/src/assets/uploads as ZIP
 router.get("/export-uploads", async (_req, res) => {
   try {
-    const { zipBuffer } = await exportUploadsZipBuffer();
+    const { zipBuffer, fileCount } = await exportUploadsZipBuffer();
     const formattedTimestamp = new Date()
       .toISOString()
       .replace(/[:.]/g, "-")
@@ -210,6 +330,8 @@ router.get("/export-uploads", async (_req, res) => {
 
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", String(zipBuffer.length));
+    res.setHeader("X-Upload-File-Count", String(fileCount));
     res.send(zipBuffer);
   } catch (err) {
     logger.error("BACKUP", "Fehler beim Exportieren der Upload-Bilder", {
@@ -226,6 +348,44 @@ router.get("/export-uploads", async (_req, res) => {
       cause: err.cause?.message,
     });
   }
+});
+
+router.post("/export-uploads-jobs", async (_req, res) => {
+  const job = createExportUploadsJob();
+  res.status(202).json({ job: serializeExportJob(job) });
+});
+
+router.get("/export-uploads-jobs/:jobId", async (req, res) => {
+  const job = exportUploadJobs.get(req.params.jobId);
+
+  if (!job) {
+    return res.status(404).json({ error: "Export-Job nicht gefunden" });
+  }
+
+  res.json({ job: serializeExportJob(job) });
+});
+
+router.get("/export-uploads-jobs/:jobId/download", async (req, res) => {
+  const job = exportUploadJobs.get(req.params.jobId);
+
+  if (!job) {
+    return res.status(404).json({ error: "Export-Job nicht gefunden" });
+  }
+
+  if (job.status !== "completed" || !job.zipBuffer) {
+    return res.status(409).json({
+      error: "Export-Job ist noch nicht abgeschlossen",
+      job: serializeExportJob(job),
+    });
+  }
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="${job.fileName}"`);
+  res.setHeader("Content-Length", String(job.zipBuffer.length));
+  res.setHeader("X-Upload-File-Count", String(job.totalFiles));
+  res.send(job.zipBuffer);
+
+  setTimeout(() => cleanupExportJob(job.id), 60 * 1000).unref();
 });
 
 // POST /api/backup/import-uploads-zip – Import upload images from ZIP file
