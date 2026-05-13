@@ -27,6 +27,39 @@ const findPhotoForArtikel = (artikelnummer) => {
   return null;
 };
 
+function resolvePhotoFile(fileName) {
+  const requestedFileName = path.basename(String(fileName || "").trim());
+
+  if (!requestedFileName) {
+    return { error: "Ungültiger Dateiname", requestedFileName };
+  }
+
+  const directPath = path.join(uploadsDir, requestedFileName);
+  if (fs.existsSync(directPath)) {
+    return { filePath: directPath, resolvedFileName: requestedFileName, resolvedBy: "exact" };
+  }
+
+  const baseName = path.parse(requestedFileName).name;
+  const files = fs.readdirSync(uploadsDir);
+  const matchingFiles = files.filter((file) => path.parse(file).name === baseName);
+
+  if (matchingFiles.length === 1) {
+    return {
+      filePath: path.join(uploadsDir, matchingFiles[0]),
+      resolvedFileName: matchingFiles[0],
+      resolvedBy: matchingFiles[0] === requestedFileName ? "exact" : "basename",
+    };
+  }
+
+  return {
+    error: "Foto nicht gefunden",
+    requestedFileName,
+    baseName,
+    matchingFiles,
+    availableFiles: files.length,
+  };
+}
+
 // Multer-Konfiguration für Foto-Upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -201,26 +234,47 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
 // GET photo by filename
 router.get("/foto/:fileName", (req, res) => {
   try {
-    const fileName = req.params.fileName;
-    const filePath = path.join(uploadsDir, fileName);
+    const lookup = resolvePhotoFile(req.params.fileName);
 
-    // Sicherheitsprüfung: Verhindere Directory Traversal
-    if (!filePath.startsWith(uploadsDir)) {
-      return res.status(403).json({ error: "Zugriff verweigert" });
+    if (lookup.error) {
+      return res.status(lookup.error === "Ungültiger Dateiname" ? 400 : 404).json({
+        error: lookup.error,
+        requestedFileName: lookup.requestedFileName,
+        baseName: lookup.baseName,
+        matchingFiles: lookup.matchingFiles,
+      });
     }
 
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
-      res.status(404).json({ error: "Foto nicht gefunden" });
-    }
+    res.sendFile(lookup.filePath, (err) => {
+      if (!err) return;
+
+      logger.error("SCHMUCK", `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, {
+        message: err.message,
+        code: err.code,
+        resolvedFileName: lookup.resolvedFileName,
+        resolvedBy: lookup.resolvedBy,
+      });
+
+      if (!res.headersSent) {
+        res.status(err.code === "ENOENT" ? 404 : 500).json({
+          error: err.code === "ENOENT" ? "Foto nicht gefunden" : "Fehler beim Abrufen des Fotos",
+          requestedFileName: path.basename(String(req.params.fileName || "").trim()),
+          resolvedFileName: lookup.resolvedFileName,
+          resolvedBy: lookup.resolvedBy,
+          details: err.message,
+        });
+      }
+    });
   } catch (err) {
     logger.error(
       "SCHMUCK",
       `Fehler beim Abrufen des Fotos: ${req.params.fileName}`,
-      { message: err.message },
+      { message: err.message, stack: err.stack },
     );
-    res.status(500).json({ error: "Fehler beim Abrufen des Fotos" });
+    res.status(500).json({
+      error: "Fehler beim Abrufen des Fotos",
+      details: err.message,
+    });
   }
 });
 

@@ -29,6 +29,7 @@ export default function SchmuckstueckDetail() {
   const [kunden, setKunden] = useState([]);
   const [photo, setPhoto] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -43,13 +44,19 @@ export default function SchmuckstueckDetail() {
   useEffect(() => {
     if (item?.Foto) {
       setPhotoLoading(true);
+      setPhotoError(null);
       api
         .loadPhotoAsDataUrl(item.Foto)
         .then(setPhoto)
-        .catch(console.error)
+        .catch((err) => {
+          setPhoto(null);
+          setPhotoError(err.message);
+          console.error(err);
+        })
         .finally(() => setPhotoLoading(false));
     } else {
       setPhoto(null);
+      setPhotoError(null);
     }
   }, [item]);
 
@@ -176,6 +183,32 @@ export default function SchmuckstueckDetail() {
                 <div>
                   <div style={{ marginBottom: "8px" }}>⏳</div>
                   Bild wird geladen...
+                </div>
+              </div>
+            ) : item.Foto && photoError ? (
+              <div
+                style={{
+                  width: "200px",
+                  minHeight: "200px",
+                  margin: "0 auto",
+                  borderRadius: "8px",
+                  backgroundColor: "#fff4e5",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#7a4b00",
+                  fontSize: "14px",
+                  border: "2px dashed #d8a74f",
+                  padding: "12px",
+                  boxSizing: "border-box",
+                  textAlign: "center",
+                }}>
+                <div>
+                  <div style={{ marginBottom: "8px" }}>⚠️</div>
+                  Bild konnte nicht geladen werden
+                  <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                    {photoError}
+                  </div>
                 </div>
               </div>
             ) : (

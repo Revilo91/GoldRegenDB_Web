@@ -30,6 +30,7 @@ export default function SchmuckstueckModal({
   const [kunden, setKunden] = useState([]);
   const [photo, setPhoto] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -45,13 +46,19 @@ export default function SchmuckstueckModal({
   useEffect(() => {
     if (item?.Foto) {
       setPhotoLoading(true);
+      setPhotoError(null);
       api
         .loadPhotoAsDataUrl(item.Foto)
         .then(setPhoto)
-        .catch(console.error)
+        .catch((err) => {
+          setPhoto(null);
+          setPhotoError(err.message);
+          console.error(err);
+        })
         .finally(() => setPhotoLoading(false));
     } else {
       setPhoto(null);
+      setPhotoError(null);
     }
   }, [item]);
 
@@ -140,6 +147,14 @@ export default function SchmuckstueckModal({
                 <div className="schmuck-modal-photo-placeholder loading">
                   <span>⏳</span>
                   Bild wird geladen...
+                </div>
+              ) : item.Foto && photoError ? (
+                <div className="schmuck-modal-photo-placeholder empty">
+                  <span className="photo-icon">⚠️</span>
+                  Bild konnte nicht geladen werden
+                  <div style={{ marginTop: "4px", fontSize: "12px", color: "#666" }}>
+                    {photoError}
+                  </div>
                 </div>
               ) : (
                 <div className="schmuck-modal-photo-placeholder empty">

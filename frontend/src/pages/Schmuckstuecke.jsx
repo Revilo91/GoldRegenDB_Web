@@ -524,6 +524,7 @@ export default function Schmuckstuecke() {
   function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
     const [photoSrc, setPhotoSrc] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [photoError, setPhotoError] = useState(null);
 
     useEffect(() => {
       let isCancelled = false;
@@ -531,6 +532,7 @@ export default function Schmuckstuecke() {
 
       if (!foto) {
         setPhotoSrc(null);
+        setPhotoError(null);
         setIsLoading(false);
         return () => {
           isCancelled = true;
@@ -547,15 +549,17 @@ export default function Schmuckstuecke() {
       }
 
       setIsLoading(true);
+      setPhotoError(null);
       api
         .loadPhotoAsDataUrl(foto, { signal: controller.signal })
         .then((dataUrl) => {
           if (isCancelled) return;
           setPhotoSrc(dataUrl);
         })
-        .catch(() => {
+        .catch((err) => {
           if (isCancelled) return;
           setPhotoSrc(null);
+          setPhotoError(err.message);
         })
         .finally(() => {
           if (isCancelled) return;
@@ -572,7 +576,13 @@ export default function Schmuckstuecke() {
       return (
         <span
           className="table-photo-placeholder"
-          title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}>
+          title={
+            isLoading
+              ? "Foto wird geladen"
+              : photoError
+                ? `Foto konnte nicht geladen werden: ${photoError}`
+                : "Kein Foto verfügbar"
+          }>
           <FontAwesomeIcon icon={faGem} />
         </span>
       );
