@@ -421,49 +421,13 @@ router.get("/export", async (req, res) => {
       const items = groupedItems[baseId];
       const category = PRODUKTART[baseId[2]] || "";
 
-      // Hauptzeile für die Gruppe (wenn mehrere Varianten)
-      if (items.length > 1) {
-        const groupRow = [
-          escape(baseId), // Item name
-          "", // Variations
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "", // Option sets
-          "", // Is variation visible
-          "", // Price (leer für Gruppe)
-          "No", // On sale
-          "", // Regular price
-          "", // Tax rate
-          "Yes", // Track inventory
-          escape(items.length), // Quantity = Anzahl Varianten
-          "1", // Low stock threshold
-          "", // SKU (leer für Gruppe)
-          "", // Barcode
-          "", // Description
-          escape(category), // Category
-          ...Array(8).fill(""), // Display colour + Images
-          "Yes", // Display in Online Store
-          "",
-          "",
-          "", // SEO
-          "",
-          "", // Item/Variant ID
-        ];
-        lines.push(groupRow.join(","));
-      }
-
-      // Zeilen für jede Variante
+      // Jede Variante als eigenständiger Artikel exportieren (keine leere Gruppen-Zeile)
       items.forEach((item) => {
         const price = Number(item.Verkaufspreis) || 0;
         const description = getDescription(item);
 
         const row = [
-          escape(items.length > 1 ? item.Artikelnummer : baseId), // Item name
+          escape(item.Artikelnummer), // Item name (immer vollständige Artikelnummer)
           "", // Variations
           "",
           "",
