@@ -1786,7 +1786,11 @@ export default function Schmuckstuecke() {
                 {editing !== "new" ? (
                   <>
                     <div className="form-row" style={{ marginTop: "16px" }}>
-                      <div className="form-group checkbox-field">
+                      <div className="form-group">
+                        <label
+                          className="form-label">
+                          Ausschuss
+                        </label>
                         <input
                           type="checkbox"
                           id="form-ausschuss"
@@ -1803,11 +1807,6 @@ export default function Schmuckstuecke() {
                             })
                           }
                         />
-                        <label
-                          htmlFor="form-ausschuss"
-                          className="checkbox-label">
-                          Ausschuss
-                        </label>
                       </div>
 
                       {form.Ausschuss === 1 && (

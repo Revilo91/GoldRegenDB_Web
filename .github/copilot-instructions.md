@@ -398,6 +398,52 @@ GoldRegenDB_Web/
 
 ---
 
+## Frontend Styling Guidelines
+
+### ⚠️ STRIKTE REGEL: KEINE INLINE STYLES
+
+**VERBOTEN:** Inline `style` Props in React-Komponenten
+```jsx
+// ❌ NICHT ERLAUBT
+<div style={{ marginTop: 24, display: "flex", gap: 8 }}>
+<button style={{ width: 70, color: "red" }}>
+<span style={{ marginLeft: "auto" }}>
+```
+
+**ERLAUBT:** CSS-Klassen mit `className` in der globalen `index.css`
+```jsx
+// ✅ ERLAUBT
+<div className="my-container">
+<button className="form-input-small">
+<span className="ml-auto">
+```
+
+### Grund
+- Alle Styles sind zentral in [`frontend/src/index.css`](../frontend/src/index.css) definiert
+- Klassen-basierte Styles ermöglichen konsistentes Design und einfacheres Refactoring
+- Keine Vermischung von Stil-Logik und Component-Logik
+
+### Prozess beim Styling
+
+1. **Neue Styles brauchen?** → Klasse in `index.css` definieren
+2. **Dokumentation:** Aussagekräftige Klassenname wählen (z.B. `.piece-container`, `.detail-value-warning`, `.rabatt-input`)
+3. **Anwendung:** `className="neue-klasse"` verwenden
+4. **Falls mehrere Klassen nötig:** Template Strings oder `classnames` Util (falls vorhanden)
+
+### Bestehende Utility-Klassen (Beispiele)
+
+Häufig benötigte Styles sind bereits definiert:
+- `.ml-auto` → `margin-left: auto`
+- `.mr-8` → `margin-right: 8px`
+- `.cursor-pointer` → `cursor: pointer`
+- `.modal-lg` → Modal mit erhöhter Größe
+- `.btn-primary`, `.btn-secondary`, `.btn-danger` → Button-Varianten
+- `.badge`, `.badge.success`, `.badge.warning` → Badge-Styles
+
+Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und überall)
+
+---
+
 ## API-Endpunkte
 
 ### Authentifizierung (öffentlich)
