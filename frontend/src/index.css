@@ -1797,3 +1797,204 @@ select.form-control {
     transform: rotate(360deg);
   }
 }
+
+/* ============ DOCUMENTMANAGER STYLES ============ */
+
+/* Filter Dropdowns */
+.doc-filter-select {
+  width: auto;
+  min-width: 150px;
+}
+
+.doc-filter-select-year {
+  width: auto;
+}
+
+/* Filter Group Label */
+.doc-group-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+/* Modal Large - Document Editor */
+.modal-edit-document {
+  width: 95vw;
+  height: 95vh;
+  max-width: 1200px;
+  max-height: 800px;
+}
+
+/* Piece Selection Container */
+.piece-selection-wrapper {
+  margin-top: 24px;
+}
+
+.piece-selection-flex {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* Piece Selection Sides */
+.piece-side {
+  flex: 1;
+  min-width: 0;
+}
+
+.piece-side h5 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+/* Piece Search Input */
+.piece-search-input {
+  margin-bottom: 8px;
+}
+
+/* Piece Container */
+.piece-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* Piece Add Controls */
+.piece-add-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.piece-add-input {
+  flex: 1;
+}
+
+/* Rabatt Section */
+.rabatt-section {
+  padding: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rabatt-form-group {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rabatt-label {
+  white-space: nowrap;
+  margin: 0;
+  font-weight: 600;
+}
+
+.rabatt-input {
+  width: 80px;
+}
+
+.rabatt-small {
+  color: var(--text-muted);
+}
+
+/* Detail Grid Values */
+.detail-value-warning {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+/* Schmuckstück Item Row */
+.schmuck-item-row-price {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.schmuck-item-row-price-original {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.schmuck-item-row-rabatt {
+  font-weight: 600;
+}
+
+.schmuck-item-row-rabatt.no-rabatt {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+/* Schmuckstück Button in Table */
+.schmuck-table-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Rabatt Input in Selected Pieces */
+.rabatt-input-piece {
+  width: 70px;
+}
+
+/* Header Action Buttons */
+.header-action-btn {
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.header-delete-btn {
+  margin-right: 16px;
+}
+
+/* Cursor pointer utility */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Margin utilities */
+.mr-8 {
+  margin-right: 8px;
+}
+
+.ml-auto {
+  margin-left: auto;
+}
+
+/* Table headers cursor pointer */
+.data-table th {
+  cursor: pointer;
+}
+
+/* h4 in modals/details */
+.modal-body h4 {
+  padding: 16px 24px 8px;
+  font-size: 15px;
+  margin: 0;
+}
+
+/* Badge styles in modals */
+.modal-header .badge {
+  background-color: var(--warning);
+  color: white;
+  margin-left: 8px;
+}
+
+.data-table-status-badge {
+  background-color: var(--warning);
+  color: white;
+}
+
+.data-table-status-badge.success {
+  background-color: var(--success);
+}
