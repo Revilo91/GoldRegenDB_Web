@@ -143,7 +143,7 @@ router.get('/:id/excel', async (req, res) => {
 router.post('/', async (req, res) => {
   let client;
   try {
-    const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf' } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf', rabatt_gesamt = 0, rabatt_positionen = {} } = req.body;
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE "Rechnung" IN SHARE ROW EXCLUSIVE MODE');
@@ -153,10 +153,13 @@ router.post('/', async (req, res) => {
       rechnungsNummer = await getNextRechnungsnummer(client);
     }
 
+    const rabattGesamt = Math.min(100, Math.max(0, Number(rabatt_gesamt) || 0));
+    const rabattPositionen = rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {};
+
     const { rows } = await client.query(
-      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [rechnungsNummer, Kundennummer, status]
+      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status, rabatt_gesamt, rabatt_positionen)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [rechnungsNummer, Kundennummer, status, rabattGesamt, JSON.stringify(rabattPositionen)]
     );
 
     const rechnungId = rows[0].ID;
@@ -205,7 +208,7 @@ router.post('/', async (req, res) => {
 // PUT update
 router.put('/:id', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer, status } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen } = req.body;
 
     // Build update query
     let updateQuery = `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2`;
@@ -214,6 +217,14 @@ router.put('/:id', async (req, res) => {
     if (status !== undefined) {
       updateQuery += `, status = $${params.length + 1}`;
       params.push(status);
+    }
+    if (rabatt_gesamt !== undefined) {
+      updateQuery += `, rabatt_gesamt = $${params.length + 1}`;
+      params.push(Math.min(100, Math.max(0, Number(rabatt_gesamt) || 0)));
+    }
+    if (rabatt_positionen !== undefined) {
+      updateQuery += `, rabatt_positionen = $${params.length + 1}`;
+      params.push(JSON.stringify(rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {}));
     }
 
     updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;

@@ -269,6 +269,32 @@ async function ensureRechnungTable() {
       END
       $$;
     `);
+    // Migrate: add rabatt_gesamt column if missing
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'Rechnung' AND column_name = 'rabatt_gesamt'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD COLUMN rabatt_gesamt NUMERIC(5,2) NOT NULL DEFAULT 0;
+        END IF;
+      END
+      $$;
+    `);
+    // Migrate: add rabatt_positionen column if missing
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'Rechnung' AND column_name = 'rabatt_positionen'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD COLUMN rabatt_positionen JSONB NOT NULL DEFAULT '{}';
+        END IF;
+      END
+      $$;
+    `);
     logger.info('DB', '"Rechnung" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Rechnung Tabelle', { message: err.message });

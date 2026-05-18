@@ -35,6 +35,8 @@ export default function DocumentManager({
     Nummer: "",
     Kundennummer: "",
     Artikelnummern: [],
+    rabatt_gesamt: 0,
+    rabatt_positionen: {},
   });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
@@ -55,6 +57,8 @@ export default function DocumentManager({
         Nummer: d.Nummer,
         Kundennummer: d.Kundennummer,
         Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
+        rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
+        rabatt_positionen: d.rabatt_positionen || {},
       });
       setPieceSearch("");
       setArtikelnummerInput("");
@@ -77,7 +81,9 @@ export default function DocumentManager({
         Nummer: d.Nummer,
         Kundennummer: d.Kundennummer,
         Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
-        status: 'final'
+        status: 'final',
+        rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
+        rabatt_positionen: d.rabatt_positionen || {},
       });
       setDetail(null);
       load();
@@ -165,6 +171,8 @@ export default function DocumentManager({
       Nummer: nummer,
       Kundennummer: "",
       Artikelnummern: [],
+      rabatt_gesamt: 0,
+      rabatt_positionen: {},
     });
     setPieceSearch("");
     setArtikelnummerInput("");
@@ -213,7 +221,14 @@ export default function DocumentManager({
   const togglePiece = (nr) => {
     const nrs = [...form.Artikelnummern];
     if (nrs.includes(nr)) {
-      setForm({ ...form, Artikelnummern: nrs.filter((n) => n !== nr) });
+      // Remove per-item discount when piece is removed
+      const basis = nr.split("_")[0];
+      const remainingWithSameBasis = nrs.filter((n) => n !== nr && n.split("_")[0] === basis);
+      const newRabattPositionen = { ...form.rabatt_positionen };
+      if (remainingWithSameBasis.length === 0) {
+        delete newRabattPositionen[basis];
+      }
+      setForm({ ...form, Artikelnummern: nrs.filter((n) => n !== nr), rabatt_positionen: newRabattPositionen });
     } else {
       setForm({ ...form, Artikelnummern: [...nrs, nr] });
     }
@@ -601,6 +616,14 @@ export default function DocumentManager({
                     })}
                   </div>
                 </div>
+                {type === "rechnung" && Number(detail.rabatt_gesamt) > 0 && (
+                  <div className="detail-item">
+                    <label>Gesamtrabatt</label>
+                    <div className="detail-value" style={{ color: "var(--warning)", fontWeight: 600 }}>
+                      {Number(detail.rabatt_gesamt)}%
+                    </div>
+                  </div>
+                )}
                 {/* Provision, Aufteilung, Schmuckstücke analog zu Originaldateien */}
                 {/* ...hier kann je nach type/labels weiteres Rendering erfolgen... */}
               </div>
@@ -615,6 +638,7 @@ export default function DocumentManager({
                         <th>Artikelnr.</th>
                         <th>Art</th>
                         <th>Preis</th>
+                        {type === "rechnung" && <th>Rabatt</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -624,7 +648,12 @@ export default function DocumentManager({
                             b.Artikelnummer.split("_")[0],
                           ),
                         )
-                        .map((s) => (
+                        .map((s) => {
+                          const basis = s.Artikelnummer.split("_")[0];
+                          const itemRabatt = type === "rechnung"
+                            ? Number(detail.rabatt_positionen?.[basis] || 0)
+                            : 0;
+                          return (
                           <tr key={s.Artikelnummer}>
                             <td>
                               <button
@@ -644,9 +673,27 @@ export default function DocumentManager({
                               </button>
                             </td>
                             <td>{s.Art}</td>
-                            <td>{Number(s.Verkaufspreis).toFixed(0)}€</td>
+                            <td>
+                              {itemRabatt > 0 ? (
+                                <span>
+                                  <span style={{ textDecoration: "line-through", color: "var(--text-muted)", marginRight: 4 }}>
+                                    {Number(s.Verkaufspreis).toFixed(0)}€
+                                  </span>
+                                  <span style={{ color: "var(--success)", fontWeight: 600 }}>
+                                    {(Number(s.Verkaufspreis) * (1 - itemRabatt / 100)).toFixed(0)}€
+                                  </span>
+                                </span>
+                              ) : (
+                                `${Number(s.Verkaufspreis).toFixed(0)}€`
+                              )}
+                            </td>
+                            {type === "rechnung" && (
+                              <td style={{ color: itemRabatt > 0 ? "var(--warning)" : "var(--text-muted)", fontWeight: itemRabatt > 0 ? 600 : "normal" }}>
+                                {itemRabatt > 0 ? `-${itemRabatt}%` : "–"}
+                              </td>
+                            )}
                           </tr>
-                        ))}
+                        )})}
                     </tbody>
                   </table>
                 </>
@@ -836,6 +883,7 @@ export default function DocumentManager({
                             <th>Artikelnr.</th>
                             <th>Art</th>
                             <th>Preis</th>
+                            {type === "rechnung" && <th style={{ minWidth: 90 }}>Rabatt %</th>}
                             <th></th>
                           </tr>
                         </thead>
@@ -845,11 +893,39 @@ export default function DocumentManager({
                               (p) => p.Artikelnummer === nr,
                             );
                             if (!piece) return null;
+                            const basis = nr.split("_")[0];
+                            const rabatt = type === "rechnung"
+                              ? Number(form.rabatt_positionen?.[basis] || 0)
+                              : 0;
                             return (
                               <tr key={nr}>
                                 <td>{piece.Artikelnummer}</td>
                                 <td>{piece.Art}</td>
                                 <td>{piece.Verkaufspreis}€</td>
+                                {type === "rechnung" && (
+                                  <td>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={rabatt}
+                                      style={{ width: 70 }}
+                                      className="form-control"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        const val = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                        setForm({
+                                          ...form,
+                                          rabatt_positionen: {
+                                            ...form.rabatt_positionen,
+                                            [basis]: val,
+                                          },
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                )}
                                 <td>
                                   <button
                                     className="btn btn-danger btn-sm"
@@ -868,6 +944,27 @@ export default function DocumentManager({
                 </div>
               </div>
             </div>
+            {type === "rechnung" && (
+              <div style={{ padding: "0 0 16px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <div className="form-group" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ whiteSpace: "nowrap", margin: 0, fontWeight: 600 }}>Gesamtrabatt auf Rechnung (%):</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={form.rabatt_gesamt || 0}
+                    className="form-control"
+                    style={{ width: 80 }}
+                    onChange={(e) => {
+                      const val = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                      setForm({ ...form, rabatt_gesamt: val });
+                    }}
+                  />
+                  <small style={{ color: "var(--text-muted)" }}>(0–100, gilt nach Einzelrabatten)</small>
+                </div>
+              </div>
+            )}
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
