@@ -903,7 +903,7 @@ export default function DocumentManager({
             {type === "rechnung" && (
               <div className="rabatt-section">
                 <div className="rabatt-form-group">
-                  <label className="rabatt-label">Gesamtrabatt auf Rechnung (%):</label>
+                  <label className="rabatt-label">Gesamtrabatt auf Rechnung:</label>
                   <input
                     type="number"
                     min="0"
@@ -916,7 +916,8 @@ export default function DocumentManager({
                       setForm({ ...form, rabatt_gesamt: val });
                     }}
                   />
-                  <small className="rabatt-small">(0–100, gilt nach Einzelrabatten)</small>
+                  <label className="rabatt-label">%</label>
+
                 </div>
               </div>
             )}

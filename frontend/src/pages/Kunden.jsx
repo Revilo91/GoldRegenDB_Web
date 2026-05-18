@@ -189,7 +189,7 @@ export default function Kunden() {
               </button>
             </div>
             <div className="modal-body">
-              <div className="form-row">
+              <div className="modal-form-grid">
                 <div className="form-group">
                   <label>Name</label>
                   <input
@@ -198,6 +198,7 @@ export default function Kunden() {
                     onChange={(e) => setForm({ ...form, Name: e.target.value })}
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Straße</label>
                   <input
@@ -208,8 +209,7 @@ export default function Kunden() {
                     }
                   />
                 </div>
-              </div>
-              <div className="form-row">
+
                 <div className="form-group">
                   <label>Hausnummer</label>
                   <input
@@ -217,10 +217,14 @@ export default function Kunden() {
                     type="number"
                     value={form.Hausnummer || 0}
                     onChange={(e) =>
-                      setForm({ ...form, Hausnummer: parseInt(e.target.value) })
+                      setForm({
+                        ...form,
+                        Hausnummer: parseInt(e.target.value),
+                      })
                     }
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Ort</label>
                   <input
@@ -229,6 +233,7 @@ export default function Kunden() {
                     onChange={(e) => setForm({ ...form, Ort: e.target.value })}
                   />
                 </div>
+
                 <div className="form-group">
                   <label>PLZ</label>
                   <input
@@ -240,8 +245,7 @@ export default function Kunden() {
                     }
                   />
                 </div>
-              </div>
-              <div className="form-row">
+
                 <div className="form-group">
                   <label>Email</label>
                   <input
@@ -253,6 +257,7 @@ export default function Kunden() {
                     }
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Telefonnummer</label>
                   <input
@@ -263,6 +268,7 @@ export default function Kunden() {
                     }
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Provision (%)</label>
                   <input
@@ -270,48 +276,45 @@ export default function Kunden() {
                     type="number"
                     value={form.Provision || 0}
                     onChange={(e) =>
-                      setForm({ ...form, Provision: parseInt(e.target.value) })
+                      setForm({
+                        ...form,
+                        Provision: parseInt(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group ">
+                  <label className="form-label">Aktiv</label>
+                  <input
+                    type="checkbox"
+                    className="form-checkbox"
+                    checked={form.Aktiv || false}
+                    onChange={(e) =>
+                      setForm({ ...form, Aktiv: e.target.checked })
+                    }
+                  />
+                </div>
+
+                <div className="form-group ">
+                  <label className="form-label">
+                    Artikelnummern erforderlich
+                  </label>
+                  <input
+                    type="checkbox"
+                    className="form-checkbox"
+                    checked={form.Artikelnummern_Erforderlich || false}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        Artikelnummern_Erforderlich: e.target.checked,
+                      })
                     }
                   />
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      className="form-checkbox"
-                      checked={form.Aktiv || false}
-                      onChange={(e) =>
-                        setForm({ ...form, Aktiv: e.target.checked })
-                      }
-                      style={{ marginRight: 8 }}
-                    />
-                    Aktiv
-                  </label>
-                </div>
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      className="form-checkbox"
-                      checked={form.Artikelnummern_Erforderlich || false}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Artikelnummern_Erforderlich: e.target.checked,
-                        })
-                      }
-                      style={{ marginRight: 8 }}
-                    />
-                    Artikelnummern erforderlich
-                  </label>
-                </div>
-              </div>
             </div>
-            <div
-              className="modal-footer"
-              style={{ justifyContent: "space-between" }}>
+            <div className="modal-footer">
               <button
                 className="btn btn-danger"
                 onClick={() => {
