@@ -393,24 +393,24 @@ const buildPrintCss = (sizeConfig) => {
       flex-direction: column;
       justify-content: flex-start;
       text-align: center;
-      font-size: calc(var(--hint-size) * 0.8);
+      font-size: calc(var(--hint-size) * 0.68);
     }
     .hints-title {
-      margin: 0.7mm 0 0.4mm;
-      font-weight: 700;
-      font-size: calc(var(--hint-size) * 1.05);
+      margin: 0.5mm 0 0.3mm;
+      font-weight: 600;
+      font-size: calc(var(--hint-size) * 0.68);
       line-height: 1;
     }
     .hints-table {
-      margin: 0.7mm 0.2em 0.4mm;
+      margin: 0.4mm 0.2em 0.3mm;
       border-collapse: collapse;
     }
     .hints-table td {
       width: 50%;
       text-align: left;
-      font-size: calc(var(--hint-size) * 0.92);
-      line-height: 1.2;
-      font-weight: 600;
+      font-size: calc(var(--hint-size) * 0.68);
+      line-height: 1.1;
+      font-weight: 400;
       vertical-align: top;
       padding: 0.2mm 0;
     }
