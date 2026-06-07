@@ -286,7 +286,7 @@ const buildLabelMarkup = ({ row, qty }, templateData) => {
         <div class="rot">
           <div class="logo-container">${templateData.brandHtml}</div>
           <div class="dotted-line"></div>
-          <div class="${artNrClass}"><span class="artnr-prefix">Art.Nr.</span>${escapeHtml(articleNumber)}</div>
+          <div class="${artNrClass}">${escapeHtml(articleNumber)}</div>
           ${templateData.hintsHtml}
           <div class="bottom-row">
             ${templateData.warnImgHtml}
