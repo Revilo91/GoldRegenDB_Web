@@ -158,8 +158,13 @@ body.etiketten-body {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-top: auto;
+}
+
+/* Kein QR-Code (z.B. extra-small): Warnsymbol rechtsbündig */
+.bottom-row--no-qr {
+  justify-content: flex-end;
 }
 
 .warn-symbol {
@@ -168,8 +173,6 @@ body.etiketten-body {
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
-  /* QR links, Warn rechts – oder Warn allein rechts wenn kein QR */
-  order: 2;
 }
 
 .qr-img {
@@ -180,8 +183,6 @@ body.etiketten-body {
   box-sizing: border-box;
   image-rendering: auto;
   image-rendering: crisp-edges;
-  order: 1;
-  margin-right: auto;
 }
 
 @media print {

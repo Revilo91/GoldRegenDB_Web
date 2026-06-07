@@ -278,6 +278,9 @@ const buildQrImgHtml = (qrDataUrl) => {
 const buildLabelMarkup = ({ row, qty }, templateData) => {
   const articleNumber = String(row.Artikelnummer || "").split("_")[0];
   const artNrClass = articleNumber.length > 7 ? "artnr compact" : "artnr";
+  const bottomRowClass = templateData.qrImgHtml
+    ? "bottom-row"
+    : "bottom-row bottom-row--no-qr";
   const labels = [];
 
   for (let index = 0; index < qty; index++) {
@@ -288,7 +291,7 @@ const buildLabelMarkup = ({ row, qty }, templateData) => {
           <div class="dotted-line"></div>
           <div class="${artNrClass}">${escapeHtml(articleNumber)}</div>
           ${templateData.hintsHtml}
-          <div class="bottom-row">
+          <div class="${bottomRowClass}">
             ${templateData.warnImgHtml}
             ${templateData.qrImgHtml}
           </div>
