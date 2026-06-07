@@ -113,6 +113,15 @@ body.etiketten-body {
   letter-spacing: 0.1mm;
 }
 
+/* Kleiner "Art.Nr." Prefix inline vor der Artikelnummer */
+.artnr-prefix {
+  font-size: 0.38em;
+  font-weight: bold;
+  vertical-align: middle;
+  letter-spacing: 0;
+  margin-right: 0.3mm;
+}
+
 .artnr.compact {
   font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
   letter-spacing: 0.02mm;
@@ -158,6 +167,7 @@ body.etiketten-body {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   margin-top: auto;
 }
 
@@ -167,6 +177,8 @@ body.etiketten-body {
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
+  /* QR links, Warn rechts – oder Warn allein rechts wenn kein QR */
+  order: 2;
 }
 
 .qr-img {
@@ -177,6 +189,8 @@ body.etiketten-body {
   box-sizing: border-box;
   image-rendering: auto;
   image-rendering: crisp-edges;
+  order: 1;
+  margin-right: auto;
 }
 
 @media print {

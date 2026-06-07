@@ -45,23 +45,29 @@
   --transition: all 0.2s ease;
 
   /* Label sizes for etiketten preview (used by backend /api/etiketten/preview) */
-  --label-small-w: 30mm;
-  --label-small-h: 20mm;
+  --label-extra-small-w: 30mm;
+  --label-extra-small-h: 20mm;
+  --label-extra-small-brandH: 5mm;
+  --label-extra-small-artSize: 5mm;
+  --label-extra-small-hintSize: 2.2mm;
+
+  --label-small-w: 48mm;
+  --label-small-h: 30mm;
   --label-small-brandH: 8mm;
-  --label-small-artSize: 5mm;
-  --label-small-hintSize: 2.5mm;
+  --label-small-artSize: 8mm;
+  --label-small-hintSize: 3.5mm;
 
-  --label-medium-w: 40mm;
-  --label-medium-h: 20mm;
-  --label-medium-brandH: 8mm;
-  --label-medium-artSize: 5.5mm;
-  --label-medium-hintSize: 2.5mm;
+  --label-medium-w: 60mm;
+  --label-medium-h: 36mm;
+  --label-medium-brandH: 10mm;
+  --label-medium-artSize: 10mm;
+  --label-medium-hintSize: 4mm;
 
-  --label-large-w: 40mm;
-  --label-large-h: 30mm;
-  --label-large-brandH: 11mm;
-  --label-large-artSize: 9mm;
-  --label-large-hintSize: 3mm;
+  --label-large-w: 80mm;
+  --label-large-h: 48mm;
+  --label-large-brandH: 14mm;
+  --label-large-artSize: 14mm;
+  --label-large-hintSize: 5mm;
 }
 
 * {
@@ -558,6 +564,42 @@ p.lead {
 }
 
 /* ===== Etiketten styles (moved from Etiketten.css) ===== */
+
+/* Layout utilities for form controls and labels */
+.flex-row-center {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.flex-row-gap-12 {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.flex-wrap-gap-12 {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.flex-col-gap-10 {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flex-col-gap-6 {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
 .hint-chip {
   display: inline-flex;
   align-items: center;

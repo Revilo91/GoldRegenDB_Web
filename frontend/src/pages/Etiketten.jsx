@@ -20,7 +20,7 @@ export default function Etiketten({ showHeader = true }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rowQty, setRowQty] = useState({});
   const [adding, setAdding] = useState({});
-  const [labelSize, setLabelSize] = useState("small");
+  const [labelSize, setLabelSize] = useState("extra-small");
   const addingRef = useRef({});
   const totalSelected = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
@@ -211,13 +211,8 @@ export default function Etiketten({ showHeader = true }) {
         </div>
       )}
       <div
-        className="toolbar"
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: 12,
-        }}>
+        className="toolbar flex-row-center"
+        style={{ marginBottom: 12 }}>
         <input
           className="form-control"
           placeholder="Suche Artikelnummer oder Name"
@@ -317,15 +312,26 @@ export default function Etiketten({ showHeader = true }) {
             </div>
           </div>
 
-          <div className="card" style={{ marginTop: 12 }}>
+          <div className="card mt-12">
             <div className="card-header">
               <h3>Etikettengröße</h3>
             </div>
             <div className="card-body">
               <div
-                style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                className="flex-col-gap-10">
                 <label
-                  style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  className="flex-row-center">
+                  <input
+                    type="radio"
+                    name="labelSize"
+                    value="extra-small"
+                    checked={labelSize === "extra-small"}
+                    onChange={(e) => setLabelSize(e.target.value)}
+                  />
+                  <span>Extra Klein (30 × 20 mm)</span>
+                </label>
+                <label
+                  className="flex-row-center">
                   <input
                     type="radio"
                     name="labelSize"
@@ -333,10 +339,10 @@ export default function Etiketten({ showHeader = true }) {
                     checked={labelSize === "small"}
                     onChange={(e) => setLabelSize(e.target.value)}
                   />
-                  <span>Klein (30 × 20 mm)</span>
+                  <span>Klein (48 × 30 mm)</span>
                 </label>
                 <label
-                  style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  className="flex-row-center">
                   <input
                     type="radio"
                     name="labelSize"
@@ -344,10 +350,10 @@ export default function Etiketten({ showHeader = true }) {
                     checked={labelSize === "medium"}
                     onChange={(e) => setLabelSize(e.target.value)}
                   />
-                  <span>Mittel (40 × 20 mm)</span>
+                  <span>Mittel (60 × 36 mm)</span>
                 </label>
                 <label
-                  style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  className="flex-row-center">
                   <input
                     type="radio"
                     name="labelSize"
@@ -355,7 +361,7 @@ export default function Etiketten({ showHeader = true }) {
                     checked={labelSize === "large"}
                     onChange={(e) => setLabelSize(e.target.value)}
                   />
-                  <span>Groß (40 × 30 mm)</span>
+                  <span>Groß (80 × 48 mm)</span>
                 </label>
               </div>
             </div>
@@ -370,8 +376,7 @@ export default function Etiketten({ showHeader = true }) {
           </div>
           <div className="card-body">
             <div
-              className="preset-hints"
-              style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              className="preset-hints flex-wrap-gap-12">
               {presetHints.map((h) => (
                 <label
                   key={h}

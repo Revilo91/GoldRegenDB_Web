@@ -21,13 +21,34 @@ const QR_TARGET_URL = "https://goldregenschmuckdesign.de";
 const MAX_MATERIAL_HINTS = 6;
 let printCssTemplateCache = null;
 
+/**
+ * Etikett-Größen mit proportionalen Skalierungen
+ * Jede Größe definiert:
+ * - w, h: Breite und Höhe des Etiketts
+ * - brandH: Höhe des Logo/Brand-Bereichs
+ * - artSize: Schriftgröße für Artikelnummer
+ * - hintSize: Schriftgröße für Material-Hinweise
+ */
+/**
+ * Etikett-Größen mit proportionalen Skalierungen.
+ * showQr: false = kein QR-Code (zu kleines Etikett zum Scannen)
+ */
 const LABEL_SIZE_DEFAULTS = {
+  "extra-small": {
+    w: "30mm",
+    h: "20mm",
+    brandH: "5mm",
+    artSize: "5mm",
+    hintSize: "2.2mm",
+    showQr: false,
+  },
   small: {
     w: "48mm",
     h: "30mm",
     brandH: "8mm",
     artSize: "8mm",
     hintSize: "3.5mm",
+    showQr: true,
   },
   medium: {
     w: "60mm",
@@ -35,6 +56,7 @@ const LABEL_SIZE_DEFAULTS = {
     brandH: "10mm",
     artSize: "10mm",
     hintSize: "4mm",
+    showQr: true,
   },
   large: {
     w: "80mm",
@@ -42,6 +64,7 @@ const LABEL_SIZE_DEFAULTS = {
     brandH: "14mm",
     artSize: "14mm",
     hintSize: "5mm",
+    showQr: true,
   },
 };
 
@@ -196,6 +219,8 @@ const getLabelSizes = (cssContent) => {
           `--label-${size}-hintSize`,
           defaults.hintSize,
         ),
+        // showQr ist ein Boolean – kein CSS-Variable, kommt immer aus LABEL_SIZE_DEFAULTS
+        showQr: defaults.showQr,
       },
     ]),
   );
@@ -261,7 +286,7 @@ const buildLabelMarkup = ({ row, qty }, templateData) => {
         <div class="rot">
           <div class="logo-container">${templateData.brandHtml}</div>
           <div class="dotted-line"></div>
-          <div class="${artNrClass}">${escapeHtml(articleNumber)}</div>
+          <div class="${artNrClass}"><span class="artnr-prefix">Art.Nr.</span>${escapeHtml(articleNumber)}</div>
           ${templateData.hintsHtml}
           <div class="bottom-row">
             ${templateData.warnImgHtml}
@@ -408,7 +433,7 @@ router.post("/preview", async (req, res) => {
       brandHtml: buildBrandHtml(assets.brandDataUrl),
       hintsHtml: buildHintsHtml(materialHints),
       warnImgHtml: buildWarnImgHtml(assets.warnDataUrl),
-      qrImgHtml: buildQrImgHtml(assets.qrDataUrl),
+      qrImgHtml: sizeConfig.showQr ? buildQrImgHtml(assets.qrDataUrl) : "",
     });
     const html = await buildPreviewHtml({ sizeConfig, labelsMarkup });
 
