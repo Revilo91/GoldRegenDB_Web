@@ -27,6 +27,11 @@ export default function PhotoUpload({
           } else {
             setPreview(null);
           }
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setPreview(null);
+          setError(err.message);
         });
     } else {
       setPreview(null);

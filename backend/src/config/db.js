@@ -221,6 +221,19 @@ async function ensureLieferscheinTable() {
           CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
       );
     `);
+    // Migrate: add status column if missing
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'Lieferschein' AND column_name = 'status'
+        ) THEN
+          ALTER TABLE "Lieferschein" ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'final';
+        END IF;
+      END
+      $$;
+    `);
     logger.info('DB', '"Lieferschein" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Lieferschein Tabelle', { message: err.message });
@@ -242,6 +255,45 @@ async function ensureRechnungTable() {
       );
       CREATE INDEX IF NOT EXISTS idx_rechnung_id ON "Rechnung" ("ID");
       CREATE INDEX IF NOT EXISTS idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
+    `);
+    // Migrate: add status column if missing
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'Rechnung' AND column_name = 'status'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'final';
+        END IF;
+      END
+      $$;
+    `);
+    // Migrate: add rabatt_gesamt column if missing
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'Rechnung' AND column_name = 'rabatt_gesamt'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD COLUMN rabatt_gesamt NUMERIC(5,2) NOT NULL DEFAULT 0;
+        END IF;
+      END
+      $$;
+    `);
+    // Migrate: add rabatt_positionen column if missing
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'Rechnung' AND column_name = 'rabatt_positionen'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD COLUMN rabatt_positionen JSONB NOT NULL DEFAULT '{}';
+        END IF;
+      END
+      $$;
     `);
     logger.info('DB', '"Rechnung" Tabelle verifiziert');
   } catch (err) {

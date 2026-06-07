@@ -22,13 +22,21 @@ async function getNextRechnungsnummer(queryable) {
 // GET all invoices
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await db.query(
-      `SELECT r.*, k."Name" as "KundenName"
+    const { status } = req.query; // Optional filter: ?status=entwurf or ?status=final
+    let query = `SELECT r.*, k."Name" as "KundenName"
        FROM "Rechnung" r
-       LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"
-       ORDER BY r."Datum" DESC`
-    );
-    logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen`);
+       LEFT JOIN "Kunde" k ON r."Kundennummer" = k."ID"`;
+    const params = [];
+
+    if (status) {
+      query += ` WHERE r.status = $1`;
+      params.push(status);
+    }
+
+    query += ` ORDER BY r."Datum" DESC`;
+
+    const { rows } = await db.query(query, params);
+    logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen${status ? ` (status=${status})` : ''}`);
     res.json(rows);
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnungen', { message: err.message });
@@ -135,7 +143,7 @@ router.get('/:id/excel', async (req, res) => {
 router.post('/', async (req, res) => {
   let client;
   try {
-    const { Nummer, Artikelnummern, Kundennummer } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf', rabatt_gesamt = 0, rabatt_positionen = {} } = req.body;
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE "Rechnung" IN SHARE ROW EXCLUSIVE MODE');
@@ -145,24 +153,37 @@ router.post('/', async (req, res) => {
       rechnungsNummer = await getNextRechnungsnummer(client);
     }
 
+    const rabattGesamt = Math.min(100, Math.max(0, Number(rabatt_gesamt) || 0));
+    const rabattPositionen = rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {};
+
     const { rows } = await client.query(
-      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer")
-       VALUES ($1, $2) RETURNING *`,
-      [rechnungsNummer, Kundennummer]
+      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status, rabatt_gesamt, rabatt_positionen)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [rechnungsNummer, Kundennummer, status, rabattGesamt, JSON.stringify(rabattPositionen)]
     );
 
     const rechnungId = rows[0].ID;
 
+    // Always assign Rechnung_ID to track which pieces belong to this document
+    // But only set Verkauft flag if status is 'final'
     if (Artikelnummern && Artikelnummern.length > 0) {
-      await client.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [rechnungId, Artikelnummern]
-      );
+      if (status === 'final') {
+        await client.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [rechnungId, Artikelnummern]
+        );
+      } else {
+        // Draft: only set Rechnung_ID, don't change Verkauft
+        await client.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [rechnungId, Artikelnummern]
+        );
+      }
     }
 
     await client.query('COMMIT');
 
-    logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) {
@@ -187,28 +208,56 @@ router.post('/', async (req, res) => {
 // PUT update
 router.put('/:id', async (req, res) => {
   try {
-    const { Nummer, Artikelnummern, Kundennummer } = req.body;
-    const { rows } = await db.query(
-      `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2
-       WHERE "ID" = $3 RETURNING *`,
-      [Nummer, Kundennummer, req.params.id]
-    );
+    const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen } = req.body;
+
+    // Build update query
+    let updateQuery = `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2`;
+    const params = [Nummer, Kundennummer];
+
+    if (status !== undefined) {
+      updateQuery += `, status = $${params.length + 1}`;
+      params.push(status);
+    }
+    if (rabatt_gesamt !== undefined) {
+      updateQuery += `, rabatt_gesamt = $${params.length + 1}`;
+      params.push(Math.min(100, Math.max(0, Number(rabatt_gesamt) || 0)));
+    }
+    if (rabatt_positionen !== undefined) {
+      updateQuery += `, rabatt_positionen = $${params.length + 1}`;
+      params.push(JSON.stringify(rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {}));
+    }
+
+    updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;
+    params.push(req.params.id);
+
+    const { rows } = await db.query(updateQuery, params);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
 
-    // Reset old associations
+    const currentStatus = rows[0].status;
+
+    // Always reset old associations first (both Rechnung_ID and Verkauft)
     await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
-      await db.query(
-        `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
-        [req.params.id, Artikelnummern]
-      );
+      if (currentStatus === 'final') {
+        // Final: set both Rechnung_ID and Verkauft
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [req.params.id, Artikelnummern]
+        );
+      } else {
+        // Draft: only set Rechnung_ID, don't change Verkauft
+        await db.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          [req.params.id, Artikelnummern]
+        );
+      }
     }
 
-    logger.info('RECHNUNGEN', `Rechnung aktualisiert: ID=${req.params.id}`);
+    logger.info('RECHNUNGEN', `Rechnung aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
     res.json(rows[0]);
   } catch (err) {
     logger.error('RECHNUNGEN', `Fehler beim Aktualisieren der Rechnung ID=${req.params.id}`, { message: err.message });

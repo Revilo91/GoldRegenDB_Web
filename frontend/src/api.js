@@ -94,7 +94,7 @@ async function requestFormData(url, options = {}) {
 async function downloadBlob(url, options = {}) {
   const token = getToken();
   const headers = {};
-  const { signal } = options;
+  const { signal, onProgress, returnMetadata = false } = options;
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -105,12 +105,88 @@ async function downloadBlob(url, options = {}) {
     const res = await fetch(`${API_URL}${url}`, { headers, signal });
     const duration = Date.now() - startTime;
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      logError(`← GET ${url} → ${res.status} (${duration}ms): Download fehlgeschlagen`);
-      throw new Error(err.error || err.message || res.statusText || 'Download fehlgeschlagen');
+      const contentType = res.headers.get('content-type') || '';
+      let err = {};
+
+      if (contentType.includes('application/json')) {
+        err = await res.json().catch(() => ({}));
+      } else {
+        const text = await res.text().catch(() => '');
+        err = text ? { error: text } : {};
+      }
+
+      const errorMessage = err.error || err.message || res.statusText || 'Download fehlgeschlagen';
+      const detailedMessage = [
+        errorMessage,
+        `HTTP ${res.status}`,
+        err.requestedFileName ? `Datei: ${err.requestedFileName}` : null,
+        err.resolvedFileName ? `Auflösung: ${err.resolvedBy || 'unbekannt'} (${err.resolvedFileName})` : null,
+        err.details ? `Details: ${err.details}` : null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      logError(`← GET ${url} → ${res.status} (${duration}ms): ${detailedMessage}`);
+
+      const requestError = new Error(detailedMessage);
+      requestError.status = res.status;
+      requestError.payload = err;
+      throw requestError;
     }
+    const totalBytesHeader = res.headers.get('content-length');
+    const totalBytes = totalBytesHeader ? Number(totalBytesHeader) : null;
+    const uploadFileCountHeader = res.headers.get('x-upload-file-count');
+    const uploadFileCount = uploadFileCountHeader ? Number(uploadFileCountHeader) : null;
+
+    let blob;
+    if (res.body && typeof res.body.getReader === 'function') {
+      const reader = res.body.getReader();
+      const chunks = [];
+      let loadedBytes = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          loadedBytes += value.length;
+          if (onProgress) {
+            onProgress({
+              loadedBytes,
+              totalBytes,
+              progressPercent: totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : null,
+              uploadFileCount,
+            });
+          }
+        }
+      }
+
+      blob = new Blob(chunks, { type: res.headers.get('content-type') || 'application/octet-stream' });
+    } else {
+      blob = await res.blob();
+      if (onProgress) {
+        onProgress({
+          loadedBytes: blob.size,
+          totalBytes: blob.size,
+          progressPercent: 100,
+          uploadFileCount,
+        });
+      }
+    }
+
     logInfo(`← GET ${url} → ${res.status} (${duration}ms)`);
-    return res.blob();
+    if (returnMetadata) {
+      return {
+        blob,
+        metadata: {
+          totalBytes,
+          uploadFileCount,
+          contentType: res.headers.get('content-type'),
+        },
+      };
+    }
+
+    return blob;
   } catch (err) {
     if (!err.message || err.message === 'Failed to fetch') {
       const duration = Date.now() - startTime;
@@ -161,6 +237,7 @@ export const api = {
   getNextArtikelnummer: (prefix) => request(`/schmuckstuecke/next-artikelnummer?${new URLSearchParams({ prefix }).toString()}`),
   getSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`),
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
+  createSchmuckstueckeBulk: (data) => request('/schmuckstuecke/bulk', { method: 'POST', body: JSON.stringify(data) }),
   updateSchmuckstueck: (nr, data) => request(`/schmuckstuecke/${nr}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`, { method: 'DELETE' }),
   uploadFoto: (file, artikelnummer) => {
@@ -192,8 +269,16 @@ export const api = {
       if (err?.name === 'AbortError') {
         return null;
       }
-      console.error('❌ Fehler beim Laden des Fotos:', fileName, err);
-      return null;
+      const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
+      console.error('❌ Fehler beim Laden des Fotos:', fileName, {
+        message,
+        status: err.status,
+        payload: err.payload,
+      });
+      const photoError = new Error(message);
+      photoError.status = err.status;
+      photoError.payload = err.payload;
+      throw photoError;
     }
   },
 
@@ -267,7 +352,11 @@ export const api = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return downloadBlob(`/backup/export${query}`);
   },
-  exportBackupUploadsZip: () => downloadBlob('/backup/export-uploads'),
+  exportBackupUploadsZip: (options = {}) => downloadBlob('/backup/export-uploads', options),
+  startBackupUploadsExportJob: () => request('/backup/export-uploads-jobs', { method: 'POST' }),
+  getBackupUploadsExportJob: (jobId) => request(`/backup/export-uploads-jobs/${jobId}`),
+  downloadBackupUploadsExportJob: (jobId, options = {}) =>
+    downloadBlob(`/backup/export-uploads-jobs/${jobId}/download`, options),
   importBackup: (data, selectedTables) => {
     const payload = {
       backupData: data,

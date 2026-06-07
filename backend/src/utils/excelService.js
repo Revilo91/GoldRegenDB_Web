@@ -404,13 +404,21 @@ async function generateExcel(type, data, logoPath) {
     row.getCell(3).value = bezeichnung;
 
     const menge = articleCounts[artikelnummerBasis] || 1;
-    const einzelpreis = Number(s.Verkaufspreis) || 0;
+    const einzelpreisOriginal = Number(s.Verkaufspreis) || 0;
+    const itemRabattPercent = Number(data.rabatt_positionen?.[artikelnummerBasis] || 0);
+    const einzelpreis = itemRabattPercent > 0
+      ? einzelpreisOriginal * (1 - itemRabattPercent / 100)
+      : einzelpreisOriginal;
+
+    if (itemRabattPercent > 0) {
+      row.getCell(3).value = `${bezeichnung} (Rabatt: ${itemRabattPercent}%)`;
+    }
 
     row.getCell(7).value = menge;
     row.getCell(8).value = einzelpreis;
-    row.getCell(8).numFmt = "#,##0.00 €";
+    row.getCell(8).numFmt = "#,##0.00 \u20ac";
     row.getCell(9).value = einzelpreis * menge;
-    row.getCell(9).numFmt = "#,##0.00 €";
+    row.getCell(9).numFmt = "#,##0.00 \u20ac";
 
     for (let i = 1; i <= 9; i++) {
       row.getCell(i).font = { name: "Calibri", size: 10 };
@@ -428,10 +436,12 @@ async function generateExcel(type, data, logoPath) {
   // 5. Total Block (for Invoice)
   if (type === "Rechnung") {
     currentRow++;
-    const total = data.schmuckstuecke.reduce(
-      (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-      0,
-    );
+    // Gesamtwert = Summe aller (ggf. mit Einzelrabatt reduzierten) Preise
+    const total = data.schmuckstuecke.reduce((sum, s) => {
+      const basis = (s.Artikelnummer || "").split("_")[0];
+      const rabatt = Number(data.rabatt_positionen?.[basis] || 0);
+      return sum + (Number(s.Verkaufspreis) || 0) * (1 - rabatt / 100);
+    }, 0);
 
     const totalLabelCell = worksheet.getCell(`G${currentRow}`);
     totalLabelCell.value = "Gesamtwert";
@@ -440,13 +450,38 @@ async function generateExcel(type, data, logoPath) {
 
     const totalValueCell = worksheet.getCell(`I${currentRow}`);
     totalValueCell.value = total;
-    totalValueCell.numFmt = "#,##0.00 €";
+    totalValueCell.numFmt = "#,##0.00 \u20ac";
     totalValueCell.font = { name: "Calibri", size: 10 };
+
+    // Gesamtrabatt (optional)
+    const gesamtRabattPercent = Number(data.rabatt_gesamt || 0);
+    let totalNachRabatt = total;
+    if (gesamtRabattPercent > 0) {
+      currentRow++;
+      const gesamtRabattValue = total * (gesamtRabattPercent / 100);
+      totalNachRabatt = total - gesamtRabattValue;
+
+      const gesamtRabattLabelCell = worksheet.getCell(`G${currentRow}`);
+      gesamtRabattLabelCell.value = "- Gesamtrabatt";
+      gesamtRabattLabelCell.font = { name: "Calibri", size: 11, bold: true };
+      gesamtRabattLabelCell.alignment = { horizontal: "right" };
+
+      const gesamtRabattPercentCell = worksheet.getCell(`H${currentRow}`);
+      gesamtRabattPercentCell.value = `${gesamtRabattPercent} %`;
+      gesamtRabattPercentCell.font = { name: "Calibri", size: 11, bold: true };
+      gesamtRabattPercentCell.alignment = { horizontal: "left" };
+
+      const gesamtRabattValueCell = worksheet.getCell(`I${currentRow}`);
+      gesamtRabattValueCell.value = -gesamtRabattValue;
+      gesamtRabattValueCell.numFmt = "#,##0.00 \u20ac";
+      gesamtRabattValueCell.font = { name: "Calibri", size: 10 };
+      gesamtRabattValueCell.alignment = { horizontal: "right" };
+    }
 
     // Provision
     currentRow++;
     const provisionPercent = data.kunde.Provision || 0;
-    const provisionValue = total * (provisionPercent / 100);
+    const provisionValue = totalNachRabatt * (provisionPercent / 100);
 
     const provLabelCell = worksheet.getCell(`G${currentRow}`);
     provLabelCell.value = "- Provision";
@@ -460,13 +495,13 @@ async function generateExcel(type, data, logoPath) {
 
     const provValueCell = worksheet.getCell(`I${currentRow}`);
     provValueCell.value = provisionValue;
-    provValueCell.numFmt = "#,##0.00 €";
+    provValueCell.numFmt = "#,##0.00 \u20ac";
     provValueCell.font = { name: "Calibri", size: 10 };
     provValueCell.alignment = { horizontal: "right" };
 
     // Final Total
     currentRow++;
-    const finalTotal = total - provisionValue;
+    const finalTotal = totalNachRabatt - provisionValue;
 
     const finalLabelCell = worksheet.getCell(`G${currentRow}`);
     finalLabelCell.value = "Überweisungsbetrag";

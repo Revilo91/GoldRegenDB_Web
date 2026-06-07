@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faExclamationTriangle,
@@ -25,6 +25,38 @@ const ALL_TABLES = [
 const TABLE_LABELS = Object.fromEntries(
   ALL_TABLES.map(({ key, label }) => [key, label]),
 );
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return "–";
+  if (bytes === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / 1024 ** exponent;
+  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
+function buildUploadsExportErrorMessage(error) {
+  if (!error) return "Fehler beim Exportieren der Upload-Bilder";
+  if (typeof error === "string") return error;
+
+  return [
+    error.message,
+    error.fileName ? `Datei: ${error.fileName}` : null,
+    error.cause ? `Ursache: ${error.cause}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function isNotFoundError(error) {
+  if (!error) return false;
+  const message = typeof error === "string" ? error : error.message || "";
+  return error?.status === 404 || /\bnot found\b/i.test(message);
+}
 
 function TableCheckboxList({ tables, selected, onChange, disabled }) {
   const allChecked = tables.every((t) => selected.includes(t.key));
@@ -91,6 +123,8 @@ export default function Datensicherung() {
   // --- Export state ---
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
+  const [exportUploadsError, setExportUploadsError] = useState(null);
+  const [exportUploadsProgress, setExportUploadsProgress] = useState(null);
   const [exportSelected, setExportSelected] = useState(
     ALL_TABLES.map((t) => t.key),
   );
@@ -116,6 +150,13 @@ export default function Datensicherung() {
   const fileInputRef = useRef(null);
   const uploadsZipInputRef = useRef(null);
   const uploadsOnlyInputRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const triggerDownload = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -131,6 +172,84 @@ export default function Datensicherung() {
     boxSizing: "border-box",
   };
 
+  const setUploadsProgressSafe = (updater) => {
+    if (!isMountedRef.current) return;
+    setExportUploadsProgress(updater);
+  };
+
+  const waitForUploadsExportJob = async (jobId) => {
+    while (true) {
+      const result = await api.getBackupUploadsExportJob(jobId);
+      const job = result?.job;
+
+      setUploadsProgressSafe((prev) => ({
+        ...prev,
+        phase: job?.status === "completed" ? "preparing-complete" : "preparing",
+        jobId,
+        totalFiles: job?.totalFiles ?? 0,
+        processedFiles: job?.processedFiles ?? 0,
+        currentFileName: job?.currentFileName ?? null,
+        progressPercent: job?.progressPercent ?? 0,
+        fileName: job?.fileName ?? prev?.fileName ?? null,
+      }));
+
+      if (job?.status === "completed") {
+        return job;
+      }
+
+      if (job?.status === "failed") {
+        throw new Error(buildUploadsExportErrorMessage(job.error));
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  };
+
+  const downloadUploadsZipDirectly = async (formattedDate) => {
+    setUploadsProgressSafe((prev) => ({
+      ...prev,
+      phase: "downloading",
+      jobId: null,
+      totalFiles: prev?.totalFiles || 0,
+      processedFiles: prev?.processedFiles || 0,
+      currentFileName: null,
+      progressPercent: 0,
+      loadedBytes: 0,
+      totalBytes: null,
+      fileName: prev?.fileName || `goldregendb_uploads_${formattedDate}.zip`,
+    }));
+
+    const { blob, metadata } = await api.exportBackupUploadsZip({
+      returnMetadata: true,
+      onProgress: ({ loadedBytes, totalBytes, progressPercent, uploadFileCount }) => {
+        setUploadsProgressSafe((prev) => ({
+          ...prev,
+          phase: "downloading",
+          totalFiles: prev?.totalFiles || uploadFileCount || 0,
+          processedFiles: prev?.processedFiles || uploadFileCount || 0,
+          currentFileName: null,
+          progressPercent: progressPercent ?? prev?.progressPercent ?? 0,
+          loadedBytes,
+          totalBytes,
+        }));
+      },
+    });
+
+    const fileName = `goldregendb_uploads_${formattedDate}.zip`;
+    triggerDownload(blob, fileName);
+
+    setUploadsProgressSafe((prev) => ({
+      ...prev,
+      phase: "completed",
+      progressPercent: 100,
+      totalFiles: prev?.totalFiles || metadata?.uploadFileCount || 0,
+      processedFiles: prev?.processedFiles || metadata?.uploadFileCount || 0,
+      loadedBytes: metadata?.totalBytes ?? blob.size,
+      totalBytes: metadata?.totalBytes ?? blob.size,
+      fileName,
+    }));
+  };
+
   // --- Export ---
   const handleExport = async () => {
     if (exportSelected.length === 0 && !exportIncludeUploads) {
@@ -141,6 +260,8 @@ export default function Datensicherung() {
     }
     setExporting(true);
     setExportError(null);
+    setExportUploadsError(null);
+    setExportUploadsProgress(null);
     try {
       const formattedDate = new Date().toISOString().slice(0, 10);
 
@@ -151,12 +272,98 @@ export default function Datensicherung() {
       }
 
       if (exportIncludeUploads) {
-        const uploadsZip = await api.exportBackupUploadsZip();
-        const zipFilename = `goldregendb_uploads_${formattedDate}.zip`;
-        triggerDownload(uploadsZip, zipFilename);
+        try {
+          const startResult = await api.startBackupUploadsExportJob();
+          const uploadJob = startResult?.job;
+
+          setUploadsProgressSafe({
+            phase: "preparing",
+            jobId: uploadJob?.id ?? null,
+            totalFiles: uploadJob?.totalFiles ?? 0,
+            processedFiles: uploadJob?.processedFiles ?? 0,
+            currentFileName: null,
+            progressPercent: 0,
+            loadedBytes: 0,
+            totalBytes: null,
+            fileName: uploadJob?.fileName ?? `goldregendb_uploads_${formattedDate}.zip`,
+          });
+
+          const completedJob = await waitForUploadsExportJob(uploadJob.id);
+
+          setUploadsProgressSafe((prev) => ({
+            ...prev,
+            phase: "downloading",
+            totalFiles: completedJob.totalFiles,
+            processedFiles: completedJob.totalFiles,
+            currentFileName: null,
+            progressPercent: 0,
+            loadedBytes: 0,
+            totalBytes: null,
+            fileName: completedJob.fileName,
+          }));
+
+          const { blob, metadata } = await api.downloadBackupUploadsExportJob(
+            uploadJob.id,
+            {
+              returnMetadata: true,
+              onProgress: ({ loadedBytes, totalBytes, progressPercent, uploadFileCount }) => {
+                setUploadsProgressSafe((prev) => ({
+                  ...prev,
+                  phase: "downloading",
+                  totalFiles: prev?.totalFiles || uploadFileCount || completedJob.totalFiles,
+                  processedFiles: completedJob.totalFiles,
+                  currentFileName: null,
+                  progressPercent: progressPercent ?? prev?.progressPercent ?? 0,
+                  loadedBytes,
+                  totalBytes,
+                }));
+              },
+            },
+          );
+
+          triggerDownload(blob, completedJob.fileName || `goldregendb_uploads_${formattedDate}.zip`);
+
+          setUploadsProgressSafe((prev) => ({
+            ...prev,
+            phase: "completed",
+            progressPercent: 100,
+            loadedBytes: metadata?.totalBytes ?? blob.size,
+            totalBytes: metadata?.totalBytes ?? blob.size,
+          }));
+        } catch (uploadExportError) {
+          if (!isNotFoundError(uploadExportError)) {
+            throw uploadExportError;
+          }
+
+          setUploadsProgressSafe({
+            phase: "downloading",
+            jobId: null,
+            totalFiles: 0,
+            processedFiles: 0,
+            currentFileName: null,
+            progressPercent: 0,
+            loadedBytes: 0,
+            totalBytes: null,
+            fileName: `goldregendb_uploads_${formattedDate}.zip`,
+          });
+
+          await downloadUploadsZipDirectly(formattedDate);
+        }
       }
     } catch (err) {
-      setExportError(err.message);
+      if (exportIncludeUploads) {
+        setExportUploadsError(err.message);
+        setUploadsProgressSafe((prev) => ({
+          ...prev,
+          phase: "failed",
+        }));
+      }
+      setExportError((current) => {
+        if (exportIncludeUploads && current === err.message) {
+          return current;
+        }
+        return err.message;
+      });
     } finally {
       setExporting(false);
     }
@@ -407,11 +614,71 @@ export default function Datensicherung() {
             Upload-Bilder als separate ZIP sichern
           </label>
           {exportIncludeUploads && (
-            <p style={{ marginBottom: "16px", color: "#b45309" }}>
-              Hinweis: Es werden zwei Dateien heruntergeladen (JSON + ZIP).
-            </p>
+            <div style={{ marginBottom: "16px" }}>
+              <p style={{ marginBottom: "10px", color: "#b45309" }}>
+                Hinweis: Es werden zwei Dateien heruntergeladen (JSON + ZIP).
+              </p>
+              {exportUploadsProgress && (
+                <div
+                  style={{
+                    padding: "12px",
+                    borderRadius: "8px",
+                    backgroundColor: "#eff6ff",
+                    border: "1px solid #bfdbfe",
+                    color: "#1d4ed8",
+                  }}>
+                  <div style={{ fontWeight: 600, marginBottom: "6px" }}>
+                    {exportUploadsProgress.phase === "preparing" && "ZIP wird erstellt"}
+                    {exportUploadsProgress.phase === "preparing-complete" && "ZIP-Erstellung abgeschlossen"}
+                    {exportUploadsProgress.phase === "downloading" && "ZIP wird heruntergeladen"}
+                    {exportUploadsProgress.phase === "completed" && "Bild-Export abgeschlossen"}
+                    {exportUploadsProgress.phase === "failed" && "Bild-Export fehlgeschlagen"}
+                  </div>
+                  <div style={{ marginBottom: "8px", fontSize: "0.95rem" }}>
+                    {exportUploadsProgress.phase === "preparing" || exportUploadsProgress.phase === "preparing-complete"
+                      ? `${exportUploadsProgress.processedFiles || 0} von ${exportUploadsProgress.totalFiles || 0} Bildern verarbeitet`
+                      : `${formatBytes(exportUploadsProgress.loadedBytes || 0)} von ${formatBytes(exportUploadsProgress.totalBytes || 0)} geladen`}
+                  </div>
+                  {exportUploadsProgress.currentFileName && (
+                    <div style={{ marginBottom: "8px", fontSize: "0.9rem", color: "#1e40af" }}>
+                      Aktuelle Datei: {exportUploadsProgress.currentFileName}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      height: "10px",
+                      width: "100%",
+                      backgroundColor: "#dbeafe",
+                      borderRadius: "999px",
+                      overflow: "hidden",
+                    }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${Math.max(0, Math.min(100, exportUploadsProgress.progressPercent || 0))}%`,
+                        backgroundColor: "#2563eb",
+                        transition: "width 0.2s ease",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          {exportError && (
+          {exportUploadsError && (
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                backgroundColor: "#fff4e5",
+                color: "#7a4b00",
+                border: "1px solid #f0c36d",
+              }}>
+              <strong>Bild-Export fehlgeschlagen:</strong> {exportUploadsError}
+            </div>
+          )}
+          {exportError && (!exportUploadsError || exportError !== exportUploadsError) && (
             <div className="badge danger" style={{ marginBottom: "20px" }}>
               {exportError}
             </div>

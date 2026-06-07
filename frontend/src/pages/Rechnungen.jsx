@@ -21,6 +21,7 @@ export default function Rechnungen() {
         getDetail: api.getRechnung,
         deleteItem: api.deleteRechnung,
         createItem: api.createRechnung,
+        updateItem: api.updateRechnung,
         exportExcel: api.exportRechnungExcel,
         getKunden: api.getKunden,
         getPieces: (filter) => api.getSchmuckstuecke(filter),

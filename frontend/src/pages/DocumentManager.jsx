@@ -35,6 +35,8 @@ export default function DocumentManager({
     Nummer: "",
     Kundennummer: "",
     Artikelnummern: [],
+    rabatt_gesamt: 0,
+    rabatt_positionen: {},
   });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
@@ -46,6 +48,49 @@ export default function DocumentManager({
   const [groupByKunde, setGroupByKunde] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
+
+  // Entwurf bearbeiten
+  const openEditDraft = async (doc) => {
+    try {
+      const d = await api.getDetail(doc.ID);
+      setForm({
+        Nummer: d.Nummer,
+        Kundennummer: d.Kundennummer,
+        Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
+        rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
+        rabatt_positionen: d.rabatt_positionen || {},
+      });
+      setPieceSearch("");
+      setArtikelnummerInput("");
+      setEditing(doc.ID); // Edit mode with document ID
+      setDetail(null); // Close detail modal
+      await loadAvailablePieces();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  // Entwurf finalisieren
+  const finalizeDraft = async (id) => {
+    if (!confirm('Möchten Sie diesen Entwurf wirklich abschließen? Nach dem Abschließen werden die Schmuckstücke zugewiesen und der Status kann nicht mehr geändert werden.')) {
+      return;
+    }
+    try {
+      const d = await api.getDetail(id);
+      await api.updateItem(id, {
+        Nummer: d.Nummer,
+        Kundennummer: d.Kundennummer,
+        Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
+        status: 'final',
+        rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
+        rabatt_positionen: d.rabatt_positionen || {},
+      });
+      setDetail(null);
+      load();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   // Laden
   const load = () => {
@@ -126,6 +171,8 @@ export default function DocumentManager({
       Nummer: nummer,
       Kundennummer: "",
       Artikelnummern: [],
+      rabatt_gesamt: 0,
+      rabatt_positionen: {},
     });
     setPieceSearch("");
     setArtikelnummerInput("");
@@ -150,14 +197,20 @@ export default function DocumentManager({
     // Lieferschein: alle Stücke werden beim Öffnen geladen
   }, [form.Kundennummer, editing]);
 
-  const handleSave = async () => {
+  const handleSave = async (status = 'final') => {
     if (!form.Kundennummer) {
       alert(labels.kundeRequired);
       return;
     }
     try {
-      await api.createItem(form);
+      if (editing === 'new') {
+        await api.createItem({ ...form, status });
+      } else {
+        // Editing existing document
+        await api.updateItem(editing, { ...form, status });
+      }
       setEditing(null);
+      setDetail(null);
       load();
       if (pieceSelectMode === "all") loadAvailablePieces();
     } catch (err) {
@@ -168,7 +221,14 @@ export default function DocumentManager({
   const togglePiece = (nr) => {
     const nrs = [...form.Artikelnummern];
     if (nrs.includes(nr)) {
-      setForm({ ...form, Artikelnummern: nrs.filter((n) => n !== nr) });
+      // Remove per-item discount when piece is removed
+      const basis = nr.split("_")[0];
+      const remainingWithSameBasis = nrs.filter((n) => n !== nr && n.split("_")[0] === basis);
+      const newRabattPositionen = { ...form.rabatt_positionen };
+      if (remainingWithSameBasis.length === 0) {
+        delete newRabattPositionen[basis];
+      }
+      setForm({ ...form, Artikelnummern: nrs.filter((n) => n !== nr), rabatt_positionen: newRabattPositionen });
     } else {
       setForm({ ...form, Artikelnummern: [...nrs, nr] });
     }
@@ -310,8 +370,7 @@ export default function DocumentManager({
         />
         <div className="filter-group">
           <select
-            className="form-control"
-            style={{ width: "auto", minWidth: 150 }}
+            className="form-control doc-filter-select"
             value={filters.kundennummer ?? ""}
             onChange={(e) => {
               const { kundennummer, ...rest } = filters;
@@ -329,8 +388,7 @@ export default function DocumentManager({
             ))}
           </select>
           <select
-            className="form-control"
-            style={{ width: "auto" }}
+            className="form-control doc-filter-select-year"
             value={filters.jahr ?? ""}
             onChange={(e) => {
               const { jahr, ...rest } = filters;
@@ -347,16 +405,7 @@ export default function DocumentManager({
               </option>
             ))}
           </select>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              cursor: "pointer",
-              fontSize: 14,
-              color: "var(--text-secondary)",
-              userSelect: "none",
-            }}>
+          <label className="doc-group-checkbox-label">
             <input
               type="checkbox"
               className="form-checkbox"
@@ -467,6 +516,25 @@ export default function DocumentManager({
                         })
                       : "",
                 },
+                {
+                  key: "status",
+                  label: "Status",
+                  sortable: true,
+                  render: (r) => {
+                    if (r.status === 'entwurf') {
+                      return (
+                        <span className="badge data-table-status-badge">
+                          Entwurf
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="badge data-table-status-badge success">
+                        Abgeschlossen
+                      </span>
+                    );
+                  },
+                },
               ]}
             />
           )}
@@ -481,16 +549,36 @@ export default function DocumentManager({
               <h3>
                 <FontAwesomeIcon icon={icons.modal} /> {labels.header}{" "}
                 {detail.Nummer}
+                {detail.status === 'entwurf' && (
+                  <span className="badge modal-header-badge">
+                    Entwurf
+                  </span>
+                )}
               </h3>
+              {detail.status === 'entwurf' && (
+                <>
+                  <button
+                    className="btn btn-primary btn-sm header-action-btn"
+                    onClick={() => openEditDraft(detail)}>
+                    Bearbeiten
+                  </button>
+                  <button
+                    className="btn btn-success btn-sm"
+                    style={{ marginRight: 8 }}
+                    onClick={() => finalizeDraft(detail.ID)}>
+                    Abschließen
+                  </button>
+                </>
+              )}
+              {detail.status === 'final' && (
+                <button
+                  className="btn btn-primary btn-sm header-action-btn"
+                  onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
+                  {labels.excel}
+                </button>
+              )}
               <button
-                className="btn btn-primary btn-sm"
-                style={{ marginLeft: "auto", marginRight: 8 }}
-                onClick={() => handleExcelExport(detail.ID, detail.Nummer)}>
-                {labels.excel}
-              </button>
-              <button
-                className="btn btn-danger btn-sm"
-                style={{ marginRight: 16 }}
+                className="btn btn-danger btn-sm header-delete-btn"
                 onClick={() => handleDelete(detail.ID)}>
                 <FontAwesomeIcon icon={icons.trash} /> {labels.delete}
               </button>
@@ -514,12 +602,20 @@ export default function DocumentManager({
                     })}
                   </div>
                 </div>
+                {type === "rechnung" && Number(detail.rabatt_gesamt) > 0 && (
+                  <div className="detail-item">
+                    <label>Gesamtrabatt</label>
+                    <div className="detail-value detail-value-warning">
+                      {Number(detail.rabatt_gesamt)}%
+                    </div>
+                  </div>
+                )}
                 {/* Provision, Aufteilung, Schmuckstücke analog zu Originaldateien */}
                 {/* ...hier kann je nach type/labels weiteres Rendering erfolgen... */}
               </div>
               {detail.schmuckstuecke?.length > 0 && (
                 <>
-                  <h4 style={{ padding: "16px 24px 8px", fontSize: 15 }}>
+                  <h4 className="modal-body h4">
                     Zugehörige Schmuckstücke ({detail.schmuckstuecke.length})
                   </h4>
                   <table className="data-table">
@@ -528,6 +624,7 @@ export default function DocumentManager({
                         <th>Artikelnr.</th>
                         <th>Art</th>
                         <th>Preis</th>
+                        {type === "rechnung" && <th>Rabatt</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -537,16 +634,16 @@ export default function DocumentManager({
                             b.Artikelnummer.split("_")[0],
                           ),
                         )
-                        .map((s) => (
+                        .map((s) => {
+                          const basis = s.Artikelnummer.split("_")[0];
+                          const itemRabatt = type === "rechnung"
+                            ? Number(detail.rabatt_positionen?.[basis] || 0)
+                            : 0;
+                          return (
                           <tr key={s.Artikelnummer}>
                             <td>
                               <button
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  padding: 0,
-                                  cursor: "pointer",
-                                }}
+                                className="schmuck-table-btn"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSchmuckstueckOverlay(s.Artikelnummer);
@@ -557,9 +654,27 @@ export default function DocumentManager({
                               </button>
                             </td>
                             <td>{s.Art}</td>
-                            <td>{Number(s.Verkaufspreis).toFixed(0)}€</td>
+                            <td>
+                              {itemRabatt > 0 ? (
+                                <span>
+                                  <span className="schmuck-item-row-price-original">
+                                    {Number(s.Verkaufspreis).toFixed(0)}€
+                                  </span>
+                                  <span className="schmuck-item-row-price">
+                                    {(Number(s.Verkaufspreis) * (1 - itemRabatt / 100)).toFixed(0)}€
+                                  </span>
+                                </span>
+                              ) : (
+                                `${Number(s.Verkaufspreis).toFixed(0)}€`
+                              )}
+                            </td>
+                            {type === "rechnung" && (
+                              <td className={itemRabatt > 0 ? "schmuck-item-row-rabatt" : "schmuck-item-row-rabatt no-rabatt"}>
+                                {itemRabatt > 0 ? `-${itemRabatt}%` : "–"}
+                              </td>
+                            )}
                           </tr>
-                        ))}
+                        )})}
                     </tbody>
                   </table>
                 </>
@@ -569,22 +684,20 @@ export default function DocumentManager({
         </div>
       )}
 
-      {/* Modal für neues Dokument */}
-      {editing === "new" && (
+      {/* Modal für neues Dokument / Entwurf bearbeiten */}
+      {editing && (
         <div className="modal-overlay">
           <div
-            className="modal modal-lg"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "95vw",
-              height: "95vh",
-              maxWidth: "1200px",
-              maxHeight: "800px",
-            }}>
+            className="modal modal-lg modal-edit-document"
+            onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                {labels.modalTitle}
-                {form.Nummer ? ` (${form.Nummer})` : ""}
+                {editing === 'new' ? labels.modalTitle : `${labels.header} ${form.Nummer} bearbeiten`}
+                {editing !== 'new' && (
+                  <span className="badge modal-header-badge">
+                    Entwurf
+                  </span>
+                )}
               </h3>
               <button className="modal-close" onClick={() => setEditing(null)}>
                 ×
@@ -616,19 +729,13 @@ export default function DocumentManager({
                 </div>
               </div>
 
-              <div className="piece-selection" style={{ marginTop: 24 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 24,
-                    alignItems: "flex-start",
-                  }}>
+              <div className="piece-selection piece-selection-wrapper">
+                <div className="piece-selection-flex">
                   {/* Linke Seite: Stückauswahl */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="piece-side">
                     <h5>Alle Schmuckstücke</h5>
                     <input
-                      className="form-control search-input"
-                      style={{ marginBottom: 8 }}
+                      className="form-control search-input piece-search-input"
                       placeholder="Schmuckstücke suchen..."
                       value={pieceSearch}
                       onChange={(e) => setPieceSearch(e.target.value)}
@@ -636,13 +743,7 @@ export default function DocumentManager({
                         pieceSelectMode === "byKunde" && !form.Kundennummer
                       }
                     />
-                    <div
-                      style={{
-                        maxHeight: "400px",
-                        overflowY: "auto",
-                        border: "2px dashed var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                      }}>
+                    <div className="piece-container">
                       <DataTable
                         data={availablePieces.filter((p) =>
                           pieceSearch.trim() === ""
@@ -694,14 +795,13 @@ export default function DocumentManager({
                     </div>
                   </div>
                   {/* Rechte Seite: Selektierte Stücke */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="piece-side">
                     <h5>
                       Ausgewählte Schmuckstücke ({form.Artikelnummern.length})
                     </h5>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <div className="piece-add-controls">
                       <input
-                        className="form-control"
-                        style={{ flex: 1 }}
+                        className="form-control piece-add-input"
                         placeholder="Artikelnummer eingeben..."
                         value={artikelnummerInput}
                         onChange={(e) => setArtikelnummerInput(e.target.value)}
@@ -722,12 +822,7 @@ export default function DocumentManager({
                       </button>
                     </div>
                     <div
-                      style={{
-                        maxHeight: "400px",
-                        overflowY: "auto",
-                        border: "2px dashed var(--border)",
-                        borderRadius: "var(--radius-sm)",
-                      }}
+                      className="piece-container"
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => {
                         e.preventDefault();
@@ -745,6 +840,7 @@ export default function DocumentManager({
                             <th>Artikelnr.</th>
                             <th>Art</th>
                             <th>Preis</th>
+                            {type === "rechnung" && <th style={{ minWidth: 90 }}>Rabatt %</th>}
                             <th></th>
                           </tr>
                         </thead>
@@ -754,11 +850,38 @@ export default function DocumentManager({
                               (p) => p.Artikelnummer === nr,
                             );
                             if (!piece) return null;
+                            const basis = nr.split("_")[0];
+                            const rabatt = type === "rechnung"
+                              ? Number(form.rabatt_positionen?.[basis] || 0)
+                              : 0;
                             return (
                               <tr key={nr}>
                                 <td>{piece.Artikelnummer}</td>
                                 <td>{piece.Art}</td>
                                 <td>{piece.Verkaufspreis}€</td>
+                                {type === "rechnung" && (
+                                  <td>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={rabatt}
+                                      className="rabatt-input-piece form-control"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        const val = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                                        setForm({
+                                          ...form,
+                                          rabatt_positionen: {
+                                            ...form.rabatt_positionen,
+                                            [basis]: val,
+                                          },
+                                        });
+                                      }}
+                                    />
+                                  </td>
+                                )}
                                 <td>
                                   <button
                                     className="btn btn-danger btn-sm"
@@ -777,14 +900,41 @@ export default function DocumentManager({
                 </div>
               </div>
             </div>
+            {type === "rechnung" && (
+              <div className="rabatt-section">
+                <div className="rabatt-form-group">
+                  <label className="rabatt-label">Gesamtrabatt auf Rechnung:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={form.rabatt_gesamt || 0}
+                    className="form-control rabatt-input"
+                    onChange={(e) => {
+                      const val = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                      setForm({ ...form, rabatt_gesamt: val });
+                    }}
+                  />
+                  <label className="rabatt-label">%</label>
+
+                </div>
+              </div>
+            )}
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
                 onClick={() => setEditing(null)}>
                 Abbrechen
               </button>
-              <button className="btn btn-primary" onClick={handleSave}>
-                Speichern
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleSave('entwurf')}
+                style={{ marginLeft: 'auto' }}>
+                Als Entwurf speichern
+              </button>
+              <button className="btn btn-primary" onClick={() => handleSave('final')}>
+                Speichern &amp; Abschließen
               </button>
             </div>
           </div>

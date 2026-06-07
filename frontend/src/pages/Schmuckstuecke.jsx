@@ -12,6 +12,7 @@ import {
   faMagnifyingGlass,
   faEuroSign,
   faPaperclip,
+  faCopy,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
@@ -53,6 +54,34 @@ const PRODUKTART_OPTIONS = [
   { code: "S", label: "Schlüsselanhänger" },
 ];
 
+const createRowId = () =>
+  `row-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const createEmptyMehrfachRow = () => ({
+  _rowId: createRowId(),
+  Artikelnummer: "",
+  Name: "",
+  Art: "",
+  Material: "",
+  Farbe: "",
+  Verkaufspreis: 0,
+  Herstellungskosten: 0,
+  Form: "",
+  Fassung: "",
+});
+
+const normalizeMehrfachArtikelnummer = (value) => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return "";
+
+  // Wenn nur Basisnummer eingegeben wurde, beim Speichern automatisch _1 setzen.
+  if (/^[A-Z]{3}\d{3}$/.test(normalized)) {
+    return `${normalized}_1`;
+  }
+
+  return normalized;
+};
+
 export default function Schmuckstuecke() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -79,6 +108,12 @@ export default function Schmuckstuecke() {
   const [nextArtikelnummerError, setNextArtikelnummerError] = useState("");
   const [nextArtikelnummerRefreshKey, setNextArtikelnummerRefreshKey] =
     useState(0);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkTemplateArtikelnummer, setBulkTemplateArtikelnummer] =
+    useState("");
+  const [bulkLoadingTemplate, setBulkLoadingTemplate] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkRows, setBulkRows] = useState([createEmptyMehrfachRow()]);
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
     if (!hersteller || !grundmaterial || !produktart) return "";
@@ -160,6 +195,182 @@ export default function Schmuckstuecke() {
       Ausschuss_Grund: "",
     });
     setEditing("new");
+  };
+
+  const openBulkCreate = () => {
+    setBulkTemplateArtikelnummer("");
+    setBulkRows([createEmptyMehrfachRow()]);
+    setBulkModalOpen(true);
+  };
+
+  const setBulkRowValue = (rowId, field, value) => {
+    setBulkRows((prev) =>
+      prev.map((row) =>
+        row._rowId === rowId ? { ...row, [field]: value } : row,
+      ),
+    );
+  };
+
+  const addBulkRow = () => {
+    setBulkRows((prev) => [...prev, createEmptyMehrfachRow()]);
+  };
+
+  const removeBulkRow = (rowId) => {
+    setBulkRows((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((row) => row._rowId !== rowId);
+    });
+  };
+
+  const duplicateBulkRow = (rowId) => {
+    setBulkRows((prev) => {
+      const source = prev.find((row) => row._rowId === rowId);
+      if (!source) return prev;
+
+      const copiedRow = {
+        ...source,
+        _rowId: createRowId(),
+        // Artikelnummer bleibt absichtlich leer, damit keine Dublette gespeichert wird.
+        Artikelnummer: "",
+      };
+
+      const insertIndex = prev.findIndex((row) => row._rowId === rowId);
+      const next = [...prev];
+      next.splice(insertIndex + 1, 0, copiedRow);
+      return next;
+    });
+  };
+
+  const loadBulkTemplate = async () => {
+    const input = bulkTemplateArtikelnummer.trim().toUpperCase();
+    if (!input) {
+      alert("Bitte eine Artikelnummer als Vorlage eingeben.");
+      return;
+    }
+
+    try {
+      setBulkLoadingTemplate(true);
+      let item = null;
+
+      // 1) Direkter Treffer bzw. automatische _1-Ergänzung, falls kein Suffix eingegeben wurde.
+      const candidateArtikelnummern = input.includes("_")
+        ? [input]
+        : [input, `${input}_1`];
+
+      for (const candidate of candidateArtikelnummern) {
+        try {
+          item = await api.getSchmuckstueck(candidate);
+          break;
+        } catch {
+          // Fallback folgt unten.
+        }
+      }
+
+      // 2) Fallback: LIKE-ähnliche Suche nach Basisnummer + beliebigem Suffix.
+      if (!item && !input.includes("_")) {
+        const result = await api.getSchmuckstuecke({
+          page: 1,
+          limit: 200,
+          search: input,
+        });
+
+        const matchingItems = (result?.data || [])
+          .filter((row) =>
+            String(row.Artikelnummer || "").startsWith(`${input}_`),
+          )
+          .sort((a, b) => {
+            const aSuffix = parseInt(
+              String(a.Artikelnummer).split("_")[1] || "0",
+              10,
+            );
+            const bSuffix = parseInt(
+              String(b.Artikelnummer).split("_")[1] || "0",
+              10,
+            );
+            return aSuffix - bSuffix;
+          });
+
+        if (matchingItems.length > 0) {
+          item = await api.getSchmuckstueck(matchingItems[0].Artikelnummer);
+        }
+      }
+
+      if (!item) {
+        throw new Error(
+          "Kein passendes Schmuckstück gefunden. Bitte Artikelnummer mit Suffix (z.B. _1) prüfen.",
+        );
+      }
+
+      setBulkRows((prev) => [
+        ...prev,
+        {
+          ...createEmptyMehrfachRow(),
+          Name: item.Name || "",
+          Art: item.Art || "",
+          Material: item.Material || "",
+          Farbe: item.Farbe || "",
+          Verkaufspreis: item.Verkaufspreis || 0,
+          Herstellungskosten: item.Herstellungskosten || 0,
+          Form: item.Form || "",
+          Fassung: item.Fassung || "",
+        },
+      ]);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBulkLoadingTemplate(false);
+    }
+  };
+
+  const handleBulkSave = async () => {
+    const items = bulkRows
+      .map((row) => {
+        const { _rowId, ...payloadRow } = row;
+        return {
+          ...payloadRow,
+          Artikelnummer: normalizeMehrfachArtikelnummer(row.Artikelnummer),
+        };
+      })
+      .filter((row) => row.Artikelnummer);
+
+    if (items.length === 0) {
+      alert("Bitte mindestens eine Zeile mit Artikelnummer eintragen.");
+      return;
+    }
+
+    try {
+      setBulkSaving(true);
+      const result = await api.createSchmuckstueckeBulk({ items });
+
+      alert(
+        `${result.createdCount} Schmuckstücke wurden erfolgreich nachgetragen.`,
+      );
+      setBulkModalOpen(false);
+      load();
+    } catch (err) {
+      const payload = err.payload || {};
+      if (Array.isArray(payload.invalidArtikelnummern)) {
+        alert(
+          `Ungültige Artikelnummern:\n${payload.invalidArtikelnummern.join("\n")}`,
+        );
+        return;
+      }
+      if (Array.isArray(payload.existingArtikelnummern)) {
+        alert(
+          `Diese Artikelnummern existieren bereits:\n${payload.existingArtikelnummern.join("\n")}`,
+        );
+        return;
+      }
+      if (Array.isArray(payload.duplicateArtikelnummern)) {
+        alert(
+          `Diese Artikelnummern wurden doppelt eingegeben:\n${payload.duplicateArtikelnummern.join("\n")}`,
+        );
+        return;
+      }
+      alert(err.message);
+    } finally {
+      setBulkSaving(false);
+    }
   };
 
   const openEdit = (s) => {
@@ -324,6 +535,7 @@ export default function Schmuckstuecke() {
   function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
     const [photoSrc, setPhotoSrc] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [photoError, setPhotoError] = useState(null);
 
     useEffect(() => {
       let isCancelled = false;
@@ -331,6 +543,7 @@ export default function Schmuckstuecke() {
 
       if (!foto) {
         setPhotoSrc(null);
+        setPhotoError(null);
         setIsLoading(false);
         return () => {
           isCancelled = true;
@@ -347,15 +560,17 @@ export default function Schmuckstuecke() {
       }
 
       setIsLoading(true);
+      setPhotoError(null);
       api
         .loadPhotoAsDataUrl(foto, { signal: controller.signal })
         .then((dataUrl) => {
           if (isCancelled) return;
           setPhotoSrc(dataUrl);
         })
-        .catch(() => {
+        .catch((err) => {
           if (isCancelled) return;
           setPhotoSrc(null);
+          setPhotoError(err.message);
         })
         .finally(() => {
           if (isCancelled) return;
@@ -372,7 +587,13 @@ export default function Schmuckstuecke() {
       return (
         <span
           className="table-photo-placeholder"
-          title={isLoading ? "Foto wird geladen" : "Kein Foto verfügbar"}>
+          title={
+            isLoading
+              ? "Foto wird geladen"
+              : photoError
+                ? `Foto konnte nicht geladen werden: ${photoError}`
+                : "Kein Foto verfügbar"
+          }>
           <FontAwesomeIcon icon={faGem} />
         </span>
       );
@@ -401,6 +622,11 @@ export default function Schmuckstuecke() {
         </div>
         {activeTab === "schmuckstuecke" && (
           <div style={{ display: "flex", gap: "10px" }}>
+          {canEdit && (
+            <button className="btn btn-secondary" onClick={openBulkCreate}>
+              + Schmuckstücke nachtragen
+            </button>
+          )}
             <button className="btn btn-primary" onClick={openNew}>
               + Neues Schmuckstück
             </button>
@@ -642,6 +868,317 @@ export default function Schmuckstuecke() {
         />
       )}
 
+      {bulkModalOpen && (
+        <div className="modal-overlay">
+          <div
+            className="modal modal-lg"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "100%" }}>
+            <div className="modal-header">
+              <h3>
+                <FontAwesomeIcon icon={faPlus} /> Mehrere Schmuckstücke
+                nachtragen
+              </h3>
+              <button
+                className="modal-close"
+                onClick={() => setBulkModalOpen(false)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-section">
+                <h4>
+                  <FontAwesomeIcon icon={faCopy} /> Vorlage (optional)
+                </h4>
+                <div
+                  className="form-row"
+                  style={{
+                    gridTemplateColumns: "1fr 220px",
+                    alignItems: "end",
+                  }}>
+                  <div className="form-group">
+                    <label>Bestehendes Schmuckstück laden</label>
+                    <input
+                      className="form-control"
+                      value={bulkTemplateArtikelnummer}
+                      onChange={(e) =>
+                        setBulkTemplateArtikelnummer(
+                          e.target.value.toUpperCase(),
+                        )
+                      }
+                      placeholder="z.B. MBH001_1"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={loadBulkTemplate}
+                      disabled={bulkLoadingTemplate}>
+                      {bulkLoadingTemplate
+                        ? "Lade Vorlage..."
+                        : "Als neue Zeile übernehmen"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h4>
+                  <FontAwesomeIcon icon={faHashtag} /> Tabelle für
+                  Mehrfach-Erfassung
+                </h4>
+                <div className="table-container" style={{ overflowX: "auto" }}>
+                  <DataTable
+                    className="table"
+                    data={bulkRows}
+                    defaultSort={{ key: null, direction: "asc" }}
+                    getRowKey={(row) => row._rowId}
+                    columns={[
+                      {
+                        key: "rownum",
+                        label: "#",
+                        render: (row) =>
+                          bulkRows.findIndex((r) => r._rowId === row._rowId) +
+                          1,
+                      },
+                      {
+                        key: "Artikelnummer",
+                        label: "Artikelnummer*",
+                        render: (row) => {
+                          return (
+                            <input
+                              className="form-control"
+                              value={row.Artikelnummer || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Artikelnummer",
+                                  e.target.value.toUpperCase(),
+                                )
+                              }
+                              placeholder="MBH001_2"
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Name",
+                        label: "Name",
+                        render: (row) => {
+                          return (
+                            <input
+                              className="form-control"
+                              value={row.Name || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Name",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Art",
+                        label: "Art",
+                        render: (row) => {
+                          return (
+                            <input
+                              list="bulk-arten-list"
+                              className="form-control"
+                              value={row.Art || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Art",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Material",
+                        label: "Material",
+                        render: (row) => {
+                          return (
+                            <input
+                              list="bulk-material-list"
+                              className="form-control"
+                              value={row.Material || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Material",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Farbe",
+                        label: "Farbe",
+                        render: (row) => {
+                          return (
+                            <input
+                              list="bulk-farbe-list"
+                              className="form-control"
+                              value={row.Farbe || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Farbe",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Verkaufspreis",
+                        label: "VK (€)",
+                        render: (row) => {
+                          return (
+                            <input
+                              className="form-control"
+                              type="number"
+                              step="0.01"
+                              value={row.Verkaufspreis || 0}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Verkaufspreis",
+                                  parseFloat(e.target.value) || 0,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Form",
+                        label: "Form",
+                        render: (row) => {
+                          return (
+                            <input
+                              list="bulk-formen-list"
+                              className="form-control"
+                              value={row.Form || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Form",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "Fassung",
+                        label: "Fassung",
+                        render: (row) => {
+                          return (
+                            <input
+                              list="bulk-fassung-list"
+                              className="form-control"
+                              value={row.Fassung || ""}
+                              onChange={(e) =>
+                                setBulkRowValue(
+                                  row._rowId,
+                                  "Fassung",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          );
+                        },
+                      },
+                      {
+                        key: "aktion",
+                        label: "Aktion",
+                        render: (row) => {
+                          return (
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => duplicateBulkRow(row._rowId)}
+                                disabled={bulkSaving}
+                                title="Zeile kopieren">
+                                <FontAwesomeIcon icon={faCopy} />
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => removeBulkRow(row._rowId)}
+                                disabled={bulkRows.length <= 1 || bulkSaving}
+                                title="Zeile löschen">
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </div>
+                          );
+                        },
+                      },
+                    ]}
+                  />
+                </div>
+                <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+                  <button className="btn btn-secondary" onClick={addBulkRow}>
+                    <FontAwesomeIcon icon={faPlus} /> Zeile hinzufügen
+                  </button>
+                </div>
+              </div>
+
+              <datalist id="bulk-arten-list">
+                {filterOptions.arten?.map((a) => (
+                  <option key={a} value={a} />
+                ))}
+              </datalist>
+              <datalist id="bulk-material-list">
+                {filterOptions.materialien?.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+              <datalist id="bulk-farbe-list">
+                {filterOptions.farben?.map((f) => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+              <datalist id="bulk-formen-list">
+                {filterOptions.formen?.map((f) => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+              <datalist id="bulk-fassung-list">
+                {filterOptions.fassungen?.map((f) => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setBulkModalOpen(false)}
+                disabled={bulkSaving}>
+                Abbrechen
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleBulkSave}
+                disabled={bulkSaving}>
+                {bulkSaving ? "Speichere..." : "Mehrfach speichern"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editing !== null && (
         <div className="modal-overlay">
           <div
@@ -868,7 +1405,11 @@ export default function Schmuckstuecke() {
               <div className="form-section">
                 <h4>� Foto</h4>
                 <PhotoUpload
-                  artikelnummer={editing === "new" ? nextArtikelnummerPreview : form.Artikelnummer}
+                  artikelnummer={
+                    editing === "new"
+                      ? nextArtikelnummerPreview
+                      : form.Artikelnummer
+                  }
                   disabled={editing === "new" && !nextArtikelnummerPreview}
                   initialPhoto={form.Foto}
                   onPhotoSelected={(photoPath) => {
@@ -1277,7 +1818,11 @@ export default function Schmuckstuecke() {
                 {editing !== "new" ? (
                   <>
                     <div className="form-row" style={{ marginTop: "16px" }}>
-                      <div className="form-group checkbox-field">
+                      <div className="form-group">
+                        <label
+                          className="form-label">
+                          Ausschuss
+                        </label>
                         <input
                           type="checkbox"
                           id="form-ausschuss"
@@ -1294,11 +1839,6 @@ export default function Schmuckstuecke() {
                             })
                           }
                         />
-                        <label
-                          htmlFor="form-ausschuss"
-                          className="checkbox-label">
-                          Ausschuss
-                        </label>
                       </div>
 
                       {form.Ausschuss === 1 && (
