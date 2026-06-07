@@ -13,8 +13,13 @@ const FRONTEND_CSS_PATH = path.resolve(
 );
 const WARN_SVG_PATH = path.resolve(__dirname, "../assets/warn_0-3.svg");
 const BRAND_SVG_PATH = path.resolve(__dirname, "../assets/goldregen.svg");
+const PRINT_CSS_TEMPLATE_PATH = path.resolve(
+  __dirname,
+  "../assets/etiketten-print.css",
+);
 const QR_TARGET_URL = "https://goldregenschmuckdesign.de";
 const MAX_MATERIAL_HINTS = 6;
+let printCssTemplateCache = null;
 
 const LABEL_SIZE_DEFAULTS = {
   small: {
@@ -276,187 +281,47 @@ const buildLabelsMarkup = (details, templateData) => {
     .join("\n");
 };
 
-const buildPrintCss = (sizeConfig) => {
-  return `
-    @page { size: ${sizeConfig.w} ${sizeConfig.h}; margin: 0mm; }
-    html, body {
-      width: ${sizeConfig.w};
-      margin: 0;
-      padding: 0;
-      background: #fff;
-      overflow: hidden;
-    }
-    body.etiketten-body {
-      font-family: Arial, Helvetica, sans-serif;
-      width: ${sizeConfig.w};
-    }
-    :root {
-      --label-w: ${sizeConfig.w};
-      --label-h: ${sizeConfig.h};
-      --brand-h: ${sizeConfig.brandH};
-      --art-size: ${sizeConfig.artSize};
-      --hint-size: ${sizeConfig.hintSize};
-      --qr-size: min(calc(var(--label-w) * 0.44), calc(var(--label-h) * 0.44));
-    }
-    .sheet {
-      width: ${sizeConfig.w};
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
-      padding: 0;
-      margin: 0;
-    }
+const getPrintCssTemplate = async () => {
+  if (printCssTemplateCache != null) {
+    return printCssTemplateCache;
+  }
 
-    .label {
-      box-sizing: border-box;
-      width: ${sizeConfig.w};
-      height: ${sizeConfig.h};
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border: none;
-      box-shadow: none;
-      margin: 0;
-      page-break-after: always;
-      break-after: page;
-      overflow: hidden;
-    }
-    .label:last-child {
-      page-break-after: auto;
-      break-after: auto;
-    }
+  const template = await readTextFileIfExists(PRINT_CSS_TEMPLATE_PATH);
+  if (!template) {
+    throw new Error("Etiketten CSS-Template nicht gefunden");
+  }
 
-    .label .rot {
-      transform: rotate(90deg);
-      transform-origin: center center;
-      width: ${sizeConfig.h};
-      height: ${sizeConfig.w};
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: center;
-      padding: 0.8mm 1.1mm;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
-
-    .logo-container {
-      width: 100%;
-      margin: 0.5em 0;
-      flex: 0 0 calc(var(--brand-h) * 1);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-    .brand-logo {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      object-position: center;
-      display: block;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .brand-text {
-      text-align: center;
-      font-weight: bold;
-      font-size: calc(var(--brand-h) * 0.95);
-      width: 100%;
-      line-height: 1;
-    }
-
-    .dotted-line {
-      width: 100%;
-      border-bottom: 1px dotted #000;
-      margin: 1mm;
-      flex-shrink: 0;
-    }
-
-    .artnr {
-      text-align: center;
-      font-weight: bold;
-      font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
-      line-height: 1;
-      letter-spacing: 0.1mm;
-    }
-    .artnr.compact {
-      font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
-      letter-spacing: 0.02mm;
-    }
-
-    .hints-container {
-      width: 100%;
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      text-align: center;
-      font-size: calc(var(--hint-size) * 0.68);
-    }
-    .hints-title {
-      margin: 0.5mm 0 0.3mm;
-      font-weight: 600;
-      font-size: calc(var(--hint-size) * 0.68);
-      line-height: 1;
-    }
-    .hints-table {
-      margin: 0.4mm 0.2em 0.3mm;
-      border-collapse: collapse;
-    }
-    .hints-table td {
-      width: 50%;
-      text-align: left;
-      font-size: calc(var(--hint-size) * 0.68);
-      line-height: 1.1;
-      font-weight: 400;
-      vertical-align: top;
-      padding: 0.2mm 0;
-    }
-    .empty-space {
-      flex: 1 1 auto;
-    }
-
-    .bottom-row {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      margin-top: auto;
-    }
-    .warn-symbol {
-      height: auto;
-      max-height: calc(var(--qr-size) * 1.0);
-      width: auto;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-    .qr-img {
-      width: calc(var(--qr-size) * 1.2);
-      height: calc(var(--qr-size) * 1.2);
-      object-fit: contain;
-      flex-shrink: 0;
-      box-sizing: border-box;
-      image-rendering: auto;
-      image-rendering: crisp-edges;
-    }
-
-    @media print {
-      html, body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-  `;
+  printCssTemplateCache = template;
+  return printCssTemplateCache;
 };
 
-const buildPreviewHtml = ({ sizeConfig, labelsMarkup }) => {
+const replaceTemplateVars = (template, replacements) => {
+  let css = template;
+  for (const [key, value] of Object.entries(replacements)) {
+    css = css.replaceAll(`{{${key}}}`, value);
+  }
+  return css;
+};
+
+const buildPrintCss = async (sizeConfig) => {
+  const template = await getPrintCssTemplate();
+  return replaceTemplateVars(template, {
+    LABEL_W: sizeConfig.w,
+    LABEL_H: sizeConfig.h,
+    BRAND_H: sizeConfig.brandH,
+    ART_SIZE: sizeConfig.artSize,
+    HINT_SIZE: sizeConfig.hintSize,
+  });
+};
+
+const buildPreviewHtml = async ({ sizeConfig, labelsMarkup }) => {
+  const printCss = await buildPrintCss(sizeConfig);
   return `<!doctype html>
     <html>
     <head>
       <meta charset="utf-8">
       <title>Etiketten Vorschau</title>
-      <style>${buildPrintCss(sizeConfig)}</style>
+      <style>${printCss}</style>
     </head>
     <body class="etiketten-body">
       <div class="sheet">
@@ -545,7 +410,7 @@ router.post("/preview", async (req, res) => {
       warnImgHtml: buildWarnImgHtml(assets.warnDataUrl),
       qrImgHtml: buildQrImgHtml(assets.qrDataUrl),
     });
-    const html = buildPreviewHtml({ sizeConfig, labelsMarkup });
+    const html = await buildPreviewHtml({ sizeConfig, labelsMarkup });
 
     res.set("Content-Type", "text/html; charset=utf-8");
     res.send(html);

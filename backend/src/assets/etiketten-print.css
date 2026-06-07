@@ -1,0 +1,188 @@
+@page {
+  size: {{LABEL_W}} {{LABEL_H}};
+  margin: 0mm;
+}
+
+html,
+body {
+  width: {{LABEL_W}};
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  overflow: hidden;
+}
+
+body.etiketten-body {
+  font-family: Arial, Helvetica, sans-serif;
+  width: {{LABEL_W}};
+}
+
+:root {
+  --label-w: {{LABEL_W}};
+  --label-h: {{LABEL_H}};
+  --brand-h: {{BRAND_H}};
+  --art-size: {{ART_SIZE}};
+  --hint-size: {{HINT_SIZE}};
+  --qr-size: min(calc(var(--label-w) * 0.44), calc(var(--label-h) * 0.44));
+}
+
+.sheet {
+  width: {{LABEL_W}};
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.label {
+  box-sizing: border-box;
+  width: {{LABEL_W}};
+  height: {{LABEL_H}};
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  page-break-after: always;
+  break-after: page;
+  overflow: hidden;
+}
+
+.label:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.label .rot {
+  transform: rotate(90deg);
+  transform-origin: center center;
+  width: {{LABEL_H}};
+  height: {{LABEL_W}};
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 0.8mm 1.1mm;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.logo-container {
+  width: 100%;
+  margin: 0.5em 0;
+  flex: 0 0 calc(var(--brand-h) * 1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.brand-text {
+  text-align: center;
+  font-weight: bold;
+  font-size: calc(var(--brand-h) * 0.95);
+  width: 100%;
+  line-height: 1;
+}
+
+.dotted-line {
+  width: 100%;
+  border-bottom: 1px dotted #000;
+  margin: 1mm;
+  flex-shrink: 0;
+}
+
+.artnr {
+  text-align: center;
+  font-weight: bold;
+  font-size: min(calc(var(--art-size) * 0.74), calc(var(--label-h) * 0.2));
+  line-height: 1;
+  letter-spacing: 0.1mm;
+}
+
+.artnr.compact {
+  font-size: min(calc(var(--art-size) * 0.64), calc(var(--label-h) * 0.17));
+  letter-spacing: 0.02mm;
+}
+
+.hints-container {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  text-align: center;
+  font-size: calc(var(--hint-size) * 0.68);
+}
+
+.hints-title {
+  margin: 0.5mm 0 0.3mm;
+  font-weight: 600;
+  font-size: calc(var(--hint-size) * 0.68);
+  line-height: 1;
+}
+
+.hints-table {
+  margin: 0.4mm 0.2em 0.3mm;
+  border-collapse: collapse;
+}
+
+.hints-table td {
+  width: 50%;
+  text-align: left;
+  font-size: calc(var(--hint-size) * 0.68);
+  line-height: 1.1;
+  font-weight: 400;
+  vertical-align: top;
+  padding: 0.2mm 0;
+}
+
+.empty-space {
+  flex: 1 1 auto;
+}
+
+.bottom-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+}
+
+.warn-symbol {
+  height: auto;
+  max-height: calc(var(--qr-size) * 1);
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.qr-img {
+  width: calc(var(--qr-size) * 1.2);
+  height: calc(var(--qr-size) * 1.2);
+  object-fit: contain;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  image-rendering: auto;
+  image-rendering: crisp-edges;
+}
+
+@media print {
+  html,
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
