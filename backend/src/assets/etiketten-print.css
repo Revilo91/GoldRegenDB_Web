@@ -109,6 +109,18 @@ body.etiketten-body {
     width: {{LABEL_H}};
     height: {{LABEL_W}};
   }
+
+  /* 30x20: Kein 90°-Rotate, damit das Etikett selbst im Querformat bleibt */
+  .label--extra-small .rot {
+    transform: none;
+    width: 100%;
+    height: 100%;
+  }
+
+  .label--extra-small .brand-logo,
+  .label--extra-small .brand-text {
+    transform: none;
+  }
 }
 
 .logo-container {

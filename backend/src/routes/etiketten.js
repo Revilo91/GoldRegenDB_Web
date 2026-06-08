@@ -278,6 +278,9 @@ const buildQrImgHtml = (qrDataUrl) => {
 const buildLabelMarkup = ({ row, qty }, templateData) => {
   const articleNumber = String(row.Artikelnummer || "").split("_")[0];
   const artNrClass = articleNumber.length > 7 ? "artnr compact" : "artnr";
+  const labelClass = templateData.labelSize
+    ? `label label--${templateData.labelSize}`
+    : "label";
   const bottomRowClass = templateData.qrImgHtml
     ? "bottom-row"
     : "bottom-row bottom-row--no-qr";
@@ -285,7 +288,7 @@ const buildLabelMarkup = ({ row, qty }, templateData) => {
 
   for (let index = 0; index < qty; index++) {
     labels.push(`
-      <div class="label">
+      <div class="${labelClass}">
         <div class="rot">
           <div class="logo-container">${templateData.brandHtml}</div>
           <div class="dotted-line"></div>
@@ -360,6 +363,13 @@ const buildPreviewHtml = async ({ sizeConfig, labelsMarkup }) => {
     </html>`;
 };
 
+const normalizeLabelSizeKey = (labelSize) => {
+  const value = String(labelSize || "small").trim();
+  return Object.prototype.hasOwnProperty.call(LABEL_SIZE_DEFAULTS, value)
+    ? value
+    : "small";
+};
+
 const sendTextFile = async (res, filePath, contentType, notFoundResponse) => {
   try {
     const content = await readTextFileIfExists(filePath);
@@ -431,12 +441,14 @@ router.post("/preview", async (req, res) => {
     const materialHints = normalizeMaterialHints(req.body.materialHints);
     const details = await fetchLabelDetails(items);
     const assets = await loadPreviewAssets();
-    const sizeConfig = resolveLabelSize(req.body.labelSize, assets.cssContent);
+    const labelSizeKey = normalizeLabelSizeKey(req.body.labelSize);
+    const sizeConfig = resolveLabelSize(labelSizeKey, assets.cssContent);
     const labelsMarkup = buildLabelsMarkup(details, {
       brandHtml: buildBrandHtml(assets.brandDataUrl),
       hintsHtml: buildHintsHtml(materialHints),
       warnImgHtml: buildWarnImgHtml(assets.warnDataUrl),
       qrImgHtml: sizeConfig.showQr ? buildQrImgHtml(assets.qrDataUrl) : "",
+      labelSize: labelSizeKey,
     });
     const html = await buildPreviewHtml({ sizeConfig, labelsMarkup });
 
