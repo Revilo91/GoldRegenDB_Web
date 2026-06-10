@@ -44,7 +44,7 @@ import SchmuckstueckDetail from "./pages/SchmuckstueckDetail";
 import "./index.css";
 
 function AppLayout() {
-  const { user, logout, mustChangePassword, clearMustChangePassword } =
+  const { user, loading, logout, mustChangePassword, clearMustChangePassword } =
     useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -117,7 +117,14 @@ function AppLayout() {
       setPasswordError(err.message);
     }
   };
-
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        Laden…
+      </div>
+    );
+  }
   if (!user) {
     return (
       <Routes>
@@ -148,8 +155,7 @@ function AppLayout() {
         <button
           className="menu-toggle"
           onClick={toggleMobileMenu}
-          aria-label="Menu"
-        >
+          aria-label="Menu">
           <FontAwesomeIcon icon={isMobileMenuOpen ? faTimes : faBars} />
         </button>
       </header>
@@ -169,87 +175,92 @@ function AppLayout() {
         </div>
         <nav className="sidebar-nav">
           {isBearbeiter && (
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faChartBar} />
-            </span>
-            <span>Dashboard</span>
-          </NavLink>
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+              onClick={closeMobileMenu}>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={faChartBar} />
+              </span>
+              <span>Dashboard</span>
+            </NavLink>
           )}
           <NavLink
             to="/schmuckstuecke"
             className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
+            onClick={closeMobileMenu}>
             <span className="nav-icon">
               <FontAwesomeIcon icon={faGem} />
             </span>
             <span>Schmuckstücke</span>
           </NavLink>
           {isBearbeiter && (
-          <NavLink
-            to="/kunden"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faUsers} />
-            </span>
-            <span>Kunden</span>
-          </NavLink>
+            <NavLink
+              to="/kunden"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+              onClick={closeMobileMenu}>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={faUsers} />
+              </span>
+              <span>Kunden</span>
+            </NavLink>
           )}
           {isBearbeiter && (
-          <NavLink
-            to="/lieferscheine"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faBox} />
-            </span>
-            <span>Lieferscheine</span>
-          </NavLink>
+            <NavLink
+              to="/lieferscheine"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+              onClick={closeMobileMenu}>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={faBox} />
+              </span>
+              <span>Lieferscheine</span>
+            </NavLink>
           )}
           {isBearbeiter && (
-          <NavLink
-            to="/rechnungen"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faFileInvoice} />
-            </span>
-            <span>Rechnungen</span>
-          </NavLink>
+            <NavLink
+              to="/rechnungen"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+              onClick={closeMobileMenu}>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={faFileInvoice} />
+              </span>
+              <span>Rechnungen</span>
+            </NavLink>
           )}
           {isBearbeiter && (
-          <NavLink
-            to="/sumup"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faCreditCard} />
-            </span>
-            <span>SumUp</span>
-          </NavLink>
+            <NavLink
+              to="/sumup"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+              onClick={closeMobileMenu}>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={faCreditCard} />
+              </span>
+              <span>SumUp</span>
+            </NavLink>
           )}
           {isBearbeiter && (
-          <NavLink
-            to="/inventur"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faWarehouse} />
-            </span>
-            <span>Inventur</span>
-          </NavLink>
+            <NavLink
+              to="/inventur"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? "active" : ""}`
+              }
+              onClick={closeMobileMenu}>
+              <span className="nav-icon">
+                <FontAwesomeIcon icon={faWarehouse} />
+              </span>
+              <span>Inventur</span>
+            </NavLink>
           )}
           {isAdmin && (
             <div className="nav-section-admin">
@@ -261,8 +272,7 @@ function AppLayout() {
                 className={({ isActive }) =>
                   `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
-                onClick={closeMobileMenu}
-              >
+                onClick={closeMobileMenu}>
                 <span className="nav-icon">
                   <FontAwesomeIcon icon={faClipboardList} />
                 </span>
@@ -273,8 +283,7 @@ function AppLayout() {
                 className={({ isActive }) =>
                   `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
-                onClick={closeMobileMenu}
-              >
+                onClick={closeMobileMenu}>
                 <span className="nav-icon">
                   <FontAwesomeIcon icon={faWrench} />
                 </span>
@@ -285,8 +294,7 @@ function AppLayout() {
                 className={({ isActive }) =>
                   `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
-                onClick={closeMobileMenu}
-              >
+                onClick={closeMobileMenu}>
                 <span className="nav-icon">
                   <FontAwesomeIcon icon={faUserLock} />
                 </span>
@@ -297,8 +305,7 @@ function AppLayout() {
                 className={({ isActive }) =>
                   `nav-link nav-link-admin ${isActive ? "active" : ""}`
                 }
-                onClick={closeMobileMenu}
-              >
+                onClick={closeMobileMenu}>
                 <span className="nav-icon">
                   <FontAwesomeIcon icon={faDatabase} />
                 </span>
@@ -311,12 +318,15 @@ function AppLayout() {
           <button
             className="btn btn-secondary btn-sm user-menu-btn"
             onClick={toggleUserMenu}
-            aria-label="Benutzermenü"
-          >
+            aria-label="Benutzermenü">
             <FontAwesomeIcon icon={faUser} />
             <span className="sidebar-username">{user.username}</span>
             <span className={`role-badge role-${user.role}`}>
-              {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
+              {user.role === "admin"
+                ? "Admin"
+                : user.role === "bearbeiter"
+                  ? "Bearbeiter"
+                  : "Benutzer"}
             </span>
           </button>
         </div>
@@ -325,15 +335,16 @@ function AppLayout() {
       {/* User Menu Modal */}
       {showUserMenu && (
         <div className="modal-overlay">
-          <div className="modal user-menu-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal user-menu-modal"
+            onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
                 <FontAwesomeIcon icon={faUser} /> Benutzerkonto
               </h3>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={closeUserMenu}
-              >
+                onClick={closeUserMenu}>
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
@@ -346,7 +357,11 @@ function AppLayout() {
                 <div className="user-info-row">
                   <strong>Rolle:</strong>
                   <span className={`role-badge role-${user.role}`}>
-                    {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
+                    {user.role === "admin"
+                      ? "Admin"
+                      : user.role === "bearbeiter"
+                        ? "Bearbeiter"
+                        : "Benutzer"}
                   </span>
                 </div>
                 {user.email && (
@@ -359,8 +374,7 @@ function AppLayout() {
               <div className="user-menu-actions">
                 <button
                   className="btn btn-primary btn-block"
-                  onClick={openPasswordModal}
-                >
+                  onClick={openPasswordModal}>
                   <FontAwesomeIcon icon={faKey} /> Passwort ändern
                 </button>
                 <button
@@ -368,8 +382,7 @@ function AppLayout() {
                   onClick={() => {
                     closeUserMenu();
                     logout();
-                  }}
-                >
+                  }}>
                   <FontAwesomeIcon icon={faSignOutAlt} /> Abmelden
                 </button>
               </div>
@@ -391,8 +404,7 @@ function AppLayout() {
               {!showForcedPasswordChange && (
                 <button
                   className="btn btn-secondary btn-sm"
-                  onClick={closePasswordModal}
-                >
+                  onClick={closePasswordModal}>
                   <FontAwesomeIcon icon={faTimes} />
                 </button>
               )}
@@ -407,8 +419,7 @@ function AppLayout() {
                     color: "#f59e0b",
                     borderRadius: "var(--radius-sm)",
                     fontSize: 14,
-                  }}
-                >
+                  }}>
                   Bitte ändern Sie Ihr Passwort, bevor Sie fortfahren können.
                   Geben Sie Ihr aktuelles Einmalpasswort und ein neues Passwort
                   ein.
@@ -423,8 +434,7 @@ function AppLayout() {
                     color: "var(--danger)",
                     borderRadius: "var(--radius-sm)",
                     fontSize: 14,
-                  }}
-                >
+                  }}>
                   {passwordError}
                 </div>
               )}
@@ -437,8 +447,7 @@ function AppLayout() {
                     color: "var(--success, #10b981)",
                     borderRadius: "var(--radius-sm)",
                     fontSize: 14,
-                  }}
-                >
+                  }}>
                   {passwordSuccess}
                 </div>
               )}
@@ -459,8 +468,7 @@ function AppLayout() {
                       onClick={() =>
                         setShowCurrentPassword(!showCurrentPassword)
                       }
-                      style={{ padding: "6px 12px", minWidth: 40 }}
-                    >
+                      style={{ padding: "6px 12px", minWidth: 40 }}>
                       {showCurrentPassword ? "🙈" : "👁️"}
                     </button>
                   </div>
@@ -481,8 +489,7 @@ function AppLayout() {
                       onClick={() =>
                         setShowNewPasswordField(!showNewPasswordField)
                       }
-                      style={{ padding: "6px 12px", minWidth: 40 }}
-                    >
+                      style={{ padding: "6px 12px", minWidth: 40 }}>
                       {showNewPasswordField ? "🙈" : "👁️"}
                     </button>
                   </div>
@@ -505,16 +512,14 @@ function AppLayout() {
               {!showForcedPasswordChange && (
                 <button
                   className="btn btn-secondary"
-                  onClick={closePasswordModal}
-                >
+                  onClick={closePasswordModal}>
                   Abbrechen
                 </button>
               )}
               <button
                 className="btn btn-primary"
                 onClick={handleChangePassword}
-                disabled={!currentPassword || !newPassword || !confirmPassword}
-              >
+                disabled={!currentPassword || !newPassword || !confirmPassword}>
                 Passwort ändern
               </button>
             </div>
@@ -624,7 +629,12 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
-          <Route path="/login" element={<Navigate to={isBearbeiter ? "/" : "/schmuckstuecke"} replace />} />
+          <Route
+            path="/login"
+            element={
+              <Navigate to={isBearbeiter ? "/" : "/schmuckstuecke"} replace />
+            }
+          />
         </Routes>
       </main>
     </>

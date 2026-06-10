@@ -32,6 +32,8 @@ jobs:
           JWT_SECRET: test-secret-ci
         run: npm test
 
+
+
   frontend-tests:
     name: Frontend Tests (Vitest)
     runs-on: ubuntu-latest
@@ -55,4 +57,35 @@ jobs:
 
       - name: Tests ausführen
         working-directory: frontend
+        run: npm test
+
+  e2e-tests:
+    name: End-to-End Tests (Playwright)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        working-directory: e2e
+        run: npm ci
+
+      - name: Tests ausführen
+        working-directory: e2e
+        env:
+          API_URL: http://localhost:3001/api
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: /usr/bin/google-chrome
         run: npm test
