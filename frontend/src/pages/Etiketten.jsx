@@ -16,6 +16,7 @@ export default function Etiketten({ showHeader = true }) {
   const [selectedHints, setSelectedHints] = useState([]);
   const [customHint, setCustomHint] = useState("");
   const [loading, setLoading] = useState(false);
+  const [activeAction, setActiveAction] = useState("preview");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rowQty, setRowQty] = useState({});
@@ -124,8 +125,21 @@ export default function Etiketten({ showHeader = true }) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  async function preview() {
+  async function preview({ autoPrint = false } = {}) {
     if (items.length === 0) return alert("Keine Artikel ausgewählt");
+    const previewWindow = window.open("", "_blank");
+    if (!previewWindow) {
+      alert("Popup blockiert. Bitte Popups für diese Seite erlauben.");
+      return;
+    }
+
+    previewWindow.document.open();
+    previewWindow.document.write(
+      "<html><head><title>Etiketten</title></head><body style=\"font-family: Arial, sans-serif; padding: 16px;\">Lade Etiketten...</body></html>",
+    );
+    previewWindow.document.close();
+
+    setActiveAction(autoPrint ? "print" : "preview");
     setLoading(true);
     try {
       const html = await api.getEtikettenPreview({
@@ -136,15 +150,29 @@ export default function Etiketten({ showHeader = true }) {
       // The backend already returns a full HTML document (including <head> and
       // a link to /api/etiketten/styles.css). Write it verbatim into the new
       // window so the stylesheet and scripts from the backend are applied.
-      const w = window.open("", "_blank");
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
+      if (autoPrint) {
+        previewWindow.onload = () => {
+          previewWindow.focus();
+          setTimeout(() => {
+            previewWindow.print();
+          }, 120);
+        };
+      }
+
+      previewWindow.document.open();
+      previewWindow.document.write(html);
+      previewWindow.document.close();
     } catch (err) {
       console.error(err);
-      alert("Fehler beim Erstellen der Vorschau");
+      previewWindow.close();
+      alert(
+        autoPrint
+          ? "Fehler beim Drucken (Popup eventuell blockiert)"
+          : "Fehler beim Erstellen der Vorschau",
+      );
     } finally {
       setLoading(false);
+      setActiveAction("preview");
     }
   }
 
@@ -459,9 +487,19 @@ export default function Etiketten({ showHeader = true }) {
       <div style={{ display: "flex", gap: 8 }}>
         <button
           className="btn btn-primary"
-          onClick={preview}
+          onClick={() => preview({ autoPrint: false })}
           disabled={loading}>
-          {loading ? "Erzeuge..." : "Vorschau öffnen"}
+          {loading && activeAction === "preview"
+            ? "Erzeuge..."
+            : "Vorschau öffnen"}
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => preview({ autoPrint: true })}
+          disabled={loading}>
+          {loading && activeAction === "print"
+            ? "Drucke..."
+            : "Direkt drucken"}
         </button>
         <button
           className="btn"
