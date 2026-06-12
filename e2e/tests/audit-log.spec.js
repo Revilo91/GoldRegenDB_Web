@@ -4,6 +4,13 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  // await page.goto('/login');
+  // await page.fill('#username', process.env.TEST_USERNAME || 'admin');
+  // await page.fill('#password', process.env.TEST_PASSWORD || 'admin');
+  // await page.click('button[type="submit"]');
+  // await page.waitForURL((url) => !url.pathname.includes('/login'), {
+  //   timeout: 10_000,
+  // });
   await page.goto('/audit-log');
   await page.waitForLoadState('networkidle');
 });

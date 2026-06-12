@@ -47,7 +47,7 @@ test.describe('Login', () => {
     await page.click('button[type="submit"]');
 
     // Entweder Dashboard (/) oder /schmuckstuecke je nach Rolle
-    await page.waitForURL((url) => !url.pathname.includes('/login'), {
+    await page.lowaitForURL((url) => !url.pathname.includes('/login'), {
       timeout: 10_000,
     });
 
