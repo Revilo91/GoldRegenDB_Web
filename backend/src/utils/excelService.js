@@ -5,6 +5,7 @@ const sizeOf = require("image-size");
 
 const CONTACTS = {
   GOLDREGEN: {
+    company: "Goldregen Schmuckdesign",
     name: "Marina Südholt",
     mobile: "0152 22731186",
     email: "goldregen.schmuckdesign@gmail.com",
@@ -12,6 +13,7 @@ const CONTACTS = {
     bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447",
   },
   TCS: {
+    company: "TechCraft Südholt",
     name: "Oliver Südholt",
     mobile: "0151 21832342",
     email: "techcraftsuedholt@gmail.com",
@@ -591,7 +593,7 @@ async function generateExcel(type, data, logoPath) {
   // Footer
   const f = '&"Calibri,Regular"&8 ';
 
-  const left = `&L${f}${contact.name}\n${f}${BUSINESS_ADDRESS}`;
+  const left = `&L${f}${contact.company}\n${contact.name}\n${f}${BUSINESS_ADDRESS}`;
   const center = `&C${f}${contact.mobile}\n${f}${contact.email}\n${f}${contact.website}`;
   const right = `&R${f}${contact.bank}`;
 
