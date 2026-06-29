@@ -610,9 +610,154 @@ export default function DocumentManager({
                     </div>
                   </div>
                 )}
-                {/* Provision, Aufteilung, Schmuckstücke analog zu Originaldateien */}
-                {/* ...hier kann je nach type/labels weiteres Rendering erfolgen... */}
               </div>
+              {/* Aufteilung Marina & Saskia */}
+              {detail.schmuckstuecke?.length > 0 && (
+                <div
+                  style={{
+                    fontSize: "0.85em",
+                    color: "#666",
+                    marginTop: 16,
+                    padding: "12px",
+                    backgroundColor: "#f9f9f9",
+                    borderRadius: "4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}>
+                  <label
+                    style={{
+                      fontSize: "0.9em",
+                      marginBottom: "0",
+                      display: "block",
+                      color: "#888",
+                      fontWeight: "600",
+                    }}>
+                    Aufteilung (Netto nach Provision):
+                  </label>
+                  {(() => {
+                    const totalBrutto = detail.schmuckstuecke.reduce(
+                      (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                      0,
+                    );
+                    const provisionPercent = Number(detail.Provision) || 0;
+                    const provisionValue =
+                      totalBrutto * (provisionPercent / 100);
+                    const totalNetto = totalBrutto - provisionValue;
+
+                    const marinaBrutto = detail.schmuckstuecke
+                      .filter((s) =>
+                        s.Artikelnummer?.toUpperCase().startsWith("M"),
+                      )
+                      .reduce(
+                        (sum, s) =>
+                          sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      );
+                    const saskiaBrutto = detail.schmuckstuecke
+                      .filter((s) =>
+                        s.Artikelnummer?.toUpperCase().startsWith("S"),
+                      )
+                      .reduce(
+                        (sum, s) =>
+                          sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      );
+
+                    const marinaNetto =
+                      marinaBrutto * (1 - provisionPercent / 100);
+                    const saskiaNetto =
+                      saskiaBrutto * (1 - provisionPercent / 100);
+
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}>
+                        <div
+                          style={{
+                            paddingBottom: "8px",
+                            borderBottom: "1px solid #ddd",
+                          }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              marginBottom: "4px",
+                            }}>
+                            <span>Gesamtwert (brutto):</span>
+                            <strong>{totalBrutto.toFixed(2)} €</strong>
+                          </div>
+                          {provisionPercent > 0 && (
+                            <>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: "4px",
+                                  color: "#d9534f",
+                                }}>
+                                <span>Provision ({provisionPercent}%):</span>
+                                <strong>
+                                  -{provisionValue.toFixed(2)} €
+                                </strong>
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontWeight: "600",
+                                }}>
+                                <span>Gesamtwert (netto):</span>
+                                <strong>{totalNetto.toFixed(2)} €</strong>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                            flexWrap: "wrap",
+                          }}>
+                          {marinaBrutto > 0 && (
+                            <div>
+                              <strong>Marina:</strong>{" "}
+                              {marinaNetto.toFixed(2)} €
+                              <span
+                                style={{
+                                  fontSize: "0.9em",
+                                  color: "#999",
+                                  marginLeft: "4px",
+                                }}>
+                                ({marinaBrutto.toFixed(2)} brutto)
+                              </span>
+                            </div>
+                          )}
+                          {saskiaBrutto > 0 && (
+                            <div>
+                              <strong>Saskia:</strong>{" "}
+                              {saskiaNetto.toFixed(2)} €
+                              <span
+                                style={{
+                                  fontSize: "0.9em",
+                                  color: "#999",
+                                  marginLeft: "4px",
+                                }}>
+                                ({saskiaBrutto.toFixed(2)} brutto)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               {detail.schmuckstuecke?.length > 0 && (
                 <>
                   <h4 className="modal-body h4">
