@@ -4,6 +4,8 @@ const path = require("path");
 const sizeOf = require("image-size");
 const { GRUNDMATERIAL } = require("./constants");
 
+const DEFAULT_LOGO_PATH = path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png");
+
 const CONTACTS = {
   GOLDREGEN: {
     company: "Goldregen Schmuckdesign",
@@ -24,8 +26,6 @@ const CONTACTS = {
 };
 
 const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
-
-);
 
 const INVENTUR_COLUMNS = [
   { header: "Artikelnummer", key: "Artikelnummer", width: 18 },
