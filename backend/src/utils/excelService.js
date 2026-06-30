@@ -4,7 +4,10 @@ const path = require("path");
 const sizeOf = require("image-size");
 const { GRUNDMATERIAL } = require("./constants");
 
-const DEFAULT_LOGO_PATH = path.join(__dirname, "../assets/Logo trasparent weißer Kreis.png");
+const DEFAULT_LOGO_PATH = path.join(
+  __dirname,
+  "../assets/Logo trasparent weißer Kreis.png",
+);
 
 const CONTACTS = {
   GOLDREGEN: {
@@ -73,7 +76,14 @@ function formatCell(cell, options = {}) {
   }
 }
 
-function addInventurSheet(workbook, sheetName, sheetItems, accentArgb, kunde, today) {
+function addInventurSheet(
+  workbook,
+  sheetName,
+  sheetItems,
+  accentArgb,
+  kunde,
+  today,
+) {
   const ws = workbook.addWorksheet(sheetName);
   ws.pageSetup.paperSize = 9;
   ws.pageSetup.orientation = "landscape";
@@ -137,7 +147,6 @@ function addInventurSheet(workbook, sheetName, sheetItems, accentArgb, kunde, to
   // Re-apply column widths
   autoFitColumns(ws);
 }
-
 
 /**
  * Auto-fit columns based on content with support for merged cells
@@ -214,7 +223,6 @@ function autoFitColumns(worksheet) {
     }
   });
 }
-
 
 async function generateExcel(type, data, logoPath) {
   const workbook = new ExcelJS.Workbook();
@@ -418,7 +426,9 @@ async function generateExcel(type, data, logoPath) {
       formatCell(cell, {
         bold: true,
         fillColor: "FFF2F2F2",
-        alignment: headerText ? { horizontal: "center", vertical: "center" } : undefined
+        alignment: headerText
+          ? { horizontal: "center", vertical: "center" }
+          : undefined,
       });
     }
 
@@ -489,10 +499,13 @@ async function generateExcel(type, data, logoPath) {
 
     const menge = articleCounts[artikelnummerBasis] || 1;
     const einzelpreisOriginal = Number(s.Verkaufspreis) || 0;
-    const itemRabattPercent = Number(data.rabatt_positionen?.[artikelnummerBasis] || 0);
-    const einzelpreis = itemRabattPercent > 0
-      ? einzelpreisOriginal * (1 - itemRabattPercent / 100)
-      : einzelpreisOriginal;
+    const itemRabattPercent = Number(
+      data.rabatt_positionen?.[artikelnummerBasis] || 0,
+    );
+    const einzelpreis =
+      itemRabattPercent > 0
+        ? einzelpreisOriginal * (1 - itemRabattPercent / 100)
+        : einzelpreisOriginal;
 
     if (itemRabattPercent > 0) {
       row.getCell(3).value = `${bezeichnung} (Rabatt: ${itemRabattPercent}%)`;
@@ -669,7 +682,7 @@ async function generateExcel(type, data, logoPath) {
   // Footer
   const f = '&"Calibri,Regular"&8 ';
 
-  const left = `&L${f}${contact.company}\n${contact.name}\n${f}${BUSINESS_ADDRESS}`;
+  const left = `&L${f}${contact.company}\n${f}${contact.name}\n${f}${BUSINESS_ADDRESS}`;
   const center = `&C${f}${contact.mobile}\n${f}${contact.email}\n${f}${contact.website}`;
   const right = `&R${f}${contact.bank}`;
 
@@ -730,7 +743,11 @@ async function generateInventurExcel(kunde, items) {
 
   const summaryHeaders = ws.addRow(["Status", "Anzahl", "Gesamtwert"]);
   summaryHeaders.eachCell((cell) => {
-    formatCell(cell, { bold: true, fillColor: "FFF2F2F2", alignment: { horizontal: "center" } });
+    formatCell(cell, {
+      bold: true,
+      fillColor: "FFF2F2F2",
+      alignment: { horizontal: "center" },
+    });
   });
 
   const addSummaryRow = (label, arr, argb) => {
