@@ -15,36 +15,26 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Hilfsfunktion: Prüfe ob eine Fotodatei mit der Artikelnummer (base) existiert
-const findPhotoForArtikel = (artikelnummer) => {
-  const baseArtikelnummer = artikelnummer.split("_")[0]; // z.B. "MXO002" aus "MXO002_1"
-  const files = fs.readdirSync(uploadsDir);
-  for (const file of files) {
-    const fileNameWithoutExt = path.parse(file).name;
-    if (fileNameWithoutExt === baseArtikelnummer) {
-      return file; // z.B. "MXO002.jpg"
-    }
-  }
-  return null;
-};
-
-function resolvePhotoFile(fileName) {
-  const requestedFileName = path.basename(String(fileName || "").trim());
+// Hilfsfunktion: Löst Artikelnummer oder Dateiname zu einer existierenden Fotodatei auf
+function resolvePhotoFile(identifier) {
+  const requestedFileName = path.basename(String(identifier || "").trim());
 
   if (!requestedFileName) {
     return { error: "Ungültiger Dateiname", requestedFileName };
   }
 
+  // 1. Direkter Match falls vorhanden (z.B. "MXO002.jpg")
   const directPath = path.join(uploadsDir, requestedFileName);
   if (fs.existsSync(directPath)) {
     return { filePath: directPath, resolvedFileName: requestedFileName, resolvedBy: "exact" };
   }
 
-  const baseName = path.parse(requestedFileName).name;
+  // 2. Suche nach Basis-Artikelnummer (ohne Suffix _1, _2 oder Dateiendung)
+  const baseName = path.parse(requestedFileName.split("_")[0]).name;
   const files = fs.readdirSync(uploadsDir);
   const matchingFiles = files.filter((file) => path.parse(file).name === baseName);
 
-  if (matchingFiles.length === 1) {
+  if (matchingFiles.length >= 1) {
     return {
       filePath: path.join(uploadsDir, matchingFiles[0]),
       resolvedFileName: matchingFiles[0],
@@ -60,6 +50,7 @@ function resolvePhotoFile(fileName) {
     availableFiles: files.length,
   };
 }
+
 
 // Multer-Konfiguration für Foto-Upload
 const storage = multer.diskStorage({
@@ -601,9 +592,9 @@ router.get("/", async (req, res) => {
     const processedRows = rows.map((row) => {
       // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
       if (!row.Foto || row.Foto.trim() === "") {
-        const photoFile = findPhotoForArtikel(row.Artikelnummer);
-        if (photoFile) {
-          row.Foto = photoFile;
+        const photoResult = resolvePhotoFile(row.Artikelnummer);
+        if (photoResult && !photoResult.error) {
+          row.Foto = photoResult.resolvedFileName;
         }
       }
       return {
@@ -868,9 +859,9 @@ router.get("/:artikelnummer", async (req, res) => {
 
     // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
     if (!result.Foto || result.Foto.trim() === "") {
-      const photoFile = findPhotoForArtikel(req.params.artikelnummer);
-      if (photoFile) {
-        result.Foto = photoFile;
+      const photoResult = resolvePhotoFile(req.params.artikelnummer);
+      if (photoResult && !photoResult.error) {
+        result.Foto = photoResult.resolvedFileName;
       }
     }
 
@@ -1068,9 +1059,9 @@ router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
     // Ansonsten: Prüfe ob eine Datei existiert
     let fotoValue = b.Foto || "";
     if (!fotoValue || fotoValue.trim() === "") {
-      const photoFile = findPhotoForArtikel(req.params.artikelnummer);
-      if (photoFile) {
-        fotoValue = photoFile;
+      const photoResult = resolvePhotoFile(req.params.artikelnummer);
+      if (photoResult && !photoResult.error) {
+        fotoValue = photoResult.resolvedFileName;
       }
     }
 

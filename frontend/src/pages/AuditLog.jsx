@@ -19,7 +19,7 @@ export default function AuditLog() {
     api
       .getAuditLog({ page, limit: 100, search })
       .then(setData)
-      .catch(console.error)
+      .catch((err) => alert("Fehler beim Laden des Audit-Logs: " + err.message))
       .finally(() => setLoading(false));
   }, [page, search]);
 

@@ -1129,7 +1129,7 @@ function LagerInventurEditor({ draftId, onBack }) {
         }
       })
       .catch((err) =>
-        console.error("Fehler beim Laden der Artikelnummern", err),
+        alert("Fehler beim Laden der Artikelnummern: " + err.message)
       );
   }, [draftId, onBack]);
 
@@ -1159,7 +1159,7 @@ function LagerInventurEditor({ draftId, onBack }) {
       if (showSuccessAlert) {
         alert("Fehler beim Speichern: " + err.message);
       } else {
-        console.error("Speicher-Fehler:", err);
+        alert("Automatische Speicherung fehlgeschlagen: " + err.message);
       }
       throw err;
     } finally {

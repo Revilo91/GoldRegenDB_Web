@@ -25,10 +25,119 @@ const CONTACTS = {
 
 const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
 
-const DEFAULT_LOGO_PATH = path.join(
-  __dirname,
-  "../assets/Logo trasparent weißer Kreis.png",
 );
+
+const INVENTUR_COLUMNS = [
+  { header: "Artikelnummer", key: "Artikelnummer", width: 18 },
+  { header: "Name", key: "Name", width: 25 },
+  { header: "Art", key: "Art", width: 16 },
+  { header: "Farbe", key: "Farbe", width: 16 },
+  { header: "Material", key: "Material", width: 16 },
+  { header: "Verkaufspreis", key: "Verkaufspreis", width: 16 },
+  { header: "Erstelldatum", key: "Erstelldatum", width: 16 },
+];
+
+const THIN_BORDER = {
+  top: { style: "thin", color: { argb: "FFBCBCBC" } },
+  left: { style: "thin", color: { argb: "FFBCBCBC" } },
+  bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
+  right: { style: "thin", color: { argb: "FFBCBCBC" } },
+};
+
+function formatCell(cell, options = {}) {
+  cell.font = {
+    name: options.fontName || "Calibri",
+    size: options.fontSize || 10,
+    bold: !!options.bold,
+    color: options.fontColor ? { argb: options.fontColor } : undefined,
+  };
+
+  if (options.border !== false) {
+    cell.border = options.border || THIN_BORDER;
+  }
+
+  if (options.fillColor) {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: options.fillColor },
+    };
+  }
+
+  if (options.alignment) {
+    cell.alignment = options.alignment;
+  }
+
+  if (options.numFmt) {
+    cell.numFmt = options.numFmt;
+  }
+}
+
+function addInventurSheet(workbook, sheetName, sheetItems, accentArgb, kunde, today) {
+  const ws = workbook.addWorksheet(sheetName);
+  ws.pageSetup.paperSize = 9;
+  ws.pageSetup.orientation = "landscape";
+  ws.pageSetup.fitToPage = true;
+  ws.pageSetup.fitToWidth = 1;
+  ws.pageSetup.fitToHeight = 0;
+
+  // Title rows
+  ws.mergeCells("A1:G1");
+  const titleCell = ws.getCell("A1");
+  titleCell.value = `Inventur – ${kunde.Name}`;
+  titleCell.font = { name: "Calibri", bold: true, size: 14 };
+  titleCell.alignment = { horizontal: "left" };
+
+  ws.mergeCells("A2:G2");
+  const subCell = ws.getCell("A2");
+  subCell.value = `${sheetName}  •  Stand: ${today}  •  ${sheetItems.length} Artikel`;
+  subCell.font = { name: "Calibri", size: 10, color: { argb: "FF6B7280" } };
+
+  ws.addRow([]); // spacer
+
+  // Column headers
+  ws.columns = INVENTUR_COLUMNS;
+  const headerRow = ws.addRow(INVENTUR_COLUMNS.map((c) => c.header));
+  headerRow.eachCell((cell) => {
+    formatCell(cell, {
+      bold: true,
+      fillColor: accentArgb,
+      alignment: { horizontal: "center", vertical: "middle" },
+    });
+  });
+
+  // Data rows
+  let totalValue = 0;
+  sheetItems.forEach((item) => {
+    const price = Number(item.Verkaufspreis) || 0;
+    totalValue += price;
+    const row = ws.addRow([
+      item.Artikelnummer,
+      item.Name || "",
+      item.Art || "",
+      item.Farbe || "",
+      item.Material || "",
+      price,
+      item.Erstelldatum
+        ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
+        : "",
+    ]);
+    row.getCell(6).numFmt = "#,##0.00 €";
+    row.eachCell((cell) => {
+      formatCell(cell);
+    });
+  });
+
+  // Totals row
+  ws.addRow([]);
+  const totalRow = ws.addRow(["", "", "", "", "Gesamtwert:", totalValue, ""]);
+  formatCell(totalRow.getCell(5), { bold: true });
+  formatCell(totalRow.getCell(6), { bold: true, numFmt: "#,##0.00 €" });
+
+  // Re-apply column widths
+  autoFitColumns(ws);
+}
+
 
 /**
  * Auto-fit columns based on content with support for merged cells
@@ -305,21 +414,12 @@ async function generateExcel(type, data, logoPath) {
 
       if (headerText) {
         cell.value = headerText;
-        cell.alignment = { horizontal: "center", vertical: "center" };
       }
-
-      cell.font = { name: "Calibri", size: 10, bold: true };
-      cell.border = {
-        top: { style: "thin", color: { argb: "FFBCBCBC" } },
-        left: { style: "thin", color: { argb: "FFBCBCBC" } },
-        bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
-        right: { style: "thin", color: { argb: "FFBCBCBC" } },
-      };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFF2F2F2" },
-      };
+      formatCell(cell, {
+        bold: true,
+        fillColor: "FFF2F2F2",
+        alignment: headerText ? { horizontal: "center", vertical: "center" } : undefined
+      });
     }
 
     // Merge Cells für "Bezeichnung" (C-F)
@@ -405,13 +505,7 @@ async function generateExcel(type, data, logoPath) {
     row.getCell(9).numFmt = "#,##0.00 \u20ac";
 
     for (let i = 1; i <= 9; i++) {
-      row.getCell(i).font = { name: "Calibri", size: 10 };
-      row.getCell(i).border = {
-        top: { style: "thin", color: { argb: "FFBCBCBC" } },
-        left: { style: "thin", color: { argb: "FFBCBCBC" } },
-        bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
-        right: { style: "thin", color: { argb: "FFBCBCBC" } },
-      };
+      formatCell(row.getCell(i));
     }
 
     currentRow++;
@@ -604,107 +698,15 @@ async function generateInventurExcel(kunde, items) {
     year: "numeric",
   });
 
-  const COLUMNS = [
-    { header: "Artikelnummer", key: "Artikelnummer", width: 18 },
-    { header: "Name", key: "Name", width: 25 },
-    { header: "Art", key: "Art", width: 16 },
-    { header: "Farbe", key: "Farbe", width: 16 },
-    { header: "Material", key: "Material", width: 16 },
-    { header: "Verkaufspreis", key: "Verkaufspreis", width: 16 },
-    { header: "Erstelldatum", key: "Erstelldatum", width: 16 },
-  ];
-
-  const HEADER_FILL = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFF2F2F2" },
-  };
-  const THIN_BORDER = {
-    top: { style: "thin", color: { argb: "FFBCBCBC" } },
-    left: { style: "thin", color: { argb: "FFBCBCBC" } },
-    bottom: { style: "thin", color: { argb: "FFBCBCBC" } },
-    right: { style: "thin", color: { argb: "FFBCBCBC" } },
-  };
-
-  const addSheet = (sheetName, sheetItems, accentArgb) => {
-    const ws = workbook.addWorksheet(sheetName);
-    ws.pageSetup.paperSize = 9;
-    ws.pageSetup.orientation = "landscape";
-    ws.pageSetup.fitToPage = true;
-    ws.pageSetup.fitToWidth = 1;
-    ws.pageSetup.fitToHeight = 0;
-
-    // Title rows
-    ws.mergeCells("A1:G1");
-    const titleCell = ws.getCell("A1");
-    titleCell.value = `Inventur – ${kunde.Name}`;
-    titleCell.font = { name: "Calibri", bold: true, size: 14 };
-    titleCell.alignment = { horizontal: "left" };
-
-    ws.mergeCells("A2:G2");
-    const subCell = ws.getCell("A2");
-    subCell.value = `${sheetName}  •  Stand: ${today}  •  ${sheetItems.length} Artikel`;
-    subCell.font = { name: "Calibri", size: 10, color: { argb: "FF6B7280" } };
-
-    ws.addRow([]); // spacer
-
-    // Column headers
-    ws.columns = COLUMNS;
-    const headerRow = ws.addRow(COLUMNS.map((c) => c.header));
-    headerRow.eachCell((cell) => {
-      cell.font = { name: "Calibri", bold: true, size: 10 };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: accentArgb },
-      };
-      cell.border = THIN_BORDER;
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-    });
-
-    // Data rows
-    let totalValue = 0;
-    sheetItems.forEach((item) => {
-      const price = Number(item.Verkaufspreis) || 0;
-      totalValue += price;
-      const row = ws.addRow([
-        item.Artikelnummer,
-        item.Name || "",
-        item.Art || "",
-        item.Farbe || "",
-        item.Material || "",
-        price,
-        item.Erstelldatum
-          ? new Date(item.Erstelldatum).toLocaleDateString("de-DE")
-          : "",
-      ]);
-      row.getCell(6).numFmt = "#,##0.00 €";
-      row.eachCell((cell) => {
-        cell.font = { name: "Calibri", size: 10 };
-        cell.border = THIN_BORDER;
-      });
-    });
-
-    // Totals row
-    ws.addRow([]);
-    const totalRow = ws.addRow(["", "", "", "", "Gesamtwert:", totalValue, ""]);
-    totalRow.getCell(5).font = { name: "Calibri", bold: true, size: 10 };
-    totalRow.getCell(6).numFmt = "#,##0.00 €";
-    totalRow.getCell(6).font = { name: "Calibri", bold: true, size: 10 };
-
-    // Re-apply column widths (columns are already set via ws.columns)
-    autoFitColumns(ws);
-  };
-
   const aktiv = items.filter(
     (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
   );
   const verkauft = items.filter((i) => Number(i.Verkauft) === 1);
   const ausschuss = items.filter((i) => Number(i.Ausschuss) === 1);
 
-  addSheet("Nicht verkauft", aktiv, "FFD4EDDA"); // light green
-  addSheet("Verkauft", verkauft, "FFCCE5FF"); // light blue
-  addSheet("Ausschuss", ausschuss, "FFFFEEBA"); // light yellow
+  addInventurSheet(workbook, "Nicht verkauft", aktiv, "FFD4EDDA", kunde, today); // light green
+  addInventurSheet(workbook, "Verkauft", verkauft, "FFCCE5FF", kunde, today); // light blue
+  addInventurSheet(workbook, "Ausschuss", ausschuss, "FFFFEEBA", kunde, today); // light yellow
 
   // Summary sheet
   const ws = workbook.addWorksheet("Übersicht");
@@ -728,10 +730,7 @@ async function generateInventurExcel(kunde, items) {
 
   const summaryHeaders = ws.addRow(["Status", "Anzahl", "Gesamtwert"]);
   summaryHeaders.eachCell((cell) => {
-    cell.font = { name: "Calibri", bold: true, size: 10 };
-    cell.fill = HEADER_FILL;
-    cell.border = THIN_BORDER;
-    cell.alignment = { horizontal: "center" };
+    formatCell(cell, { bold: true, fillColor: "FFF2F2F2", alignment: { horizontal: "center" } });
   });
 
   const addSummaryRow = (label, arr, argb) => {
@@ -739,10 +738,7 @@ async function generateInventurExcel(kunde, items) {
     const row = ws.addRow([label, arr.length, total]);
     row.getCell(3).numFmt = "#,##0.00 €";
     row.eachCell((cell) => {
-      cell.font = { name: "Calibri", size: 10 };
-      cell.border = THIN_BORDER;
-      if (argb)
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb } };
+      formatCell(cell, { fillColor: argb });
     });
   };
 
@@ -758,8 +754,7 @@ async function generateInventurExcel(kunde, items) {
   const totalRow = ws.addRow(["Gesamt", items.length, allTotal]);
   totalRow.getCell(3).numFmt = "#,##0.00 €";
   totalRow.eachCell((cell) => {
-    cell.font = { name: "Calibri", bold: true, size: 10 };
-    cell.border = THIN_BORDER;
+    formatCell(cell, { bold: true });
   });
 
   ws.columns = [{ width: 20 }, { width: 10 }, { width: 16 }];

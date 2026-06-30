@@ -85,13 +85,13 @@ export default function DocumentManager({
     api
       .getList()
       .then(setData)
-      .catch(console.error)
+      .catch((err) => alert("Fehler beim Laden der Dokumente: " + err.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-    api.getKunden().then(setKunden).catch(console.error);
+    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
   }, []);
 
   const openDetail = async (id) => {
@@ -138,7 +138,7 @@ export default function DocumentManager({
       setAvailablePieces(resp.data);
     } catch (err) {
       setAvailablePieces([]);
-      console.error(err);
+      alert("Fehler beim Laden der verfügbaren Schmuckstücke: " + err.message);
     }
   };
 
@@ -150,7 +150,7 @@ export default function DocumentManager({
         const response = await api.getNextNumber();
         nummer = String(response?.Nummer || "").trim();
       } catch (err) {
-        console.error(err);
+        alert("Nächste Nummer konnte nicht abgerufen werden: " + err.message);
       }
     }
 

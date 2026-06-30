@@ -123,7 +123,7 @@ export default function Schmuckstuecke() {
     api
       .getSchmuckstuecke({ page, limit: 50, search, ...filters })
       .then(setData)
-      .catch(console.error)
+      .catch((err) => alert("Fehler beim Laden der Schmuckstücke: " + err.message))
       .finally(() => setLoading(false));
   };
 
@@ -155,7 +155,6 @@ export default function Schmuckstuecke() {
       }
 
       if (editing === "new") {
-        console.log("Creating new Schmuckstück with data:", dataToSave);
         await api.createSchmuckstueck(dataToSave);
         if (!closeAfterSave) {
           setForm((prev) => ({ ...prev, Foto: "" }));
@@ -409,8 +408,8 @@ export default function Schmuckstuecke() {
   };
 
   useEffect(() => {
-    api.getFilterOptions().then(setFilterOptions).catch(console.error);
-    api.getKunden().then(setKunden).catch(console.error);
+    api.getFilterOptions().then(setFilterOptions).catch((err) => alert("Fehler beim Laden der Filter-Optionen: " + err.message));
+    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
   }, []);
 
   useEffect(() => {
@@ -479,7 +478,7 @@ export default function Schmuckstuecke() {
           openDuplicate(item);
         }
       })
-      .catch(console.error)
+      .catch((err) => alert("Fehler beim Laden des Schmuckstücks: " + err.message))
       .finally(() => {
         navigate(location.pathname, { replace: true, state: {} });
       });

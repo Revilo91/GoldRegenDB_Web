@@ -240,25 +240,12 @@ See `README.md` section "Synology NAS" for full step-by-step (copy release zip, 
 
 ---
 
-## Remaining Cleanup Tasks
+## Cleanup Tasks Status
 
-**Priority: Remove debug logging (~15 occurrences)**
-- `frontend/src/pages/Sumup.jsx:54,55` – console.log("CSV Debug..."), console.log(text.slice...)
-- `frontend/src/pages/Schmuckstuecke.jsx:256` – console.log("Creating new Schmuckstück...")
-- Replace `.catch(console.error)` with proper error handling in: Schmuckstuecke, Kunden, DocumentManager, AuditLog, Inventur
-- `frontend/src/components/SchmuckstueckModal.jsx` – similar console.error patterns
-
-**Priority: Shrink excelService.js**
-- `autoFitColumns()` + cell formatting blocks (320+ lines) – extract `formatCell()` helper
-- `generateInventurExcel()` – extract `addSheet()` as standalone function (currently 70-line nested fn)
-- Net gain: ~80 lines, clearer code flow
-
-**Priority: Merge photo resolution logic (schmuckstuecke.js)**
-- `findPhotoForArtikel()` + `resolvePhotoFile()` – 90% overlap
-- Merge into single `resolvePhotoFile(artikelnummer, fileName)` function
-- Net: ~40 lines saved, single source of truth
-
-**Cleanup Status:** 9 major fixes done (400+ lines), ~3 remaining (120+ lines potential save)
+**All remaining cleanup tasks have been successfully completed:**
+- **Debug logging cleanup**: Removed leftover debug logs and replaced unhandled `.catch(console.error)` calls with proper, user-friendly error dialogs and alerts in `Schmuckstuecke.jsx`, `Kunden.jsx`, `DocumentManager.jsx`, `AuditLog.jsx`, `Inventur.jsx`, and `SchmuckstueckModal.jsx`.
+- **Shrinking excelService.js**: Extracted formatting utility `formatCell()` and sheet-creating helper `addInventurSheet()`. Saved 80+ lines of duplicate styles.
+- **Merging photo resolution logic**: Consolidated `findPhotoForArtikel()` and `resolvePhotoFile()` into a single, unified `resolvePhotoFile(identifier)` function in `schmuckstuecke.js` route, reducing duplication by 40+ lines.
 
 ---
 
