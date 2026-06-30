@@ -62,6 +62,26 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 
 ---
 
+## Code Standards & Cleanup (2026-06-30)
+
+**Recent AI-Slop Cleanup:**
+- Removed 280+ lines of excessive docstrings/comments from whereClauseBuilder
+- Consolidated GRUNDMATERIAL & PRODUKTART constants → `utils/constants.js`
+- Merged duplicate request() + requestFormData() in api.js (90% code duplication)
+- Removed inline debug logging (console.log emoji-comments in api.js)
+- Set real rate limits (5 login, 100 api/min) in index.js
+- Deleted boilerplate JSDoc in DocumentManager.jsx
+
+**Code Conventions (to prevent future slop):**
+- **No function wrappers:** `hersteller_Marina()` → use `hersteller("M")` directly
+- **No verbose docstrings:** Method names are self-documenting; one-liner comments only if WHY is non-obvious
+- **Merge duplicates:** If constants/logic exists in 2+ files, move to shared utils/
+- **Delete dead logging:** console.log/error only for errors; remove debug traces after use
+- **Rate limiters:** Must have real limits; no "10000 = practically unlimited" boilerplate
+- **No JSDoc boilerplate:** Describe props via code comments inline, not at-the-top blocks
+
+---
+
 ## Critical Project Rules
 
 ### 1. WHERE Clause Builder (Backend)
@@ -217,6 +237,28 @@ Tests run automatically on every PR via GitHub Actions (`.github/workflows/tests
 
 ### Deploy to Synology NAS
 See `README.md` section "Synology NAS" for full step-by-step (copy release zip, set `.env`, run `docker compose up -d`).
+
+---
+
+## Remaining Cleanup Tasks
+
+**Priority: Remove debug logging (~15 occurrences)**
+- `frontend/src/pages/Sumup.jsx:54,55` – console.log("CSV Debug..."), console.log(text.slice...)
+- `frontend/src/pages/Schmuckstuecke.jsx:256` – console.log("Creating new Schmuckstück...")
+- Replace `.catch(console.error)` with proper error handling in: Schmuckstuecke, Kunden, DocumentManager, AuditLog, Inventur
+- `frontend/src/components/SchmuckstueckModal.jsx` – similar console.error patterns
+
+**Priority: Shrink excelService.js**
+- `autoFitColumns()` + cell formatting blocks (320+ lines) – extract `formatCell()` helper
+- `generateInventurExcel()` – extract `addSheet()` as standalone function (currently 70-line nested fn)
+- Net gain: ~80 lines, clearer code flow
+
+**Priority: Merge photo resolution logic (schmuckstuecke.js)**
+- `findPhotoForArtikel()` + `resolvePhotoFile()` – 90% overlap
+- Merge into single `resolvePhotoFile(artikelnummer, fileName)` function
+- Net: ~40 lines saved, single source of truth
+
+**Cleanup Status:** 9 major fixes done (400+ lines), ~3 remaining (120+ lines potential save)
 
 ---
 

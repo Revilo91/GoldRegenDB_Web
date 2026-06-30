@@ -58,16 +58,16 @@ app.use((req, res, next) => {
 
 // Rate limiters
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: 10000, // praktisch kein Limit
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zu viele Anmeldeversuche. Bitte in 15 Minuten erneut versuchen.' },
 });
 
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 Minute
-  max: 10000, // praktisch kein Limit
+  windowMs: 60 * 1000,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },

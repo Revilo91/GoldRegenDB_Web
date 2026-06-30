@@ -7,6 +7,7 @@ const fs = require("fs");
 const logger = require("../utils/logger");
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
+const { GRUNDMATERIAL } = require("../utils/constants");
 
 // Erstelle uploads-Verzeichnis falls nicht vorhanden
 const uploadsDir = path.join(__dirname, "../assets/uploads");
@@ -89,25 +90,6 @@ const upload = multer({
   },
 });
 
-const GRUNDMATERIAL = {
-  A: "Alkoholtinte",
-  B: "Beton",
-  C: "Cucio",
-  E: "Edelstahl",
-  F: "Fimo",
-  H: "Harz",
-  I: "Phiole",
-  J: "Papier",
-  K: "Kordel",
-  L: "Leder",
-  M: "Makramee",
-  N: "Naturstein",
-  P: "Perle",
-  S: "Schrumpffolie",
-  W: "Holz",
-  X: "3D-Druck",
-  Y: "Cabochon",
-};
 
 const SEARCHABLE_FIELDS = [
   "Artikelnummer",

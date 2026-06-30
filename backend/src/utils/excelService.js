@@ -2,6 +2,7 @@ const ExcelJS = require("exceljs");
 const fs = require("fs");
 const path = require("path");
 const sizeOf = require("image-size");
+const { GRUNDMATERIAL } = require("./constants");
 
 const CONTACTS = {
   GOLDREGEN: {
@@ -105,25 +106,6 @@ function autoFitColumns(worksheet) {
   });
 }
 
-const GRUNDMATERIAL = {
-  A: "Alkoholtinte",
-  B: "Beton",
-  C: "Cucio",
-  E: "Edelstahl",
-  F: "Fimo",
-  H: "Harz",
-  I: "Phiole",
-  J: "Papier",
-  K: "Kordel",
-  L: "Leder",
-  M: "Makramee",
-  N: "Naturstein",
-  P: "Perle",
-  S: "Schrumpffolie",
-  W: "Holz",
-  X: "3D-Druck",
-  Y: "Cabochon",
-};
 
 async function generateExcel(type, data, logoPath) {
   const workbook = new ExcelJS.Workbook();

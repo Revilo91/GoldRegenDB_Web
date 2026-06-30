@@ -2,89 +2,31 @@ import { hashPassword } from './utils/hashPassword';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-const LOG_PREFIX = '[FRONTEND/API]';
-
-function logInfo(message, meta) {
-  console.log(`${new Date().toISOString()} ${LOG_PREFIX} ${message}`, meta !== undefined ? meta : '');
-}
-
-function logError(message, meta) {
-  console.error(`${new Date().toISOString()} ${LOG_PREFIX} ${message}`, meta !== undefined ? meta : '');
-}
-
-logInfo(`API-Client initialisiert. API_URL=${API_URL}`);
-
 function getToken() {
   return localStorage.getItem('token');
 }
 
 async function request(url, options = {}) {
   const token = getToken();
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const isFormData = options.body instanceof FormData;
+  const headers = isFormData ? { ...options.headers } : { 'Content-Type': 'application/json', ...options.headers };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const method = options.method || 'GET';
-  logInfo(`→ ${method} ${url}`);
-  const startTime = Date.now();
+
   try {
     const res = await fetch(`${API_URL}${url}`, { headers, ...options });
-    const duration = Date.now() - startTime;
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const errorMessage = err.error || err.message || res.statusText || 'Request failed';
-      logError(`← ${method} ${url} → ${res.status} (${duration}ms): ${errorMessage}`);
-
-      // Bei SumUp-Import Debug-Infos in Console loggen
-      if (url.includes('/sumup/import') && err.verfuegbareSpalten) {
-        logError('SumUp Import Fehler-Details:', {
-          verfuegbareSpalten: err.verfuegbareSpalten,
-          beispieldaten: err.beispieldaten,
-          hinweis: err.hinweis
-        });
-      }
-
       const requestError = new Error(errorMessage);
       requestError.status = res.status;
       requestError.payload = err;
       throw requestError;
     }
-    logInfo(`← ${method} ${url} → ${res.status} (${duration}ms)`);
     return res.json();
   } catch (err) {
     if (!err.message || err.message === 'Failed to fetch') {
-      const duration = Date.now() - startTime;
-      logError(`← ${method} ${url} → Netzwerkfehler (${duration}ms): Backend nicht erreichbar`);
-      throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
-    }
-    throw err;
-  }
-}
-
-async function requestFormData(url, options = {}) {
-  const token = getToken();
-  const headers = { ...options.headers };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const method = options.method || 'GET';
-  logInfo(`→ ${method} ${url} (FormData)`);
-  const startTime = Date.now();
-  try {
-    const res = await fetch(`${API_URL}${url}`, { headers, ...options });
-    const duration = Date.now() - startTime;
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      const errorMessage = err.error || err.message || res.statusText || 'Request failed';
-      logError(`← ${method} ${url} → ${res.status} (${duration}ms): ${errorMessage}`);
-      throw new Error(errorMessage);
-    }
-    logInfo(`← ${method} ${url} → ${res.status} (${duration}ms)`);
-    return res.json();
-  } catch (err) {
-    if (!err.message || err.message === 'Failed to fetch') {
-      const duration = Date.now() - startTime;
-      logError(`← ${method} ${url} → Netzwerkfehler (${duration}ms): Backend nicht erreichbar`);
       throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
     }
     throw err;
@@ -99,98 +41,44 @@ async function downloadBlob(url, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  logInfo(`→ GET ${url} (Download)`);
-  const startTime = Date.now();
   try {
     const res = await fetch(`${API_URL}${url}`, { headers, signal });
-    const duration = Date.now() - startTime;
     if (!res.ok) {
       const contentType = res.headers.get('content-type') || '';
-      let err = {};
-
-      if (contentType.includes('application/json')) {
-        err = await res.json().catch(() => ({}));
-      } else {
-        const text = await res.text().catch(() => '');
-        err = text ? { error: text } : {};
-      }
-
+      let err = contentType.includes('application/json')
+        ? await res.json().catch(() => ({ error: res.statusText }))
+        : { error: res.statusText };
       const errorMessage = err.error || err.message || res.statusText || 'Download fehlgeschlagen';
-      const detailedMessage = [
-        errorMessage,
-        `HTTP ${res.status}`,
-        err.requestedFileName ? `Datei: ${err.requestedFileName}` : null,
-        err.resolvedFileName ? `Auflösung: ${err.resolvedBy || 'unbekannt'} (${err.resolvedFileName})` : null,
-        err.details ? `Details: ${err.details}` : null,
-      ]
-        .filter(Boolean)
-        .join(' | ');
-
-      logError(`← GET ${url} → ${res.status} (${duration}ms): ${detailedMessage}`);
-
-      const requestError = new Error(detailedMessage);
+      const requestError = new Error(errorMessage);
       requestError.status = res.status;
       requestError.payload = err;
       throw requestError;
     }
-    const totalBytesHeader = res.headers.get('content-length');
-    const totalBytes = totalBytesHeader ? Number(totalBytesHeader) : null;
-    const uploadFileCountHeader = res.headers.get('x-upload-file-count');
-    const uploadFileCount = uploadFileCountHeader ? Number(uploadFileCountHeader) : null;
 
+    const totalBytes = Number(res.headers.get('content-length')) || null;
+    const uploadFileCount = Number(res.headers.get('x-upload-file-count')) || null;
     let blob;
+
     if (res.body && typeof res.body.getReader === 'function') {
       const reader = res.body.getReader();
       const chunks = [];
       let loadedBytes = 0;
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (value) {
-          chunks.push(value);
-          loadedBytes += value.length;
-          if (onProgress) {
-            onProgress({
-              loadedBytes,
-              totalBytes,
-              progressPercent: totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : null,
-              uploadFileCount,
-            });
-          }
-        }
+        chunks.push(value);
+        loadedBytes += value.length;
+        if (onProgress) onProgress({ loadedBytes, totalBytes, progressPercent: totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : null, uploadFileCount });
       }
-
       blob = new Blob(chunks, { type: res.headers.get('content-type') || 'application/octet-stream' });
     } else {
       blob = await res.blob();
-      if (onProgress) {
-        onProgress({
-          loadedBytes: blob.size,
-          totalBytes: blob.size,
-          progressPercent: 100,
-          uploadFileCount,
-        });
-      }
+      if (onProgress) onProgress({ loadedBytes: blob.size, totalBytes: blob.size, progressPercent: 100, uploadFileCount });
     }
 
-    logInfo(`← GET ${url} → ${res.status} (${duration}ms)`);
-    if (returnMetadata) {
-      return {
-        blob,
-        metadata: {
-          totalBytes,
-          uploadFileCount,
-          contentType: res.headers.get('content-type'),
-        },
-      };
-    }
-
-    return blob;
+    return returnMetadata ? { blob, metadata: { totalBytes, uploadFileCount, contentType: res.headers.get('content-type') } } : blob;
   } catch (err) {
     if (!err.message || err.message === 'Failed to fetch') {
-      const duration = Date.now() - startTime;
-      logError(`← GET ${url} → Netzwerkfehler (${duration}ms): Backend nicht erreichbar`);
       throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
     }
     throw err;
@@ -244,37 +132,23 @@ export const api = {
     const formData = new FormData();
     formData.append('foto', file);
     const qs = new URLSearchParams({ artikelnummer }).toString();
-    return requestFormData(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
+    return request(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
   loadPhotoAsDataUrl: async (fileName, options = {}) => {
     if (!fileName) return null;
     const { signal } = options;
     try {
-      console.log('🔍 Versuche Foto zu laden:', fileName);
-      // Entferne "uploads/" Prefix falls vorhanden (für alte DB-Einträge)
       const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
-      console.log('📝 Bereinigter Dateiname:', cleanFileName);
       const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`, { signal });
-      console.log('✅ Foto erfolgreich heruntergeladen, Größe:', blob.size);
       return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          console.log('✅ Foto zu DataURL konvertiert');
-          resolve(e.target.result);
-        };
+        reader.onload = (e) => resolve(e.target.result);
         reader.readAsDataURL(blob);
       });
     } catch (err) {
-      if (err?.name === 'AbortError') {
-        return null;
-      }
+      if (err?.name === 'AbortError') return null;
       const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
-      console.error('❌ Fehler beim Laden des Fotos:', fileName, {
-        message,
-        status: err.status,
-        payload: err.payload,
-      });
       const photoError = new Error(message);
       photoError.status = err.status;
       photoError.payload = err.payload;

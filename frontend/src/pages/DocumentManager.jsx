@@ -1,21 +1,8 @@
-// Gemeinsame Komponente für Lieferscheine und Rechnungen
-// Reuse-Strategie: Alle Logik, die identisch ist, wird hier gekapselt.
-// Unterschiede werden über Props (z.B. api, Labels, Excel-Export, Stückauswahl) gesteuert.
-
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 
-/**
- * Props:
- * - type: "lieferschein" | "rechnung"
- * - api: { getList, getDetail, deleteItem, createItem, exportExcel, getPieces }
- * - icons: { header, modal }
- * - labels: { header, newBtn, modalTitle, excel, delete, pieceSelect, pieceSelected, pieceAdd, pieceRemove, ... }
- * - pieceFilter: (form, editing) => Filterobjekt für getPieces
- * - pieceSelectMode: "all" | "byKunde" (lieferschein: alle verfügbaren, rechnung: nur ausgelagert beim Kunden)
- */
 export default function DocumentManager({
   type,
   api,
