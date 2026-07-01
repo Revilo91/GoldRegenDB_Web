@@ -1,21 +1,8 @@
-// Gemeinsame Komponente für Lieferscheine und Rechnungen
-// Reuse-Strategie: Alle Logik, die identisch ist, wird hier gekapselt.
-// Unterschiede werden über Props (z.B. api, Labels, Excel-Export, Stückauswahl) gesteuert.
-
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 
-/**
- * Props:
- * - type: "lieferschein" | "rechnung"
- * - api: { getList, getDetail, deleteItem, createItem, exportExcel, getPieces }
- * - icons: { header, modal }
- * - labels: { header, newBtn, modalTitle, excel, delete, pieceSelect, pieceSelected, pieceAdd, pieceRemove, ... }
- * - pieceFilter: (form, editing) => Filterobjekt für getPieces
- * - pieceSelectMode: "all" | "byKunde" (lieferschein: alle verfügbaren, rechnung: nur ausgelagert beim Kunden)
- */
 export default function DocumentManager({
   type,
   api,
@@ -98,13 +85,13 @@ export default function DocumentManager({
     api
       .getList()
       .then(setData)
-      .catch(console.error)
+      .catch((err) => alert("Fehler beim Laden der Dokumente: " + err.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-    api.getKunden().then(setKunden).catch(console.error);
+    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
   }, []);
 
   const openDetail = async (id) => {
@@ -151,7 +138,7 @@ export default function DocumentManager({
       setAvailablePieces(resp.data);
     } catch (err) {
       setAvailablePieces([]);
-      console.error(err);
+      alert("Fehler beim Laden der verfügbaren Schmuckstücke: " + err.message);
     }
   };
 
@@ -163,7 +150,7 @@ export default function DocumentManager({
         const response = await api.getNextNumber();
         nummer = String(response?.Nummer || "").trim();
       } catch (err) {
-        console.error(err);
+        alert("Nächste Nummer konnte nicht abgerufen werden: " + err.message);
       }
     }
 
@@ -610,9 +597,154 @@ export default function DocumentManager({
                     </div>
                   </div>
                 )}
-                {/* Provision, Aufteilung, Schmuckstücke analog zu Originaldateien */}
-                {/* ...hier kann je nach type/labels weiteres Rendering erfolgen... */}
               </div>
+              {/* Aufteilung Marina & Saskia */}
+              {detail.schmuckstuecke?.length > 0 && (
+                <div
+                  style={{
+                    fontSize: "0.85em",
+                    color: "#666",
+                    marginTop: 16,
+                    padding: "12px",
+                    backgroundColor: "#f9f9f9",
+                    borderRadius: "4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}>
+                  <label
+                    style={{
+                      fontSize: "0.9em",
+                      marginBottom: "0",
+                      display: "block",
+                      color: "#888",
+                      fontWeight: "600",
+                    }}>
+                    Aufteilung (Netto nach Provision):
+                  </label>
+                  {(() => {
+                    const totalBrutto = detail.schmuckstuecke.reduce(
+                      (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
+                      0,
+                    );
+                    const provisionPercent = Number(detail.Provision) || 0;
+                    const provisionValue =
+                      totalBrutto * (provisionPercent / 100);
+                    const totalNetto = totalBrutto - provisionValue;
+
+                    const marinaBrutto = detail.schmuckstuecke
+                      .filter((s) =>
+                        s.Artikelnummer?.toUpperCase().startsWith("M"),
+                      )
+                      .reduce(
+                        (sum, s) =>
+                          sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      );
+                    const saskiaBrutto = detail.schmuckstuecke
+                      .filter((s) =>
+                        s.Artikelnummer?.toUpperCase().startsWith("S"),
+                      )
+                      .reduce(
+                        (sum, s) =>
+                          sum + (Number(s.Verkaufspreis) || 0),
+                        0,
+                      );
+
+                    const marinaNetto =
+                      marinaBrutto * (1 - provisionPercent / 100);
+                    const saskiaNetto =
+                      saskiaBrutto * (1 - provisionPercent / 100);
+
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}>
+                        <div
+                          style={{
+                            paddingBottom: "8px",
+                            borderBottom: "1px solid #ddd",
+                          }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              marginBottom: "4px",
+                            }}>
+                            <span>Gesamtwert (brutto):</span>
+                            <strong>{totalBrutto.toFixed(2)} €</strong>
+                          </div>
+                          {provisionPercent > 0 && (
+                            <>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: "4px",
+                                  color: "#d9534f",
+                                }}>
+                                <span>Provision ({provisionPercent}%):</span>
+                                <strong>
+                                  -{provisionValue.toFixed(2)} €
+                                </strong>
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontWeight: "600",
+                                }}>
+                                <span>Gesamtwert (netto):</span>
+                                <strong>{totalNetto.toFixed(2)} €</strong>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                            flexWrap: "wrap",
+                          }}>
+                          {marinaBrutto > 0 && (
+                            <div>
+                              <strong>Marina:</strong>{" "}
+                              {marinaNetto.toFixed(2)} €
+                              <span
+                                style={{
+                                  fontSize: "0.9em",
+                                  color: "#999",
+                                  marginLeft: "4px",
+                                }}>
+                                ({marinaBrutto.toFixed(2)} brutto)
+                              </span>
+                            </div>
+                          )}
+                          {saskiaBrutto > 0 && (
+                            <div>
+                              <strong>Saskia:</strong>{" "}
+                              {saskiaNetto.toFixed(2)} €
+                              <span
+                                style={{
+                                  fontSize: "0.9em",
+                                  color: "#999",
+                                  marginLeft: "4px",
+                                }}>
+                                ({saskiaBrutto.toFixed(2)} brutto)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               {detail.schmuckstuecke?.length > 0 && (
                 <>
                   <h4 className="modal-body h4">

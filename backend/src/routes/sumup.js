@@ -3,14 +3,7 @@ const router = express.Router();
 const db = require("../config/db");
 const logger = require("../utils/logger");
 const { where } = require("../utils/whereClauseBuilder");
-
-// Produktart-Mapping basierend auf dem dritten Zeichen der Artikelnummer
-const PRODUKTART = {
-  A: "Armband",
-  H: "Halskette",
-  O: "Ohrring",
-  S: "Schlüsselanhänger",
-};
+const { PRODUKTART } = require("../utils/constants");
 
 // POST /api/sumup/import - Import SumUp Verkaufsbericht
 router.post("/import", async (req, res) => {

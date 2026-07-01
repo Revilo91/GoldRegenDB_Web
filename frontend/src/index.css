@@ -1,3 +1,18 @@
+/* Option 3: Premium Style */
+.option-premium {
+  padding: 16px 18px;
+  font-size: 15px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10), 0 1.5px 4px rgba(0,0,0,0.06);
+  transition: box-shadow 0.18s cubic-bezier(0.4,0.2,0.2,1), background 0.18s;
+  border: none;
+  appearance: none;
+  outline: none;
+  font-weight: 500;
+  color: #232323;
+  /* Glatteres Aussehen */
+}
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 /* Option 3: Premium Style */

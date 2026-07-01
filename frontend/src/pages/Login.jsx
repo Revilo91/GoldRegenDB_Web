@@ -23,7 +23,15 @@ export default function Login() {
       login(token, user, mustChangePassword);
       navigate("/");
     } catch (err) {
-      setError(err.message || "Anmeldung fehlgeschlagen");
+      const status = err.status || err.response?.status || "Unbekannt";
+      const resData = err.response?.data;
+      const details =
+        resData?.detail ||
+        resData?.description ||
+        (resData?.errors ? JSON.stringify(resData.errors) : null) ||
+        err.message;
+
+      setError(`[Status ${status}] – ${details}`);
     } finally {
       setLoading(false);
     }
@@ -65,8 +73,7 @@ export default function Login() {
           <button
             type="submit"
             className="btn btn-primary login-btn"
-            disabled={loading}
-          >
+            disabled={loading}>
             {loading ? "Wird angemeldet…" : "Anmelden"}
           </button>
         </form>

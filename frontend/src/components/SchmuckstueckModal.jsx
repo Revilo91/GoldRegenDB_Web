@@ -39,7 +39,10 @@ export default function SchmuckstueckModal({
         setItem(s);
         setKunden(k);
       })
-      .catch(console.error)
+      .catch((err) => {
+        alert("Fehler beim Laden des Schmuckstücks: " + err.message);
+        onClose();
+      })
       .finally(() => setLoading(false));
   }, [artikelnummer]);
 

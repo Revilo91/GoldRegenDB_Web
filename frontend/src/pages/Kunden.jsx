@@ -17,7 +17,7 @@ export default function Kunden() {
     api
       .getKunden()
       .then(setKunden)
-      .catch(console.error)
+      .catch((err) => alert("Fehler beim Laden der Kunden: " + err.message))
       .finally(() => setLoading(false));
   };
 

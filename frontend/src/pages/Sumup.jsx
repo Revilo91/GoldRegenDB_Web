@@ -42,11 +42,6 @@ export default function Sumup() {
 
     try {
       const text = await file.text();
-
-      // Sende Raw CSV-Text an Backend (Backend macht das Parsing)
-      console.log("CSV Debug: Dateiinhalt gesendet zum Backend");
-      console.log(text.slice(0, 500)); // Logge die ersten 500 Zeichen der CSV-Datei
-
       const result = await api.importSumupCsv(text);
       setSumupResult(result);
     } catch (err) {
