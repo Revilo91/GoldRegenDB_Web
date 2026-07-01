@@ -52,39 +52,6 @@ function resolvePhotoFile(identifier) {
 }
 
 
-function resolvePhotoFile(fileName) {
-  const requestedFileName = path.basename(String(fileName || "").trim());
-
-  if (!requestedFileName) {
-    return { error: "Ungültiger Dateiname", requestedFileName };
-  }
-
-  const directPath = path.join(uploadsDir, requestedFileName);
-  if (fs.existsSync(directPath)) {
-    return { filePath: directPath, resolvedFileName: requestedFileName, resolvedBy: "exact" };
-  }
-
-  const baseName = path.parse(requestedFileName).name;
-  const files = fs.readdirSync(uploadsDir);
-  const matchingFiles = files.filter((file) => path.parse(file).name === baseName);
-
-  if (matchingFiles.length === 1) {
-    return {
-      filePath: path.join(uploadsDir, matchingFiles[0]),
-      resolvedFileName: matchingFiles[0],
-      resolvedBy: matchingFiles[0] === requestedFileName ? "exact" : "basename",
-    };
-  }
-
-  return {
-    error: "Foto nicht gefunden",
-    requestedFileName,
-    baseName,
-    matchingFiles,
-    availableFiles: files.length,
-  };
-}
-
 // Multer-Konfiguration für Foto-Upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -114,43 +81,6 @@ const upload = multer({
   },
 });
 
-
-const SEARCHABLE_FIELDS = [
-  "Artikelnummer",
-  "Name",
-  "Foto",
-  "Art",
-  "Form",
-  "Länge",
-  "Fassung",
-  "Farbe",
-  "Inhalt_Material",
-  "Inhalt_Farbe",
-  "Inhalt_Farbakzent",
-  "Inhalt_Zusatzmaterial",
-  "Anhänger_Fassung",
-  "Anhänger_Form",
-  "Anhänger_Farbe",
-  "Anhänger_Grösse",
-  "Anhänger_Inhalt_Material",
-  "Anhänger_Inhalt_Farbe",
-  "Anhänger_Inhalt_Farbakzente",
-  "Anhänger_Inhalt_Zusatzmaterial",
-  "Material",
-  "Grösse",
-  "Anhänger",
-  "Zwischenstück",
-  "Herstellungskosten",
-  "Verkaufspreis",
-  "Ausgelagert",
-  "Verkauft",
-  "Ausschuss",
-  "Ausschuss_Grund",
-  "Lieferschein_ID",
-  "Rechnung_ID",
-  "Erstelldatum",
-  "Letzte_Änderung",
-];
 
 const SEARCHABLE_FIELDS = [
   "Artikelnummer",
