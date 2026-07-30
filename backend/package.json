@@ -8,6 +8,8 @@
     "dev": "node --watch src/index.js",
     "sync:fotos": "node scripts/sync-photo-column.js",
     "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run",
+    "dsgvo:retention": "node scripts/dsgvo-retention.js",
+    "dsgvo:retention:dry": "node scripts/dsgvo-retention.js --dry-run",
     "test": "jest --forceExit"
   },
   "jest": {

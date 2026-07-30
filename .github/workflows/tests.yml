@@ -30,6 +30,7 @@ jobs:
         working-directory: backend
         env:
           JWT_SECRET: test-secret-ci
+          BESTELLUNG_ENCRYPTION_KEY: b3ae96f21e2f1ca8b65351153ccb3d8f0a1aa9b495c91b11530467d34c2e9336
         run: npm test
 
   frontend-tests:

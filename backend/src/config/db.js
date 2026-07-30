@@ -465,6 +465,166 @@ async function ensureLagerinventurEntwurfTable() {
   }
 }
 
+// ---- Bestellübersicht (DSGVO): bestellung_kunde, bestellung, bestellung_consent ----
+
+async function ensureBestelluebersichtSchema() {
+  try {
+    await pool.query(`
+      DO $$
+      BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'versandart_typ') THEN
+              CREATE TYPE versandart_typ AS ENUM ('lieferung', 'abholung');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bestellstatus_typ') THEN
+              CREATE TYPE bestellstatus_typ AS ENUM ('offen', 'in_bearbeitung', 'abgeschlossen', 'storniert');
+          END IF;
+      END
+      $$;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bestellung_kunde (
+          id SERIAL PRIMARY KEY,
+          kunde_pseudonym VARCHAR(20) NOT NULL UNIQUE,
+          name_enc          BYTEA DEFAULT NULL,
+          email_enc         BYTEA DEFAULT NULL,
+          telefonnummer_enc BYTEA DEFAULT NULL,
+          strasse_enc       BYTEA DEFAULT NULL,
+          hausnummer_enc    BYTEA DEFAULT NULL,
+          plz_enc           BYTEA DEFAULT NULL,
+          ort_enc           BYTEA DEFAULT NULL,
+          anonymisiert      BOOLEAN NOT NULL DEFAULT FALSE,
+          anonymisiert_am   TIMESTAMP DEFAULT NULL,
+          erstellt_am       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    // Migrate: name_enc darf NULL sein (Anonymisierungsfunktion muss den Wert löschen können)
+    await pool.query(`ALTER TABLE bestellung_kunde ALTER COLUMN name_enc DROP NOT NULL;`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bestellung (
+          id SERIAL PRIMARY KEY,
+          bestellnummer   VARCHAR(20) NOT NULL UNIQUE,
+          kunde_id        INTEGER NOT NULL REFERENCES bestellung_kunde(id),
+          versandart      versandart_typ NOT NULL,
+          erfassungsdatum TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          wunschdatum     DATE DEFAULT NULL,
+          beschreibung    TEXT NOT NULL,
+          status          bestellstatus_typ NOT NULL DEFAULT 'offen',
+          rechnung_nummer VARCHAR(20) DEFAULT NULL REFERENCES "Rechnung"("Nummer"),
+          erstellt_von    VARCHAR(100) NOT NULL,
+          erstellt_am     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          aktualisiert_am TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT bestellung_wunschdatum_check
+              CHECK (wunschdatum IS NULL OR wunschdatum >= erfassungsdatum::date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_bestellung_kunde ON bestellung(kunde_id);
+      CREATE INDEX IF NOT EXISTS idx_bestellung_status ON bestellung(status);
+      CREATE INDEX IF NOT EXISTS idx_bestellung_erfassungsdatum ON bestellung(erfassungsdatum);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bestellung_consent (
+          id SERIAL PRIMARY KEY,
+          kunde_id            INTEGER NOT NULL REFERENCES bestellung_kunde(id),
+          consent_typ         VARCHAR(50) NOT NULL DEFAULT 'datenverarbeitung_bestellung',
+          consent_erteilt     BOOLEAN NOT NULL,
+          consent_zeitpunkt   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          datenschutz_version VARCHAR(20) NOT NULL,
+          ip_hash             TEXT DEFAULT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_bestellung_consent_kunde ON bestellung_consent(kunde_id);
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION check_datenminimierung_versandart()
+      RETURNS TRIGGER AS $$
+      DECLARE
+          hat_adresse BOOLEAN;
+          hat_telefon BOOLEAN;
+          ist_anonymisiert BOOLEAN;
+      BEGIN
+          IF NEW.versandart = 'lieferung' THEN
+              SELECT (strasse_enc IS NOT NULL AND hausnummer_enc IS NOT NULL
+                      AND plz_enc IS NOT NULL AND ort_enc IS NOT NULL),
+                     (telefonnummer_enc IS NOT NULL),
+                     anonymisiert
+                INTO hat_adresse, hat_telefon, ist_anonymisiert
+                FROM bestellung_kunde WHERE id = NEW.kunde_id;
+
+              IF NOT ist_anonymisiert THEN
+                  IF NOT hat_adresse THEN
+                      RAISE EXCEPTION 'Versandart "lieferung" erfordert eine vollständige Adresse (Art. 5 Abs. 1 lit. c DSGVO)';
+                  END IF;
+                  IF NOT hat_telefon THEN
+                      RAISE EXCEPTION 'Versandart "lieferung" erfordert eine Telefonnummer für die Spedition';
+                  END IF;
+              END IF;
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION update_bestellung_aktualisiert()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          NEW.erfassungsdatum = OLD.erfassungsdatum;
+          NEW.aktualisiert_am = CURRENT_TIMESTAMP;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION anonymisiere_bestellung_kunde(p_kunde_id INTEGER)
+      RETURNS VOID AS $$
+      BEGIN
+          UPDATE bestellung_kunde
+          SET name_enc = NULL,
+              email_enc = NULL,
+              telefonnummer_enc = NULL,
+              strasse_enc = NULL,
+              hausnummer_enc = NULL,
+              plz_enc = NULL,
+              ort_enc = NULL,
+              anonymisiert = TRUE,
+              anonymisiert_am = CURRENT_TIMESTAMP
+          WHERE id = p_kunde_id AND anonymisiert = FALSE;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_bestellung_datenminimierung'
+        ) THEN
+          CREATE TRIGGER trg_bestellung_datenminimierung
+            BEFORE INSERT OR UPDATE ON bestellung
+            FOR EACH ROW
+            EXECUTE FUNCTION check_datenminimierung_versandart();
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_bestellung_aktualisiert'
+        ) THEN
+          CREATE TRIGGER trg_bestellung_aktualisiert
+            BEFORE UPDATE ON bestellung
+            FOR EACH ROW
+            EXECUTE FUNCTION update_bestellung_aktualisiert();
+        END IF;
+      END
+      $$;
+    `);
+
+    logger.info('DB', 'Bestellübersicht-Schema verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren des Bestellübersicht-Schemas', { message: err.message });
+  }
+}
+
 // ---- Constraint: Ausschuss_Grund ----
 
 async function ensureAusschussGrundConstraint() {
@@ -547,8 +707,9 @@ async function ensureTriggers() {
 //   5. Schmuckstück
 //   6. audit_log (wird von Audit-Trigger beschrieben)
 //   7. app_users (wird von lagerinventur referenziert)
-//   8. lagerinventur
-//   9. Constraints & Trigger (brauchen die Tabellen)
+//   8. Bestellübersicht (bestellung_kunde/bestellung/bestellung_consent, braucht Rechnung)
+//   9. lagerinventur
+//   10. Constraints & Trigger (brauchen die Tabellen)
 
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
@@ -560,6 +721,7 @@ pool.query('SELECT NOW() AS server_time')
       .then(() => ensureSchmuckstueckTable())
       .then(() => ensureAuditLogTable())
       .then(() => ensureAppUsersTable())
+      .then(() => ensureBestelluebersichtSchema())
       .then(() => ensureLagerinventurEntwurfTable())
       .then(() => ensureAusschussGrundConstraint())
       .then(() => ensureTriggers());

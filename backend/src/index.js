@@ -17,6 +17,8 @@ const usersRoutes = require('./routes/users');
 const sumupRoutes = require('./routes/sumup');
 const inventurRoutes = require('./routes/inventur');
 const lagerinventurRoutes = require('./routes/lagerinventur');
+const bestelluebersichtRoutes = require('./routes/bestelluebersicht');
+const bestellungPublicRoutes = require('./routes/bestellungPublic');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -73,9 +75,21 @@ const apiLimiter = rateLimit({
   message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
 });
 
+// Strenger Limiter für das öffentliche, unauthentifizierte Bestellformular (Spam-/Abuse-Schutz)
+const publicOrderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Bestellungen von dieser Adresse. Bitte später erneut versuchen.' },
+});
+
 // Public routes
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', apiLimiter, authRoutes);
+
+// Öffentliches Bestellformular (kein Login erforderlich) – nur Erstellung neuer Bestellungen möglich
+app.use('/api/public/bestellung', publicOrderLimiter, bestellungPublicRoutes);
 
 // Health check (public) – includes database connectivity test
 app.get('/api/health', async (req, res) => {
@@ -94,6 +108,7 @@ app.use('/api/kunden', apiLimiter, authenticate, requireBearbeiter, kundenRoutes
 app.use('/api/schmuckstuecke', apiLimiter, authenticate, schmuckstueckeRoutes);
 app.use('/api/lieferscheine', apiLimiter, authenticate, requireBearbeiter, lieferscheineRoutes);
 app.use('/api/rechnungen', apiLimiter, authenticate, requireBearbeiter, rechnungenRoutes);
+app.use('/api/bestelluebersicht', apiLimiter, authenticate, requireBearbeiter, bestelluebersichtRoutes);
 app.use('/api/users', apiLimiter, authenticate, requireAdmin, usersRoutes);
 
 // SumUp routes (Bearbeiter und Admin)

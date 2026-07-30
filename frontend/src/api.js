@@ -98,6 +98,11 @@ export const authApi = {
   },
 };
 
+export const publicApi = {
+  // Öffentliches Bestellformular (ohne Login) – siehe backend/src/routes/bestellungPublic.js
+  createBestellung: (data) => request('/public/bestellung', { method: 'POST', body: JSON.stringify(data) }),
+};
+
 export const api = {
   // Dashboard
   getDashboard: () => request('/dashboard'),
@@ -163,6 +168,14 @@ export const api = {
   createLieferschein: (data) => request('/lieferscheine', { method: 'POST', body: JSON.stringify(data) }),
   updateLieferschein: (id, data) => request(`/lieferscheine/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteLieferschein: (id) => request(`/lieferscheine/${id}`, { method: 'DELETE' }),
+
+  // Bestellübersicht (DSGVO)
+  getBestellungen: () => request('/bestelluebersicht'),
+  getBestellung: (id) => request(`/bestelluebersicht/${id}`),
+  getNextBestellnummer: () => request('/bestelluebersicht/next-number'),
+  createBestellung: (data) => request('/bestelluebersicht', { method: 'POST', body: JSON.stringify(data) }),
+  updateBestellung: (id, data) => request(`/bestelluebersicht/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  anonymisiereBestellungKunde: (id) => request(`/bestelluebersicht/${id}/anonymisieren`, { method: 'POST', body: JSON.stringify({}) }),
 
   // Rechnungen
   getRechnungen: () => request('/rechnungen'),
