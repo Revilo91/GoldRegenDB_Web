@@ -65,8 +65,6 @@ async function downloadBlob(url, options = {}) {
         .filter(Boolean)
         .join(' | ');
 
-      logError(`← GET ${url} → ${res.status} (${duration}ms): ${detailedMessage}`);
-
       const requestError = new Error(detailedMessage);
       requestError.status = res.status;
       requestError.payload = err;
@@ -113,7 +111,6 @@ async function downloadBlob(url, options = {}) {
       }
     }
 
-    logInfo(`← GET ${url} → ${res.status} (${duration}ms)`);
     if (returnMetadata) {
       return {
         blob,

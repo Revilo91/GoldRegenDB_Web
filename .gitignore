@@ -13,3 +13,6 @@ backend/src/assets/uploads/
 .serena
 .github
 graphify-out
+e2e
+.claude
+.vscode
