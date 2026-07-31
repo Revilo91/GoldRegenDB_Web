@@ -881,6 +881,10 @@ select.form-control {
   margin-bottom: 0;
 }
 
+.modal-form-grid .form-group-full {
+  grid-column: 1 / -1;
+}
+
 .modal-form-grid .checkbox-group {
   display: flex;
   align-items: center;
@@ -2073,4 +2077,69 @@ select.form-control {
 }
 .data-table-status-badge.success .badge {
   color: var(--success);
+}
+
+/* Öffentliche Bestellseite (ohne Login, /bestellung) */
+.public-order-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 48px 16px;
+  background: var(--bg-primary);
+}
+
+.public-order-card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+
+.public-order-logo {
+  display: block;
+  height: 64px;
+  margin: 0 auto 24px;
+}
+
+.public-order-card h2 {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.public-order-intro {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.public-order-card .modal-form-grid {
+  margin-bottom: 24px;
+}
+
+.public-order-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.public-order-success {
+  text-align: center;
+}
+
+.public-order-success p {
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.public-order-number {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--gold);
+  margin-bottom: 16px !important;
 }

@@ -16,7 +16,9 @@
     "@types/node": "^25.9.3",
     "dotenv": "^17.4.2"
   },
-  "scripts": {},
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Revilo91/GoldRegenDB_Web.git"
