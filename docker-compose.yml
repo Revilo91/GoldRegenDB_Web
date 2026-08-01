@@ -22,16 +22,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 1m
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
     restart: always
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
@@ -40,19 +42,7 @@ services:
       BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
       BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
     ports:
-      - "${PORT}:${PORT}"
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: /api
-    restart: always
-    depends_on:
-      - backend
-    ports:
-      - "3000:80"
+      - "3000:${PORT}"
 
 volumes:
   pgdata:

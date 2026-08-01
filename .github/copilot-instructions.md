@@ -244,8 +244,8 @@ const result = await db.query(query, builder.getParams());
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
 | **Frontend**      | React 19 + Vite + React Router v7        |
 | **Container**     | Docker + Docker Compose                  |
-| **Dev-Umgebung**  | Docker Compose (dev) mit Hot-Reload      |
-| **Produktion**    | Docker Compose (prod) mit Nginx          |
+| **Dev-Umgebung**  | Nativ (npm Workspaces + `concurrently`) oder Docker Compose (dev) mit Hot-Reload |
+| **Produktion**    | Docker Compose (prod), ein Single-Image, kein Nginx |
 | **Backend-Tests** | Jest (`npm test` in `backend/`)          |
 | **Frontend-Tests** | Vitest (`npm test` in `frontend/`)      |
 | **CI**            | GitHub Actions (`.github/workflows/tests.yml`) |
@@ -287,10 +287,13 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ```
 GoldRegenDB_Web/
-├── docker-compose.yml              # Produktion
-├── docker-compose.dev.yml          # Entwicklung (Hot Reload)
-├── docker-compose.synology.yml     # Synology-NAS-spezifisch
-├── .env.example                    # Vorlage für Umgebungsvariablen
+├── Dockerfile                       # Produktions-Image (Multi-Stage: Frontend-Build → Express, kein Nginx)
+├── .dockerignore
+├── package.json                     # Root npm Workspace (backend, frontend) + `npm run dev` (concurrently)
+├── docker-compose.yml               # Produktion (ein `app`-Service)
+├── docker-compose.dev.yml           # Entwicklung, voll containerisiert (Alternative zu nativem `npm run dev`)
+├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── .env.example                     # Vorlage für Umgebungsvariablen
 ├── .github/
 │   ├── copilot-instructions.md     # Diese Datei
 │   └── workflows/
@@ -315,8 +318,7 @@ GoldRegenDB_Web/
 │   └── README.md                   # Backup/Restore-Dokumentation
 │
 ├── backend/
-│   ├── Dockerfile                  # Produktions-Image
-│   ├── Dockerfile.dev              # Entwicklungs-Image (watch mode)
+│   ├── Dockerfile.dev               # Entwicklungs-Image (watch mode, für docker-compose.dev.yml)
 │   ├── package.json
 │   ├── __tests__/                  # Jest-Tests
 │   │   ├── auth.middleware.test.js
@@ -358,9 +360,7 @@ GoldRegenDB_Web/
 │           └── logger.js           # Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix
 │
 ├── frontend/
-│   ├── Dockerfile                  # Multi-Stage-Build (Node → Nginx)
-│   ├── Dockerfile.dev              # Entwicklungs-Image (Vite Dev Server)
-│   ├── nginx.conf                  # Nginx-Konfiguration (Produktion)
+│   ├── Dockerfile.dev               # Entwicklungs-Image (Vite Dev Server, für docker-compose.dev.yml)
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── index.html
@@ -507,15 +507,20 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 
 ## Docker-Architektur
 
+Frontend und Backend laufen als **eine App**: ein Root-`Dockerfile` baut das Vite-Frontend
+(`frontend-builder`-Stage) und kopiert den `dist/`-Output als `public/`-Verzeichnis in das
+Express-Image. Express liefert API (`/api/*`) und statisches Frontend (alles andere) über
+denselben Prozess/Port aus — **kein Nginx** in Produktion.
+
 ### Ports
 
-| Service   | Entwicklung | Produktion |
-| --------- | ----------- | ---------- |
-| Frontend  | 5173        | 3000 (→ Nginx :80) |
-| Backend   | 3001        | 3001       |
-| Datenbank | 5432        | 5432       |
+| Service   | Nativer Dev (`npm run dev`) | Docker Dev (`docker-compose.dev.yml`) | Produktion |
+| --------- | ---------------------------- | -------------------------------------- | ---------- |
+| Frontend  | 5173 (Vite)                  | 3000 → 5173 (Vite)                     | 3000 (Express) |
+| Backend   | 3001                          | 3001                                    | 3000 (Express, same origin) |
+| Datenbank | 5432 (Host-Port)              | 5432                                    | 5432       |
 
-### Services (Produktion)
+### Services (Produktion, `docker-compose.yml`)
 
 ```yaml
 services:
@@ -534,32 +539,41 @@ services:
       interval: 5s
       retries: 5
 
-  backend:
-    build: ./backend
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
     restart: always
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "${PORT}:${PORT}"
-
-  frontend:
-    build: ./frontend         # Multi-Stage: Node build → Nginx
-    restart: always
-    ports:
-      - "3000:80"             # Nginx serviert den gebautem React-Build
+      - "3000:${PORT}"
 ```
 
-### Dev-Modus
+`DATABASE_URL` wird in allen `docker-compose*.yml`-Dateien inline mit dem Docker-Netzwerknamen
+`db` konstruiert (unabhängig vom `.env`-Wert). `.env`/`.env.example` nutzen für den nativen
+Dev-Prozess `localhost` statt `db`, da dieser außerhalb von Docker läuft und die DB nur über den
+auf `5432` gemappten Host-Port erreicht.
 
-- Hot-Reload für Frontend (Vite) und Backend (node --watch)
-- Source-Volumes gemounted
+### Nativer Dev-Modus (empfohlen)
+
+- `npm install` im Root (npm Workspace: `backend`, `frontend`)
+- `npm run dev` startet per `concurrently` gleichzeitig: DB (`docker compose -f docker-compose.dev.yml up -d db`), Backend (`node --watch`) und Frontend (`vite`)
+- Kein Container-Rebuild bei Codeänderungen nötig
+
+### Docker-Dev-Modus (Alternative, voll containerisiert)
+
+- Hot-Reload für Frontend (Vite) und Backend (node --watch), Source-Volumes gemounted
 - `docker compose -f docker-compose.dev.yml up --build`
+- Nutzt weiterhin separate `backend`/`frontend`-Container mit `Dockerfile.dev`
 
 ---
 

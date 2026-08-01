@@ -50,7 +50,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 | Excel-Export  | `exceljs`                                            |
 | Rate Limiting | `express-rate-limit`                                 |
 | Frontend      | React 19 · Vite · React Router v7 · Font Awesome     |
-| Container     | Docker · Docker Compose · Nginx (Produktion)         |
+| Container     | Docker · Docker Compose (Single-Image, kein Nginx)   |
 
 ---
 
@@ -65,12 +65,15 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 
 ### Entwicklung (Hot-Reload)
 
+**Nativ (empfohlen)** — nur die Datenbank läuft in Docker, Backend/Frontend laufen direkt auf dem Host:
+
 ```bash
 git clone https://github.com/Revilo91/GoldRegenDB_Web.git
 cd GoldRegenDB_Web
 
 cp .env.example .env          # Passwörter/Secrets anpassen!
-docker compose -f docker-compose.dev.yml up --build
+npm install                   # installiert Root- + Backend- + Frontend-Workspaces
+npm run dev                   # startet DB (Docker), Backend (node --watch) und Frontend (vite) parallel
 ```
 
 | Dienst    | URL                       |
@@ -81,17 +84,30 @@ docker compose -f docker-compose.dev.yml up --build
 
 > Backend und Frontend starten mit Hot-Reload. Änderungen an Quell­dateien werden sofort übernommen.
 
+**Alternative: voll containerisiert**
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+| Dienst    | URL                       |
+|-----------|---------------------------|
+| Frontend  | http://localhost:3000 (→ Vite :5173) |
+| Backend   | http://localhost:3001      |
+| Datenbank | localhost:5432             |
+
 ### Produktion (lokal)
+
+Frontend und Backend laufen als **ein** Image/Container (Express liefert die gebaute React-App und die API same-origin aus, kein Nginx):
 
 ```bash
 cp .env.example .env          # Passwörter/Secrets anpassen!
 docker compose up --build -d
 ```
 
-| Dienst    | URL                  |
-|-----------|----------------------|
-| Frontend  | http://localhost:3000 |
-| Backend   | http://localhost:3001 |
+| Dienst          | URL                  |
+|-----------------|----------------------|
+| Frontend + API  | http://localhost:3000 |
 
 ### Synology NAS
 
@@ -127,7 +143,7 @@ Das einfachste Deployment nutzt das fertige Release-Paket.
 
 6. Frontend aufrufen: `http://<synology-ip>:3000`
 
-> **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet und wird über den internen Nginx-Proxy geleitet.
+> **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet. Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
 
 ---
 
@@ -140,11 +156,11 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 | `POSTGRES_DB`   | Datenbankname                                      | `goldregendb`                                          |
 | `POSTGRES_USER` | PostgreSQL-Superuser                               | `goldregen`                                            |
 | `DB_PASSWORD`   | Passwort des PostgreSQL-Superusers                 | `changeme`                                             |
-| `DATABASE_URL`  | Verbindungs-URL für das Backend                    | `postgresql://goldregen:changeme@db:5432/goldregendb`  |
+| `DATABASE_URL`  | Verbindungs-URL für den nativen Backend-Prozess (`npm run dev`); Docker-Compose überschreibt dies selbst mit dem Netzwerknamen `db` | `postgresql://goldregen:changeme@localhost:5432/goldregendb` |
 | `PORT`          | Backend-Port                                       | `3001`                                                 |
 | `JWT_SECRET`    | Geheimer Schlüssel für JWT-Tokens (lang & zufällig)| `change-this-to-a-long-random-secret`                  |
 | `NODE_ENV`      | Laufzeit-Umgebung                                  | `production` / `development`                           |
-| `VITE_API_URL`  | API-URL für das Frontend (nur Entwicklung)         | `http://localhost:3001/api`                            |
+| `VITE_API_URL`  | API-URL für das Frontend bei nativer Entwicklung   | `http://localhost:3001/api`                            |
 
 > ⚠️ **`JWT_SECRET`** und **`DB_PASSWORD`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden.
 
@@ -166,10 +182,12 @@ Standard-Login nach dem ersten Start: **admin** / **admin** (bitte sofort änder
 
 ```
 GoldRegenDB_Web/
-├── docker-compose.yml              # Produktions-Stack
-├── docker-compose.dev.yml          # Entwicklungs-Stack (Hot-Reload)
-├── docker-compose.synology.yml     # Synology-NAS-spezifisch
-├── .env.example                    # Vorlage für Umgebungsvariablen
+├── Dockerfile                       # Single-Container-Build (Frontend + Backend, ein Image)
+├── docker-compose.yml               # Produktions-Stack (db + app)
+├── docker-compose.dev.yml           # Alternativer, voll containerisierter Entwicklungs-Stack
+├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── package.json                     # npm-Workspace-Root (`npm run dev` startet alles)
+├── .env.example                     # Vorlage für Umgebungsvariablen
 │
 ├── db/
 │   ├── init.sql                    # PostgreSQL-Schema (Tabellen + Trigger)

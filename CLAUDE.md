@@ -13,18 +13,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Start
 
 ```bash
-# Development (hot reload on code changes)
+# Development (native, hot reload) — recommended
 cp .env.example .env
-docker compose -f docker-compose.dev.yml up --build
+npm install                # installs root + backend + frontend workspaces
+npm run dev                # starts db (Docker) + backend (node --watch) + frontend (vite) concurrently
 
 # Services available at:
-# Frontend: http://localhost:3000 (mapped to Vite :5173)
+# Frontend: http://localhost:5173
 # Backend API: http://localhost:3001/api
 # Database: localhost:5432
 
-# Production
+# Development (fully containerized alternative)
+docker compose -f docker-compose.dev.yml up --build
+# Frontend: http://localhost:3000 (mapped to Vite :5173) / Backend: http://localhost:3001
+
+# Production — single image, Express serves API + built frontend on one port
 docker compose up --build -d
-# Frontend: http://localhost:3000 (Nginx)
+# Frontend + API: http://localhost:3000 (no Nginx)
 ```
 
 ---

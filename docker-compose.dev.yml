@@ -31,7 +31,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: development
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}

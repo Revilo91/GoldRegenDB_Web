@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+const { existsSync } = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
@@ -125,6 +127,16 @@ app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/
 app.use('/api/backup', apiLimiter, authenticate, requireAdmin, require('./routes/backup'));
 
 logger.info('SERVER', 'Alle Routen registriert');
+
+// Frontend-Build ausliefern (Single-Container-Docker-Image, siehe Root-Dockerfile).
+// In nativer Entwicklung existiert ./public nicht – Vite läuft dann separat.
+const publicDir = path.join(__dirname, 'public');
+if (existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+}
 
 // Global error handler
 app.use((err, req, res, _next) => {
