@@ -104,6 +104,12 @@ async function exportUploadsZipBuffer(onProgress) {
 
       const content = await fs.readFile(file.filePath);
       zip.addFile(file.name, content);
+      // Fotos (jpg/png/gif) sind bereits komprimiert – ungespeichert (STORED statt
+      // DEFLATED) vermeidet, dass zip.toBuffer() das Event-Loop minutenlang mit
+      // wirkungslosem Deflate blockiert (bei ~1000 Bildern sonst 60+ Sekunden Blockade,
+      // die Fortschritts-Polling zum Stillstand bringt und Proxy-Timeouts auslöst).
+      const entry = zip.getEntry(file.name);
+      if (entry) entry.header.method = 0; // 0 = STORED (siehe adm-zip util/constants.js)
 
       if (onProgress) {
         await onProgress({

@@ -137,8 +137,7 @@ export default function Datensicherung() {
   // Parsed backup waiting for user confirmation
   const [pendingImport, setPendingImport] = useState(null); // { data, fileName, availableTables }
   const [importSelected, setImportSelected] = useState([]);
-  const [importRestoreUploadsZip, setImportRestoreUploadsZip] =
-    useState(false);
+  const [importRestoreUploadsZip, setImportRestoreUploadsZip] = useState(false);
   const [pendingUploadsZipFile, setPendingUploadsZipFile] = useState(null);
   const [pendingUploadsZipName, setPendingUploadsZipName] = useState("");
   const [uploadsOnlyFile, setUploadsOnlyFile] = useState(null);
@@ -221,7 +220,12 @@ export default function Datensicherung() {
 
     const { blob, metadata } = await api.exportBackupUploadsZip({
       returnMetadata: true,
-      onProgress: ({ loadedBytes, totalBytes, progressPercent, uploadFileCount }) => {
+      onProgress: ({
+        loadedBytes,
+        totalBytes,
+        progressPercent,
+        uploadFileCount,
+      }) => {
         setUploadsProgressSafe((prev) => ({
           ...prev,
           phase: "downloading",
@@ -285,7 +289,8 @@ export default function Datensicherung() {
             progressPercent: 0,
             loadedBytes: 0,
             totalBytes: null,
-            fileName: uploadJob?.fileName ?? `goldregendb_uploads_${formattedDate}.zip`,
+            fileName:
+              uploadJob?.fileName ?? `goldregendb_uploads_${formattedDate}.zip`,
           });
 
           const completedJob = await waitForUploadsExportJob(uploadJob.id);
@@ -306,14 +311,23 @@ export default function Datensicherung() {
             uploadJob.id,
             {
               returnMetadata: true,
-              onProgress: ({ loadedBytes, totalBytes, progressPercent, uploadFileCount }) => {
+              onProgress: ({
+                loadedBytes,
+                totalBytes,
+                progressPercent,
+                uploadFileCount,
+              }) => {
                 setUploadsProgressSafe((prev) => ({
                   ...prev,
                   phase: "downloading",
-                  totalFiles: prev?.totalFiles || uploadFileCount || completedJob.totalFiles,
+                  totalFiles:
+                    prev?.totalFiles ||
+                    uploadFileCount ||
+                    completedJob.totalFiles,
                   processedFiles: completedJob.totalFiles,
                   currentFileName: null,
-                  progressPercent: progressPercent ?? prev?.progressPercent ?? 0,
+                  progressPercent:
+                    progressPercent ?? prev?.progressPercent ?? 0,
                   loadedBytes,
                   totalBytes,
                 }));
@@ -321,7 +335,10 @@ export default function Datensicherung() {
             },
           );
 
-          triggerDownload(blob, completedJob.fileName || `goldregendb_uploads_${formattedDate}.zip`);
+          triggerDownload(
+            blob,
+            completedJob.fileName || `goldregendb_uploads_${formattedDate}.zip`,
+          );
 
           setUploadsProgressSafe((prev) => ({
             ...prev,
@@ -628,19 +645,30 @@ export default function Datensicherung() {
                     color: "#1d4ed8",
                   }}>
                   <div style={{ fontWeight: 600, marginBottom: "6px" }}>
-                    {exportUploadsProgress.phase === "preparing" && "ZIP wird erstellt"}
-                    {exportUploadsProgress.phase === "preparing-complete" && "ZIP-Erstellung abgeschlossen"}
-                    {exportUploadsProgress.phase === "downloading" && "ZIP wird heruntergeladen"}
-                    {exportUploadsProgress.phase === "completed" && "Bild-Export abgeschlossen"}
-                    {exportUploadsProgress.phase === "failed" && "Bild-Export fehlgeschlagen"}
+                    {exportUploadsProgress.phase === "preparing" &&
+                      "ZIP wird erstellt"}
+                    {exportUploadsProgress.phase === "preparing-complete" &&
+                      "ZIP-Erstellung abgeschlossen"}
+                    {exportUploadsProgress.phase === "downloading" &&
+                      "ZIP wird heruntergeladen"}
+                    {exportUploadsProgress.phase === "completed" &&
+                      "Bild-Export abgeschlossen"}
+                    {exportUploadsProgress.phase === "failed" &&
+                      "Bild-Export fehlgeschlagen"}
                   </div>
                   <div style={{ marginBottom: "8px", fontSize: "0.95rem" }}>
-                    {exportUploadsProgress.phase === "preparing" || exportUploadsProgress.phase === "preparing-complete"
+                    {exportUploadsProgress.phase === "preparing" ||
+                    exportUploadsProgress.phase === "preparing-complete"
                       ? `${exportUploadsProgress.processedFiles || 0} von ${exportUploadsProgress.totalFiles || 0} Bildern verarbeitet`
                       : `${formatBytes(exportUploadsProgress.loadedBytes || 0)} von ${formatBytes(exportUploadsProgress.totalBytes || 0)} geladen`}
                   </div>
                   {exportUploadsProgress.currentFileName && (
-                    <div style={{ marginBottom: "8px", fontSize: "0.9rem", color: "#1e40af" }}>
+                    <div
+                      style={{
+                        marginBottom: "8px",
+                        fontSize: "0.9rem",
+                        color: "#1e40af",
+                      }}>
                       Aktuelle Datei: {exportUploadsProgress.currentFileName}
                     </div>
                   )}
@@ -678,11 +706,12 @@ export default function Datensicherung() {
               <strong>Bild-Export fehlgeschlagen:</strong> {exportUploadsError}
             </div>
           )}
-          {exportError && (!exportUploadsError || exportError !== exportUploadsError) && (
-            <div className="badge danger" style={{ marginBottom: "20px" }}>
-              {exportError}
-            </div>
-          )}
+          {exportError &&
+            (!exportUploadsError || exportError !== exportUploadsError) && (
+              <div className="badge danger" style={{ marginBottom: "20px" }}>
+                {exportError}
+              </div>
+            )}
           <button
             className="btn btn-primary"
             onClick={handleExport}
@@ -803,7 +832,8 @@ export default function Datensicherung() {
                   <div
                     className="badge success"
                     style={{ marginBottom: "10px", padding: "12px 16px" }}>
-                    <FontAwesomeIcon icon={faCheckCircle} /> Bilder importiert: {uploadsOnlyResult.restored}
+                    <FontAwesomeIcon icon={faCheckCircle} /> Bilder importiert:{" "}
+                    {uploadsOnlyResult.restored}
                     {uploadsOnlyResult.skipped > 0
                       ? ` (${uploadsOnlyResult.skipped} übersprungen)`
                       : ""}

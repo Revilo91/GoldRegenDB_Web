@@ -86,6 +86,17 @@ const publicOrderLimiter = rateLimit({
   message: { error: 'Zu viele Bestellungen von dieser Adresse. Bitte später erneut versuchen.' },
 });
 
+// Eigener Limiter für /api/backup: der Upload-Export-Fortschritt wird per Polling
+// (alle 500ms) abgefragt und würde sich sonst das 100er-Budget des apiLimiter mit
+// allen anderen Routen teilen und bei großen Upload-Ordnern vorzeitig blockieren.
+const backupLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
+});
+
 // Public routes
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth', apiLimiter, authRoutes);
@@ -124,7 +135,7 @@ app.use('/api/lagerinventur', apiLimiter, authenticate, requireBearbeiter, lager
 // Admin-only routes
 app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);
 app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/debug'));
-app.use('/api/backup', apiLimiter, authenticate, requireAdmin, require('./routes/backup'));
+app.use('/api/backup', backupLimiter, authenticate, requireAdmin, require('./routes/backup'));
 
 logger.info('SERVER', 'Alle Routen registriert');
 

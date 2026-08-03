@@ -254,7 +254,7 @@ export const api = {
   importBackupUploadsZip: (file) => {
     const formData = new FormData();
     formData.append('uploadsZip', file);
-    return requestFormData('/backup/import-uploads-zip', { method: 'POST', body: formData });
+    return request('/backup/import-uploads-zip', { method: 'POST', body: formData });
   },
 
   // Inventur
