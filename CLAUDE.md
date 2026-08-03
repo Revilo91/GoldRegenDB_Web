@@ -2,6 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## Graphify Knowledge Graph
+
+**Graphify data is stored in this project** (`graphify-out/` directory). When you ask ANY question about this project (codebase, architecture, files, relationships, features, business logic, or context), **immediately invoke `/graphify` before answering**, even if you think you know the answer already. This ensures:
+
+- Complete, up-to-date context from the knowledge graph
+- Accurate file references and relationships
+- Comprehensive architecture understanding
+- Consistent answers across sessions
+
+**Trigger conditions for automatic graphify use:**
+- "Where is..." / "What does..." / "How does..." (code/architecture questions)
+- Feature requests or modifications (understand dependencies first)
+- Bug reports or investigations
+- API/schema questions
+- Any file or cross-file logic question
+
+---
+
 ## Project Overview
 
 **GoldRegenDB** is a web-based inventory management system for handcrafted jewelry. It runs on PostgreSQL, Node.js/Express backend, and React 19 frontend, all containerized with Docker.
