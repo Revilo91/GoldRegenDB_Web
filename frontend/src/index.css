@@ -2101,13 +2101,13 @@ select.form-control {
 
 .public-order-logo {
   display: block;
-  height: 64px;
-  margin: 0 auto 24px;
+  height: 10em;
+  margin: 0 auto 12px;
 }
 
 .public-order-card h2 {
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
 
 .public-order-intro {

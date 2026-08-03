@@ -50,7 +50,7 @@ export default function BestellungPublic() {
     return (
       <div className="public-order-page">
         <div className="public-order-card public-order-success">
-          <img src="/Logo transparent.png" alt="GoldRegen" className="public-order-logo" />
+          <img src="/Logo trasparent weißer Kreis.png" alt="GoldRegen" className="public-order-logo" />
           <h2>Vielen Dank für Ihre Bestellung!</h2>
           <p>
             Ihre Bestellung wurde erfolgreich übermittelt. Ihre Bestellnummer lautet:
@@ -65,7 +65,7 @@ export default function BestellungPublic() {
   return (
     <div className="public-order-page">
       <form className="public-order-card" onSubmit={handleSubmit}>
-        <img src="/Logo transparent.png" alt="GoldRegen" className="public-order-logo" />
+        <img src="/Logo trasparent weißer Kreis.png" alt="GoldRegen" className="public-order-logo" />
         <h2>Bestellung aufgeben</h2>
         <p className="public-order-intro">
           Füllen Sie das Formular aus, um eine Bestellung bei uns aufzugeben. Mit * markierte Felder sind erforderlich.
