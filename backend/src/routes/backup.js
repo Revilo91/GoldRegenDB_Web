@@ -11,10 +11,27 @@ const logger = require("../utils/logger");
 const UPLOADS_DIR = process.env.BACKUP_UPLOADS_DIR
   ? path.resolve(process.env.BACKUP_UPLOADS_DIR)
   : path.resolve(__dirname, "../assets/uploads");
+// Muss reale Upload-Ordner abdecken (Export erzeugt ZIPs in vergleichbarer Größe, siehe exportUploadsZipBuffer)
+const MAX_UPLOADS_ZIP_SIZE_MB = Number(process.env.BACKUP_UPLOADS_ZIP_MAX_MB) || 4096;
 const uploadZip = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOADS_ZIP_SIZE_MB * 1024 * 1024 },
 });
+
+function uploadZipMiddleware(req, res, next) {
+  uploadZip.single("uploadsZip")(req, res, (err) => {
+    if (!err) return next();
+
+    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        error: `Datei zu groß. Maximale Größe: ${MAX_UPLOADS_ZIP_SIZE_MB} MB`,
+      });
+    }
+
+    logger.error("BACKUP", "Fehler beim Upload der Upload-ZIP", { message: err.message });
+    return res.status(400).json({ error: `Fehler beim Datei-Upload: ${err.message}` });
+  });
+}
 const exportUploadJobs = new Map();
 const EXPORT_JOB_TTL_MS = 30 * 60 * 1000;
 
@@ -397,7 +414,7 @@ router.get("/export-uploads-jobs/:jobId/download", async (req, res) => {
 // POST /api/backup/import-uploads-zip – Import upload images from ZIP file
 router.post(
   "/import-uploads-zip",
-  uploadZip.single("uploadsZip"),
+  uploadZipMiddleware,
   async (req, res) => {
     try {
       if (!req.file || !req.file.buffer) {

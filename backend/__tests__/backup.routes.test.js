@@ -27,6 +27,7 @@ const TEST_FILE_NAME = 'JEST_TEST_UPLOAD_IMAGE.png';
 const TEST_FILE_PATH = path.join(UPLOADS_DIR, TEST_FILE_NAME);
 
 process.env.BACKUP_UPLOADS_DIR = UPLOADS_DIR;
+process.env.BACKUP_UPLOADS_ZIP_MAX_MB = '1';
 
 function buildApp() {
   const app = express();
@@ -84,6 +85,20 @@ describe('backup uploads zip routes', () => {
     expect(res.body.uploads.restored).toBe(1);
     const written = await fs.readFile(TEST_FILE_PATH, 'utf8');
     expect(written).toBe('fake-image-content');
+  });
+
+  it('POST /api/backup/import-uploads-zip returns 413 with a clear message when the file exceeds the size limit', async () => {
+    const oversizedBuffer = Buffer.alloc(2 * 1024 * 1024, 'x'); // 2MB > 1MB test limit
+
+    const res = await request(app)
+      .post('/api/backup/import-uploads-zip')
+      .attach('uploadsZip', oversizedBuffer, {
+        filename: 'too-big.zip',
+        contentType: 'application/zip',
+      });
+
+    expect(res.status).toBe(413);
+    expect(res.body.error).toMatch(/zu groß/);
   });
 
   it('GET /api/backup/export-uploads returns zip content', async () => {
