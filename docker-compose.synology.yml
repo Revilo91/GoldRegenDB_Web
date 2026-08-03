@@ -25,36 +25,29 @@ services:
     networks:
       - goldregendb_net
 
-  backend:
+  app:
     # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
-    # Kompatibel mit Synology Container Manager (DSM).
-    image: ghcr.io/revilo91/goldregendb-backend:latest
+    # Kompatibel mit Synology Container Manager (DSM). VITE_API_URL=/api ist bereits
+    # im Image eingebettet; Express liefert Frontend und API same-origin aus.
+    image: ghcr.io/revilo91/goldregendb:latest
     restart: always
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
+      BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION}
+      BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
+      BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
     volumes:
       # Hochgeladene Fotos dauerhaft speichern
       - /volume1/docker/goldregendb/uploads:/app/src/assets/uploads
     ports:
-      - "${PORT}:${PORT}"
-    networks:
-      - goldregendb_net
-
-  frontend:
-    # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
-    # VITE_API_URL=/api ist bereits im Image eingebettet; nginx leitet /api an den Backend-Container weiter.
-    image: ghcr.io/revilo91/goldregendb-frontend:latest
-    restart: always
-    depends_on:
-      - backend
-    ports:
-      - "3000:80"
+      - "3000:${PORT}"
     networks:
       - goldregendb_net
 

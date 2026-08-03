@@ -10,6 +10,8 @@ backend/src/assets/uploads/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+/e2e/.auth/
+/e2e/test-results/
 .serena
 .github
 graphify-out

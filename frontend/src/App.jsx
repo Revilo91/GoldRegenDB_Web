@@ -5,6 +5,7 @@ import {
   Route,
   NavLink,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -24,6 +25,7 @@ import {
   faWarehouse,
   faKey,
   faSignOutAlt,
+  faTruck,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
@@ -33,6 +35,8 @@ import Dashboard from "./pages/Dashboard";
 import Schmuckstuecke from "./pages/Schmuckstuecke";
 import Kunden from "./pages/Kunden";
 import Lieferscheine from "./pages/Lieferscheine";
+import Bestelluebersicht from "./pages/Bestelluebersicht";
+import BestellungPublic from "./pages/BestellungPublic";
 import Rechnungen from "./pages/Rechnungen";
 import Sumup from "./pages/Sumup";
 import AuditLog from "./pages/AuditLog";
@@ -225,6 +229,18 @@ function AppLayout() {
               <FontAwesomeIcon icon={faFileInvoice} />
             </span>
             <span>Rechnungen</span>
+          </NavLink>
+          )}
+          {isBearbeiter && (
+          <NavLink
+            to="/bestelluebersicht"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">
+              <FontAwesomeIcon icon={faTruck} />
+            </span>
+            <span>Bestellübersicht</span>
           </NavLink>
           )}
           {isBearbeiter && (
@@ -577,6 +593,14 @@ function AppLayout() {
             }
           />
           <Route
+            path="/bestelluebersicht"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <Bestelluebersicht />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/sumup"
             element={
               <ProtectedRoute bearbeiterOnly>
@@ -631,11 +655,21 @@ function AppLayout() {
   );
 }
 
+// Öffentliches Bestellformular ist bewusst außerhalb des Login-Gates von AppLayout verdrahtet,
+// damit es unabhängig vom Auth-Status (eingeloggt oder nicht) erreichbar bleibt.
+function AppRoot() {
+  const location = useLocation();
+  if (location.pathname.toLowerCase() === "/bestellung") {
+    return <BestellungPublic />;
+  }
+  return <AppLayout />;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppLayout />
+        <AppRoot />
       </AuthProvider>
     </BrowserRouter>
   );
