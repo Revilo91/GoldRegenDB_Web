@@ -2,6 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## Graphify Knowledge Graph
+
+**Graphify data is stored in this project** (`graphify-out/` directory). When you ask ANY question about this project (codebase, architecture, files, relationships, features, business logic, or context), **immediately invoke `/graphify` before answering**, even if you think you know the answer already. This ensures:
+
+- Complete, up-to-date context from the knowledge graph
+- Accurate file references and relationships
+- Comprehensive architecture understanding
+- Consistent answers across sessions
+
+**Trigger conditions for automatic graphify use:**
+- "Where is..." / "What does..." / "How does..." (code/architecture questions)
+- Feature requests or modifications (understand dependencies first)
+- Bug reports or investigations
+- API/schema questions
+- Any file or cross-file logic question
+
+---
+
 ## Project Overview
 
 **GoldRegenDB** is a web-based inventory management system for handcrafted jewelry. It runs on PostgreSQL, Node.js/Express backend, and React 19 frontend, all containerized with Docker.
@@ -23,9 +43,10 @@ npm run dev                # starts db (Docker) + backend (node --watch) + front
 # Backend API: http://localhost:3001/api
 # Database: localhost:5432
 
-# Development (fully containerized alternative)
+# Development (fully containerized alternative — 2 containers: db + app)
 docker compose -f docker-compose.dev.yml up --build
-# Frontend: http://localhost:3000 (mapped to Vite :5173) / Backend: http://localhost:3001
+# Frontend: http://localhost:3000 (Vite :5173) / Backend: http://localhost:3001
+# Backend & Frontend run together in one container with hot-reload via concurrently
 
 # Production — single image, Express serves API + built frontend on one port
 docker compose up --build -d

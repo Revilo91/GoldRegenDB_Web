@@ -84,7 +84,7 @@ npm run dev                   # startet DB (Docker), Backend (node --watch) und 
 
 > Backend und Frontend starten mit Hot-Reload. Änderungen an Quell­dateien werden sofort übernommen.
 
-**Alternative: voll containerisiert**
+**Alternative: voll containerisiert** (2 Container: db + app mit Hot-Reload)
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
@@ -95,6 +95,8 @@ docker compose -f docker-compose.dev.yml up --build
 | Frontend  | http://localhost:3000 (→ Vite :5173) |
 | Backend   | http://localhost:3001      |
 | Datenbank | localhost:5432             |
+
+> Backend und Frontend laufen in einem gemeinsamen App-Container (`app`) und werden von `concurrently` parallel mit Hot-Reload gestartet. Die Datenbank läuft in einem separaten `db`-Container.
 
 ### Produktion (lokal)
 
@@ -182,9 +184,10 @@ Standard-Login nach dem ersten Start: **admin** / **admin** (bitte sofort änder
 
 ```
 GoldRegenDB_Web/
-├── Dockerfile                       # Single-Container-Build (Frontend + Backend, ein Image)
+├── Dockerfile                       # Produktions-Build (Frontend gebaut + Backend)
+├── Dockerfile.dev                   # Entwicklungs-Build (Frontend + Backend mit Hot-Reload)
 ├── docker-compose.yml               # Produktions-Stack (db + app)
-├── docker-compose.dev.yml           # Alternativer, voll containerisierter Entwicklungs-Stack
+├── docker-compose.dev.yml           # Entwicklungs-Stack mit Hot-Reload (db + app)
 ├── docker-compose.synology.yml      # Synology-NAS-spezifisch
 ├── package.json                     # npm-Workspace-Root (`npm run dev` startet alles)
 ├── .env.example                     # Vorlage für Umgebungsvariablen
