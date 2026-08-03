@@ -43,9 +43,10 @@ npm run dev                # starts db (Docker) + backend (node --watch) + front
 # Backend API: http://localhost:3001/api
 # Database: localhost:5432
 
-# Development (fully containerized alternative)
+# Development (fully containerized alternative — 2 containers: db + app)
 docker compose -f docker-compose.dev.yml up --build
-# Frontend: http://localhost:3000 (mapped to Vite :5173) / Backend: http://localhost:3001
+# Frontend: http://localhost:3000 (Vite :5173) / Backend: http://localhost:3001
+# Backend & Frontend run together in one container with hot-reload via concurrently
 
 # Production — single image, Express serves API + built frontend on one port
 docker compose up --build -d
