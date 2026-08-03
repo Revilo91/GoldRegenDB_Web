@@ -58,6 +58,43 @@ function isNotFoundError(error) {
   return error?.status === 404 || /\bnot found\b/i.test(message);
 }
 
+// Pollt einen Backend-Job (Export/Import) alle 500ms, bis er abgeschlossen ist oder fehlschlägt
+async function pollJob(fetchJob, jobId, { onUpdate, formatError } = {}) {
+  while (true) {
+    const result = await fetchJob(jobId);
+    const job = result?.job;
+    if (onUpdate) onUpdate(job);
+
+    if (job?.status === "completed") return job;
+    if (job?.status === "failed") {
+      throw new Error(
+        formatError ? formatError(job.error) : job.error?.message || "Vorgang fehlgeschlagen",
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+function ProgressPanel({ phase, title, detail, currentLabel, progressPercent }) {
+  const statusClass = phase === "failed" ? "danger" : phase === "completed" ? "success" : "";
+  return (
+    <div className={`progress-panel ${statusClass}`.trim()}>
+      <div className="progress-panel-title">{title}</div>
+      {detail && <div className="progress-panel-detail">{detail}</div>}
+      {currentLabel && (
+        <div className="progress-panel-current">Aktuell: {currentLabel}</div>
+      )}
+      <div className="progress-bar-track">
+        <div
+          className="progress-bar-fill"
+          style={{ "--progress-percent": `${Math.max(0, Math.min(100, progressPercent || 0))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TableCheckboxList({ tables, selected, onChange, disabled }) {
   const allChecked = tables.every((t) => selected.includes(t.key));
   const toggleAll = () => {
@@ -125,6 +162,7 @@ export default function Datensicherung() {
   const [exportError, setExportError] = useState(null);
   const [exportUploadsError, setExportUploadsError] = useState(null);
   const [exportUploadsProgress, setExportUploadsProgress] = useState(null);
+  const [exportTablesProgress, setExportTablesProgress] = useState(null);
   const [exportSelected, setExportSelected] = useState(
     ALL_TABLES.map((t) => t.key),
   );
@@ -134,6 +172,8 @@ export default function Datensicherung() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
   const [importError, setImportError] = useState(null);
+  const [importTablesProgress, setImportTablesProgress] = useState(null);
+  const [importUploadsZipProgress, setImportUploadsZipProgress] = useState(null);
   // Parsed backup waiting for user confirmation
   const [pendingImport, setPendingImport] = useState(null); // { data, fileName, availableTables }
   const [importSelected, setImportSelected] = useState([]);
@@ -145,6 +185,7 @@ export default function Datensicherung() {
   const [uploadsOnlyUploading, setUploadsOnlyUploading] = useState(false);
   const [uploadsOnlyError, setUploadsOnlyError] = useState(null);
   const [uploadsOnlyResult, setUploadsOnlyResult] = useState(null);
+  const [uploadsOnlyProgress, setUploadsOnlyProgress] = useState(null);
 
   const fileInputRef = useRef(null);
   const uploadsZipInputRef = useRef(null);
@@ -171,37 +212,62 @@ export default function Datensicherung() {
     boxSizing: "border-box",
   };
 
-  const setUploadsProgressSafe = (updater) => {
+  const makeSafeSetter = (setter) => (updater) => {
     if (!isMountedRef.current) return;
-    setExportUploadsProgress(updater);
+    setter(updater);
   };
 
-  const waitForUploadsExportJob = async (jobId) => {
-    while (true) {
-      const result = await api.getBackupUploadsExportJob(jobId);
-      const job = result?.job;
+  const setUploadsProgressSafe = makeSafeSetter(setExportUploadsProgress);
+  const setExportTablesProgressSafe = makeSafeSetter(setExportTablesProgress);
+  const setImportTablesProgressSafe = makeSafeSetter(setImportTablesProgress);
+  const setImportUploadsZipProgressSafe = makeSafeSetter(setImportUploadsZipProgress);
+  const setUploadsOnlyProgressSafe = makeSafeSetter(setUploadsOnlyProgress);
 
-      setUploadsProgressSafe((prev) => ({
-        ...prev,
-        phase: job?.status === "completed" ? "preparing-complete" : "preparing",
-        jobId,
-        totalFiles: job?.totalFiles ?? 0,
-        processedFiles: job?.processedFiles ?? 0,
-        currentFileName: job?.currentFileName ?? null,
-        progressPercent: job?.progressPercent ?? 0,
-        fileName: job?.fileName ?? prev?.fileName ?? null,
-      }));
+  const waitForUploadsExportJob = (jobId) =>
+    pollJob(api.getBackupUploadsExportJob, jobId, {
+      onUpdate: (job) => {
+        setUploadsProgressSafe((prev) => ({
+          ...prev,
+          phase: job?.status === "completed" ? "preparing-complete" : "preparing",
+          jobId,
+          totalFiles: job?.totalFiles ?? 0,
+          processedFiles: job?.processedFiles ?? 0,
+          currentFileName: job?.currentFileName ?? null,
+          progressPercent: job?.progressPercent ?? 0,
+          fileName: job?.fileName ?? prev?.fileName ?? null,
+        }));
+      },
+      formatError: buildUploadsExportErrorMessage,
+    });
 
-      if (job?.status === "completed") {
-        return job;
-      }
+  // Gemeinsame Job-Logik für den ZIP-Bild-Import (genutzt sowohl beim Restore-Flow als auch beim eigenständigen Bild-Import)
+  const runUploadsZipImportJob = async (file, setProgress) => {
+    setProgress({
+      phase: "running",
+      totalFiles: 0,
+      processedFiles: 0,
+      currentFileName: null,
+      progressPercent: 0,
+    });
 
-      if (job?.status === "failed") {
-        throw new Error(buildUploadsExportErrorMessage(job.error));
-      }
+    const startResult = await api.startBackupUploadsZipImportJob(file);
+    const job = startResult?.job;
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
+    const completedJob = await pollJob(api.getBackupUploadsZipImportJob, job.id, {
+      onUpdate: (j) => {
+        setProgress((prev) => ({
+          ...prev,
+          phase: "running",
+          totalFiles: j?.totalFiles ?? prev?.totalFiles ?? 0,
+          processedFiles: j?.processedFiles ?? 0,
+          currentFileName: j?.currentFileName ?? null,
+          progressPercent: j?.progressPercent ?? 0,
+        }));
+      },
+    });
+
+    setProgress((prev) => ({ ...prev, phase: "completed", progressPercent: 100 }));
+    return completedJob.uploads;
   };
 
   const downloadUploadsZipDirectly = async (formattedDate) => {
@@ -266,13 +332,46 @@ export default function Datensicherung() {
     setExportError(null);
     setExportUploadsError(null);
     setExportUploadsProgress(null);
+    setExportTablesProgress(null);
     try {
       const formattedDate = new Date().toISOString().slice(0, 10);
 
       if (exportSelected.length > 0) {
-        const blob = await api.exportBackup(exportSelected);
+        setExportTablesProgressSafe({
+          phase: "running",
+          totalTables: exportSelected.length,
+          processedTables: 0,
+          currentTable: null,
+          progressPercent: 0,
+        });
+
+        const startResult = await api.startBackupExportJob(exportSelected);
+        const tablesJob = startResult?.job;
+
+        const completedJob = await pollJob(api.getBackupExportJob, tablesJob.id, {
+          onUpdate: (job) => {
+            setExportTablesProgressSafe((prev) => ({
+              ...prev,
+              phase: "running",
+              totalTables: job?.totalTables ?? prev?.totalTables ?? 0,
+              processedTables: job?.processedTables ?? 0,
+              currentTable: job?.currentTable ?? null,
+              progressPercent: job?.progressPercent ?? 0,
+            }));
+          },
+        });
+
+        const { blob } = await api.downloadBackupExportJob(completedJob.id, {
+          returnMetadata: true,
+        });
         const filename = `goldregendb_backup_${formattedDate}.json`;
         triggerDownload(blob, filename);
+
+        setExportTablesProgressSafe((prev) => ({
+          ...prev,
+          phase: "completed",
+          progressPercent: 100,
+        }));
       }
 
       if (exportIncludeUploads) {
@@ -368,6 +467,9 @@ export default function Datensicherung() {
         }
       }
     } catch (err) {
+      setExportTablesProgressSafe((prev) =>
+        prev && prev.phase !== "completed" ? { ...prev, phase: "failed" } : prev,
+      );
       if (exportIncludeUploads) {
         setExportUploadsError(err.message);
         setUploadsProgressSafe((prev) => ({
@@ -468,12 +570,19 @@ export default function Datensicherung() {
     setUploadsOnlyUploading(true);
     setUploadsOnlyError(null);
     setUploadsOnlyResult(null);
+    setUploadsOnlyProgressSafe(null);
     try {
-      const result = await api.importBackupUploadsZip(uploadsOnlyFile);
-      setUploadsOnlyResult(result?.uploads || { restored: 0, skipped: 0 });
+      const uploads = await runUploadsZipImportJob(
+        uploadsOnlyFile,
+        setUploadsOnlyProgressSafe,
+      );
+      setUploadsOnlyResult(uploads || { restored: 0, skipped: 0 });
       setUploadsOnlyFile(null);
       setUploadsOnlyName("");
     } catch (err) {
+      setUploadsOnlyProgressSafe((prev) =>
+        prev ? { ...prev, phase: "failed" } : prev,
+      );
       setUploadsOnlyError(err.message || "Fehler beim Bild-Upload");
     } finally {
       setUploadsOnlyUploading(false);
@@ -500,22 +609,58 @@ export default function Datensicherung() {
     setImporting(true);
     setImportResult(null);
     setImportError(null);
+    setImportTablesProgress(null);
+    setImportUploadsZipProgress(null);
 
     try {
       let dbResult = null;
       let uploadsResult = null;
 
       if (importSelected.length > 0) {
-        dbResult = await api.importBackup(pendingImport.data, importSelected);
+        setImportTablesProgressSafe({
+          phase: "running",
+          totalUnits: 0,
+          processedUnits: 0,
+          currentTable: null,
+          progressPercent: 0,
+        });
+
+        const startResult = await api.startBackupImportJob(
+          pendingImport.data,
+          importSelected,
+        );
+        const tablesJob = startResult?.job;
+
+        dbResult = await pollJob(api.getBackupImportJob, tablesJob.id, {
+          onUpdate: (job) => {
+            setImportTablesProgressSafe((prev) => ({
+              ...prev,
+              phase: "running",
+              totalUnits: job?.totalUnits ?? prev?.totalUnits ?? 0,
+              processedUnits: job?.processedUnits ?? 0,
+              currentTable: job?.currentTable ?? null,
+              progressPercent: job?.progressPercent ?? 0,
+            }));
+          },
+        });
+
+        setImportTablesProgressSafe((prev) => ({
+          ...prev,
+          phase: "completed",
+          progressPercent: 100,
+        }));
       }
 
       if (importRestoreUploadsZip && pendingUploadsZipFile) {
-        uploadsResult = await api.importBackupUploadsZip(pendingUploadsZipFile);
+        uploadsResult = await runUploadsZipImportJob(
+          pendingUploadsZipFile,
+          setImportUploadsZipProgressSafe,
+        );
       }
 
       const result = {
         counts: dbResult?.counts || {},
-        uploads: uploadsResult?.uploads || null,
+        uploads: uploadsResult || null,
       };
 
       setImportResult(result);
@@ -524,6 +669,12 @@ export default function Datensicherung() {
       setPendingUploadsZipFile(null);
       setPendingUploadsZipName("");
     } catch (err) {
+      setImportTablesProgressSafe((prev) =>
+        prev && prev.phase !== "completed" ? { ...prev, phase: "failed" } : prev,
+      );
+      setImportUploadsZipProgressSafe((prev) =>
+        prev && prev.phase !== "completed" ? { ...prev, phase: "failed" } : prev,
+      );
       setImportError(err.message);
     } finally {
       setImporting(false);
@@ -613,6 +764,26 @@ export default function Datensicherung() {
             onChange={setExportSelected}
             disabled={exporting}
           />
+          {exportTablesProgress && (
+            <ProgressPanel
+              phase={exportTablesProgress.phase}
+              title={
+                exportTablesProgress.phase === "completed"
+                  ? "Tabellen-Export abgeschlossen"
+                  : exportTablesProgress.phase === "failed"
+                    ? "Tabellen-Export fehlgeschlagen"
+                    : "Tabellen werden exportiert…"
+              }
+              detail={`${exportTablesProgress.processedTables || 0} von ${exportTablesProgress.totalTables || 0} Tabellen exportiert`}
+              currentLabel={
+                exportTablesProgress.currentTable
+                  ? (TABLE_LABELS[exportTablesProgress.currentTable] ??
+                    exportTablesProgress.currentTable)
+                  : null
+              }
+              progressPercent={exportTablesProgress.progressPercent}
+            />
+          )}
           <label
             style={{
               display: "flex",
@@ -839,6 +1010,21 @@ export default function Datensicherung() {
                       : ""}
                   </div>
                 )}
+                {uploadsOnlyProgress && (
+                  <ProgressPanel
+                    phase={uploadsOnlyProgress.phase}
+                    title={
+                      uploadsOnlyProgress.phase === "completed"
+                        ? "Bild-Import abgeschlossen"
+                        : uploadsOnlyProgress.phase === "failed"
+                          ? "Bild-Import fehlgeschlagen"
+                          : "Bilder werden importiert…"
+                    }
+                    detail={`${uploadsOnlyProgress.processedFiles || 0} von ${uploadsOnlyProgress.totalFiles || 0} Bildern verarbeitet`}
+                    currentLabel={uploadsOnlyProgress.currentFileName}
+                    progressPercent={uploadsOnlyProgress.progressPercent}
+                  />
+                )}
                 {uploadsOnlyFile && (
                   <button
                     className="btn btn-primary"
@@ -871,6 +1057,26 @@ export default function Datensicherung() {
                 onChange={setImportSelected}
                 disabled={importing}
               />
+              {importTablesProgress && (
+                <ProgressPanel
+                  phase={importTablesProgress.phase}
+                  title={
+                    importTablesProgress.phase === "completed"
+                      ? "Tabellen-Import abgeschlossen"
+                      : importTablesProgress.phase === "failed"
+                        ? "Tabellen-Import fehlgeschlagen"
+                        : "Tabellen werden importiert…"
+                  }
+                  detail={`${importTablesProgress.processedUnits || 0} von ${importTablesProgress.totalUnits || 0} Datensätzen importiert`}
+                  currentLabel={
+                    importTablesProgress.currentTable
+                      ? (TABLE_LABELS[importTablesProgress.currentTable] ??
+                        importTablesProgress.currentTable)
+                      : null
+                  }
+                  progressPercent={importTablesProgress.progressPercent}
+                />
+              )}
               <label
                 style={{
                   display: "flex",
@@ -911,6 +1117,23 @@ export default function Datensicherung() {
                   <p style={{ marginTop: "8px", marginBottom: 0 }}>
                     Gewählte ZIP: <strong>{pendingUploadsZipName}</strong>
                   </p>
+                )}
+                {importUploadsZipProgress && (
+                  <div style={{ marginTop: "12px" }}>
+                    <ProgressPanel
+                      phase={importUploadsZipProgress.phase}
+                      title={
+                        importUploadsZipProgress.phase === "completed"
+                          ? "Bild-Import abgeschlossen"
+                          : importUploadsZipProgress.phase === "failed"
+                            ? "Bild-Import fehlgeschlagen"
+                            : "Bilder werden importiert…"
+                      }
+                      detail={`${importUploadsZipProgress.processedFiles || 0} von ${importUploadsZipProgress.totalFiles || 0} Bildern verarbeitet`}
+                      currentLabel={importUploadsZipProgress.currentFileName}
+                      progressPercent={importUploadsZipProgress.progressPercent}
+                    />
+                  </div>
                 )}
               </div>
               {importError && (

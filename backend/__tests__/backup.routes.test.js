@@ -21,6 +21,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs/promises');
 const AdmZip = require('adm-zip');
+const db = require('../src/config/db');
 
 const UPLOADS_DIR = path.resolve(__dirname, '../.tmp-test-uploads');
 const TEST_FILE_NAME = 'JEST_TEST_UPLOAD_IMAGE.png';
@@ -61,37 +62,53 @@ describe('backup uploads zip routes', () => {
     await fs.rm(TEST_FILE_PATH, { force: true });
   });
 
-  it('POST /api/backup/import-uploads-zip returns 400 when no file is provided', async () => {
-    const res = await request(app).post('/api/backup/import-uploads-zip');
+  async function waitForJob(getUrl) {
+    for (let i = 0; i < 50; i++) {
+      const res = await request(app).get(getUrl);
+      if (res.body.job?.status === 'completed' || res.body.job?.status === 'failed') {
+        return res;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`Job at ${getUrl} did not finish in time`);
+  }
+
+  it('POST /api/backup/import-uploads-zip-jobs returns 400 when no file is provided', async () => {
+    const res = await request(app).post('/api/backup/import-uploads-zip-jobs');
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/ZIP-Datei/);
   });
 
-  it('POST /api/backup/import-uploads-zip imports files from zip', async () => {
+  it('POST /api/backup/import-uploads-zip-jobs imports files from zip', async () => {
     const zip = new AdmZip();
     zip.addFile(TEST_FILE_NAME, Buffer.from('fake-image-content', 'utf8'));
     const zipBuffer = zip.toBuffer();
 
-    const res = await request(app)
-      .post('/api/backup/import-uploads-zip')
+    const startRes = await request(app)
+      .post('/api/backup/import-uploads-zip-jobs')
       .attach('uploadsZip', zipBuffer, {
         filename: 'uploads.zip',
         contentType: 'application/zip',
       });
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.uploads.restored).toBe(1);
+    expect(startRes.status).toBe(202);
+    const jobId = startRes.body.job.id;
+
+    const finalRes = await waitForJob(`/api/backup/import-uploads-zip-jobs/${jobId}`);
+    expect(finalRes.body.job.status).toBe('completed');
+    expect(finalRes.body.job.uploads.restored).toBe(1);
+    expect(finalRes.body.job.progressPercent).toBe(100);
+
     const written = await fs.readFile(TEST_FILE_PATH, 'utf8');
     expect(written).toBe('fake-image-content');
   });
 
-  it('POST /api/backup/import-uploads-zip returns 413 with a clear message when the file exceeds the size limit', async () => {
+  it('POST /api/backup/import-uploads-zip-jobs returns 413 with a clear message when the file exceeds the size limit', async () => {
     const oversizedBuffer = Buffer.alloc(2 * 1024 * 1024, 'x'); // 2MB > 1MB test limit
 
     const res = await request(app)
-      .post('/api/backup/import-uploads-zip')
+      .post('/api/backup/import-uploads-zip-jobs')
       .attach('uploadsZip', oversizedBuffer, {
         filename: 'too-big.zip',
         contentType: 'application/zip',
@@ -120,5 +137,104 @@ describe('backup uploads zip routes', () => {
     const zip = new AdmZip(res.body);
     const entries = zip.getEntries().map((e) => e.entryName);
     expect(entries).toContain(TEST_FILE_NAME);
+  });
+});
+
+describe('backup table export/import jobs', () => {
+  let app;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  async function waitForJob(getUrl) {
+    for (let i = 0; i < 50; i++) {
+      const res = await request(app).get(getUrl);
+      if (res.body.job?.status === 'completed' || res.body.job?.status === 'failed') {
+        return res;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`Job at ${getUrl} did not finish in time`);
+  }
+
+  it('POST /api/backup/export-jobs exports the requested tables with real progress', async () => {
+    db.query.mockResolvedValue({ rows: [{ ID: 1, Name: 'Test-Kunde' }] });
+
+    const startRes = await request(app)
+      .post('/api/backup/export-jobs')
+      .query({ tables: 'Kunde' });
+
+    expect(startRes.status).toBe(202);
+    expect(startRes.body.job.totalTables).toBe(1);
+    const jobId = startRes.body.job.id;
+
+    const finalRes = await waitForJob(`/api/backup/export-jobs/${jobId}`);
+    expect(finalRes.body.job.status).toBe('completed');
+    expect(finalRes.body.job.progressPercent).toBe(100);
+
+    const downloadRes = await request(app).get(`/api/backup/export-jobs/${jobId}/download`);
+    expect(downloadRes.status).toBe(200);
+    expect(downloadRes.body.tables.Kunde).toEqual([{ ID: 1, Name: 'Test-Kunde' }]);
+  });
+
+  it('POST /api/backup/import-jobs restores the selected tables with real progress', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query.mockImplementation((sql) => {
+      if (sql.includes('information_schema.columns')) {
+        return Promise.resolve({ rows: [{ column_name: 'ID' }, { column_name: 'Name' }] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+    db.connect.mockResolvedValue(client);
+
+    const backupData = {
+      version: '1.0',
+      tables: { Kunde: [{ ID: 1, Name: 'Test-Kunde' }] },
+    };
+
+    const startRes = await request(app)
+      .post('/api/backup/import-jobs')
+      .send({ backupData, selectedTables: ['Kunde'] });
+
+    expect(startRes.status).toBe(202);
+    expect(startRes.body.job.totalUnits).toBe(1);
+    const jobId = startRes.body.job.id;
+
+    const finalRes = await waitForJob(`/api/backup/import-jobs/${jobId}`);
+    expect(finalRes.body.job.status).toBe('completed');
+    expect(finalRes.body.job.progressPercent).toBe(100);
+    expect(finalRes.body.job.counts).toEqual({ Kunde: 1 });
+
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('POST /api/backup/import-jobs rolls back and reports failure on a DB error', async () => {
+    const client = { query: jest.fn(), release: jest.fn() };
+    client.query.mockImplementation((sql) => {
+      if (sql === 'BEGIN' || sql === 'ROLLBACK') return Promise.resolve({});
+      return Promise.reject(new Error('TRUNCATE fehlgeschlagen'));
+    });
+    db.connect.mockResolvedValue(client);
+
+    const backupData = {
+      version: '1.0',
+      tables: { Kunde: [{ ID: 1, Name: 'Test-Kunde' }] },
+    };
+
+    const startRes = await request(app)
+      .post('/api/backup/import-jobs')
+      .send({ backupData, selectedTables: ['Kunde'] });
+
+    const jobId = startRes.body.job.id;
+    const finalRes = await waitForJob(`/api/backup/import-jobs/${jobId}`);
+
+    expect(finalRes.body.job.status).toBe('failed');
+    expect(finalRes.body.job.error.message).toMatch(/TRUNCATE fehlgeschlagen/);
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
   });
 });

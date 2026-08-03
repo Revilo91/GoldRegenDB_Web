@@ -231,31 +231,36 @@ export const api = {
   },
 
   // Datensicherung (Backup / Restore)
-  exportBackup: (tables) => {
+  startBackupExportJob: (tables) => {
     const params = new URLSearchParams();
     if (tables && tables.length) {
       params.set('tables', tables.join(','));
     }
     const query = params.toString() ? `?${params.toString()}` : '';
-    return downloadBlob(`/backup/export${query}`);
+    return request(`/backup/export-jobs${query}`, { method: 'POST' });
   },
+  getBackupExportJob: (jobId) => request(`/backup/export-jobs/${jobId}`),
+  downloadBackupExportJob: (jobId, options = {}) =>
+    downloadBlob(`/backup/export-jobs/${jobId}/download`, options),
   exportBackupUploadsZip: (options = {}) => downloadBlob('/backup/export-uploads', options),
   startBackupUploadsExportJob: () => request('/backup/export-uploads-jobs', { method: 'POST' }),
   getBackupUploadsExportJob: (jobId) => request(`/backup/export-uploads-jobs/${jobId}`),
   downloadBackupUploadsExportJob: (jobId, options = {}) =>
     downloadBlob(`/backup/export-uploads-jobs/${jobId}/download`, options),
-  importBackup: (data, selectedTables) => {
+  startBackupImportJob: (data, selectedTables) => {
     const payload = {
       backupData: data,
       selectedTables: selectedTables || null,
     };
-    return request('/backup/import', { method: 'POST', body: JSON.stringify(payload) });
+    return request('/backup/import-jobs', { method: 'POST', body: JSON.stringify(payload) });
   },
-  importBackupUploadsZip: (file) => {
+  getBackupImportJob: (jobId) => request(`/backup/import-jobs/${jobId}`),
+  startBackupUploadsZipImportJob: (file) => {
     const formData = new FormData();
     formData.append('uploadsZip', file);
-    return request('/backup/import-uploads-zip', { method: 'POST', body: formData });
+    return request('/backup/import-uploads-zip-jobs', { method: 'POST', body: formData });
   },
+  getBackupUploadsZipImportJob: (jobId) => request(`/backup/import-uploads-zip-jobs/${jobId}`),
 
   // Inventur
   getInventur: () => request('/inventur'),

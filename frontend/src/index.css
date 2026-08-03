@@ -2143,3 +2143,62 @@ select.form-control {
   color: var(--gold);
   margin-bottom: 16px !important;
 }
+
+/* ============ PROGRESS PANELS (Datensicherung) ============ */
+.progress-panel {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--info-bg);
+  border: 1px solid var(--info);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.progress-panel.success {
+  background: var(--success-bg);
+  border-color: var(--success);
+}
+
+.progress-panel.danger {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.progress-panel-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.progress-panel-detail {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.progress-panel-current {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.progress-bar-track {
+  height: 10px;
+  width: 100%;
+  background: var(--bg-input);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: var(--progress-percent, 0%);
+  background: var(--info);
+  transition: width 0.2s ease;
+}
+
+.progress-panel.success .progress-bar-fill {
+  background: var(--success);
+}
+
+.progress-panel.danger .progress-bar-fill {
+  background: var(--danger);
+}

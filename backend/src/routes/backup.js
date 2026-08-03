@@ -77,6 +77,16 @@ function scheduleExportJobCleanup(jobId, ttlMs = EXPORT_JOB_TTL_MS) {
   setTimeout(() => cleanupExportJob(jobId), ttlMs).unref();
 }
 
+// Generischer Cleanup für die weiteren Job-Maps unten (Tabellen-Export/-Import, Bild-ZIP-Import)
+function scheduleJobCleanup(jobsMap, jobId, ttlMs = EXPORT_JOB_TTL_MS) {
+  setTimeout(() => jobsMap.delete(jobId), ttlMs).unref();
+}
+
+function computeProgressPercent(processed, total, status) {
+  if (total === 0) return status === "completed" ? 100 : 0;
+  return Math.round((processed / total) * 100);
+}
+
 function serializeExportJob(job) {
   return {
     id: job.id,
@@ -217,7 +227,7 @@ function createExportUploadsJob() {
   return job;
 }
 
-async function importUploads(uploads) {
+async function importUploads(uploads, onFileProgress) {
   if (!uploads || !Array.isArray(uploads.files)) {
     return { restored: 0, skipped: 0 };
   }
@@ -232,6 +242,7 @@ async function importUploads(uploads) {
     const base64Data = item?.dataBase64;
     if (!safeName || typeof base64Data !== "string" || base64Data.length === 0) {
       skipped += 1;
+      if (onFileProgress) onFileProgress();
       continue;
     }
 
@@ -243,12 +254,13 @@ async function importUploads(uploads) {
     } catch (_err) {
       skipped += 1;
     }
+    if (onFileProgress) onFileProgress();
   }
 
   return { restored, skipped };
 }
 
-async function importUploadsFromZipBuffer(zipBuffer) {
+async function importUploadsFromZipBuffer(zipBuffer, onProgress) {
   if (!zipBuffer || zipBuffer.length === 0) {
     return { restored: 0, skipped: 0 };
   }
@@ -256,14 +268,25 @@ async function importUploadsFromZipBuffer(zipBuffer) {
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
 
   const zip = new AdmZip(zipBuffer);
-  const entries = zip.getEntries();
+  const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
   let restored = 0;
   let skipped = 0;
 
-  for (const entry of entries) {
-    if (entry.isDirectory) continue;
+  if (onProgress) {
+    await onProgress({ totalFiles: entries.length, processedFiles: 0, currentFileName: null });
+  }
 
+  for (const entry of entries) {
     const safeName = sanitizeUploadFileName(path.basename(entry.entryName));
+
+    if (onProgress) {
+      await onProgress({
+        totalFiles: entries.length,
+        processedFiles: restored + skipped,
+        currentFileName: entry.entryName,
+      });
+    }
+
     if (!safeName) {
       skipped += 1;
       continue;
@@ -277,6 +300,10 @@ async function importUploadsFromZipBuffer(zipBuffer) {
     } catch (_err) {
       skipped += 1;
     }
+  }
+
+  if (onProgress) {
+    await onProgress({ totalFiles: entries.length, processedFiles: restored + skipped, currentFileName: null });
   }
 
   return { restored, skipped };
@@ -296,49 +323,132 @@ const ALL_TABLES = [
 // Alias für Export (alle Tabellen)
 const EXPORT_TABLES = ALL_TABLES;
 
-// GET /api/backup/export – Export selected (or all) tables as a JSON file
-// Optional query param: ?tables=Kunde,Lieferschein,... (comma-separated)
-router.get("/export", async (req, res) => {
-  try {
-    // Determine which tables to export
-    let tablesToExport;
-    if (req.query.tables) {
-      const requested = req.query.tables
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-      // Only allow tables that are in the known EXPORT_TABLES list
-      tablesToExport = EXPORT_TABLES.filter((t) => requested.includes(t));
-    } else {
-      tablesToExport = EXPORT_TABLES;
+const exportTablesJobs = new Map();
+
+function serializeExportTablesJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    totalTables: job.totalTables,
+    processedTables: job.processedTables,
+    currentTable: job.currentTable,
+    fileName: job.fileName,
+    error: job.error,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    progressPercent: computeProgressPercent(job.processedTables, job.totalTables, job.status),
+  };
+}
+
+function createExportTablesJob(tablesToExport) {
+  const jobId = randomUUID();
+  const formattedTimestamp = new Date()
+    .toISOString()
+    .replace(/[:.]/g, "-")
+    .slice(0, 19);
+
+  const job = {
+    id: jobId,
+    status: "pending",
+    totalTables: tablesToExport.length,
+    processedTables: 0,
+    currentTable: null,
+    fileName: `goldregendb_backup_${formattedTimestamp}.json`,
+    error: null,
+    exportData: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  exportTablesJobs.set(jobId, job);
+  scheduleJobCleanup(exportTablesJobs, jobId);
+
+  (async () => {
+    try {
+      job.status = "running";
+      job.updatedAt = new Date().toISOString();
+
+      const exportData = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        tables: {},
+      };
+
+      for (const table of tablesToExport) {
+        job.currentTable = table;
+        job.updatedAt = new Date().toISOString();
+
+        const result = await db.query(`SELECT * FROM "${table}"`);
+        exportData.tables[table] = result.rows;
+
+        job.processedTables += 1;
+        job.updatedAt = new Date().toISOString();
+      }
+
+      job.exportData = exportData;
+      job.currentTable = null;
+      job.status = "completed";
+      job.updatedAt = new Date().toISOString();
+    } catch (err) {
+      job.status = "failed";
+      job.error = { message: err.message };
+      job.updatedAt = new Date().toISOString();
+      logger.error("BACKUP", "Fehler beim Erstellen des Tabellen-Export-Jobs", {
+        jobId,
+        message: err.message,
+      });
     }
+  })();
 
-    const exportData = {
-      version: "1.0",
-      timestamp: new Date().toISOString(),
-      tables: {},
-    };
+  return job;
+}
 
-    for (const table of tablesToExport) {
-      const result = await db.query(`SELECT * FROM "${table}"`);
-      exportData.tables[table] = result.rows;
-    }
-
-    const formattedTimestamp = new Date()
-      .toISOString()
-      .replace(/[:.]/g, "-")
-      .slice(0, 19);
-    const filename = `goldregendb_backup_${formattedTimestamp}.json`;
-
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.json(exportData);
-  } catch (err) {
-    logger.error("BACKUP", "Fehler beim Exportieren der Daten", {
-      message: err.message,
-    });
-    res.status(500).json({ error: "Fehler beim Exportieren der Daten" });
+// POST /api/backup/export-jobs – Start a table export job (JSON), optionally ?tables=Kunde,Lieferschein,...
+router.post("/export-jobs", async (req, res) => {
+  let tablesToExport;
+  if (req.query.tables) {
+    const requested = req.query.tables
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    tablesToExport = EXPORT_TABLES.filter((t) => requested.includes(t));
+  } else {
+    tablesToExport = EXPORT_TABLES;
   }
+
+  const job = createExportTablesJob(tablesToExport);
+  res.status(202).json({ job: serializeExportTablesJob(job) });
+});
+
+router.get("/export-jobs/:jobId", async (req, res) => {
+  const job = exportTablesJobs.get(req.params.jobId);
+
+  if (!job) {
+    return res.status(404).json({ error: "Export-Job nicht gefunden" });
+  }
+
+  res.json({ job: serializeExportTablesJob(job) });
+});
+
+router.get("/export-jobs/:jobId/download", async (req, res) => {
+  const job = exportTablesJobs.get(req.params.jobId);
+
+  if (!job) {
+    return res.status(404).json({ error: "Export-Job nicht gefunden" });
+  }
+
+  if (job.status !== "completed" || !job.exportData) {
+    return res.status(409).json({
+      error: "Export-Job ist noch nicht abgeschlossen",
+      job: serializeExportTablesJob(job),
+    });
+  }
+
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="${job.fileName}"`);
+  res.json(job.exportData);
+
+  setTimeout(() => exportTablesJobs.delete(job.id), 60 * 1000).unref();
 });
 
 // GET /api/backup/export-uploads – Export backend/src/assets/uploads as ZIP
@@ -411,30 +521,99 @@ router.get("/export-uploads-jobs/:jobId/download", async (req, res) => {
   setTimeout(() => cleanupExportJob(job.id), 60 * 1000).unref();
 });
 
-// POST /api/backup/import-uploads-zip – Import upload images from ZIP file
-router.post(
-  "/import-uploads-zip",
-  uploadZipMiddleware,
-  async (req, res) => {
-    try {
-      if (!req.file || !req.file.buffer) {
-        return res.status(400).json({
-          error: "Keine ZIP-Datei hochgeladen. Feldname: uploadsZip",
-        });
-      }
+const importUploadsZipJobs = new Map();
 
-      const result = await importUploadsFromZipBuffer(req.file.buffer);
-      res.json({ success: true, uploads: result });
+function serializeImportUploadsZipJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    totalFiles: job.totalFiles,
+    processedFiles: job.processedFiles,
+    currentFileName: job.currentFileName,
+    error: job.error,
+    uploads: job.uploads,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    progressPercent: computeProgressPercent(job.processedFiles, job.totalFiles, job.status),
+  };
+}
+
+function createImportUploadsZipJob(zipBuffer) {
+  const jobId = randomUUID();
+
+  const job = {
+    id: jobId,
+    status: "pending",
+    totalFiles: 0,
+    processedFiles: 0,
+    currentFileName: null,
+    error: null,
+    uploads: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  importUploadsZipJobs.set(jobId, job);
+  scheduleJobCleanup(importUploadsZipJobs, jobId);
+
+  (async () => {
+    try {
+      job.status = "running";
+      job.updatedAt = new Date().toISOString();
+
+      const result = await importUploadsFromZipBuffer(
+        zipBuffer,
+        async ({ totalFiles, processedFiles, currentFileName }) => {
+          job.totalFiles = totalFiles;
+          job.processedFiles = processedFiles;
+          job.currentFileName = currentFileName;
+          job.updatedAt = new Date().toISOString();
+        },
+      );
+
+      job.uploads = result;
+      job.currentFileName = null;
+      job.status = "completed";
+      job.updatedAt = new Date().toISOString();
     } catch (err) {
+      job.status = "failed";
+      job.error = { message: err.message };
+      job.updatedAt = new Date().toISOString();
       logger.error("BACKUP", "Fehler beim Importieren der Upload-Bilder", {
+        jobId,
         message: err.message,
       });
-      res
-        .status(500)
-        .json({ error: `Fehler beim Importieren der Upload-Bilder: ${err.message}` });
     }
+  })();
+
+  return job;
+}
+
+// POST /api/backup/import-uploads-zip-jobs – Start a job that imports upload images from a ZIP file
+router.post(
+  "/import-uploads-zip-jobs",
+  uploadZipMiddleware,
+  async (req, res) => {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        error: "Keine ZIP-Datei hochgeladen. Feldname: uploadsZip",
+      });
+    }
+
+    const job = createImportUploadsZipJob(req.file.buffer);
+    res.status(202).json({ job: serializeImportUploadsZipJob(job) });
   },
 );
+
+router.get("/import-uploads-zip-jobs/:jobId", async (req, res) => {
+  const job = importUploadsZipJobs.get(req.params.jobId);
+
+  if (!job) {
+    return res.status(404).json({ error: "Import-Job nicht gefunden" });
+  }
+
+  res.json({ job: serializeImportUploadsZipJob(job) });
+});
 
 // Helper function to normalize different backup formats
 function normalizeBackupData(data) {
@@ -474,27 +653,202 @@ function normalizeBackupData(data) {
   return null;
 }
 
-// POST /api/backup/import – Import data from a previously exported JSON backup
-// Optional body param: selectedTables (array) – if provided, only those tables are truncated and reimported
-router.post("/import", async (req, res) => {
+const importTablesJobs = new Map();
+
+function serializeImportTablesJob(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    totalUnits: job.totalUnits,
+    processedUnits: job.processedUnits,
+    currentTable: job.currentTable,
+    error: job.error,
+    counts: job.counts,
+    uploads: job.uploads,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    progressPercent: computeProgressPercent(job.processedUnits, job.totalUnits, job.status),
+  };
+}
+
+// Reihenfolge FK-sicher für Import: Eltern zuerst (umgekehrte ALL_TABLES)
+const IMPORT_INSERT_ORDER = [...ALL_TABLES].reverse();
+
+// SERIAL-Sequenzen nach dem Import neu setzen, um PK-Konflikte bei künftigen Inserts zu vermeiden
+const SEQUENCE_RESETS = {
+  app_users: `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
+  audit_log: `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
+  Kunde: `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,
+  Lieferschein: `SELECT setval(pg_get_serial_sequence('"Lieferschein"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Lieferschein"), 0) + 1, false)`,
+  Rechnung: `SELECT setval(pg_get_serial_sequence('"Rechnung"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Rechnung"), 0) + 1, false)`,
+};
+
+function createImportTablesJob(tables, tablesToImport, uploads, restoreUploads) {
+  const jobId = randomUUID();
+
+  let totalRows = 0;
+  for (const t of tablesToImport) totalRows += (tables[t] || []).length;
+  const totalUploadFiles =
+    restoreUploads && uploads && Array.isArray(uploads.files) ? uploads.files.length : 0;
+
+  const job = {
+    id: jobId,
+    status: "pending",
+    totalUnits: totalRows + totalUploadFiles,
+    processedUnits: 0,
+    currentTable: null,
+    error: null,
+    counts: null,
+    uploads: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  importTablesJobs.set(jobId, job);
+  scheduleJobCleanup(importTablesJobs, jobId);
+
+  (async () => {
+    let client;
+    try {
+      job.status = "running";
+      job.updatedAt = new Date().toISOString();
+
+      client = await db.connect();
+      await client.query("BEGIN");
+
+      // Truncate only the selected tables; table names are validated against ALL_TABLES whitelist above.
+      // CASCADE satisfies any remaining FK constraints (e.g. when a parent table is truncated).
+      if (tablesToImport.length > 0) {
+        const truncateList = tablesToImport.map((t) => `"${t}"`).join(", ");
+        await client.query(`TRUNCATE TABLE ${truncateList} RESTART IDENTITY CASCADE`);
+      }
+
+      const getTableColumns = async (tableName) => {
+        const result = await client.query(
+          `SELECT column_name
+           FROM information_schema.columns
+           WHERE table_name = $1
+           ORDER BY ordinal_position`,
+          [tableName],
+        );
+        return result.rows.map((row) => row.column_name);
+      };
+
+      // Bulk-insert rows for a table in batches to avoid PostgreSQL param limit (65535);
+      // only inserts columns that exist in the current database schema
+      const insertRows = async (tableName, rows) => {
+        if (!rows || rows.length === 0) return;
+
+        const validColumns = await getTableColumns(tableName);
+        const BATCH_SIZE = 100; // safe for tables with ~34 columns
+
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+          const batch = rows.slice(i, i + BATCH_SIZE);
+
+          const backupColumns = Object.keys(batch[0]);
+          const columnsToInsert = backupColumns.filter((col) => validColumns.includes(col));
+
+          if (columnsToInsert.length === 0) {
+            logger.warn("BACKUP", `Keine passenden Spalten gefunden für Tabelle ${tableName}`);
+            job.processedUnits += batch.length;
+            job.updatedAt = new Date().toISOString();
+            continue;
+          }
+
+          const cols = columnsToInsert.map((c) => `"${c}"`).join(", ");
+          const colCount = columnsToInsert.length;
+          const placeholders = batch
+            .map(
+              (_, rowIdx) =>
+                `(${Array.from({ length: colCount }, (__, colIdx) => `$${rowIdx * colCount + colIdx + 1}`).join(", ")})`,
+            )
+            .join(", ");
+
+          const values = batch.flatMap((row) => columnsToInsert.map((col) => row[col]));
+
+          await client.query(
+            `INSERT INTO "${tableName}" (${cols}) VALUES ${placeholders}`,
+            values,
+          );
+
+          job.processedUnits += batch.length;
+          job.updatedAt = new Date().toISOString();
+        }
+      };
+
+      for (const tableName of IMPORT_INSERT_ORDER) {
+        if (tablesToImport.includes(tableName)) {
+          job.currentTable = tableName;
+          job.updatedAt = new Date().toISOString();
+          await insertRows(tableName, tables[tableName]);
+        }
+      }
+      job.currentTable = null;
+
+      for (const tableName of tablesToImport) {
+        if (SEQUENCE_RESETS[tableName]) {
+          await client.query(SEQUENCE_RESETS[tableName]);
+        }
+      }
+
+      await client.query("COMMIT");
+
+      const counts = {};
+      for (const t of tablesToImport) {
+        counts[t] = (tables[t] || []).length;
+      }
+
+      let uploadImportResult = null;
+      if (restoreUploads && uploads) {
+        uploadImportResult = await importUploads(uploads, () => {
+          job.processedUnits += 1;
+          job.updatedAt = new Date().toISOString();
+        });
+      }
+
+      job.counts = counts;
+      job.uploads = uploadImportResult;
+      job.processedUnits = job.totalUnits;
+      job.status = "completed";
+      job.updatedAt = new Date().toISOString();
+      logger.info("BACKUP", "Import erfolgreich abgeschlossen", counts);
+    } catch (err) {
+      if (client) {
+        try {
+          await client.query("ROLLBACK");
+        } catch (rollbackErr) {
+          logger.error("BACKUP", "Fehler beim Rollback des Imports", {
+            jobId,
+            message: rollbackErr.message,
+          });
+        }
+      }
+      job.status = "failed";
+      job.error = { message: err.message };
+      job.updatedAt = new Date().toISOString();
+      logger.error("BACKUP", "Fehler beim Importieren", { jobId, message: err.message });
+    } finally {
+      if (client) client.release();
+    }
+  })();
+
+  return job;
+}
+
+// POST /api/backup/import-jobs – Start a job that imports data from a previously exported JSON backup
+// Body: { backupData, selectedTables: [...] | null, restoreUploads: boolean }
+router.post("/import-jobs", async (req, res) => {
   let rawData;
   let selectedTables;
   let restoreUploads = false;
 
   const body = req.body;
 
-  if (
-    body &&
-    typeof body === "object" &&
-    !Array.isArray(body) &&
-    "backupData" in body
-  ) {
-    // New wrapper format sent by the updated frontend:
-    // { backupData: <backup payload>, selectedTables: [...] | null }
+  if (body && typeof body === "object" && !Array.isArray(body) && "backupData" in body) {
+    // New wrapper format sent by the frontend:
+    // { backupData: <backup payload>, selectedTables: [...] | null, restoreUploads: boolean }
     rawData = body.backupData;
-    selectedTables = Array.isArray(body.selectedTables)
-      ? body.selectedTables
-      : null;
+    selectedTables = Array.isArray(body.selectedTables) ? body.selectedTables : null;
     restoreUploads = Boolean(body.restoreUploads);
   } else {
     // Legacy direct format (backward compat for direct API calls)
@@ -503,7 +857,6 @@ router.post("/import", async (req, res) => {
     restoreUploads = false;
   }
 
-  // Try to normalize the incoming data (supports multiple formats)
   const normalized = normalizeBackupData(rawData);
 
   if (!normalized || !normalized.tables || !normalized.version) {
@@ -518,145 +871,30 @@ router.post("/import", async (req, res) => {
   // Bestimme, welche Tabellen importiert werden sollen (FK-sichere Reihenfolge)
   let tablesToImport;
   if (Array.isArray(selectedTables) && selectedTables.length > 0) {
-    // Nur bekannte Tabellen; Reihenfolge wie in ALL_TABLES
     const selectedSet = new Set(selectedTables);
     tablesToImport = ALL_TABLES.filter(
-      (t) =>
-        selectedSet.has(t) && Object.prototype.hasOwnProperty.call(tables, t),
+      (t) => selectedSet.has(t) && Object.prototype.hasOwnProperty.call(tables, t),
     );
   } else {
-    // Standard: alle Tabellen aus Backup, Reihenfolge wie in ALL_TABLES
-    tablesToImport = ALL_TABLES.filter((t) =>
-      Object.prototype.hasOwnProperty.call(tables, t),
-    );
+    tablesToImport = ALL_TABLES.filter((t) => Object.prototype.hasOwnProperty.call(tables, t));
   }
 
   logger.info("BACKUP", `Import gestartet (Version: ${version})`, {
     tabellen: tablesToImport,
   });
 
-  let client;
-  try {
-    client = await db.connect();
-    await client.query("BEGIN");
+  const job = createImportTablesJob(tables, tablesToImport, uploads, restoreUploads);
+  res.status(202).json({ job: serializeImportTablesJob(job) });
+});
 
-    // Truncate only the selected tables; table names are validated against FK_SAFE_ORDER whitelist above.
-    // CASCADE satisfies any remaining FK constraints (e.g. when a parent table is truncated).
-    if (tablesToImport.length > 0) {
-      const truncateList = tablesToImport.map((t) => `"${t}"`).join(", ");
-      await client.query(
-        `TRUNCATE TABLE ${truncateList} RESTART IDENTITY CASCADE`,
-      );
-    }
+router.get("/import-jobs/:jobId", async (req, res) => {
+  const job = importTablesJobs.get(req.params.jobId);
 
-    // Helper: Get actual column names from database schema
-    const getTableColumns = async (tableName) => {
-      const result = await client.query(
-        `SELECT column_name
-         FROM information_schema.columns
-         WHERE table_name = $1
-         ORDER BY ordinal_position`,
-        [tableName],
-      );
-      return result.rows.map((row) => row.column_name);
-    };
-
-    // Helper: bulk-insert rows for a table in batches to avoid PostgreSQL param limit (65535)
-    // Only inserts columns that exist in the current database schema
-    const insertRows = async (tableName, rows) => {
-      if (!rows || rows.length === 0) return;
-
-      // Get valid columns from database schema
-      const validColumns = await getTableColumns(tableName);
-
-      const BATCH_SIZE = 100; // Process 100 rows at a time (safe for tables with ~34 columns)
-
-      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-        const batch = rows.slice(i, i + BATCH_SIZE);
-
-        // Filter to only include columns that exist in both backup data AND current schema
-        const backupColumns = Object.keys(batch[0]);
-        const columnsToInsert = backupColumns.filter((col) =>
-          validColumns.includes(col),
-        );
-
-        if (columnsToInsert.length === 0) {
-          logger.warn(
-            "BACKUP",
-            `Keine passenden Spalten gefunden für Tabelle ${tableName}`,
-          );
-          continue;
-        }
-
-        const cols = columnsToInsert.map((c) => `"${c}"`).join(", ");
-        const colCount = columnsToInsert.length;
-        const placeholders = batch
-          .map(
-            (_, rowIdx) =>
-              `(${Array.from({ length: colCount }, (__, colIdx) => `$${rowIdx * colCount + colIdx + 1}`).join(", ")})`,
-          )
-          .join(", ");
-
-        // Extract only the values for columns that will be inserted
-        const values = batch.flatMap((row) =>
-          columnsToInsert.map((col) => row[col]),
-        );
-
-        await client.query(
-          `INSERT INTO "${tableName}" (${cols}) VALUES ${placeholders}`,
-          values,
-        );
-      }
-    };
-
-    // Insert rows in FK-sicherer Reihenfolge: Eltern zuerst (umgekehrte ALL_TABLES)
-    const INSERT_ORDER = [...ALL_TABLES].reverse();
-    for (const tableName of INSERT_ORDER) {
-      if (tablesToImport.includes(tableName)) {
-        await insertRows(tableName, tables[tableName]);
-      }
-    }
-
-    // Reset SERIAL sequences to avoid PK conflicts on future inserts
-    const allSeqResets = {
-      app_users: `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
-      audit_log: `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
-      Kunde: `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,
-      Lieferschein: `SELECT setval(pg_get_serial_sequence('"Lieferschein"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Lieferschein"), 0) + 1, false)`,
-      Rechnung: `SELECT setval(pg_get_serial_sequence('"Rechnung"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Rechnung"), 0) + 1, false)`,
-    };
-    for (const tableName of tablesToImport) {
-      if (allSeqResets[tableName]) {
-        await client.query(allSeqResets[tableName]);
-      }
-    }
-
-    await client.query("COMMIT");
-
-    const counts = {};
-    for (const t of tablesToImport) {
-      counts[t] = (tables[t] || []).length;
-    }
-
-    let uploadImportResult = null;
-    if (restoreUploads && uploads) {
-      uploadImportResult = await importUploads(uploads);
-    }
-
-    res.json({
-      success: true,
-      message: "Import erfolgreich",
-      counts,
-      uploads: uploadImportResult,
-    });
-    logger.info("BACKUP", "Import erfolgreich abgeschlossen", counts);
-  } catch (err) {
-    if (client) await client.query("ROLLBACK");
-    logger.error("BACKUP", "Fehler beim Importieren", { message: err.message });
-    res.status(500).json({ error: `Fehler beim Importieren: ${err.message}` });
-  } finally {
-    if (client) client.release();
+  if (!job) {
+    return res.status(404).json({ error: "Import-Job nicht gefunden" });
   }
+
+  res.json({ job: serializeImportTablesJob(job) });
 });
 
 module.exports = router;
