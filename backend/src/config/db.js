@@ -423,12 +423,10 @@ async function ensureAppUsersTable() {
       $$;
     `);
     // Seed default admin if table is empty
-    // Password: admin (SHA-256 hashed on frontend, then bcrypt-hashed on backend)
-    // Hash = bcrypt(SHA-256("admin")) – generated with 10 rounds
+    // Passwort: admin – muss nach dem ersten Login geändert werden
     const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM app_users');
     if (parseInt(rows[0].cnt, 10) === 0) {
-      const sha256ofAdmin = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
-      const adminHash = await bcrypt.hash(sha256ofAdmin, 10);
+      const adminHash = await bcrypt.hash('admin', 10);
       await pool.query(
         `INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
          VALUES ('admin', $1, 'admin@goldregen.local', 'admin', TRUE, TRUE)

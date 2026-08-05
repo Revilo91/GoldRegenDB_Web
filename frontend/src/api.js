@@ -1,5 +1,3 @@
-import { hashPassword } from './utils/hashPassword';
-
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function getToken() {
@@ -85,17 +83,14 @@ async function downloadBlob(url, options = {}) {
   }
 }
 
+// Passwörter werden im Klartext über TLS gesendet und erst im Backend mit
+// bcrypt gehasht (siehe backend/src/utils/passwordService.js).
 export const authApi = {
-  login: async (username, password) => {
-    const hashedPassword = await hashPassword(password);
-    return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password: hashedPassword }) });
-  },
+  login: (username, password) =>
+    request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
-  changePassword: async (currentPassword, newPassword) => {
-    const hashedCurrentPassword = await hashPassword(currentPassword);
-    const hashedNewPassword = await hashPassword(newPassword);
-    return request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: hashedCurrentPassword, newPassword: hashedNewPassword }) });
-  },
+  changePassword: (currentPassword, newPassword) =>
+    request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
 };
 
 export const publicApi = {
@@ -216,19 +211,11 @@ export const api = {
   // Benutzerverwaltung
   getUsers: () => request('/users'),
   getUser: (id) => request(`/users/${id}`),
-  createUser: async (data) => {
-    const payload = { ...data };
-    if (payload.password) {
-      payload.password = await hashPassword(payload.password);
-    }
-    return request('/users', { method: 'POST', body: JSON.stringify(payload) });
-  },
+  createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
-  resetUserPassword: async (id, newPassword) => {
-    const hashedPassword = await hashPassword(newPassword);
-    return request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: hashedPassword }) });
-  },
+  resetUserPassword: (id, newPassword) =>
+    request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
   exportBackup: (tables) => {

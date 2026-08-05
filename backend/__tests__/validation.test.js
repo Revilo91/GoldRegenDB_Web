@@ -229,33 +229,39 @@ describe('lieferschein-/rechnungSchema', () => {
 // ── Benutzerverwaltung / Auth ────────────────────────────────────────────────
 
 describe('user- und auth-Schemas', () => {
-  const SHA256 = 'a'.repeat(64);
+  const PASSWORT = 'ein-sicheres-passwort';
 
   it('akzeptiert einen gültigen Benutzer', async () => {
     const res = await post(schemas.userCreateSchema, {
-      username: 'marina', password: SHA256, email: 'm@goldregen.local', role: 'bearbeiter', active: true,
+      username: 'marina', password: PASSWORT, email: 'm@goldregen.local', role: 'bearbeiter', active: true,
     });
     expect(res.status).toBe(200);
   });
 
   it('lehnt eine unbekannte Rolle ab', async () => {
-    const res = await post(schemas.userCreateSchema, { username: 'x', password: SHA256, role: 'superadmin' });
+    const res = await post(schemas.userCreateSchema, { username: 'x', password: PASSWORT, role: 'superadmin' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/role/);
   });
 
-  it('lehnt ein Passwort ab, das kein SHA-256-Hash ist', async () => {
-    const res = await post(schemas.loginSchema, { username: 'admin', password: 'geheim' });
+  it('lehnt ein zu kurzes neues Passwort ab', async () => {
+    const res = await post(schemas.userCreateSchema, { username: 'x', password: 'kurz', role: 'user' });
     expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/mindestens/);
   });
 
-  it('lehnt einen Großbuchstaben-Hash ab', async () => {
-    const res = await post(schemas.loginSchema, { username: 'admin', password: 'A'.repeat(64) });
+  it('erlaubt beim Login auch kurze Passwörter von Altkonten', async () => {
+    const res = await post(schemas.loginSchema, { username: 'admin', password: 'admin' });
+    expect(res.status).toBe(200);
+  });
+
+  it('lehnt ein leeres Login-Passwort ab', async () => {
+    const res = await post(schemas.loginSchema, { username: 'admin', password: '' });
     expect(res.status).toBe(400);
   });
 
   it('verlangt beide Passwörter beim Wechsel', async () => {
-    const res = await post(schemas.changePasswordSchema, { currentPassword: SHA256 });
+    const res = await post(schemas.changePasswordSchema, { currentPassword: PASSWORT });
     expect(res.status).toBe(400);
   });
 });

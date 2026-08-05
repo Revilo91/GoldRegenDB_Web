@@ -275,7 +275,8 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
 - Rate Limiting: Login max. 20 Versuche / 15 Min; allgemeine API max. 300 Req / Min
 - Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
-- Passwort-Hashing: Frontend berechnet SHA-256(Passwort) und sendet den 64-Zeichen-Hex-Hash; Backend speichert/vergleicht mit `bcryptjs` (10 Rounds)
+- Passwort-Hashing: Das Frontend sendet das Passwort im **Klartext** (über TLS); ausschließlich das Backend hasht und vergleicht mit `bcryptjs` (10 Rounds) – siehe `backend/src/utils/passwordService.js`
+- Mindestlänge für **neu gesetzte** Passwörter: 8 Zeichen. Beim Login gilt keine Mindestlänge, damit Altkonten sich weiterhin anmelden können
 
 ### Middleware
 
@@ -455,10 +456,8 @@ GoldRegenDB_Web/
 │       │   ├── TableToolbar.jsx    # Toolbar-Komponente für Tabellen (Suche, Filter, Aktionen)
 │       │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Preview)
 │       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly / bearbeiterOnly props)
-│       ├── utils/
-│       │   └── hashPassword.js     # SHA-256-Passwort-Hashing (Web Crypto API + Fallback)
 │       ├── __tests__/              # Vitest-Tests
-│       │   └── hashPassword.test.js
+│       │   └── authApi.test.js      # Passwort-Aufrufe von api.js (Klartext-Übertragung)
 │       └── pages/
 │           ├── Login.jsx           # Anmeldeseite
 │           ├── Dashboard.jsx       # Statistik-Übersicht
@@ -700,13 +699,21 @@ Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
 - Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
 - Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
 
-### Frontend: `frontend/src/utils/hashPassword.js`
+### Backend: `backend/src/utils/passwordService.js`
 
-SHA-256-Passwort-Hashing vor dem Senden ans Backend.
-- Nutzt primär die Web Crypto API (`crypto.subtle.digest`) in sicheren Kontexten (HTTPS/localhost)
-- Fällt auf reine JavaScript-Implementierung zurück (für HTTP-Umgebungen)
-- Gibt 64-Zeichen-Hex-String zurück
-- Alle passwortübertragenden API-Aufrufe (Login, Benutzer anlegen, Passwort zurücksetzen, Passwort ändern) verwenden `hashPassword()`
+Zentrale Stelle für Passwort-Hashing und -Prüfung. **Nur hier** wird gehasht –
+das Frontend überträgt Klartext über TLS.
+
+- `hashPassword(klartext)` – bcrypt, 10 Rounds
+- `verifyPassword(klartext, hash)` → `{ valid, needsRehash }`
+- `MIN_PASSWORT_LAENGE` (8) wird von den Zod-Schemas für neue Passwörter genutzt
+
+**Migration bestehender Konten:** Bis Issue #131 hashte das Frontend mit SHA-256
+vor, gespeichert wurde `bcrypt(sha256(passwort))`. `verifyPassword` prüft diesen
+Alt-Hash zusätzlich und meldet über `needsRehash`, dass der Eintrag veraltet ist.
+Die Login-Route stellt den Hash dann beim ersten erfolgreichen Login still auf
+`bcrypt(klartext)` um. Der Fallback darf erst entfernt werden, wenn sich alle
+Konten mindestens einmal angemeldet haben.
 
 ---
 

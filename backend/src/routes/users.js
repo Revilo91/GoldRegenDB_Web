@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
@@ -9,14 +8,9 @@ const {
   userUpdateSchema,
   resetPasswordSchema,
 } = require("../schemas");
+const { hashPassword } = require("../utils/passwordService");
 
 const VALID_ROLES = ["admin", "bearbeiter", "user"];
-
-// A SHA-256 hash is always a 64-character lowercase hex string
-const SHA256_REGEX = /^[0-9a-f]{64}$/;
-function isValidSHA256(value) {
-  return typeof value === "string" && SHA256_REGEX.test(value);
-}
 
 // GET all users (without password_hash)
 router.get("/", async (req, res) => {
@@ -59,18 +53,10 @@ router.get("/:id", async (req, res) => {
 router.post("/", validate(userCreateSchema), async (req, res) => {
   try {
     const { username, password, email, role, active } = req.body;
-    if (!username || !password) {
-      return res
-        .status(400)
-        .json({ error: "Benutzername und Passwort sind erforderlich" });
-    }
-    if (!isValidSHA256(password)) {
-      return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-    }
     if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: "Ungültige Rolle" });
     }
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await hashPassword(password);
     const { rows } = await db.query(
       `INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
        VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, username, email, role, active, must_change_password, created_at`,
@@ -140,10 +126,7 @@ router.put("/:id", validate(userUpdateSchema), async (req, res) => {
 router.post("/:id/reset-password", validate(resetPasswordSchema), async (req, res) => {
   try {
     const { newPassword } = req.body;
-    if (!newPassword || !isValidSHA256(newPassword)) {
-      return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-    }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await hashPassword(newPassword);
     const { rowCount } = await db.query(
       "UPDATE app_users SET password_hash = $1, must_change_password = TRUE WHERE id = $2",
       [hashedPassword, req.params.id],

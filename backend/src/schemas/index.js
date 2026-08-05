@@ -8,7 +8,8 @@ const {
   idParam,
   artikelnummer,
   vollstaendigeArtikelnummer,
-  sha256,
+  neuesPasswort,
+  bestehendesPasswort,
 } = require('./common');
 
 // ── Kunde ────────────────────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ const rolle = z.enum(['admin', 'bearbeiter', 'user'], { error: 'ist keine gülti
 
 const userCreateSchema = z.object({
   username: pflichttext(100),
-  password: sha256,
+  password: neuesPasswort,
   email: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.email('ist keine gültige E-Mail-Adresse').max(200).nullish(),
@@ -142,16 +143,18 @@ const userCreateSchema = z.object({
 
 const userUpdateSchema = userCreateSchema.omit({ password: true });
 
-const resetPasswordSchema = z.object({ newPassword: sha256 });
+const resetPasswordSchema = z.object({ newPassword: neuesPasswort });
 
+// Beim Login gilt bewusst keine Mindestlänge: Altkonten mit kürzerem Passwort
+// sollen sich weiterhin anmelden können (danach greift must_change_password).
 const loginSchema = z.object({
   username: pflichttext(100),
-  password: sha256,
+  password: bestehendesPasswort,
 });
 
 const changePasswordSchema = z.object({
-  currentPassword: sha256,
-  newPassword: sha256,
+  currentPassword: bestehendesPasswort,
+  newPassword: neuesPasswort,
 });
 
 // ── Bestellungen (DSGVO) ─────────────────────────────────────────────────────

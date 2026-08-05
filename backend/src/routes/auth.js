@@ -1,35 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const { authenticate, JWT_SECRET } = require("../middleware/auth");
 const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
 const { loginSchema, changePasswordSchema } = require("../schemas");
-
-// A SHA-256 hash is always a 64-character lowercase hex string
-const SHA256_REGEX = /^[0-9a-f]{64}$/;
-function isValidSHA256(value) {
-  return typeof value === "string" && SHA256_REGEX.test(value);
-}
+const { hashPassword, verifyPassword } = require("../utils/passwordService");
 
 // POST /api/auth/login
 router.post("/login", validate(loginSchema), async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
-    logger.warn("AUTH", "Login-Versuch ohne Benutzername oder Passwort");
-    return res
-      .status(400)
-      .json({ error: "Benutzername und Passwort erforderlich" });
-  }
-  if (!isValidSHA256(password)) {
-    logger.warn(
-      "AUTH",
-      `Login-Versuch mit ungültigem Passwort-Format für Benutzer: ${username}`,
-    );
-    return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-  }
   try {
     logger.info("AUTH", `Login-Versuch für Benutzer: ${username}`);
     const { rows } = await db.query(
@@ -37,18 +18,12 @@ router.post("/login", validate(loginSchema), async (req, res) => {
       [username],
     );
     const user = rows[0];
-    // Always run bcrypt.compare (even for non-existent users) to prevent timing-based
-    // username enumeration. Use a valid dummy bcrypt hash when no user is found.
-    // This hash is bcrypt("goldregen_dummy_password", 10) – never matches any real password.
-    const DUMMY_HASH =
-      "$2b$10$R.TDJCrjRGLI2JqsouPWpegc/JtNCODKyAbCawKH/moXb.jOmDY1u";
-    const hashToCheck = user ? user.password_hash : DUMMY_HASH;
-    let valid = false;
-    try {
-      valid = await bcrypt.compare(password, hashToCheck);
-    } catch {
-      valid = false;
-    }
+    // verifyPassword läuft auch für unbekannte Benutzer gegen einen Dummy-Hash,
+    // damit die Antwortzeit keine Benutzernamen preisgibt.
+    const { valid, needsRehash } = await verifyPassword(
+      password,
+      user ? user.password_hash : null,
+    );
     if (!user || !valid) {
       logger.warn(
         "AUTH",
@@ -63,6 +38,20 @@ router.post("/login", validate(loginSchema), async (req, res) => {
       );
       return res.status(403).json({ error: "Benutzerkonto ist deaktiviert" });
     }
+    // Altkonten tragen noch bcrypt(sha256(passwort)) aus der Zeit, als das
+    // Frontend vorgehasht hat – beim ersten erfolgreichen Login umstellen.
+    if (needsRehash) {
+      const neuerHash = await hashPassword(password);
+      await db.query("UPDATE app_users SET password_hash = $1 WHERE id = $2", [
+        neuerHash,
+        user.id,
+      ]);
+      logger.info(
+        "AUTH",
+        `Passwort-Hash auf aktuelles Verfahren umgestellt: ${username}`,
+      );
+    }
+
     // Update last login timestamp
     await db.query(
       "UPDATE app_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1",
@@ -112,15 +101,6 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
   const userId = req.user.id;
   const username = req.user.username;
 
-  if (!currentPassword || !newPassword) {
-    return res
-      .status(400)
-      .json({ error: "Aktuelles und neues Passwort erforderlich" });
-  }
-  if (!isValidSHA256(currentPassword) || !isValidSHA256(newPassword)) {
-    return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-  }
-
   try {
     logger.info(
       "AUTH",
@@ -139,12 +119,7 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
 
-    let valid = false;
-    try {
-      valid = await bcrypt.compare(currentPassword, user.password_hash || "");
-    } catch {
-      valid = false;
-    }
+    const { valid } = await verifyPassword(currentPassword, user.password_hash);
 
     if (!valid) {
       logger.warn(
@@ -154,7 +129,7 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
       return res.status(401).json({ error: "Aktuelles Passwort ist falsch" });
     }
 
-    const newHash = await bcrypt.hash(newPassword, 10);
+    const newHash = await hashPassword(newPassword);
     await db.query(
       "UPDATE app_users SET password_hash = $1, must_change_password = FALSE WHERE id = $2",
       [newHash, userId],
@@ -175,4 +150,3 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
 });
 
 module.exports = router;
-module.exports.isValidSHA256 = isValidSHA256;

@@ -68,10 +68,25 @@ const vollstaendigeArtikelnummer = artikelnummer.regex(
   'hat ein ungültiges Format (erwartet z. B. MHO123 oder MHO123_1)',
 );
 
-// Ein SHA-256-Hash ist immer ein 64-stelliger, kleingeschriebener Hex-String.
-const sha256 = z
+const {
+  MIN_PASSWORT_LAENGE,
+  MAX_PASSWORT_LAENGE,
+} = require('../utils/passwordService');
+
+// Passwörter kommen seit Issue #131 im Klartext (über TLS) an und werden erst
+// im Backend mit bcrypt gehasht.
+const neuesPasswort = z
   .string({ error: 'ist erforderlich' })
-  .regex(/^[0-9a-f]{64}$/, 'hat ein ungültiges Passwort-Format');
+  .min(MIN_PASSWORT_LAENGE, `muss mindestens ${MIN_PASSWORT_LAENGE} Zeichen lang sein`)
+  .max(MAX_PASSWORT_LAENGE, `darf maximal ${MAX_PASSWORT_LAENGE} Zeichen lang sein`);
+
+// Beim Login wird die Mindestlänge bewusst nicht geprüft: Altkonten dürfen
+// kürzere Passwörter haben und sollen sich weiterhin anmelden können (danach
+// greift must_change_password).
+const bestehendesPasswort = z
+  .string({ error: 'ist erforderlich' })
+  .min(1, 'darf nicht leer sein')
+  .max(MAX_PASSWORT_LAENGE, `darf maximal ${MAX_PASSWORT_LAENGE} Zeichen lang sein`);
 
 module.exports = {
   text,
@@ -82,6 +97,7 @@ module.exports = {
   idParam,
   artikelnummer,
   vollstaendigeArtikelnummer,
-  sha256,
+  neuesPasswort,
+  bestehendesPasswort,
   ARTIKELNUMMER_REGEX,
 };

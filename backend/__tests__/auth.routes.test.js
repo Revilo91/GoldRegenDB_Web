@@ -45,40 +45,10 @@ function buildApp() {
   return app;
 }
 
-// Known SHA-256 hash for the string "admin"
-const SHA256_ADMIN = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
-
-// ── isValidSHA256 (exported helper) ─────────────────────────────────────────
-
-describe('isValidSHA256', () => {
-  let isValidSHA256;
-  beforeAll(() => {
-    ({ isValidSHA256 } = require('../src/routes/auth'));
-  });
-
-  it('accepts a valid 64-char lowercase hex string', () => {
-    expect(isValidSHA256(SHA256_ADMIN)).toBe(true);
-  });
-
-  it('rejects a string that is too short', () => {
-    expect(isValidSHA256('abc123')).toBe(false);
-  });
-
-  it('rejects a string with uppercase letters', () => {
-    expect(isValidSHA256(SHA256_ADMIN.toUpperCase())).toBe(false);
-  });
-
-  it('rejects a non-string value', () => {
-    expect(isValidSHA256(null)).toBe(false);
-    expect(isValidSHA256(undefined)).toBe(false);
-    expect(isValidSHA256(123)).toBe(false);
-  });
-
-  it('rejects a 64-char string containing non-hex characters', () => {
-    const invalid = 'z'.repeat(64);
-    expect(isValidSHA256(invalid)).toBe(false);
-  });
-});
+// Passwörter werden seit Issue #131 im Klartext übertragen und im Backend gehasht
+const PASSWORT = 'ein-sicheres-passwort';
+// So sah der Hash von Altkonten aus: bcrypt(sha256(passwort))
+const sha256 = (t) => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
 
 // ── POST /api/auth/login ─────────────────────────────────────────────────────
 
@@ -96,7 +66,7 @@ describe('POST /api/auth/login', () => {
   it('returns 400 when username is missing', async () => {
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ password: SHA256_ADMIN });
+      .send({ password: PASSWORT });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTruthy();
   });
@@ -108,12 +78,24 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when password is not a valid SHA-256 hex string', async () => {
+  it('returns 400 when password is empty', async () => {
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'admin', password: 'plaintext' });
+      .send({ username: 'admin', password: '' });
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/Format/);
+  });
+
+  it('erlaubt beim Login auch kurze Passwörter von Altkonten', async () => {
+    const hash = await bcrypt.hash('admin', 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, username: 'admin', password_hash: hash, role: 'admin', active: true, must_change_password: true }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'admin', password: 'admin' });
+    expect(res.status).toBe(200);
   });
 
   it('returns 401 when user does not exist', async () => {
@@ -121,7 +103,7 @@ describe('POST /api/auth/login', () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'nonexistent', password: SHA256_ADMIN });
+      .send({ username: 'nonexistent', password: PASSWORT });
     expect(res.status).toBe(401);
     expect(res.body.error).toBeTruthy();
   });
@@ -141,12 +123,12 @@ describe('POST /api/auth/login', () => {
     });
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'admin', password: SHA256_ADMIN });
+      .send({ username: 'admin', password: PASSWORT });
     expect(res.status).toBe(401);
   });
 
   it('returns 403 when account is deactivated', async () => {
-    const hash = await bcrypt.hash(SHA256_ADMIN, 10);
+    const hash = await bcrypt.hash(PASSWORT, 10);
     mockQuery.mockResolvedValueOnce({
       rows: [{
         id: 2,
@@ -159,13 +141,13 @@ describe('POST /api/auth/login', () => {
     });
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'inactive', password: SHA256_ADMIN });
+      .send({ username: 'inactive', password: PASSWORT });
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/deaktiviert/);
   });
 
   it('returns 200 with JWT token and user info on success', async () => {
-    const hash = await bcrypt.hash(SHA256_ADMIN, 10);
+    const hash = await bcrypt.hash(PASSWORT, 10);
     mockQuery
       .mockResolvedValueOnce({
         rows: [{
@@ -180,7 +162,7 @@ describe('POST /api/auth/login', () => {
       .mockResolvedValueOnce({ rows: [] }); // UPDATE last_login
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'admin', password: SHA256_ADMIN });
+      .send({ username: 'admin', password: PASSWORT });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeTruthy();
     expect(res.body.user).toMatchObject({ id: 1, username: 'admin', role: 'admin' });
@@ -191,7 +173,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('sets mustChangePassword=true when flag is set', async () => {
-    const hash = await bcrypt.hash(SHA256_ADMIN, 10);
+    const hash = await bcrypt.hash(PASSWORT, 10);
     mockQuery
       .mockResolvedValueOnce({
         rows: [{
@@ -206,9 +188,49 @@ describe('POST /api/auth/login', () => {
       .mockResolvedValueOnce({ rows: [] });
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'newuser', password: SHA256_ADMIN });
+      .send({ username: 'newuser', password: PASSWORT });
     expect(res.status).toBe(200);
     expect(res.body.mustChangePassword).toBe(true);
+  });
+
+  it('stellt den Hash eines Altkontos beim Login auf bcrypt(klartext) um', async () => {
+    // Altkonto: gespeichert ist bcrypt(sha256(passwort))
+    const legacyHash = await bcrypt.hash(sha256(PASSWORT), 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 9, username: 'alt', password_hash: legacyHash, role: 'user', active: true, must_change_password: false }],
+      })
+      .mockResolvedValueOnce({ rows: [] }) // UPDATE password_hash
+      .mockResolvedValueOnce({ rows: [] }); // UPDATE last_login
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'alt', password: PASSWORT });
+
+    expect(res.status).toBe(200);
+    const rehashCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('SET password_hash'),
+    );
+    expect(rehashCall).toBeDefined();
+    // Der neu gespeicherte Hash muss den Klartext akzeptieren
+    await expect(bcrypt.compare(PASSWORT, rehashCall[1][0])).resolves.toBe(true);
+  });
+
+  it('schreibt keinen neuen Hash, wenn er bereits aktuell ist', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 10, username: 'neu', password_hash: hash, role: 'user', active: true, must_change_password: false }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'neu', password: PASSWORT });
+
+    expect(res.status).toBe(200);
+    const rehashCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('SET password_hash'),
+    );
+    expect(rehashCall).toBeUndefined();
   });
 
   it('returns 503 when the database is unreachable (ECONNREFUSED)', async () => {
@@ -217,7 +239,7 @@ describe('POST /api/auth/login', () => {
     mockQuery.mockRejectedValueOnce(err);
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'admin', password: SHA256_ADMIN });
+      .send({ username: 'admin', password: PASSWORT });
     expect(res.status).toBe(503);
   });
 
@@ -225,7 +247,7 @@ describe('POST /api/auth/login', () => {
     mockQuery.mockRejectedValueOnce(new Error('unexpected'));
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ username: 'admin', password: SHA256_ADMIN });
+      .send({ username: 'admin', password: PASSWORT });
     expect(res.status).toBe(500);
   });
 });
@@ -262,7 +284,7 @@ describe('GET /api/auth/me', () => {
 
 describe('PUT /api/auth/change-password', () => {
   let app;
-  const SHA256_NEW = 'b'.repeat(64); // 64 hex chars, used as "new password"
+  const NEUES_PASSWORT = 'noch-ein-sicheres-passwort';
 
   beforeAll(() => {
     app = buildApp();
@@ -284,7 +306,7 @@ describe('PUT /api/auth/change-password', () => {
   it('returns 401 without a token', async () => {
     const res = await request(app)
       .put('/api/auth/change-password')
-      .send({ currentPassword: SHA256_ADMIN, newPassword: SHA256_NEW });
+      .send({ currentPassword: PASSWORT, newPassword: NEUES_PASSWORT });
     expect(res.status).toBe(401);
   });
 
@@ -296,11 +318,11 @@ describe('PUT /api/auth/change-password', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when passwords are not valid SHA-256', async () => {
+  it('returns 400 when the new password is too short', async () => {
     const res = await request(app)
       .put('/api/auth/change-password')
       .set('Authorization', authHeader())
-      .send({ currentPassword: 'short', newPassword: 'alsoShort' });
+      .send({ currentPassword: PASSWORT, newPassword: 'kurz' });
     expect(res.status).toBe(400);
   });
 
@@ -310,19 +332,19 @@ describe('PUT /api/auth/change-password', () => {
     const res = await request(app)
       .put('/api/auth/change-password')
       .set('Authorization', authHeader())
-      .send({ currentPassword: SHA256_ADMIN, newPassword: SHA256_NEW });
+      .send({ currentPassword: PASSWORT, newPassword: NEUES_PASSWORT });
     expect(res.status).toBe(401);
   });
 
   it('returns 200 on successful password change', async () => {
-    const currentHash = await bcrypt.hash(SHA256_ADMIN, 10);
+    const currentHash = await bcrypt.hash(PASSWORT, 10);
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 5, password_hash: currentHash }] })
       .mockResolvedValueOnce({ rows: [] }); // UPDATE
     const res = await request(app)
       .put('/api/auth/change-password')
       .set('Authorization', authHeader())
-      .send({ currentPassword: SHA256_ADMIN, newPassword: SHA256_NEW });
+      .send({ currentPassword: PASSWORT, newPassword: NEUES_PASSWORT });
     expect(res.status).toBe(200);
     expect(res.body.message).toBeTruthy();
   });

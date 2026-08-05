@@ -166,7 +166,7 @@ backend/src/
 ├── routes/                # 10+ REST endpoints (auth, kunden, schmuckstuecke, etc.)
 ├── middleware/auth.js     # JWT validation, role checks (authenticate, requireAdmin)
 ├── config/db.js           # PostgreSQL pool + request-scoped client + startup migrations
-└── utils/                 # whereClauseBuilder, excelService, logger, hashPassword
+└── utils/                 # whereClauseBuilder, excelService, logger, passwordService
 
 db/
 ├── init.sql               # Schema: 7 tables + audit triggers
@@ -191,8 +191,9 @@ db/
 - Startup migrations in `db.js` ensure schema consistency (lagerinventur table auto-created if missing)
 
 ### Authentication Flow
-1. Frontend hashes password with SHA-256 (Web Crypto API + fallback JS impl)
-2. Backend checks with `bcryptjs` (10 rounds)
+1. Frontend sends the password in plaintext over TLS — no client-side hashing
+2. Backend hashes/verifies with `bcryptjs` (10 rounds) via `utils/passwordService.js`;
+   legacy `bcrypt(sha256(pw))` hashes are accepted once and transparently upgraded on login
 3. JWT issued, stored in localStorage, sent as `Authorization: Bearer <token>` header
 4. Middleware validates JWT, sets `req.user = { username, role, ... }`
 5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
@@ -215,7 +216,7 @@ db/
 | **WHERE builder docs** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel export** | `backend/src/utils/excelService.js` (generateExcel, generateInventurExcel) |
 | **Logging** | `backend/src/utils/logger.js` (structured logs with timestamp & component prefix) |
-| **Password hashing** | `frontend/src/utils/hashPassword.js` (SHA-256, used by all auth endpoints) |
+| **Password hashing** | `backend/src/utils/passwordService.js` (bcrypt; legacy-hash migration) |
 | **Comprehensive docs** | `.github/copilot-instructions.md` (schema, API endpoints, docker details, migrations) |
 
 ---

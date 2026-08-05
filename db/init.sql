@@ -173,8 +173,9 @@ CREATE TABLE IF NOT EXISTS app_users (
     CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
 );
 
+-- Passwort: admin – bcrypt(10 Rounds). must_change_password erzwingt die Änderung beim ersten Login.
 INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
-VALUES ('admin', '$2b$10$oxmaxGKMc6AHPtrr1G3QbOnaXJziFbSdvC5HlU6k/2lBnVyqqOX5W', 'admin@goldregen.local', 'admin', TRUE, TRUE)
+VALUES ('admin', '$2b$10$wWDJzVKVbWUTZJYchdYW8OOZwhEwqmN/JBFKT4jETDbVbE0yyciGm', 'admin@goldregen.local', 'admin', TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 

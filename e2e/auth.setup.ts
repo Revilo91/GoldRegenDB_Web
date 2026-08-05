@@ -1,5 +1,4 @@
 import { test as setup, expect } from '@playwright/test';
-import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 
@@ -10,13 +9,9 @@ const API_URL = process.env.API_URL || 'http://localhost:3001/api';
 const USERNAME = process.env.TEST_USERNAME || 'admin';
 const PASSWORD = process.env.TEST_PASSWORD || 'admin';
 
-function sha256(text: string) {
-  return crypto.createHash('sha256').update(text).digest('hex');
-}
-
 setup('Admin-Token holen und speichern', async ({ request }) => {
   const response = await request.post(`${API_URL}/auth/login`, {
-    data: { username: USERNAME, password: sha256(PASSWORD) },
+    data: { username: USERNAME, password: PASSWORD },
   });
 
   expect(response.ok(), `Login fehlgeschlagen: ${await response.text()}`).toBeTruthy();
