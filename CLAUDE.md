@@ -166,7 +166,7 @@ backend/src/
 ├── routes/                # 10+ REST endpoints (auth, kunden, schmuckstuecke, etc.)
 ├── middleware/auth.js     # JWT validation, role checks (authenticate, requireAdmin)
 ├── config/db.js           # PostgreSQL pool + request-scoped client + startup migrations
-└── utils/                 # whereClauseBuilder, excelService, logger, hashPassword
+└── utils/                 # whereClauseBuilder, excelService, logger, passwordService
 
 db/
 ├── init.sql               # Schema: 7 tables + audit triggers
@@ -191,11 +191,27 @@ db/
 - Startup migrations in `db.js` ensure schema consistency (lagerinventur table auto-created if missing)
 
 ### Authentication Flow
-1. Frontend hashes password with SHA-256 (Web Crypto API + fallback JS impl)
-2. Backend checks with `bcryptjs` (10 rounds)
-3. JWT issued, stored in localStorage, sent as `Authorization: Bearer <token>` header
+1. Frontend sends the password in plaintext over TLS — no client-side hashing
+2. Backend hashes/verifies with `bcryptjs` (10 rounds) via `utils/passwordService.js`;
+   legacy `bcrypt(sha256(pw))` hashes are accepted once and transparently upgraded on login
+3. JWT issued and set as an **httpOnly cookie** (`jwt`); the browser sends it
+   automatically because `api.js` uses `credentials: 'include'`. No token is
+   kept in localStorage. `Authorization: Bearer <token>` still works as a
+   fallback for scripts and E2E tests
 4. Middleware validates JWT, sets `req.user = { username, role, ... }`
 5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
+
+**CSRF** (`backend/src/middleware/csrf.js`): double-submit cookie pattern (not
+`csurf`, which is deprecated). `GET /api/csrf-token` issues a readable
+`csrfToken` cookie; `api.js` mirrors it into the `X-CSRF-Token` header on
+POST/PUT/PATCH/DELETE. Only enforced for cookie-authenticated requests —
+Bearer-token clients and public endpoints are exempt.
+
+**Account lockout & password reset** (`backend/src/utils/accountSecurity.js`):
+5 consecutive failed logins lock the account for 30 minutes. Self-service reset
+runs via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`;
+only the token's SHA-256 hash is stored. No SMTP is configured — the reset link
+is written to the backend log for an admin to hand over.
 
 ### Roles & Permissions
 | Role | Access |
@@ -215,7 +231,7 @@ db/
 | **WHERE builder docs** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel export** | `backend/src/utils/excelService.js` (generateExcel, generateInventurExcel) |
 | **Logging** | `backend/src/utils/logger.js` (structured logs with timestamp & component prefix) |
-| **Password hashing** | `frontend/src/utils/hashPassword.js` (SHA-256, used by all auth endpoints) |
+| **Password hashing** | `backend/src/utils/passwordService.js` (bcrypt; legacy-hash migration) |
 | **Comprehensive docs** | `.github/copilot-instructions.md` (schema, API endpoints, docker details, migrations) |
 
 ---

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { validate } = require('../middleware/validate');
+const { rechnungSchema } = require('../schemas');
 
 function formatJahresNummer(jahr, laufnummer) {
   return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
@@ -140,7 +142,7 @@ router.get('/:id/excel', async (req, res) => {
 });
 
 // POST create
-router.post('/', async (req, res) => {
+router.post('/', validate(rechnungSchema), async (req, res) => {
   let client;
   try {
     const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf', rabatt_gesamt = 0, rabatt_positionen = {} } = req.body;
@@ -206,7 +208,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(rechnungSchema), async (req, res) => {
   try {
     const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen } = req.body;
 

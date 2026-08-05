@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const db = require('../config/db');
+const { AUTH_COOKIE_NAME } = require('../utils/authCookie');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -9,13 +10,27 @@ if (!JWT_SECRET) {
 }
 logger.info('AUTH', 'JWT-Authentifizierung initialisiert');
 
-function authenticate(req, res, next) {
+// Das JWT kommt primär aus dem httpOnly-Cookie (Issue #132). Der
+// Authorization-Header bleibt als Fallback bestehen, damit Skripte, E2E-Tests
+// und andere API-Clients ohne Cookie-Jar weiterhin funktionieren.
+function extractToken(req) {
+  const cookieToken = req.cookies?.[AUTH_COOKIE_NAME];
+  if (cookieToken) {
+    return cookieToken;
+  }
   const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    logger.warn('AUTH', `Nicht authentifiziert: ${req.method} ${req.originalUrl} – Kein Bearer-Token`);
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7);
+  }
+  return null;
+}
+
+function authenticate(req, res, next) {
+  const token = extractToken(req);
+  if (!token) {
+    logger.warn('AUTH', `Nicht authentifiziert: ${req.method} ${req.originalUrl} – Kein Token (Cookie oder Bearer)`);
     return res.status(401).json({ error: 'Nicht authentifiziert' });
   }
-  const token = authHeader.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     req.user = payload;
@@ -43,4 +58,4 @@ function requireBearbeiter(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireAdmin, requireBearbeiter, JWT_SECRET };
+module.exports = { authenticate, requireAdmin, requireBearbeiter, extractToken, JWT_SECRET };

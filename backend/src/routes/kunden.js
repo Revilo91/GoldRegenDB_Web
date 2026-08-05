@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { where } = require('../utils/whereClauseBuilder');
+const { validate } = require('../middleware/validate');
+const { kundeSchema, restockSelectiveSchema } = require('../schemas');
 
 // GET all customers
 router.get('/', async (req, res) => {
@@ -54,7 +56,7 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
 });
 
 // POST create customer
-router.post('/', async (req, res) => {
+router.post('/', validate(kundeSchema), async (req, res) => {
   try {
     const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
     const { rows } = await db.query(
@@ -65,13 +67,14 @@ router.post('/', async (req, res) => {
     logger.info('KUNDEN', `Kunde erstellt: ${rows[0].Name} (ID=${rows[0].ID})`);
     res.status(201).json(rows[0]);
   } catch (err) {
-    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { name: Name, message: err.message });
+    // req.body.Name statt Name: die Destrukturierung liegt im try-Block und ist hier nicht sichtbar
+    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { name: req.body?.Name, message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Kunden' });
   }
 });
 
 // PUT update customer
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(kundeSchema), async (req, res) => {
   try {
     const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
     const { rows } = await db.query(
@@ -111,7 +114,7 @@ router.put('/:id/restock', async (req, res) => {
 });
 
 // PUT restock specific items for a customer (set Ausgelagert = 0)
-router.put('/:id/restock-selective', async (req, res) => {
+router.put('/:id/restock-selective', validate(restockSelectiveSchema), async (req, res) => {
   try {
     const { artikelnummern } = req.body;
     if (!Array.isArray(artikelnummern) || artikelnummern.length === 0) {

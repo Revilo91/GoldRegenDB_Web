@@ -7,6 +7,8 @@ const multer = require("multer");
 const AdmZip = require("adm-zip");
 const db = require("../config/db");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const { backupImportSchema } = require("../schemas");
 
 const UPLOADS_DIR = process.env.BACKUP_UPLOADS_DIR
   ? path.resolve(process.env.BACKUP_UPLOADS_DIR)
@@ -453,7 +455,7 @@ function normalizeBackupData(data) {
 
 // POST /api/backup/import – Import data from a previously exported JSON backup
 // Optional body param: selectedTables (array) – if provided, only those tables are truncated and reimported
-router.post("/import", async (req, res) => {
+router.post("/import", validate(backupImportSchema), async (req, res) => {
   let rawData;
   let selectedTables;
   let restoreUploads = false;

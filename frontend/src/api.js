@@ -1,23 +1,69 @@
-import { hashPassword } from './utils/hashPassword';
-
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-function getToken() {
-  return localStorage.getItem('token');
+// Das JWT liegt seit Issue #132 in einem httpOnly-Cookie. Der Browser sendet es
+// automatisch mit, sofern credentials: 'include' gesetzt ist – im Code gibt es
+// deshalb kein Token mehr, das gelesen oder gespeichert werden müsste.
+
+// ── CSRF (Issue #135) ────────────────────────────────────────────────────────
+// Das Backend legt ein lesbares Cookie ab; wir spiegeln dessen Wert im Header
+// zurück. Fremde Seiten können den Cookie zwar mitsenden lassen, ihn aber
+// wegen der Same-Origin-Policy nicht auslesen und damit den Header nicht setzen.
+
+const CSRF_COOKIE_NAME = 'csrfToken';
+const AENDERNDE_METHODEN = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function csrfTokenAusCookie() {
+  return document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`))
+    ?.slice(CSRF_COOKIE_NAME.length + 1);
 }
 
-async function request(url, options = {}) {
-  const token = getToken();
+// Mehrere parallele Requests sollen nur eine Anforderung auslösen
+let csrfAnforderung = null;
+
+async function ensureCsrfToken(erzwingen = false) {
+  if (!erzwingen) {
+    const vorhanden = csrfTokenAusCookie();
+    if (vorhanden) return vorhanden;
+  }
+  if (!csrfAnforderung) {
+    csrfAnforderung = fetch(`${API_URL}/csrf-token`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : { csrfToken: null }))
+      .then(({ csrfToken }) => csrfToken)
+      .catch(() => null)
+      .finally(() => {
+        csrfAnforderung = null;
+      });
+  }
+  return csrfAnforderung;
+}
+
+// frischesCsrfToken wird nur beim Wiederholungsversuch gesetzt: das Cookie
+// trägt zu dem Zeitpunkt womöglich noch den alten Wert.
+async function request(url, options = {}, frischesCsrfToken = null) {
   const isFormData = options.body instanceof FormData;
   const headers = isFormData ? { ...options.headers } : { 'Content-Type': 'application/json', ...options.headers };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (AENDERNDE_METHODEN.has(method)) {
+    const csrfToken = frischesCsrfToken || (await ensureCsrfToken());
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
   }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers, ...options });
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', headers, ...options });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      // Abgelaufenes oder fehlendes CSRF-Token: einmal neu holen und wiederholen
+      if (res.status === 403 && err.code === 'CSRF_TOKEN_INVALID' && !frischesCsrfToken) {
+        const neuesToken = await ensureCsrfToken(true);
+        if (neuesToken) {
+          return request(url, options, neuesToken);
+        }
+      }
       const errorMessage = err.error || err.message || res.statusText || 'Request failed';
       const requestError = new Error(errorMessage);
       requestError.status = res.status;
@@ -34,15 +80,10 @@ async function request(url, options = {}) {
 }
 
 async function downloadBlob(url, options = {}) {
-  const token = getToken();
-  const headers = {};
   const { signal, onProgress, returnMetadata = false } = options;
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers, signal });
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', signal });
     if (!res.ok) {
       const contentType = res.headers.get('content-type') || '';
       let err = contentType.includes('application/json')
@@ -85,17 +126,21 @@ async function downloadBlob(url, options = {}) {
   }
 }
 
+// Passwörter werden im Klartext über TLS gesendet und erst im Backend mit
+// bcrypt gehasht (siehe backend/src/utils/passwordService.js).
 export const authApi = {
-  login: async (username, password) => {
-    const hashedPassword = await hashPassword(password);
-    return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password: hashedPassword }) });
-  },
+  login: (username, password) =>
+    request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
-  changePassword: async (currentPassword, newPassword) => {
-    const hashedCurrentPassword = await hashPassword(currentPassword);
-    const hashedNewPassword = await hashPassword(newPassword);
-    return request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: hashedCurrentPassword, newPassword: hashedNewPassword }) });
-  },
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword, newPassword) =>
+    request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
+  // Erzeugt ein Reset-Token. Solange kein Mailversand konfiguriert ist, gibt das
+  // Backend den Link nur ins Log aus – siehe backend/src/routes/auth.js.
+  forgotPassword: (username) =>
+    request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username }) }),
+  resetPassword: (token, newPassword) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 };
 
 export const publicApi = {
@@ -216,19 +261,11 @@ export const api = {
   // Benutzerverwaltung
   getUsers: () => request('/users'),
   getUser: (id) => request(`/users/${id}`),
-  createUser: async (data) => {
-    const payload = { ...data };
-    if (payload.password) {
-      payload.password = await hashPassword(payload.password);
-    }
-    return request('/users', { method: 'POST', body: JSON.stringify(payload) });
-  },
+  createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
-  resetUserPassword: async (id, newPassword) => {
-    const hashedPassword = await hashPassword(newPassword);
-    return request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: hashedPassword }) });
-  },
+  resetUserPassword: (id, newPassword) =>
+    request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
   exportBackup: (tables) => {
@@ -254,7 +291,8 @@ export const api = {
   importBackupUploadsZip: (file) => {
     const formData = new FormData();
     formData.append('uploadsZip', file);
-    return requestFormData('/backup/import-uploads-zip', { method: 'POST', body: formData });
+    // request() erkennt FormData selbst und setzt dann keinen Content-Type
+    return request('/backup/import-uploads-zip', { method: 'POST', body: formData });
   },
 
   // Inventur

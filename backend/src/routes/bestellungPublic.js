@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validateDatenminimierung, insertBestellung } = require('../utils/bestellungService');
+const { validate } = require('../middleware/validate');
+const { bestellungPublicSchema } = require('../schemas');
 
 const MAX_BESCHREIBUNG_LAENGE = 2000;
 const MAX_FELD_LAENGE = 200;
@@ -22,7 +24,7 @@ function pruefeFeldLaengen(kunde, beschreibung) {
 // Öffentliches Bestellformular (ohne Login) – z. B. eingebettet unter goldregen.de/Bestellung.
 // Erlaubt ausschließlich das Anlegen neuer Bestellungen; Ansicht, Bearbeitung und Anonymisierung
 // bleiben dem internen, authentifizierten Bereich vorbehalten.
-router.post('/', async (req, res) => {
+router.post('/', validate(bestellungPublicSchema), async (req, res) => {
   let client;
   try {
     const { versandart, wunschdatum, beschreibung, kunde, consent, webseite } = req.body;

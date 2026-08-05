@@ -2,11 +2,14 @@ const path = require('path');
 const { existsSync } = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 const express = require('express');
-const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 const db = require('./config/db');
 
+const securityHeaders = require('./middleware/securityHeaders');
+const cors = require('./middleware/cors');
+const { csrfProtection, csrfTokenHandler } = require('./middleware/csrf');
 const { authenticate, requireAdmin, requireBearbeiter } = require('./middleware/auth');
 const kundenRoutes = require('./routes/kunden');
 const schmuckstueckeRoutes = require('./routes/schmuckstuecke');
@@ -31,8 +34,14 @@ logger.info('SERVER', `Umgebung: ${process.env.NODE_ENV || 'development'}`);
 logger.info('SERVER', `Port: ${PORT}`);
 logger.info('SERVER', `DATABASE_URL: ${process.env.DATABASE_URL ? '(gesetzt)' : '(NICHT GESETZT)'}`);
 logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+logger.info('SERVER', `ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS || '(nicht gesetzt – Standard-Dev-Origins)'}`);
+logger.info('SERVER', `COOKIE_SECURE: ${process.env.COOKIE_SECURE === 'true' ? 'true (Cookie nur über HTTPS)' : 'false (auch über HTTP)'}`);
 
-app.use(cors());
+app.use(securityHeaders);
+app.use(cors);
+app.use(cookieParser());
+// Muss nach cookieParser laufen und vor allen Routen, die Daten verändern
+app.use(csrfProtection);
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(db.requestContextMiddleware);
@@ -87,11 +96,19 @@ const publicOrderLimiter = rateLimit({
 });
 
 // Public routes
+// Die Passwort-Endpunkte sind unauthentifiziert und brute-force-tauglich –
+// sie laufen unter dem strengen Login-Limiter, nicht dem allgemeinen.
 app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/forgot-password', loginLimiter);
+app.use('/api/auth/reset-password', loginLimiter);
 app.use('/api/auth', apiLimiter, authRoutes);
 
 // Öffentliches Bestellformular (kein Login erforderlich) – nur Erstellung neuer Bestellungen möglich
 app.use('/api/public/bestellung', publicOrderLimiter, bestellungPublicRoutes);
+
+// CSRF-Token für das Frontend (public – das Token selbst ist kein Geheimnis,
+// entscheidend ist, dass fremde Seiten es nicht auslesen können)
+app.get('/api/csrf-token', csrfTokenHandler);
 
 // Health check (public) – includes database connectivity test
 app.get('/api/health', async (req, res) => {

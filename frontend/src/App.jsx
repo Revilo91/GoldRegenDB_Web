@@ -31,6 +31,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Schmuckstuecke from "./pages/Schmuckstuecke";
 import Kunden from "./pages/Kunden";
@@ -126,6 +127,7 @@ function AppLayout() {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );

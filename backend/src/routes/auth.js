@@ -1,57 +1,87 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const { authenticate, JWT_SECRET } = require("../middleware/auth");
 const logger = require("../utils/logger");
-
-// A SHA-256 hash is always a 64-character lowercase hex string
-const SHA256_REGEX = /^[0-9a-f]{64}$/;
-function isValidSHA256(value) {
-  return typeof value === "string" && SHA256_REGEX.test(value);
-}
+const { validate } = require("../middleware/validate");
+const {
+  loginSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordWithTokenSchema,
+} = require("../schemas");
+const { hashPassword, verifyPassword } = require("../utils/passwordService");
+const { setAuthCookie, clearAuthCookie } = require("../utils/authCookie");
+const {
+  MAX_FEHLVERSUCHE,
+  SPERRDAUER_MINUTEN,
+  RESET_TOKEN_GUELTIGKEIT_MINUTEN,
+  istGesperrt,
+  verbleibendeSperrminuten,
+  naechsterFehlversuch,
+  erzeugeResetToken,
+  hashResetToken,
+} = require("../utils/accountSecurity");
 
 // POST /api/auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", validate(loginSchema), async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
-    logger.warn("AUTH", "Login-Versuch ohne Benutzername oder Passwort");
-    return res
-      .status(400)
-      .json({ error: "Benutzername und Passwort erforderlich" });
-  }
-  if (!isValidSHA256(password)) {
-    logger.warn(
-      "AUTH",
-      `Login-Versuch mit ungültigem Passwort-Format für Benutzer: ${username}`,
-    );
-    return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-  }
   try {
     logger.info("AUTH", `Login-Versuch für Benutzer: ${username}`);
     const { rows } = await db.query(
-      "SELECT id, username, password_hash, role, active, must_change_password FROM app_users WHERE username = $1",
+      `SELECT id, username, password_hash, role, active, must_change_password,
+              failed_login_attempts, locked_until
+         FROM app_users WHERE username = $1`,
       [username],
     );
     const user = rows[0];
-    // Always run bcrypt.compare (even for non-existent users) to prevent timing-based
-    // username enumeration. Use a valid dummy bcrypt hash when no user is found.
-    // This hash is bcrypt("goldregen_dummy_password", 10) – never matches any real password.
-    const DUMMY_HASH =
-      "$2b$10$R.TDJCrjRGLI2JqsouPWpegc/JtNCODKyAbCawKH/moXb.jOmDY1u";
-    const hashToCheck = user ? user.password_hash : DUMMY_HASH;
-    let valid = false;
-    try {
-      valid = await bcrypt.compare(password, hashToCheck);
-    } catch {
-      valid = false;
-    }
-    if (!user || !valid) {
+
+    // Gesperrte Konten früh abweisen – ohne das Passwort überhaupt zu prüfen,
+    // damit ein Angreifer die Sperre nicht durch Weiterraten verlängern kann.
+    if (istGesperrt(user)) {
+      const minuten = verbleibendeSperrminuten(user);
       logger.warn(
         "AUTH",
-        `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten`,
+        `Login abgewiesen – Konto gesperrt: ${username} (noch ${minuten} Minuten)`,
       );
+      return res.status(403).json({
+        error: `Konto ist wegen zu vieler Fehlversuche gesperrt. Bitte in ${minuten} Minuten erneut versuchen.`,
+      });
+    }
+
+    // verifyPassword läuft auch für unbekannte Benutzer gegen einen Dummy-Hash,
+    // damit die Antwortzeit keine Benutzernamen preisgibt.
+    const { valid, needsRehash } = await verifyPassword(
+      password,
+      user ? user.password_hash : null,
+    );
+    if (!user || !valid) {
+      // Fehlversuche werden nur für existierende Konten gezählt – sonst könnte
+      // ein Angreifer über die Sperrmeldung Benutzernamen ermitteln.
+      if (user) {
+        const { versuche, lockedUntil } = naechsterFehlversuch(user);
+        await db.query(
+          "UPDATE app_users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3",
+          [versuche, lockedUntil, user.id],
+        );
+        if (lockedUntil) {
+          logger.warn(
+            "AUTH",
+            `Konto nach ${versuche} Fehlversuchen für ${SPERRDAUER_MINUTEN} Minuten gesperrt: ${username}`,
+          );
+        } else {
+          logger.warn(
+            "AUTH",
+            `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten (Versuch ${versuche}/${MAX_FEHLVERSUCHE})`,
+          );
+        }
+      } else {
+        logger.warn(
+          "AUTH",
+          `Login fehlgeschlagen für unbekannten Benutzer: ${username}`,
+        );
+      }
       return res.status(401).json({ error: "Ungültige Anmeldedaten" });
     }
     if (!user.active) {
@@ -61,9 +91,25 @@ router.post("/login", async (req, res) => {
       );
       return res.status(403).json({ error: "Benutzerkonto ist deaktiviert" });
     }
-    // Update last login timestamp
+    // Altkonten tragen noch bcrypt(sha256(passwort)) aus der Zeit, als das
+    // Frontend vorgehasht hat – beim ersten erfolgreichen Login umstellen.
+    if (needsRehash) {
+      const neuerHash = await hashPassword(password);
+      await db.query("UPDATE app_users SET password_hash = $1 WHERE id = $2", [
+        neuerHash,
+        user.id,
+      ]);
+      logger.info(
+        "AUTH",
+        `Passwort-Hash auf aktuelles Verfahren umgestellt: ${username}`,
+      );
+    }
+
+    // Erfolgreicher Login setzt den Fehlversuchszähler zurück
     await db.query(
-      "UPDATE app_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1",
+      `UPDATE app_users
+          SET last_login = CURRENT_TIMESTAMP, failed_login_attempts = 0, locked_until = NULL
+        WHERE id = $1`,
       [user.id],
     );
     const token = jwt.sign(
@@ -71,8 +117,15 @@ router.post("/login", async (req, res) => {
       JWT_SECRET,
       { expiresIn: "8h" },
     );
+    // Das JWT geht als httpOnly-Cookie raus – JavaScript im Browser kommt
+    // nicht daran, ein XSS kann es also nicht auslesen und abtransportieren.
+    setAuthCookie(res, token);
+
     logger.info("AUTH", `Login erfolgreich: ${username} (Rolle: ${user.role})`);
     res.json({
+      // Das Token bleibt zusätzlich in der Antwort, damit Skripte und E2E-Tests
+      // ohne Cookie-Jar den Authorization-Header nutzen können. Das Frontend
+      // ignoriert es und verlässt sich auf das Cookie.
       token,
       user: { id: user.id, username: user.username, role: user.role },
       mustChangePassword: !!user.must_change_password,
@@ -98,6 +151,13 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// POST /api/auth/logout – Auth-Cookie löschen
+router.post("/logout", (req, res) => {
+  clearAuthCookie(res);
+  logger.info("AUTH", "Logout");
+  res.json({ message: "Abgemeldet" });
+});
+
 // GET /api/auth/me – verify token and return current user
 router.get("/me", authenticate, (req, res) => {
   logger.info("AUTH", `Token-Validierung erfolgreich: ${req.user.username}`);
@@ -105,19 +165,10 @@ router.get("/me", authenticate, (req, res) => {
 });
 
 // PUT /api/auth/change-password – change own password (authenticated)
-router.put("/change-password", authenticate, async (req, res) => {
+router.put("/change-password", authenticate, validate(changePasswordSchema), async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
   const username = req.user.username;
-
-  if (!currentPassword || !newPassword) {
-    return res
-      .status(400)
-      .json({ error: "Aktuelles und neues Passwort erforderlich" });
-  }
-  if (!isValidSHA256(currentPassword) || !isValidSHA256(newPassword)) {
-    return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-  }
 
   try {
     logger.info(
@@ -137,12 +188,7 @@ router.put("/change-password", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
 
-    let valid = false;
-    try {
-      valid = await bcrypt.compare(currentPassword, user.password_hash || "");
-    } catch {
-      valid = false;
-    }
+    const { valid } = await verifyPassword(currentPassword, user.password_hash);
 
     if (!valid) {
       logger.warn(
@@ -152,7 +198,7 @@ router.put("/change-password", authenticate, async (req, res) => {
       return res.status(401).json({ error: "Aktuelles Passwort ist falsch" });
     }
 
-    const newHash = await bcrypt.hash(newPassword, 10);
+    const newHash = await hashPassword(newPassword);
     await db.query(
       "UPDATE app_users SET password_hash = $1, must_change_password = FALSE WHERE id = $2",
       [newHash, userId],
@@ -172,5 +218,100 @@ router.put("/change-password", authenticate, async (req, res) => {
   }
 });
 
+// POST /api/auth/forgot-password – Reset-Token anfordern
+//
+// Es ist kein Mailversand konfiguriert. Der Reset-Link wird deshalb im
+// Backend-Log ausgegeben; ein Administrator gibt ihn an den Benutzer weiter.
+// Sobald SMTP verfügbar ist, muss nur diese Stelle auf Mailversand umgestellt
+// werden – der Ablauf für den Benutzer bleibt gleich.
+router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res) => {
+  const { username } = req.body;
+
+  // Immer dieselbe Antwort, unabhängig davon, ob das Konto existiert –
+  // sonst wird der Endpunkt zum Benutzernamen-Orakel.
+  const antwort = {
+    message:
+      "Falls ein Konto existiert, wurde ein Reset-Link erzeugt. Bitte wenden Sie sich an einen Administrator.",
+  };
+
+  try {
+    const { rows } = await db.query(
+      "SELECT id, username, active FROM app_users WHERE username = $1",
+      [username],
+    );
+    const user = rows[0];
+
+    if (!user || !user.active) {
+      logger.warn(
+        "AUTH",
+        `Passwort-Reset für unbekanntes oder deaktiviertes Konto angefordert: ${username}`,
+      );
+      return res.json(antwort);
+    }
+
+    const { token, tokenHash, expiry } = erzeugeResetToken();
+    await db.query(
+      "UPDATE app_users SET reset_token_hash = $1, reset_token_expiry = $2 WHERE id = $3",
+      [tokenHash, expiry, user.id],
+    );
+
+    logger.warn(
+      "AUTH",
+      `Passwort-Reset-Token für ${user.username} erzeugt (gültig ${RESET_TOKEN_GUELTIGKEIT_MINUTEN} Minuten). ` +
+        `Reset-Link: /reset-password?token=${token}`,
+    );
+
+    res.json(antwort);
+  } catch (err) {
+    logger.error("AUTH", `Fehler beim Anfordern eines Passwort-Resets für: ${username}`, {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Anfordern des Passwort-Resets" });
+  }
+});
+
+// POST /api/auth/reset-password – Passwort mit Reset-Token neu setzen
+router.post("/reset-password", validate(resetPasswordWithTokenSchema), async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    // Gesucht wird über den Hash – das Klartext-Token steht nie in der Datenbank.
+    const { rows } = await db.query(
+      `SELECT id, username FROM app_users
+        WHERE reset_token_hash = $1 AND reset_token_expiry > CURRENT_TIMESTAMP`,
+      [hashResetToken(token)],
+    );
+    const user = rows[0];
+    if (!user) {
+      logger.warn("AUTH", "Passwort-Reset mit ungültigem oder abgelaufenem Token");
+      return res
+        .status(400)
+        .json({ error: "Token ist ungültig oder abgelaufen" });
+    }
+
+    const newHash = await hashPassword(newPassword);
+    // Das Zurücksetzen hebt auch eine bestehende Sperre auf: der Benutzer hat
+    // den Besitz des Reset-Tokens nachgewiesen.
+    await db.query(
+      `UPDATE app_users
+          SET password_hash = $1,
+              must_change_password = FALSE,
+              reset_token_hash = NULL,
+              reset_token_expiry = NULL,
+              failed_login_attempts = 0,
+              locked_until = NULL
+        WHERE id = $2`,
+      [newHash, user.id],
+    );
+
+    logger.info("AUTH", `Passwort per Reset-Token neu gesetzt: ${user.username}`);
+    res.json({ message: "Passwort erfolgreich geändert" });
+  } catch (err) {
+    logger.error("AUTH", "Fehler beim Zurücksetzen des Passworts", {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Zurücksetzen des Passworts" });
+  }
+});
+
 module.exports = router;
-module.exports.isValidSHA256 = isValidSHA256;

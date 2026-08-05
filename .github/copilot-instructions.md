@@ -239,6 +239,8 @@ const result = await db.query(query, builder.getParams());
 | **DB-Zugriff**    | `pg` (node-postgres) – kein ORM          |
 | **Authentifizierung** | JWT (`jsonwebtoken`) + `bcryptjs`    |
 | **Rate Limiting** | `express-rate-limit`                     |
+| **Security-Header** | `helmet`                               |
+| **Input-Validierung** | `zod`                                |
 | **Excel-Export**  | `exceljs`                                |
 | **Bild-Validierung** | `image-size`                          |
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
@@ -266,20 +268,102 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ### Technische Details
 
-- Token-Format: `Bearer <JWT>` im `Authorization`-Header
-- Login: `POST /api/auth/login` → gibt JWT zurück
+- Token-Transport: **httpOnly-Cookie `jwt`** (Standard). `Bearer <JWT>` im
+  `Authorization`-Header bleibt als Fallback für Skripte und E2E-Tests
+- Login: `POST /api/auth/login` → setzt das `jwt`-Cookie (und gibt das Token für API-Clients zusätzlich im Body zurück)
+- Logout: `POST /api/auth/logout` → löscht das Cookie
 - Token-Validierung: `GET /api/auth/me`
 - Passwort ändern: `PUT /api/auth/change-password`
 - JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
 - Rate Limiting: Login max. 20 Versuche / 15 Min; allgemeine API max. 300 Req / Min
 - Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
-- Passwort-Hashing: Frontend berechnet SHA-256(Passwort) und sendet den 64-Zeichen-Hex-Hash; Backend speichert/vergleicht mit `bcryptjs` (10 Rounds)
+- Passwort-Hashing: Das Frontend sendet das Passwort im **Klartext** (über TLS); ausschließlich das Backend hasht und vergleicht mit `bcryptjs` (10 Rounds) – siehe `backend/src/utils/passwordService.js`
+- Mindestlänge für **neu gesetzte** Passwörter: 8 Zeichen. Beim Login gilt keine Mindestlänge, damit Altkonten sich weiterhin anmelden können
+- Account-Lockout: nach 5 aufeinanderfolgenden Fehlversuchen wird das Konto 30 Minuten gesperrt (`failed_login_attempts` / `locked_until`)
+- Passwort-Reset: `POST /api/auth/forgot-password` → `POST /api/auth/reset-password` mit Token
 
 ### Middleware
 
 - `authenticate` – prüft JWT, setzt `req.user`, konfiguriert DB-Session-User für Audit-Trigger
 - `requireAdmin` – prüft `req.user.role === 'admin'`
 - `requireBearbeiter` – prüft `req.user.role` ist `'admin'` oder `'bearbeiter'`
+
+---
+
+## Input-Validierung (PFLICHT bei schreibenden Routen!)
+
+Jede Route, die Daten entgegennimmt, validiert den Request-Body mit einem
+Zod-Schema. Ohne Schema gelangen unbekannte Felder und ungeprüfte Typen in die
+SQL-Statements.
+
+```javascript
+const { validate } = require('../middleware/validate');
+const { kundeSchema } = require('../schemas');
+
+router.post('/', validate(kundeSchema), async (req, res) => {
+  // req.body enthält jetzt ausschließlich geprüfte, typkorrekte Felder
+});
+```
+
+- Schemas liegen in `backend/src/schemas/index.js`, wiederverwendbare Bausteine
+  (`text`, `zahl`, `ganzzahl`, `bool`, `sha256`, `artikelnummer`) in `common.js`.
+- **Unbekannte Felder werden entfernt** – Zod-Objekte strippen sie standardmäßig.
+- Leere Formular-Strings werden zu `null`, Zahlen-Strings (`"49.90"`) zu Zahlen.
+  Das ist nötig, weil HTML-Formulare alles als String senden.
+- Bei Verstoß: `400` mit `{ error, details }`, wobei `error` das erste
+  fehlerhafte Feld benennt (`"Provision: darf nicht größer als 100 sein"`).
+- Verstöße landen als `logger.warn('VALIDATION', …)` im Log.
+
+**Neue schreibende Route anlegen:** Schema in `schemas/index.js` ergänzen,
+exportieren, per `validate(...)` vor den Handler hängen und einen Test in
+`backend/__tests__/validation.test.js` ergänzen – dort wird bewusst auch der
+Gutfall mit dem echten Frontend-Payload geprüft, damit die Schemas nicht zu
+streng werden.
+
+---
+
+## CORS (`backend/src/middleware/cors.js`)
+
+Die API ist nur für explizit erlaubte Origins geöffnet. Konfiguriert wird das
+über die kommaseparierte Umgebungsvariable `ALLOWED_ORIGINS`:
+
+```
+ALLOWED_ORIGINS=http://localhost:5173,https://schmuck.example.com
+```
+
+- Ohne gesetzte Variable gelten die lokalen Dev-Origins
+  (`localhost:5173` / `localhost:3000`, jeweils auch als `127.0.0.1`).
+- Requests **ohne** `Origin`-Header (same-origin, `curl`, Container-Healthcheck)
+  werden immer durchgelassen.
+- In Produktion liefert Express das Frontend selbst aus – diese Requests sind
+  same-origin und lösen gar keine CORS-Prüfung aus. `ALLOWED_ORIGINS` muss dort
+  nur gesetzt werden, wenn das Frontend von einer anderen Adresse geladen wird.
+- Abgelehnte Origins werden mit `logger.warn('CORS', …)` protokolliert.
+- `Content-Disposition` und `X-Upload-File-Count` sind als Response-Header
+  freigegeben, weil `api.js` sie bei Downloads ausliest.
+
+---
+
+## Security-Header (`backend/src/middleware/securityHeaders.js`)
+
+`helmet` wird als erste Middleware in `index.js` registriert und setzt u. a.
+`X-Content-Type-Options`, `X-Frame-Options` und `Strict-Transport-Security`.
+
+Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
+
+| Direktive     | Wert / Grund                                                                 |
+| ------------- | ---------------------------------------------------------------------------- |
+| `style-src`   | `'unsafe-inline'` + `fonts.googleapis.com` – React-`style`-Props, Font-Import |
+| `font-src`    | `data:` + `fonts.gstatic.com`                                                 |
+| `img-src`     | `data:` + `blob:` – Fotos werden als Data-URL geladen (`api.js`)             |
+| `frame-ancestors` | `'none'` – Clickjacking-Schutz                                            |
+| `upgrade-insecure-requests` | deaktiviert – Deployment läuft ohne TLS (Issue #138)            |
+
+`crossOriginResourcePolicy` steht auf `cross-origin`, damit der Vite-Dev-Server
+(Port 5173) Fotos und Excel-Downloads vom Backend (Port 3001) laden kann.
+
+Die CSP greift nur für Dokumente, die Express selbst ausliefert (Produktions-Image).
+Im nativen Dev-Modus liefert Vite das HTML aus – dort gilt sie nicht.
 
 ---
 
@@ -376,10 +460,8 @@ GoldRegenDB_Web/
 │       │   ├── TableToolbar.jsx    # Toolbar-Komponente für Tabellen (Suche, Filter, Aktionen)
 │       │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Preview)
 │       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly / bearbeiterOnly props)
-│       ├── utils/
-│       │   └── hashPassword.js     # SHA-256-Passwort-Hashing (Web Crypto API + Fallback)
 │       ├── __tests__/              # Vitest-Tests
-│       │   └── hashPassword.test.js
+│       │   └── authApi.test.js      # Passwort-Aufrufe von api.js (Klartext-Übertragung)
 │       └── pages/
 │           ├── Login.jsx           # Anmeldeseite
 │           ├── Dashboard.jsx       # Statistik-Übersicht
@@ -452,7 +534,11 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | ------- | ----------------- | ------------------------------- |
 | POST    | `/api/auth/login` | Login, gibt JWT zurück          |
 | GET     | `/api/auth/me`    | Eigene Benutzerdaten aus Token  |
+| POST    | `/api/auth/logout` | Auth-Cookie löschen             |
+| GET     | `/api/csrf-token`  | CSRF-Token ausstellen (öffentlich) |
 | PUT     | `/api/auth/change-password` | Eigenes Passwort ändern (authentifiziert) |
+| POST    | `/api/auth/forgot-password` | Reset-Token anfordern (Link geht ins Backend-Log) |
+| POST    | `/api/auth/reset-password`  | Passwort mit Reset-Token neu setzen |
 
 ### Allgemein (authentifiziert)
 
@@ -621,13 +707,101 @@ Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
 - Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
 - Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
 
-### Frontend: `frontend/src/utils/hashPassword.js`
+### Backend: `backend/src/middleware/csrf.js`
 
-SHA-256-Passwort-Hashing vor dem Senden ans Backend.
-- Nutzt primär die Web Crypto API (`crypto.subtle.digest`) in sicheren Kontexten (HTTPS/localhost)
-- Fällt auf reine JavaScript-Implementierung zurück (für HTTP-Umgebungen)
-- Gibt 64-Zeichen-Hex-String zurück
-- Alle passwortübertragenden API-Aufrufe (Login, Benutzer anlegen, Passwort zurücksetzen, Passwort ändern) verwenden `hashPassword()`
+CSRF-Schutz nach dem **Double-Submit-Cookie-Pattern**. Bewusst **nicht** `csurf`:
+das Paket ist seit 2022 deprecated und archiviert.
+
+1. `GET /api/csrf-token` stellt ein Zufallstoken aus und legt es im Cookie
+   `csrfToken` ab – **absichtlich nicht httpOnly**, das Frontend muss es lesen
+   können
+2. `api.js` spiegelt den Cookie-Wert bei POST/PUT/PATCH/DELETE in den Header
+   `X-CSRF-Token`
+3. Die Middleware vergleicht beide Werte in konstanter Zeit
+   (`crypto.timingSafeEqual`)
+
+Eine fremde Website kann den Cookie zwar mitsenden lassen, ihn aber wegen der
+Same-Origin-Policy nicht auslesen – und damit den Header nicht setzen.
+
+**Der Schutz greift nur, wenn der Request seine Berechtigung aus dem
+`jwt`-Cookie zieht.** Ohne Auth-Cookie gibt es keine Ambient Authority zu
+missbrauchen, deshalb bleiben ausgenommen:
+- Login, `forgot-password`, `reset-password` (noch keine Sitzung)
+- das öffentliche Bestellformular
+- Requests mit `Authorization: Bearer` (Skripte, E2E-Tests) – einen Header kann
+  eine fremde Seite ohnehin nicht setzen
+
+Bei ungültigem Token: `403` mit `{ error, code: 'CSRF_TOKEN_INVALID' }`. `api.js`
+holt daraufhin **einmal** ein neues Token und wiederholt den Request.
+
+### Backend: `backend/src/utils/authCookie.js`
+
+Setzt und löscht das JWT-Cookie. **Alle** Cookie-Attribute liegen hier – nie
+direkt `res.cookie('jwt', …)` in einer Route aufrufen, sonst driften Setzen und
+Löschen auseinander und `clearCookie` greift nicht mehr.
+
+| Attribut   | Wert | Grund |
+| ---------- | ---- | ----- |
+| `httpOnly` | true | JavaScript kommt nicht an das Token – ein XSS kann es nicht auslesen |
+| `sameSite` | `lax` | blockt site-fremde POSTs (CSRF-Grundschutz), erlaubt normale Navigation |
+| `secure`   | `COOKIE_SECURE === 'true'` | **muss** false bleiben, solange ohne TLS deployt wird (#138) – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
+| `maxAge`   | 8 h | passend zur JWT-Laufzeit in `routes/auth.js` |
+
+Das Frontend sendet bei jedem Request `credentials: 'include'` (`api.js`) und
+speichert **kein** Token mehr. Ob eine Sitzung besteht, ermittelt
+`AuthContext` beim Start ausschließlich über `GET /api/auth/me`.
+
+`authenticate` liest das Token zuerst aus dem Cookie und fällt dann auf den
+`Authorization`-Header zurück – nur deshalb funktionieren `curl` und die
+Playwright-Setup-Skripte weiterhin.
+
+### Backend: `backend/src/utils/accountSecurity.js`
+
+Account-Lockout und Passwort-Reset-Token.
+
+| Konstante | Wert | Bedeutung |
+| --------- | ---- | --------- |
+| `MAX_FEHLVERSUCHE` | 5 | danach wird gesperrt |
+| `SPERRDAUER_MINUTEN` | 30 | Dauer der Sperre |
+| `RESET_TOKEN_GUELTIGKEIT_MINUTEN` | 30 | Gültigkeit eines Reset-Tokens |
+
+**Lockout:** Der Login prüft die Sperre **vor** der Passwortprüfung und antwortet
+mit `403`. Fehlversuche werden nur für **existierende** Konten gezählt – sonst
+würde die Sperrmeldung verraten, welche Benutzernamen es gibt. Ein
+erfolgreicher Login, ein Admin-Reset und ein Token-Reset setzen den Zähler
+zurück. Das Rate-Limit allein genügt nicht: es greift pro IP.
+
+**Reset-Ablauf:**
+1. `POST /api/auth/forgot-password` `{ username }` – erzeugt ein Token,
+   speichert **nur dessen SHA-256-Hash** in `reset_token_hash`
+2. **Es ist kein Mailversand konfiguriert.** Der Link wird per
+   `logger.warn('AUTH', …)` ins Backend-Log geschrieben; ein Administrator gibt
+   ihn weiter. Für SMTP muss nur diese eine Stelle in `routes/auth.js` geändert
+   werden, der Rest des Ablaufs bleibt gleich.
+3. `POST /api/auth/reset-password` `{ token, newPassword }` – sucht über den
+   Token-Hash, setzt das Passwort und räumt Token, Zähler und Sperre auf
+4. Frontend: `/reset-password?token=…` (`pages/ResetPassword.jsx`, öffentlich)
+
+Die Antwort von `forgot-password` ist immer identisch, unabhängig davon, ob das
+Konto existiert – sonst wird der Endpunkt zum Benutzernamen-Orakel.
+
+Beide Endpunkte laufen unter dem strengen Login-Rate-Limiter.
+
+### Backend: `backend/src/utils/passwordService.js`
+
+Zentrale Stelle für Passwort-Hashing und -Prüfung. **Nur hier** wird gehasht –
+das Frontend überträgt Klartext über TLS.
+
+- `hashPassword(klartext)` – bcrypt, 10 Rounds
+- `verifyPassword(klartext, hash)` → `{ valid, needsRehash }`
+- `MIN_PASSWORT_LAENGE` (8) wird von den Zod-Schemas für neue Passwörter genutzt
+
+**Migration bestehender Konten:** Bis Issue #131 hashte das Frontend mit SHA-256
+vor, gespeichert wurde `bcrypt(sha256(passwort))`. `verifyPassword` prüft diesen
+Alt-Hash zusätzlich und meldet über `needsRehash`, dass der Eintrag veraltet ist.
+Die Login-Route stellt den Hash dann beim ersten erfolgreichen Login still auf
+`bcrypt(klartext)` um. Der Fallback darf erst entfernt werden, wenn sich alle
+Konten mindestens einmal angemeldet haben.
 
 ---
 

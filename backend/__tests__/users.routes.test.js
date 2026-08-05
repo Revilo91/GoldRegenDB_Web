@@ -5,7 +5,7 @@
  *
  * Key risks covered:
  * - Role validation (only admin/bearbeiter/user accepted)
- * - SHA-256 format enforcement on password fields
+ * - Mindestlänge für neu gesetzte Passwörter (Klartext, siehe Issue #131)
  * - Duplicate-username conflict handling (HTTP 409)
  * - Proper 404 when a user is not found
  */
@@ -43,7 +43,7 @@ function buildApp() {
   return app;
 }
 
-const SHA256_PASS = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+const GUELTIGES_PASSWORT = 'ein-sicheres-passwort';
 
 describe('POST /api/users (create user)', () => {
   let app;
@@ -59,7 +59,7 @@ describe('POST /api/users (create user)', () => {
   it('returns 400 when username is missing', async () => {
     const res = await request(app)
       .post('/api/users')
-      .send({ password: SHA256_PASS, role: 'user' });
+      .send({ password: GUELTIGES_PASSWORT, role: 'user' });
     expect(res.status).toBe(400);
   });
 
@@ -70,18 +70,18 @@ describe('POST /api/users (create user)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when password is not a valid SHA-256 string', async () => {
+  it('returns 400 when password is shorter than the minimum length', async () => {
     const res = await request(app)
       .post('/api/users')
-      .send({ username: 'newuser', password: 'plaintext', role: 'user' });
+      .send({ username: 'newuser', password: 'kurz', role: 'user' });
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/Format/);
+    expect(res.body.error).toMatch(/mindestens/);
   });
 
   it('returns 400 when role is invalid', async () => {
     const res = await request(app)
       .post('/api/users')
-      .send({ username: 'newuser', password: SHA256_PASS, role: 'superadmin' });
+      .send({ username: 'newuser', password: GUELTIGES_PASSWORT, role: 'superadmin' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Rolle/);
   });
@@ -92,7 +92,7 @@ describe('POST /api/users (create user)', () => {
     mockQuery.mockRejectedValueOnce(err);
     const res = await request(app)
       .post('/api/users')
-      .send({ username: 'admin', password: SHA256_PASS, role: 'user' });
+      .send({ username: 'admin', password: GUELTIGES_PASSWORT, role: 'user' });
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/vergeben/);
   });
@@ -110,7 +110,7 @@ describe('POST /api/users (create user)', () => {
     mockQuery.mockResolvedValueOnce({ rows: [newUser] });
     const res = await request(app)
       .post('/api/users')
-      .send({ username: 'newuser', password: SHA256_PASS, role: 'user' });
+      .send({ username: 'newuser', password: GUELTIGES_PASSWORT, role: 'user' });
     expect(res.status).toBe(201);
     expect(res.body.username).toBe('newuser');
     expect(res.body).not.toHaveProperty('password_hash');

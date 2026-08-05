@@ -391,6 +391,10 @@ async function ensureAppUsersTable() {
         must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP DEFAULT NULL,
+        failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        locked_until TIMESTAMP DEFAULT NULL,
+        reset_token_hash TEXT DEFAULT NULL,
+        reset_token_expiry TIMESTAMP DEFAULT NULL,
         CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
       )
     `);
@@ -406,6 +410,14 @@ async function ensureAppUsersTable() {
         END IF;
       END
       $$;
+    `);
+    // Migrate: Spalten für Account-Lockout und Passwort-Reset (Issue #137)
+    await pool.query(`
+      ALTER TABLE app_users
+        ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP DEFAULT NULL;
     `);
     // Migrate role constraint in existing deployments to support 'bearbeiter'
     await pool.query(`
@@ -423,12 +435,10 @@ async function ensureAppUsersTable() {
       $$;
     `);
     // Seed default admin if table is empty
-    // Password: admin (SHA-256 hashed on frontend, then bcrypt-hashed on backend)
-    // Hash = bcrypt(SHA-256("admin")) – generated with 10 rounds
+    // Passwort: admin – muss nach dem ersten Login geändert werden
     const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM app_users');
     if (parseInt(rows[0].cnt, 10) === 0) {
-      const sha256ofAdmin = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
-      const adminHash = await bcrypt.hash(sha256ofAdmin, 10);
+      const adminHash = await bcrypt.hash('admin', 10);
       await pool.query(
         `INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
          VALUES ('admin', $1, 'admin@goldregen.local', 'admin', TRUE, TRUE)

@@ -4,9 +4,11 @@ const db = require("../config/db");
 const logger = require("../utils/logger");
 const { where } = require("../utils/whereClauseBuilder");
 const { PRODUKTART } = require("../utils/constants");
+const { validate } = require("../middleware/validate");
+const { sumupImportSchema } = require("../schemas");
 
 // POST /api/sumup/import - Import SumUp Verkaufsbericht
-router.post("/import", async (req, res) => {
+router.post("/import", validate(sumupImportSchema), async (req, res) => {
   try {
     // CSV-Daten aus Body (als String oder Array)
     const csvData = req.body.csvData;
