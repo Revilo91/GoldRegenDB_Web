@@ -535,6 +535,7 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | POST    | `/api/auth/login` | Login, gibt JWT zurück          |
 | GET     | `/api/auth/me`    | Eigene Benutzerdaten aus Token  |
 | POST    | `/api/auth/logout` | Auth-Cookie löschen             |
+| GET     | `/api/csrf-token`  | CSRF-Token ausstellen (öffentlich) |
 | PUT     | `/api/auth/change-password` | Eigenes Passwort ändern (authentifiziert) |
 | POST    | `/api/auth/forgot-password` | Reset-Token anfordern (Link geht ins Backend-Log) |
 | POST    | `/api/auth/reset-password`  | Passwort mit Reset-Token neu setzen |
@@ -705,6 +706,33 @@ Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
 - Methoden: `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`
 - Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
 - Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
+
+### Backend: `backend/src/middleware/csrf.js`
+
+CSRF-Schutz nach dem **Double-Submit-Cookie-Pattern**. Bewusst **nicht** `csurf`:
+das Paket ist seit 2022 deprecated und archiviert.
+
+1. `GET /api/csrf-token` stellt ein Zufallstoken aus und legt es im Cookie
+   `csrfToken` ab – **absichtlich nicht httpOnly**, das Frontend muss es lesen
+   können
+2. `api.js` spiegelt den Cookie-Wert bei POST/PUT/PATCH/DELETE in den Header
+   `X-CSRF-Token`
+3. Die Middleware vergleicht beide Werte in konstanter Zeit
+   (`crypto.timingSafeEqual`)
+
+Eine fremde Website kann den Cookie zwar mitsenden lassen, ihn aber wegen der
+Same-Origin-Policy nicht auslesen – und damit den Header nicht setzen.
+
+**Der Schutz greift nur, wenn der Request seine Berechtigung aus dem
+`jwt`-Cookie zieht.** Ohne Auth-Cookie gibt es keine Ambient Authority zu
+missbrauchen, deshalb bleiben ausgenommen:
+- Login, `forgot-password`, `reset-password` (noch keine Sitzung)
+- das öffentliche Bestellformular
+- Requests mit `Authorization: Bearer` (Skripte, E2E-Tests) – einen Header kann
+  eine fremde Seite ohnehin nicht setzen
+
+Bei ungültigem Token: `403` mit `{ error, code: 'CSRF_TOKEN_INVALID' }`. `api.js`
+holt daraufhin **einmal** ein neues Token und wiederholt den Request.
 
 ### Backend: `backend/src/utils/authCookie.js`
 

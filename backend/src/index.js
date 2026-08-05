@@ -9,6 +9,7 @@ const db = require('./config/db');
 
 const securityHeaders = require('./middleware/securityHeaders');
 const cors = require('./middleware/cors');
+const { csrfProtection, csrfTokenHandler } = require('./middleware/csrf');
 const { authenticate, requireAdmin, requireBearbeiter } = require('./middleware/auth');
 const kundenRoutes = require('./routes/kunden');
 const schmuckstueckeRoutes = require('./routes/schmuckstuecke');
@@ -39,6 +40,8 @@ logger.info('SERVER', `COOKIE_SECURE: ${process.env.COOKIE_SECURE === 'true' ? '
 app.use(securityHeaders);
 app.use(cors);
 app.use(cookieParser());
+// Muss nach cookieParser laufen und vor allen Routen, die Daten verändern
+app.use(csrfProtection);
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(db.requestContextMiddleware);
@@ -102,6 +105,10 @@ app.use('/api/auth', apiLimiter, authRoutes);
 
 // Öffentliches Bestellformular (kein Login erforderlich) – nur Erstellung neuer Bestellungen möglich
 app.use('/api/public/bestellung', publicOrderLimiter, bestellungPublicRoutes);
+
+// CSRF-Token für das Frontend (public – das Token selbst ist kein Geheimnis,
+// entscheidend ist, dass fremde Seiten es nicht auslesen können)
+app.get('/api/csrf-token', csrfTokenHandler);
 
 // Health check (public) – includes database connectivity test
 app.get('/api/health', async (req, res) => {

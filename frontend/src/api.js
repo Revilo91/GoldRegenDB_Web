@@ -3,14 +3,67 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 // Das JWT liegt seit Issue #132 in einem httpOnly-Cookie. Der Browser sendet es
 // automatisch mit, sofern credentials: 'include' gesetzt ist – im Code gibt es
 // deshalb kein Token mehr, das gelesen oder gespeichert werden müsste.
-async function request(url, options = {}) {
+
+// ── CSRF (Issue #135) ────────────────────────────────────────────────────────
+// Das Backend legt ein lesbares Cookie ab; wir spiegeln dessen Wert im Header
+// zurück. Fremde Seiten können den Cookie zwar mitsenden lassen, ihn aber
+// wegen der Same-Origin-Policy nicht auslesen und damit den Header nicht setzen.
+
+const CSRF_COOKIE_NAME = 'csrfToken';
+const AENDERNDE_METHODEN = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function csrfTokenAusCookie() {
+  return document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`))
+    ?.slice(CSRF_COOKIE_NAME.length + 1);
+}
+
+// Mehrere parallele Requests sollen nur eine Anforderung auslösen
+let csrfAnforderung = null;
+
+async function ensureCsrfToken(erzwingen = false) {
+  if (!erzwingen) {
+    const vorhanden = csrfTokenAusCookie();
+    if (vorhanden) return vorhanden;
+  }
+  if (!csrfAnforderung) {
+    csrfAnforderung = fetch(`${API_URL}/csrf-token`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : { csrfToken: null }))
+      .then(({ csrfToken }) => csrfToken)
+      .catch(() => null)
+      .finally(() => {
+        csrfAnforderung = null;
+      });
+  }
+  return csrfAnforderung;
+}
+
+// frischesCsrfToken wird nur beim Wiederholungsversuch gesetzt: das Cookie
+// trägt zu dem Zeitpunkt womöglich noch den alten Wert.
+async function request(url, options = {}, frischesCsrfToken = null) {
   const isFormData = options.body instanceof FormData;
   const headers = isFormData ? { ...options.headers } : { 'Content-Type': 'application/json', ...options.headers };
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (AENDERNDE_METHODEN.has(method)) {
+    const csrfToken = frischesCsrfToken || (await ensureCsrfToken());
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
 
   try {
     const res = await fetch(`${API_URL}${url}`, { credentials: 'include', headers, ...options });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      // Abgelaufenes oder fehlendes CSRF-Token: einmal neu holen und wiederholen
+      if (res.status === 403 && err.code === 'CSRF_TOKEN_INVALID' && !frischesCsrfToken) {
+        const neuesToken = await ensureCsrfToken(true);
+        if (neuesToken) {
+          return request(url, options, neuesToken);
+        }
+      }
       const errorMessage = err.error || err.message || res.statusText || 'Request failed';
       const requestError = new Error(errorMessage);
       requestError.status = res.status;

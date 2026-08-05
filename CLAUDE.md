@@ -201,6 +201,12 @@ db/
 4. Middleware validates JWT, sets `req.user = { username, role, ... }`
 5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
 
+**CSRF** (`backend/src/middleware/csrf.js`): double-submit cookie pattern (not
+`csurf`, which is deprecated). `GET /api/csrf-token` issues a readable
+`csrfToken` cookie; `api.js` mirrors it into the `X-CSRF-Token` header on
+POST/PUT/PATCH/DELETE. Only enforced for cookie-authenticated requests —
+Bearer-token clients and public endpoints are exempt.
+
 **Account lockout & password reset** (`backend/src/utils/accountSecurity.js`):
 5 consecutive failed logins lock the account for 30 minutes. Self-service reset
 runs via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`;

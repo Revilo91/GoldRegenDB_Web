@@ -21,6 +21,19 @@ function mockFetchOk(body = {}) {
   return spy;
 }
 
+// Das CSRF-Cookie ist bewusst lesbar – api.js spiegelt es in den Header
+function setCsrfCookie(token = 'a'.repeat(64)) {
+  document.cookie = `csrfToken=${token}`;
+  return token;
+}
+
+function clearCookies() {
+  document.cookie.split('; ').forEach((c) => {
+    const name = c.split('=')[0];
+    if (name) document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  });
+}
+
 function bodyOf(spy) {
   return JSON.parse(spy.mock.calls[0][1].body);
 }
@@ -28,6 +41,8 @@ function bodyOf(spy) {
 describe('authApi', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearCookies();
+    setCsrfCookie();
     vi.restoreAllMocks();
   });
 
@@ -81,6 +96,8 @@ describe('authApi', () => {
 describe('Benutzerverwaltung', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearCookies();
+    setCsrfCookie();
     vi.restoreAllMocks();
   });
 
@@ -107,6 +124,8 @@ describe('Benutzerverwaltung', () => {
 describe('Cookie-basierte Authentifizierung', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearCookies();
+    setCsrfCookie();
     vi.restoreAllMocks();
   });
 
@@ -138,5 +157,74 @@ describe('Cookie-basierte Authentifizierung', () => {
     expect(spy.mock.calls[0][0]).toContain('/auth/logout');
     expect(spy.mock.calls[0][1].method).toBe('POST');
     expect(spy.mock.calls[0][1].credentials).toBe('include');
+  });
+});
+
+// ── CSRF (Issue #135) ────────────────────────────────────────────────────────
+
+describe('CSRF-Token', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    clearCookies();
+    vi.restoreAllMocks();
+  });
+
+  it('spiegelt das Cookie-Token in den X-CSRF-Token-Header', async () => {
+    const token = setCsrfCookie();
+    const spy = mockFetchOk({ ok: true });
+    await api.createKunde({ Name: 'Test' });
+
+    expect(spy.mock.calls[0][1].headers['X-CSRF-Token']).toBe(token);
+  });
+
+  it('sendet bei GET keinen CSRF-Header', async () => {
+    setCsrfCookie();
+    const spy = mockFetchOk({});
+    await api.getKunden();
+
+    expect(spy.mock.calls[0][1].headers['X-CSRF-Token']).toBeUndefined();
+  });
+
+  it('holt ein Token nach, wenn noch keines im Cookie liegt', async () => {
+    const spy = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ csrfToken: 'b'.repeat(64) }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true }) });
+    globalThis.fetch = spy;
+
+    await api.createKunde({ Name: 'Test' });
+
+    expect(spy.mock.calls[0][0]).toContain('/csrf-token');
+    expect(spy.mock.calls[1][1].headers['X-CSRF-Token']).toBe('b'.repeat(64));
+  });
+
+  it('holt bei CSRF_TOKEN_INVALID ein neues Token und wiederholt den Request', async () => {
+    setCsrfCookie('c'.repeat(64));
+    const spy = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: 'CSRF-Token fehlt oder ist ungültig', code: 'CSRF_TOKEN_INVALID' }),
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ csrfToken: 'd'.repeat(64) }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true }) });
+    globalThis.fetch = spy;
+
+    const res = await api.createKunde({ Name: 'Test' });
+
+    expect(res).toEqual({ ok: true });
+    expect(spy.mock.calls[1][0]).toContain('/csrf-token');
+    expect(spy.mock.calls[2][1].headers['X-CSRF-Token']).toBe('d'.repeat(64));
+  });
+
+  it('wiederholt nur einmal und wirft dann den Fehler', async () => {
+    setCsrfCookie('c'.repeat(64));
+    const spy = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: 'CSRF-Token fehlt oder ist ungültig', code: 'CSRF_TOKEN_INVALID' }),
+    });
+    globalThis.fetch = spy;
+
+    await expect(api.createKunde({ Name: 'Test' })).rejects.toThrow(/CSRF/);
   });
 });
