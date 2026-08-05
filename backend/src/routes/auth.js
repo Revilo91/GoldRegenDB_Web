@@ -5,8 +5,23 @@ const db = require("../config/db");
 const { authenticate, JWT_SECRET } = require("../middleware/auth");
 const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
-const { loginSchema, changePasswordSchema } = require("../schemas");
+const {
+  loginSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordWithTokenSchema,
+} = require("../schemas");
 const { hashPassword, verifyPassword } = require("../utils/passwordService");
+const {
+  MAX_FEHLVERSUCHE,
+  SPERRDAUER_MINUTEN,
+  RESET_TOKEN_GUELTIGKEIT_MINUTEN,
+  istGesperrt,
+  verbleibendeSperrminuten,
+  naechsterFehlversuch,
+  erzeugeResetToken,
+  hashResetToken,
+} = require("../utils/accountSecurity");
 
 // POST /api/auth/login
 router.post("/login", validate(loginSchema), async (req, res) => {
@@ -14,10 +29,26 @@ router.post("/login", validate(loginSchema), async (req, res) => {
   try {
     logger.info("AUTH", `Login-Versuch für Benutzer: ${username}`);
     const { rows } = await db.query(
-      "SELECT id, username, password_hash, role, active, must_change_password FROM app_users WHERE username = $1",
+      `SELECT id, username, password_hash, role, active, must_change_password,
+              failed_login_attempts, locked_until
+         FROM app_users WHERE username = $1`,
       [username],
     );
     const user = rows[0];
+
+    // Gesperrte Konten früh abweisen – ohne das Passwort überhaupt zu prüfen,
+    // damit ein Angreifer die Sperre nicht durch Weiterraten verlängern kann.
+    if (istGesperrt(user)) {
+      const minuten = verbleibendeSperrminuten(user);
+      logger.warn(
+        "AUTH",
+        `Login abgewiesen – Konto gesperrt: ${username} (noch ${minuten} Minuten)`,
+      );
+      return res.status(403).json({
+        error: `Konto ist wegen zu vieler Fehlversuche gesperrt. Bitte in ${minuten} Minuten erneut versuchen.`,
+      });
+    }
+
     // verifyPassword läuft auch für unbekannte Benutzer gegen einen Dummy-Hash,
     // damit die Antwortzeit keine Benutzernamen preisgibt.
     const { valid, needsRehash } = await verifyPassword(
@@ -25,10 +56,31 @@ router.post("/login", validate(loginSchema), async (req, res) => {
       user ? user.password_hash : null,
     );
     if (!user || !valid) {
-      logger.warn(
-        "AUTH",
-        `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten`,
-      );
+      // Fehlversuche werden nur für existierende Konten gezählt – sonst könnte
+      // ein Angreifer über die Sperrmeldung Benutzernamen ermitteln.
+      if (user) {
+        const { versuche, lockedUntil } = naechsterFehlversuch(user);
+        await db.query(
+          "UPDATE app_users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3",
+          [versuche, lockedUntil, user.id],
+        );
+        if (lockedUntil) {
+          logger.warn(
+            "AUTH",
+            `Konto nach ${versuche} Fehlversuchen für ${SPERRDAUER_MINUTEN} Minuten gesperrt: ${username}`,
+          );
+        } else {
+          logger.warn(
+            "AUTH",
+            `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten (Versuch ${versuche}/${MAX_FEHLVERSUCHE})`,
+          );
+        }
+      } else {
+        logger.warn(
+          "AUTH",
+          `Login fehlgeschlagen für unbekannten Benutzer: ${username}`,
+        );
+      }
       return res.status(401).json({ error: "Ungültige Anmeldedaten" });
     }
     if (!user.active) {
@@ -52,9 +104,11 @@ router.post("/login", validate(loginSchema), async (req, res) => {
       );
     }
 
-    // Update last login timestamp
+    // Erfolgreicher Login setzt den Fehlversuchszähler zurück
     await db.query(
-      "UPDATE app_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1",
+      `UPDATE app_users
+          SET last_login = CURRENT_TIMESTAMP, failed_login_attempts = 0, locked_until = NULL
+        WHERE id = $1`,
       [user.id],
     );
     const token = jwt.sign(
@@ -146,6 +200,102 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
       stack: err.stack,
     });
     res.status(500).json({ error: "Fehler bei der Passwortänderung" });
+  }
+});
+
+// POST /api/auth/forgot-password – Reset-Token anfordern
+//
+// Es ist kein Mailversand konfiguriert. Der Reset-Link wird deshalb im
+// Backend-Log ausgegeben; ein Administrator gibt ihn an den Benutzer weiter.
+// Sobald SMTP verfügbar ist, muss nur diese Stelle auf Mailversand umgestellt
+// werden – der Ablauf für den Benutzer bleibt gleich.
+router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res) => {
+  const { username } = req.body;
+
+  // Immer dieselbe Antwort, unabhängig davon, ob das Konto existiert –
+  // sonst wird der Endpunkt zum Benutzernamen-Orakel.
+  const antwort = {
+    message:
+      "Falls ein Konto existiert, wurde ein Reset-Link erzeugt. Bitte wenden Sie sich an einen Administrator.",
+  };
+
+  try {
+    const { rows } = await db.query(
+      "SELECT id, username, active FROM app_users WHERE username = $1",
+      [username],
+    );
+    const user = rows[0];
+
+    if (!user || !user.active) {
+      logger.warn(
+        "AUTH",
+        `Passwort-Reset für unbekanntes oder deaktiviertes Konto angefordert: ${username}`,
+      );
+      return res.json(antwort);
+    }
+
+    const { token, tokenHash, expiry } = erzeugeResetToken();
+    await db.query(
+      "UPDATE app_users SET reset_token_hash = $1, reset_token_expiry = $2 WHERE id = $3",
+      [tokenHash, expiry, user.id],
+    );
+
+    logger.warn(
+      "AUTH",
+      `Passwort-Reset-Token für ${user.username} erzeugt (gültig ${RESET_TOKEN_GUELTIGKEIT_MINUTEN} Minuten). ` +
+        `Reset-Link: /reset-password?token=${token}`,
+    );
+
+    res.json(antwort);
+  } catch (err) {
+    logger.error("AUTH", `Fehler beim Anfordern eines Passwort-Resets für: ${username}`, {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Anfordern des Passwort-Resets" });
+  }
+});
+
+// POST /api/auth/reset-password – Passwort mit Reset-Token neu setzen
+router.post("/reset-password", validate(resetPasswordWithTokenSchema), async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    // Gesucht wird über den Hash – das Klartext-Token steht nie in der Datenbank.
+    const { rows } = await db.query(
+      `SELECT id, username FROM app_users
+        WHERE reset_token_hash = $1 AND reset_token_expiry > CURRENT_TIMESTAMP`,
+      [hashResetToken(token)],
+    );
+    const user = rows[0];
+    if (!user) {
+      logger.warn("AUTH", "Passwort-Reset mit ungültigem oder abgelaufenem Token");
+      return res
+        .status(400)
+        .json({ error: "Token ist ungültig oder abgelaufen" });
+    }
+
+    const newHash = await hashPassword(newPassword);
+    // Das Zurücksetzen hebt auch eine bestehende Sperre auf: der Benutzer hat
+    // den Besitz des Reset-Tokens nachgewiesen.
+    await db.query(
+      `UPDATE app_users
+          SET password_hash = $1,
+              must_change_password = FALSE,
+              reset_token_hash = NULL,
+              reset_token_expiry = NULL,
+              failed_login_attempts = 0,
+              locked_until = NULL
+        WHERE id = $2`,
+      [newHash, user.id],
+    );
+
+    logger.info("AUTH", `Passwort per Reset-Token neu gesetzt: ${user.username}`);
+    res.json({ message: "Passwort erfolgreich geändert" });
+  } catch (err) {
+    logger.error("AUTH", "Fehler beim Zurücksetzen des Passworts", {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Zurücksetzen des Passworts" });
   }
 });
 

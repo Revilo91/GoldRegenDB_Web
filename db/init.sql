@@ -170,6 +170,12 @@ CREATE TABLE IF NOT EXISTS app_users (
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT NULL,
+    -- Account-Lockout nach zu vielen Fehlversuchen (siehe backend/src/routes/auth.js)
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP DEFAULT NULL,
+    -- Passwort-Reset: gespeichert wird nur der SHA-256-Hash des Tokens
+    reset_token_hash TEXT DEFAULT NULL,
+    reset_token_expiry TIMESTAMP DEFAULT NULL,
     CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
 );
 

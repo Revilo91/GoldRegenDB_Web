@@ -90,7 +90,11 @@ const publicOrderLimiter = rateLimit({
 });
 
 // Public routes
+// Die Passwort-Endpunkte sind unauthentifiziert und brute-force-tauglich –
+// sie laufen unter dem strengen Login-Limiter, nicht dem allgemeinen.
 app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/forgot-password', loginLimiter);
+app.use('/api/auth/reset-password', loginLimiter);
 app.use('/api/auth', apiLimiter, authRoutes);
 
 // Öffentliches Bestellformular (kein Login erforderlich) – nur Erstellung neuer Bestellungen möglich

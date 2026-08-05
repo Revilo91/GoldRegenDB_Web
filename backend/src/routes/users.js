@@ -127,8 +127,16 @@ router.post("/:id/reset-password", validate(resetPasswordSchema), async (req, re
   try {
     const { newPassword } = req.body;
     const hashedPassword = await hashPassword(newPassword);
+    // Ein Admin-Reset hebt auch eine Sperre und offene Reset-Token auf
     const { rowCount } = await db.query(
-      "UPDATE app_users SET password_hash = $1, must_change_password = TRUE WHERE id = $2",
+      `UPDATE app_users
+          SET password_hash = $1,
+              must_change_password = TRUE,
+              failed_login_attempts = 0,
+              locked_until = NULL,
+              reset_token_hash = NULL,
+              reset_token_expiry = NULL
+        WHERE id = $2`,
       [hashedPassword, req.params.id],
     );
     if (rowCount === 0) {

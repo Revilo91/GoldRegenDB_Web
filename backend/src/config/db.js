@@ -391,6 +391,10 @@ async function ensureAppUsersTable() {
         must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP DEFAULT NULL,
+        failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        locked_until TIMESTAMP DEFAULT NULL,
+        reset_token_hash TEXT DEFAULT NULL,
+        reset_token_expiry TIMESTAMP DEFAULT NULL,
         CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
       )
     `);
@@ -406,6 +410,14 @@ async function ensureAppUsersTable() {
         END IF;
       END
       $$;
+    `);
+    // Migrate: Spalten für Account-Lockout und Passwort-Reset (Issue #137)
+    await pool.query(`
+      ALTER TABLE app_users
+        ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP DEFAULT NULL;
     `);
     // Migrate role constraint in existing deployments to support 'bearbeiter'
     await pool.query(`

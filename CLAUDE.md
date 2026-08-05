@@ -198,6 +198,12 @@ db/
 4. Middleware validates JWT, sets `req.user = { username, role, ... }`
 5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
 
+**Account lockout & password reset** (`backend/src/utils/accountSecurity.js`):
+5 consecutive failed logins lock the account for 30 minutes. Self-service reset
+runs via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`;
+only the token's SHA-256 hash is stored. No SMTP is configured — the reset link
+is written to the backend log for an admin to hand over.
+
 ### Roles & Permissions
 | Role | Access |
 |------|--------|

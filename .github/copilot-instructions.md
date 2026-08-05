@@ -277,6 +277,8 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
 - Passwort-Hashing: Das Frontend sendet das Passwort im **Klartext** (über TLS); ausschließlich das Backend hasht und vergleicht mit `bcryptjs` (10 Rounds) – siehe `backend/src/utils/passwordService.js`
 - Mindestlänge für **neu gesetzte** Passwörter: 8 Zeichen. Beim Login gilt keine Mindestlänge, damit Altkonten sich weiterhin anmelden können
+- Account-Lockout: nach 5 aufeinanderfolgenden Fehlversuchen wird das Konto 30 Minuten gesperrt (`failed_login_attempts` / `locked_until`)
+- Passwort-Reset: `POST /api/auth/forgot-password` → `POST /api/auth/reset-password` mit Token
 
 ### Middleware
 
@@ -531,6 +533,8 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | POST    | `/api/auth/login` | Login, gibt JWT zurück          |
 | GET     | `/api/auth/me`    | Eigene Benutzerdaten aus Token  |
 | PUT     | `/api/auth/change-password` | Eigenes Passwort ändern (authentifiziert) |
+| POST    | `/api/auth/forgot-password` | Reset-Token anfordern (Link geht ins Backend-Log) |
+| POST    | `/api/auth/reset-password`  | Passwort mit Reset-Token neu setzen |
 
 ### Allgemein (authentifiziert)
 
@@ -698,6 +702,38 @@ Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
 - Methoden: `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`
 - Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
 - Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
+
+### Backend: `backend/src/utils/accountSecurity.js`
+
+Account-Lockout und Passwort-Reset-Token.
+
+| Konstante | Wert | Bedeutung |
+| --------- | ---- | --------- |
+| `MAX_FEHLVERSUCHE` | 5 | danach wird gesperrt |
+| `SPERRDAUER_MINUTEN` | 30 | Dauer der Sperre |
+| `RESET_TOKEN_GUELTIGKEIT_MINUTEN` | 30 | Gültigkeit eines Reset-Tokens |
+
+**Lockout:** Der Login prüft die Sperre **vor** der Passwortprüfung und antwortet
+mit `403`. Fehlversuche werden nur für **existierende** Konten gezählt – sonst
+würde die Sperrmeldung verraten, welche Benutzernamen es gibt. Ein
+erfolgreicher Login, ein Admin-Reset und ein Token-Reset setzen den Zähler
+zurück. Das Rate-Limit allein genügt nicht: es greift pro IP.
+
+**Reset-Ablauf:**
+1. `POST /api/auth/forgot-password` `{ username }` – erzeugt ein Token,
+   speichert **nur dessen SHA-256-Hash** in `reset_token_hash`
+2. **Es ist kein Mailversand konfiguriert.** Der Link wird per
+   `logger.warn('AUTH', …)` ins Backend-Log geschrieben; ein Administrator gibt
+   ihn weiter. Für SMTP muss nur diese eine Stelle in `routes/auth.js` geändert
+   werden, der Rest des Ablaufs bleibt gleich.
+3. `POST /api/auth/reset-password` `{ token, newPassword }` – sucht über den
+   Token-Hash, setzt das Passwort und räumt Token, Zähler und Sperre auf
+4. Frontend: `/reset-password?token=…` (`pages/ResetPassword.jsx`, öffentlich)
+
+Die Antwort von `forgot-password` ist immer identisch, unabhängig davon, ob das
+Konto existiert – sonst wird der Endpunkt zum Benutzernamen-Orakel.
+
+Beide Endpunkte laufen unter dem strengen Login-Rate-Limiter.
 
 ### Backend: `backend/src/utils/passwordService.js`
 

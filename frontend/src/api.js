@@ -91,6 +91,12 @@ export const authApi = {
   me: () => request('/auth/me'),
   changePassword: (currentPassword, newPassword) =>
     request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
+  // Erzeugt ein Reset-Token. Solange kein Mailversand konfiguriert ist, gibt das
+  // Backend den Link nur ins Log aus – siehe backend/src/routes/auth.js.
+  forgotPassword: (username) =>
+    request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username }) }),
+  resetPassword: (token, newPassword) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 };
 
 export const publicApi = {
@@ -241,7 +247,8 @@ export const api = {
   importBackupUploadsZip: (file) => {
     const formData = new FormData();
     formData.append('uploadsZip', file);
-    return requestFormData('/backup/import-uploads-zip', { method: 'POST', body: formData });
+    // request() erkennt FormData selbst und setzt dann keinen Content-Type
+    return request('/backup/import-uploads-zip', { method: 'POST', body: formData });
   },
 
   // Inventur

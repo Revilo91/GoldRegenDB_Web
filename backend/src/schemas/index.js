@@ -157,6 +157,16 @@ const changePasswordSchema = z.object({
   newPassword: neuesPasswort,
 });
 
+const forgotPasswordSchema = z.object({
+  username: pflichttext(100),
+});
+
+const resetPasswordWithTokenSchema = z.object({
+  // crypto.randomBytes(32).toString('hex') – siehe utils/accountSecurity.js
+  token: z.string().regex(/^[0-9a-f]{64}$/, 'ist kein gültiges Reset-Token'),
+  newPassword: neuesPasswort,
+});
+
 // ── Bestellungen (DSGVO) ─────────────────────────────────────────────────────
 
 // Hausnummer und PLZ dürfen als Zahl ankommen – bestellungService behandelt
@@ -251,6 +261,8 @@ module.exports = {
   resetPasswordSchema,
   loginSchema,
   changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordWithTokenSchema,
   bestellungPublicSchema,
   bestellungBasisSchema,
   bestellungUpdateSchema,

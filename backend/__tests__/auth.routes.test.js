@@ -233,6 +233,102 @@ describe('POST /api/auth/login', () => {
     expect(rehashCall).toBeUndefined();
   });
 
+  it('zählt Fehlversuche hoch und sperrt beim fünften', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 11, username: 'opfer', password_hash: hash, role: 'user', active: true, must_change_password: false, failed_login_attempts: 4, locked_until: null }],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // UPDATE failed_login_attempts
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'opfer', password: 'falsches-passwort' });
+
+    expect(res.status).toBe(401);
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('failed_login_attempts = $1'),
+    );
+    expect(updateCall[1][0]).toBe(5);
+    expect(updateCall[1][1]).toBeInstanceOf(Date); // locked_until gesetzt
+  });
+
+  it('sperrt beim ersten Fehlversuch noch nicht', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 12, username: 'opfer', password_hash: hash, role: 'user', active: true, must_change_password: false, failed_login_attempts: 0, locked_until: null }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'opfer', password: 'falsches-passwort' });
+
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('failed_login_attempts = $1'),
+    );
+    expect(updateCall[1][0]).toBe(1);
+    expect(updateCall[1][1]).toBeNull();
+  });
+
+  it('weist ein gesperrtes Konto mit 403 ab – auch bei richtigem Passwort', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    const gesperrtBis = new Date(Date.now() + 10 * 60000);
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ id: 13, username: 'gesperrt', password_hash: hash, role: 'user', active: true, must_change_password: false, failed_login_attempts: 5, locked_until: gesperrtBis }],
+    });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'gesperrt', password: PASSWORT });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/gesperrt/);
+  });
+
+  it('lässt ein Konto nach Ablauf der Sperre wieder anmelden', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    const abgelaufen = new Date(Date.now() - 1000);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 14, username: 'wieder-frei', password_hash: hash, role: 'user', active: true, must_change_password: false, failed_login_attempts: 5, locked_until: abgelaufen }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'wieder-frei', password: PASSWORT });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('setzt Zähler und Sperre bei erfolgreichem Login zurück', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 15, username: 'ok', password_hash: hash, role: 'user', active: true, must_change_password: false, failed_login_attempts: 3, locked_until: null }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'ok', password: PASSWORT });
+
+    const resetCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('failed_login_attempts = 0'),
+    );
+    expect(resetCall).toBeDefined();
+  });
+
+  it('zählt für einen unbekannten Benutzer keine Fehlversuche', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'gibtsnicht', password: PASSWORT });
+
+    expect(res.status).toBe(401);
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('failed_login_attempts = $1'),
+    );
+    expect(updateCall).toBeUndefined();
+  });
+
   it('returns 503 when the database is unreachable (ECONNREFUSED)', async () => {
     const err = new Error('connect ECONNREFUSED');
     err.code = 'ECONNREFUSED';
@@ -347,5 +443,134 @@ describe('PUT /api/auth/change-password', () => {
       .send({ currentPassword: PASSWORT, newPassword: NEUES_PASSWORT });
     expect(res.status).toBe(200);
     expect(res.body.message).toBeTruthy();
+  });
+});
+
+// ── Passwort-Reset (Issue #137) ──────────────────────────────────────────────
+
+describe('POST /api/auth/forgot-password', () => {
+  let app;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('erzeugt ein Token und speichert nur dessen Hash', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', active: true }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ username: 'admin' });
+
+    expect(res.status).toBe(200);
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('reset_token_hash = $1'),
+    );
+    expect(updateCall[1][0]).toMatch(/^[0-9a-f]{64}$/);
+    expect(updateCall[1][1]).toBeInstanceOf(Date);
+  });
+
+  it('antwortet für unbekannte Konten identisch (kein Benutzernamen-Orakel)', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', active: true }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const bekannt = await request(app).post('/api/auth/forgot-password').send({ username: 'admin' });
+
+    jest.clearAllMocks();
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const unbekannt = await request(app).post('/api/auth/forgot-password').send({ username: 'gibtsnicht' });
+
+    expect(unbekannt.status).toBe(bekannt.status);
+    expect(unbekannt.body).toEqual(bekannt.body);
+  });
+
+  it('erzeugt für ein deaktiviertes Konto kein Token', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: 2, username: 'inaktiv', active: false }] });
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ username: 'inaktiv' });
+
+    expect(res.status).toBe(200);
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('reset_token_hash = $1'),
+    );
+    expect(updateCall).toBeUndefined();
+  });
+});
+
+describe('POST /api/auth/reset-password', () => {
+  let app;
+  const TOKEN = 'f'.repeat(64);
+  const NEUES_PW = 'ein-neues-sicheres-passwort';
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('setzt das Passwort und räumt Token sowie Sperre auf', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 3, username: 'admin' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: TOKEN, newPassword: NEUES_PW });
+
+    expect(res.status).toBe(200);
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('reset_token_hash = NULL'),
+    );
+    expect(updateCall[0]).toContain('locked_until = NULL');
+    expect(updateCall[0]).toContain('failed_login_attempts = 0');
+    await expect(bcrypt.compare(NEUES_PW, updateCall[1][0])).resolves.toBe(true);
+  });
+
+  it('sucht über den Token-Hash, nicht über das Klartext-Token', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 3, username: 'admin' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: TOKEN, newPassword: NEUES_PW });
+
+    const selectCall = mockQuery.mock.calls[0];
+    expect(selectCall[0]).toContain('reset_token_hash = $1');
+    expect(selectCall[1][0]).not.toBe(TOKEN);
+    expect(selectCall[1][0]).toBe(
+      require('crypto').createHash('sha256').update(TOKEN, 'utf8').digest('hex'),
+    );
+  });
+
+  it('lehnt ein abgelaufenes oder unbekanntes Token mit 400 ab', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: TOKEN, newPassword: NEUES_PW });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/ungültig|abgelaufen/i);
+  });
+
+  it('lehnt ein Token mit falschem Format ab', async () => {
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: 'zu-kurz', newPassword: NEUES_PW });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('lehnt ein zu kurzes neues Passwort ab', async () => {
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .send({ token: TOKEN, newPassword: 'kurz' });
+
+    expect(res.status).toBe(400);
   });
 });
