@@ -268,8 +268,10 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ### Technische Details
 
-- Token-Format: `Bearer <JWT>` im `Authorization`-Header
-- Login: `POST /api/auth/login` → gibt JWT zurück
+- Token-Transport: **httpOnly-Cookie `jwt`** (Standard). `Bearer <JWT>` im
+  `Authorization`-Header bleibt als Fallback für Skripte und E2E-Tests
+- Login: `POST /api/auth/login` → setzt das `jwt`-Cookie (und gibt das Token für API-Clients zusätzlich im Body zurück)
+- Logout: `POST /api/auth/logout` → löscht das Cookie
 - Token-Validierung: `GET /api/auth/me`
 - Passwort ändern: `PUT /api/auth/change-password`
 - JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
@@ -532,6 +534,7 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | ------- | ----------------- | ------------------------------- |
 | POST    | `/api/auth/login` | Login, gibt JWT zurück          |
 | GET     | `/api/auth/me`    | Eigene Benutzerdaten aus Token  |
+| POST    | `/api/auth/logout` | Auth-Cookie löschen             |
 | PUT     | `/api/auth/change-password` | Eigenes Passwort ändern (authentifiziert) |
 | POST    | `/api/auth/forgot-password` | Reset-Token anfordern (Link geht ins Backend-Log) |
 | POST    | `/api/auth/reset-password`  | Passwort mit Reset-Token neu setzen |
@@ -702,6 +705,27 @@ Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
 - Methoden: `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`
 - Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
 - Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
+
+### Backend: `backend/src/utils/authCookie.js`
+
+Setzt und löscht das JWT-Cookie. **Alle** Cookie-Attribute liegen hier – nie
+direkt `res.cookie('jwt', …)` in einer Route aufrufen, sonst driften Setzen und
+Löschen auseinander und `clearCookie` greift nicht mehr.
+
+| Attribut   | Wert | Grund |
+| ---------- | ---- | ----- |
+| `httpOnly` | true | JavaScript kommt nicht an das Token – ein XSS kann es nicht auslesen |
+| `sameSite` | `lax` | blockt site-fremde POSTs (CSRF-Grundschutz), erlaubt normale Navigation |
+| `secure`   | `COOKIE_SECURE === 'true'` | **muss** false bleiben, solange ohne TLS deployt wird (#138) – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
+| `maxAge`   | 8 h | passend zur JWT-Laufzeit in `routes/auth.js` |
+
+Das Frontend sendet bei jedem Request `credentials: 'include'` (`api.js`) und
+speichert **kein** Token mehr. Ob eine Sitzung besteht, ermittelt
+`AuthContext` beim Start ausschließlich über `GET /api/auth/me`.
+
+`authenticate` liest das Token zuerst aus dem Cookie und fällt dann auf den
+`Authorization`-Header zurück – nur deshalb funktionieren `curl` und die
+Playwright-Setup-Skripte weiterhin.
 
 ### Backend: `backend/src/utils/accountSecurity.js`
 

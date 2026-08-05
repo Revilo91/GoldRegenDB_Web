@@ -1,11 +1,11 @@
 /**
- * Tests für die Passwort-Aufrufe in frontend/src/api.js
+ * Tests für die Auth-Aufrufe in frontend/src/api.js
  *
- * Ersetzt den früheren hashPassword-Test: seit Issue #131 hasht das Frontend
- * nicht mehr vor, sondern sendet das Passwort im Klartext über TLS. Diese
- * Tests halten fest, dass genau das passiert – ein versehentlich
- * wiedereingeführtes Vorhashen würde die Anmeldung stillschweigend brechen,
- * weil das Backend den Hash dann als Passwort behandeln würde.
+ * Zwei Regressionen sollen hier auffallen:
+ *  - Vorhashen des Passworts (bis Issue #131) – das Backend würde den Hash
+ *    dann als Passwort behandeln und die Anmeldung stillschweigend brechen
+ *  - fehlendes credentials: 'include' (seit Issue #132) – ohne das sendet der
+ *    Browser das httpOnly-Cookie nicht mit und jeder Request wäre anonym
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -104,24 +104,39 @@ describe('Benutzerverwaltung', () => {
   });
 });
 
-describe('Authorization-Header', () => {
+describe('Cookie-basierte Authentifizierung', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
   });
 
-  it('hängt das gespeicherte Token an', async () => {
-    localStorage.setItem('token', 'abc123');
+  it('sendet Cookies bei jedem Request mit', async () => {
     const spy = mockFetchOk({});
     await api.getKunden();
 
-    expect(spy.mock.calls[0][1].headers.Authorization).toBe('Bearer abc123');
+    expect(spy.mock.calls[0][1].credentials).toBe('include');
   });
 
-  it('sendet ohne Token keinen Authorization-Header', async () => {
+  it('setzt keinen Authorization-Header mehr', async () => {
     const spy = mockFetchOk({});
     await api.getKunden();
 
     expect(spy.mock.calls[0][1].headers.Authorization).toBeUndefined();
+  });
+
+  it('legt kein Token im localStorage ab', async () => {
+    mockFetchOk({ user: { username: 'admin' } });
+    await authApi.login('admin', 'ein-sicheres-passwort');
+
+    expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('meldet über einen eigenen Endpunkt ab – nur das Backend kann das Cookie löschen', async () => {
+    const spy = mockFetchOk({ message: 'Abgemeldet' });
+    await authApi.logout();
+
+    expect(spy.mock.calls[0][0]).toContain('/auth/logout');
+    expect(spy.mock.calls[0][1].method).toBe('POST');
+    expect(spy.mock.calls[0][1].credentials).toBe('include');
   });
 });

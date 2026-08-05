@@ -28,6 +28,7 @@ jest.mock('../src/utils/logger', () => ({
 
 const request = require('supertest');
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -35,6 +36,7 @@ const bcrypt = require('bcryptjs');
 function buildApp() {
   const app = express();
   app.use(express.json());
+  app.use(cookieParser());
   // auth middleware needs requestContextMiddleware already applied
   app.use((req, res, next) => {
     // Minimal stub so authenticate can call setCurrentDbUsername
@@ -170,6 +172,36 @@ describe('POST /api/auth/login', () => {
     // Verify the token can be decoded
     const decoded = jwt.verify(res.body.token, 'test-secret-do-not-use-in-prod');
     expect(decoded.username).toBe('admin');
+  });
+
+  it('setzt das JWT als httpOnly-Cookie', async () => {
+    const hash = await bcrypt.hash(PASSWORT, 10);
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 1, username: 'admin', password_hash: hash, role: 'admin', active: true, must_change_password: false }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'admin', password: PASSWORT });
+
+    expect(res.status).toBe(200);
+    const cookie = res.headers['set-cookie'][0];
+    expect(cookie).toMatch(/^jwt=/);
+    expect(cookie).toMatch(/HttpOnly/i);
+    // Das Cookie muss dasselbe Token tragen wie die Antwort
+    const cookieToken = decodeURIComponent(cookie.split(';')[0].slice('jwt='.length));
+    expect(cookieToken).toBe(res.body.token);
+  });
+
+  it('setzt kein Cookie, wenn der Login fehlschlägt', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'gibtsnicht', password: PASSWORT });
+
+    expect(res.status).toBe(401);
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 
   it('sets mustChangePassword=true when flag is set', async () => {
@@ -572,5 +604,23 @@ describe('POST /api/auth/reset-password', () => {
       .send({ token: TOKEN, newPassword: 'kurz' });
 
     expect(res.status).toBe(400);
+  });
+});
+
+// ── POST /api/auth/logout ────────────────────────────────────────────────────
+
+describe('POST /api/auth/logout', () => {
+  let app;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  it('löscht das Auth-Cookie', async () => {
+    const res = await request(app).post('/api/auth/logout');
+    expect(res.status).toBe(200);
+    const cookie = res.headers['set-cookie'][0];
+    expect(cookie).toMatch(/^jwt=;/);
+    expect(cookie).toMatch(/HttpOnly/i);
   });
 });

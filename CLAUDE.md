@@ -194,7 +194,10 @@ db/
 1. Frontend sends the password in plaintext over TLS — no client-side hashing
 2. Backend hashes/verifies with `bcryptjs` (10 rounds) via `utils/passwordService.js`;
    legacy `bcrypt(sha256(pw))` hashes are accepted once and transparently upgraded on login
-3. JWT issued, stored in localStorage, sent as `Authorization: Bearer <token>` header
+3. JWT issued and set as an **httpOnly cookie** (`jwt`); the browser sends it
+   automatically because `api.js` uses `credentials: 'include'`. No token is
+   kept in localStorage. `Authorization: Bearer <token>` still works as a
+   fallback for scripts and E2E tests
 4. Middleware validates JWT, sets `req.user = { username, role, ... }`
 5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
 

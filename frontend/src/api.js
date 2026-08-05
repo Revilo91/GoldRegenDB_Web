@@ -1,19 +1,14 @@
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-function getToken() {
-  return localStorage.getItem('token');
-}
-
+// Das JWT liegt seit Issue #132 in einem httpOnly-Cookie. Der Browser sendet es
+// automatisch mit, sofern credentials: 'include' gesetzt ist – im Code gibt es
+// deshalb kein Token mehr, das gelesen oder gespeichert werden müsste.
 async function request(url, options = {}) {
-  const token = getToken();
   const isFormData = options.body instanceof FormData;
   const headers = isFormData ? { ...options.headers } : { 'Content-Type': 'application/json', ...options.headers };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers, ...options });
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', headers, ...options });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const errorMessage = err.error || err.message || res.statusText || 'Request failed';
@@ -32,15 +27,10 @@ async function request(url, options = {}) {
 }
 
 async function downloadBlob(url, options = {}) {
-  const token = getToken();
-  const headers = {};
   const { signal, onProgress, returnMetadata = false } = options;
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers, signal });
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', signal });
     if (!res.ok) {
       const contentType = res.headers.get('content-type') || '';
       let err = contentType.includes('application/json')
@@ -89,6 +79,7 @@ export const authApi = {
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
+  logout: () => request('/auth/logout', { method: 'POST' }),
   changePassword: (currentPassword, newPassword) =>
     request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
   // Erzeugt ein Reset-Token. Solange kein Mailversand konfiguriert ist, gibt das

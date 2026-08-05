@@ -32,11 +32,12 @@ export default function Login() {
     setError(null);
     setLoading(true);
     try {
-      const { token, user, mustChangePassword } = await authApi.login(
+      // Das JWT setzt das Backend als httpOnly-Cookie – hier wird es nicht angefasst
+      const { user, mustChangePassword } = await authApi.login(
         username,
         password,
       );
-      login(token, user, mustChangePassword);
+      login(user, mustChangePassword);
       navigate("/");
     } catch (err) {
       const status = err.status || err.response?.status || "Unbekannt";

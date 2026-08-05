@@ -12,6 +12,7 @@ const {
   resetPasswordWithTokenSchema,
 } = require("../schemas");
 const { hashPassword, verifyPassword } = require("../utils/passwordService");
+const { setAuthCookie, clearAuthCookie } = require("../utils/authCookie");
 const {
   MAX_FEHLVERSUCHE,
   SPERRDAUER_MINUTEN,
@@ -116,8 +117,15 @@ router.post("/login", validate(loginSchema), async (req, res) => {
       JWT_SECRET,
       { expiresIn: "8h" },
     );
+    // Das JWT geht als httpOnly-Cookie raus – JavaScript im Browser kommt
+    // nicht daran, ein XSS kann es also nicht auslesen und abtransportieren.
+    setAuthCookie(res, token);
+
     logger.info("AUTH", `Login erfolgreich: ${username} (Rolle: ${user.role})`);
     res.json({
+      // Das Token bleibt zusätzlich in der Antwort, damit Skripte und E2E-Tests
+      // ohne Cookie-Jar den Authorization-Header nutzen können. Das Frontend
+      // ignoriert es und verlässt sich auf das Cookie.
       token,
       user: { id: user.id, username: user.username, role: user.role },
       mustChangePassword: !!user.must_change_password,
@@ -141,6 +149,13 @@ router.post("/login", validate(loginSchema), async (req, res) => {
     }
     res.status(500).json({ error: "Anmeldefehler" });
   }
+});
+
+// POST /api/auth/logout – Auth-Cookie löschen
+router.post("/logout", (req, res) => {
+  clearAuthCookie(res);
+  logger.info("AUTH", "Logout");
+  res.json({ message: "Abgemeldet" });
 });
 
 // GET /api/auth/me – verify token and return current user
