@@ -284,6 +284,28 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ---
 
+## CORS (`backend/src/middleware/cors.js`)
+
+Die API ist nur für explizit erlaubte Origins geöffnet. Konfiguriert wird das
+über die kommaseparierte Umgebungsvariable `ALLOWED_ORIGINS`:
+
+```
+ALLOWED_ORIGINS=http://localhost:5173,https://schmuck.example.com
+```
+
+- Ohne gesetzte Variable gelten die lokalen Dev-Origins
+  (`localhost:5173` / `localhost:3000`, jeweils auch als `127.0.0.1`).
+- Requests **ohne** `Origin`-Header (same-origin, `curl`, Container-Healthcheck)
+  werden immer durchgelassen.
+- In Produktion liefert Express das Frontend selbst aus – diese Requests sind
+  same-origin und lösen gar keine CORS-Prüfung aus. `ALLOWED_ORIGINS` muss dort
+  nur gesetzt werden, wenn das Frontend von einer anderen Adresse geladen wird.
+- Abgelehnte Origins werden mit `logger.warn('CORS', …)` protokolliert.
+- `Content-Disposition` und `X-Upload-File-Count` sind als Response-Header
+  freigegeben, weil `api.js` sie bei Downloads ausliest.
+
+---
+
 ## Security-Header (`backend/src/middleware/securityHeaders.js`)
 
 `helmet` wird als erste Middleware in `index.js` registriert und setzt u. a.

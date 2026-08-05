@@ -2,12 +2,12 @@ const path = require('path');
 const { existsSync } = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 const express = require('express');
-const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 const db = require('./config/db');
 
 const securityHeaders = require('./middleware/securityHeaders');
+const cors = require('./middleware/cors');
 const { authenticate, requireAdmin, requireBearbeiter } = require('./middleware/auth');
 const kundenRoutes = require('./routes/kunden');
 const schmuckstueckeRoutes = require('./routes/schmuckstuecke');
@@ -32,9 +32,10 @@ logger.info('SERVER', `Umgebung: ${process.env.NODE_ENV || 'development'}`);
 logger.info('SERVER', `Port: ${PORT}`);
 logger.info('SERVER', `DATABASE_URL: ${process.env.DATABASE_URL ? '(gesetzt)' : '(NICHT GESETZT)'}`);
 logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+logger.info('SERVER', `ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS || '(nicht gesetzt – Standard-Dev-Origins)'}`);
 
 app.use(securityHeaders);
-app.use(cors());
+app.use(cors);
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(db.requestContextMiddleware);
