@@ -239,6 +239,7 @@ const result = await db.query(query, builder.getParams());
 | **DB-Zugriff**    | `pg` (node-postgres) – kein ORM          |
 | **Authentifizierung** | JWT (`jsonwebtoken`) + `bcryptjs`    |
 | **Rate Limiting** | `express-rate-limit`                     |
+| **Security-Header** | `helmet`                               |
 | **Excel-Export**  | `exceljs`                                |
 | **Bild-Validierung** | `image-size`                          |
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
@@ -280,6 +281,29 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - `authenticate` – prüft JWT, setzt `req.user`, konfiguriert DB-Session-User für Audit-Trigger
 - `requireAdmin` – prüft `req.user.role === 'admin'`
 - `requireBearbeiter` – prüft `req.user.role` ist `'admin'` oder `'bearbeiter'`
+
+---
+
+## Security-Header (`backend/src/middleware/securityHeaders.js`)
+
+`helmet` wird als erste Middleware in `index.js` registriert und setzt u. a.
+`X-Content-Type-Options`, `X-Frame-Options` und `Strict-Transport-Security`.
+
+Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
+
+| Direktive     | Wert / Grund                                                                 |
+| ------------- | ---------------------------------------------------------------------------- |
+| `style-src`   | `'unsafe-inline'` + `fonts.googleapis.com` – React-`style`-Props, Font-Import |
+| `font-src`    | `data:` + `fonts.gstatic.com`                                                 |
+| `img-src`     | `data:` + `blob:` – Fotos werden als Data-URL geladen (`api.js`)             |
+| `frame-ancestors` | `'none'` – Clickjacking-Schutz                                            |
+| `upgrade-insecure-requests` | deaktiviert – Deployment läuft ohne TLS (Issue #138)            |
+
+`crossOriginResourcePolicy` steht auf `cross-origin`, damit der Vite-Dev-Server
+(Port 5173) Fotos und Excel-Downloads vom Backend (Port 3001) laden kann.
+
+Die CSP greift nur für Dokumente, die Express selbst ausliefert (Produktions-Image).
+Im nativen Dev-Modus liefert Vite das HTML aus – dort gilt sie nicht.
 
 ---
 
