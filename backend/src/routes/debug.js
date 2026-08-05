@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { validate } = require('../middleware/validate');
+const { debugUpdateSchema } = require('../schemas');
 
 // Get all table names in the public schema
 router.get('/tables', async (req, res) => {
@@ -79,7 +81,7 @@ router.get('/tables/:tableName', async (req, res) => {
 });
 
 // Update a specific row in a table
-router.put('/tables/:tableName', async (req, res) => {
+router.put('/tables/:tableName', validate(debugUpdateSchema), async (req, res) => {
   const { tableName } = req.params;
   const { primaryKey, id, field, value } = req.body;
 

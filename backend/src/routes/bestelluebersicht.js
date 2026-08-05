@@ -10,6 +10,8 @@ const {
   insertBestellung,
 } = require('../utils/bestellungService');
 const { encryptField } = require('../utils/encryptionService');
+const { validate } = require('../middleware/validate');
+const { bestellungBasisSchema, bestellungUpdateSchema } = require('../schemas');
 
 // GET all orders
 router.get('/', async (req, res) => {
@@ -61,7 +63,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST create order
-router.post('/', async (req, res) => {
+router.post('/', validate(bestellungBasisSchema), async (req, res) => {
   let client;
   try {
     const { versandart, wunschdatum, beschreibung, kunde, consent } = req.body;
@@ -128,7 +130,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update order
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
   let client;
   try {
     const { versandart, wunschdatum, beschreibung, status, kunde } = req.body;

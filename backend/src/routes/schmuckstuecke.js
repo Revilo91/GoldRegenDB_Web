@@ -5,6 +5,12 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const {
+  schmuckstueckCreateSchema,
+  schmuckstueckUpdateSchema,
+  schmuckstueckBulkSchema,
+} = require("../schemas");
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
 const { GRUNDMATERIAL } = require("../utils/constants");
@@ -328,7 +334,7 @@ router.get("/next-artikelnummer", async (req, res) => {
 });
 
 // POST bulk-create missing pieces by explicit article numbers
-router.post("/bulk", requireBearbeiter, async (req, res) => {
+router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async (req, res) => {
   let client;
   try {
     client = await db.connect();
@@ -877,7 +883,7 @@ router.get("/:artikelnummer", async (req, res) => {
 });
 
 // POST create piece
-router.post("/", async (req, res) => {
+router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
   let client;
   try {
     client = await db.connect();
@@ -1047,7 +1053,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT update piece
-router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
+router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSchema), async (req, res) => {
   try {
     const b = req.body;
     const ausschussGrundValue = resolveAusschussGrund(

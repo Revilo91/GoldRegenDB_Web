@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const { authenticate, JWT_SECRET } = require("../middleware/auth");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const { loginSchema, changePasswordSchema } = require("../schemas");
 
 // A SHA-256 hash is always a 64-character lowercase hex string
 const SHA256_REGEX = /^[0-9a-f]{64}$/;
@@ -13,7 +15,7 @@ function isValidSHA256(value) {
 }
 
 // POST /api/auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", validate(loginSchema), async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     logger.warn("AUTH", "Login-Versuch ohne Benutzername oder Passwort");
@@ -105,7 +107,7 @@ router.get("/me", authenticate, (req, res) => {
 });
 
 // PUT /api/auth/change-password – change own password (authenticated)
-router.put("/change-password", authenticate, async (req, res) => {
+router.put("/change-password", authenticate, validate(changePasswordSchema), async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
   const username = req.user.username;

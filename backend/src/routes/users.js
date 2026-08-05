@@ -3,6 +3,12 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const {
+  userCreateSchema,
+  userUpdateSchema,
+  resetPasswordSchema,
+} = require("../schemas");
 
 const VALID_ROLES = ["admin", "bearbeiter", "user"];
 
@@ -50,7 +56,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST create user
-router.post("/", async (req, res) => {
+router.post("/", validate(userCreateSchema), async (req, res) => {
   try {
     const { username, password, email, role, active } = req.body;
     if (!username || !password) {
@@ -94,7 +100,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT update user (without password)
-router.put("/:id", async (req, res) => {
+router.put("/:id", validate(userUpdateSchema), async (req, res) => {
   try {
     const { username, email, role, active } = req.body;
     if (!VALID_ROLES.includes(role)) {
@@ -131,7 +137,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // POST reset password
-router.post("/:id/reset-password", async (req, res) => {
+router.post("/:id/reset-password", validate(resetPasswordSchema), async (req, res) => {
   try {
     const { newPassword } = req.body;
     if (!newPassword || !isValidSHA256(newPassword)) {

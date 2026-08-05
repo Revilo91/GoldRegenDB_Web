@@ -240,6 +240,7 @@ const result = await db.query(query, builder.getParams());
 | **Authentifizierung** | JWT (`jsonwebtoken`) + `bcryptjs`    |
 | **Rate Limiting** | `express-rate-limit`                     |
 | **Security-Header** | `helmet`                               |
+| **Input-Validierung** | `zod`                                |
 | **Excel-Export**  | `exceljs`                                |
 | **Bild-Validierung** | `image-size`                          |
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
@@ -281,6 +282,38 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - `authenticate` – prüft JWT, setzt `req.user`, konfiguriert DB-Session-User für Audit-Trigger
 - `requireAdmin` – prüft `req.user.role === 'admin'`
 - `requireBearbeiter` – prüft `req.user.role` ist `'admin'` oder `'bearbeiter'`
+
+---
+
+## Input-Validierung (PFLICHT bei schreibenden Routen!)
+
+Jede Route, die Daten entgegennimmt, validiert den Request-Body mit einem
+Zod-Schema. Ohne Schema gelangen unbekannte Felder und ungeprüfte Typen in die
+SQL-Statements.
+
+```javascript
+const { validate } = require('../middleware/validate');
+const { kundeSchema } = require('../schemas');
+
+router.post('/', validate(kundeSchema), async (req, res) => {
+  // req.body enthält jetzt ausschließlich geprüfte, typkorrekte Felder
+});
+```
+
+- Schemas liegen in `backend/src/schemas/index.js`, wiederverwendbare Bausteine
+  (`text`, `zahl`, `ganzzahl`, `bool`, `sha256`, `artikelnummer`) in `common.js`.
+- **Unbekannte Felder werden entfernt** – Zod-Objekte strippen sie standardmäßig.
+- Leere Formular-Strings werden zu `null`, Zahlen-Strings (`"49.90"`) zu Zahlen.
+  Das ist nötig, weil HTML-Formulare alles als String senden.
+- Bei Verstoß: `400` mit `{ error, details }`, wobei `error` das erste
+  fehlerhafte Feld benennt (`"Provision: darf nicht größer als 100 sein"`).
+- Verstöße landen als `logger.warn('VALIDATION', …)` im Log.
+
+**Neue schreibende Route anlegen:** Schema in `schemas/index.js` ergänzen,
+exportieren, per `validate(...)` vor den Handler hängen und einen Test in
+`backend/__tests__/validation.test.js` ergänzen – dort wird bewusst auch der
+Gutfall mit dem echten Frontend-Payload geprüft, damit die Schemas nicht zu
+streng werden.
 
 ---
 

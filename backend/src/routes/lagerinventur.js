@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { validate } = require("../middleware/validate");
+const { lagerinventurSchema } = require("../schemas");
 
 // Alle Entwürfe des aktuellen Users abrufen (status=entwurf)
 router.get("/drafts", async (req, res) => {
@@ -44,7 +46,7 @@ router.get("/drafts/:id", async (req, res) => {
 });
 
 // Neuen Entwurf anlegen
-router.post("/drafts", async (req, res) => {
+router.post("/drafts", validate(lagerinventurSchema), async (req, res) => {
   try {
     const userId = req.user.id;
     const { data, kommentar } = req.body;
@@ -64,7 +66,7 @@ router.post("/drafts", async (req, res) => {
 });
 
 // Entwurf aktualisieren (nur solange status=entwurf)
-router.put("/drafts/:id", async (req, res) => {
+router.put("/drafts/:id", validate(lagerinventurSchema), async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
