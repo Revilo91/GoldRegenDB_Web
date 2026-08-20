@@ -1,7 +1,12 @@
+// @ts-check
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const db = require('../config/db');
 const { AUTH_COOKIE_NAME } = require('../utils/authCookie');
+
+/** @typedef {import('express').Request} Request */
+/** @typedef {import('express').Response} Response */
+/** @typedef {import('express').NextFunction} NextFunction */
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -13,6 +18,10 @@ logger.info('AUTH', 'JWT-Authentifizierung initialisiert');
 // Das JWT kommt primär aus dem httpOnly-Cookie (Issue #132). Der
 // Authorization-Header bleibt als Fallback bestehen, damit Skripte, E2E-Tests
 // und andere API-Clients ohne Cookie-Jar weiterhin funktionieren.
+/**
+ * @param {Request} req
+ * @returns {string|null}
+ */
 function extractToken(req) {
   const cookieToken = req.cookies?.[AUTH_COOKIE_NAME];
   if (cookieToken) {
@@ -25,6 +34,11 @@ function extractToken(req) {
   return null;
 }
 
+/**
+ * @param {Request} req
+ * @param {Response} res
+ * @param {NextFunction} next
+ */
 function authenticate(req, res, next) {
   const token = extractToken(req);
   if (!token) {
@@ -32,16 +46,29 @@ function authenticate(req, res, next) {
     return res.status(401).json({ error: 'Nicht authentifiziert' });
   }
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    // JWT_SECRET ist an dieser Stelle garantiert gesetzt (siehe Guard oben,
+    // der den Prozess sonst beendet) – der Cast macht das für tsc explizit.
+    // jwt.verify liefert bei string-Secrets ohne komplexe Optionen ein
+    // JwtPayload-Objekt zurück (nie einen reinen String) – das Payload-Format
+    // wird beim Signieren in routes/auth.js festgelegt: { id, username, role }.
+    const payload = /** @type {import('../types/express').AuthenticatedUser} */ (
+      jwt.verify(token, /** @type {string} */ (JWT_SECRET))
+    );
     req.user = payload;
     db.setCurrentDbUsername(payload.username);
     next();
   } catch (err) {
-    logger.warn('AUTH', `Ungültiges Token: ${req.method} ${req.originalUrl}`, { error: err.message });
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn('AUTH', `Ungültiges Token: ${req.method} ${req.originalUrl}`, { error: message });
     return res.status(401).json({ error: 'Ungültiges oder abgelaufenes Token' });
   }
 }
 
+/**
+ * @param {Request} req
+ * @param {Response} res
+ * @param {NextFunction} next
+ */
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
     logger.warn('AUTH', `Admin-Zugriff verweigert: ${req.method} ${req.originalUrl}`, { user: req.user?.username, role: req.user?.role });
@@ -50,6 +77,11 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+/**
+ * @param {Request} req
+ * @param {Response} res
+ * @param {NextFunction} next
+ */
 function requireBearbeiter(req, res, next) {
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'bearbeiter')) {
     logger.warn('AUTH', `Bearbeiter-Zugriff verweigert: ${req.method} ${req.originalUrl}`, { user: req.user?.username, role: req.user?.role });
