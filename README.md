@@ -16,6 +16,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
   - [Entwicklung (Hot-Reload)](#entwicklung-hot-reload)
   - [Produktion (lokal)](#produktion-lokal)
   - [Synology NAS](#synology-nas)
+    - [HTTPS auf Synology](#https-auf-synology-issue-138)
 - [Umgebungsvariablen](#umgebungsvariablen)
 - [Benutzerrollen](#benutzerrollen)
 - [Projektstruktur](#projektstruktur)
@@ -147,6 +148,51 @@ Das einfachste Deployment nutzt das fertige Release-Paket.
 
 > **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet. Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
 
+> ⚠️ **Ohne die folgenden Schritte läuft dieses Deployment nur über HTTP** – Login,
+> JWT-Cookie und alle Daten gehen unverschlüsselt über das Netz. Für den produktiven
+> Betrieb unbedingt HTTPS einrichten (siehe unten).
+
+#### HTTPS auf Synology (Issue #138)
+
+Express terminiert selbst kein TLS – ein vorgeschalteter Reverse Proxy übernimmt das.
+Zwei Wege stehen zur Wahl:
+
+**Option A – Synology Reverse Proxy + Certificate Manager (empfohlen für DSM):**
+
+1. **Systemsteuerung → Sicherheit → Zertifikat** ein Let's-Encrypt-Zertifikat für
+   die Domain anlegen (DSM verlängert es automatisch).
+2. **Systemsteuerung → Anmeldeportal → Erweitert → Reverse Proxy** einen Eintrag
+   anlegen: Quelle `https://<domain>:443` → Ziel `http://localhost:3000`.
+   Unter "Benutzerdefinierter Header" `X-Forwarded-Proto` auf `https` setzen
+   (DSM setzt `X-Forwarded-For`/`-Host` bereits automatisch).
+3. In der `.env` setzen und Container neu starten:
+   ```bash
+   FORCE_HTTPS=true
+   COOKIE_SECURE=true
+   TRUST_PROXY=1
+   ```
+   ```bash
+   docker compose up -d
+   ```
+4. Aufrufen über `https://<domain>` (Port 3000 bleibt intern, nicht mehr direkt
+   nötig – in der Firewall der Synology kann er für externen Zugriff gesperrt werden).
+
+**Option B – Caddy-Container mit automatischem Let's Encrypt (ohne DSM-Reverse-Proxy):**
+
+Ein fertiges Overlay bringt einen Caddy-Container mit, der Port 80/443 belegt,
+automatisch ein Zertifikat holt/erneuert und HSTS, HTTP→HTTPS-Redirect sowie
+HTTP/2 ohne weitere Konfiguration mitbringt (siehe `proxy/Caddyfile`):
+
+```bash
+# DOMAIN muss per DNS auf die Synology zeigen; Port 80+443 müssen frei sein
+# (ggf. den DSM-eigenen Reverse Proxy für diese Ports deaktivieren).
+DOMAIN=schmuck.example.com docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
+```
+
+Das Overlay setzt `FORCE_HTTPS`, `COOKIE_SECURE` und `TRUST_PROXY` bereits automatisch
+und macht den `app`-Container nur noch über den Proxy erreichbar. Eigene Zertifikate
+statt automatischem Let's Encrypt: siehe Kommentare in `proxy/Caddyfile`.
+
 ---
 
 ## Umgebungsvariablen
@@ -163,6 +209,9 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 | `JWT_SECRET`    | Geheimer Schlüssel für JWT-Tokens (lang & zufällig)| `change-this-to-a-long-random-secret`                  |
 | `NODE_ENV`      | Laufzeit-Umgebung                                  | `production` / `development`                           |
 | `VITE_API_URL`  | API-URL für das Frontend bei nativer Entwicklung   | `http://localhost:3001/api`                            |
+| `FORCE_HTTPS`   | HTTP→HTTPS-Redirect + HSTS aktivieren (nur mit TLS-terminierendem Reverse Proxy davor, siehe [HTTPS auf Synology](#https-auf-synology-issue-138)) | `true` / `false` |
+| `COOKIE_SECURE` | Secure-Flag auf dem JWT-Cookie (nur mit `FORCE_HTTPS`) | `true` / `false`                                    |
+| `TRUST_PROXY`   | Anzahl vertrauenswürdiger Proxy-Hops vor der App   | `1`                                                     |
 
 > ⚠️ **`JWT_SECRET`** und **`DB_PASSWORD`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden.
 
@@ -189,6 +238,8 @@ GoldRegenDB_Web/
 ├── docker-compose.yml               # Produktions-Stack (db + app)
 ├── docker-compose.dev.yml           # Entwicklungs-Stack mit Hot-Reload (db + app)
 ├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── docker-compose.proxy.yml         # Optionales Overlay: Caddy-Reverse-Proxy mit TLS (Issue #138)
+├── proxy/Caddyfile                  # Caddy-Konfiguration für docker-compose.proxy.yml
 ├── package.json                     # npm-Workspace-Root (`npm run dev` startet alles)
 ├── .env.example                     # Vorlage für Umgebungsvariablen
 │

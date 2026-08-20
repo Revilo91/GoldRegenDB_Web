@@ -347,7 +347,7 @@ ALLOWED_ORIGINS=http://localhost:5173,https://schmuck.example.com
 ## Security-Header (`backend/src/middleware/securityHeaders.js`)
 
 `helmet` wird als erste Middleware in `index.js` registriert und setzt u. a.
-`X-Content-Type-Options`, `X-Frame-Options` und `Strict-Transport-Security`.
+`X-Content-Type-Options` und `X-Frame-Options`.
 
 Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
 
@@ -357,13 +357,33 @@ Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
 | `font-src`    | `data:` + `fonts.gstatic.com`                                                 |
 | `img-src`     | `data:` + `blob:` – Fotos werden als Data-URL geladen (`api.js`)             |
 | `frame-ancestors` | `'none'` – Clickjacking-Schutz                                            |
-| `upgrade-insecure-requests` | deaktiviert – Deployment läuft ohne TLS (Issue #138)            |
+| `upgrade-insecure-requests` | nur mit `FORCE_HTTPS=true` aktiv (Issue #138, siehe unten)      |
 
 `crossOriginResourcePolicy` steht auf `cross-origin`, damit der Vite-Dev-Server
 (Port 5173) Fotos und Excel-Downloads vom Backend (Port 3001) laden kann.
 
 Die CSP greift nur für Dokumente, die Express selbst ausliefert (Produktions-Image).
 Im nativen Dev-Modus liefert Vite das HTML aus – dort gilt sie nicht.
+
+### TLS / HTTPS (Issue #138)
+
+Express terminiert kein TLS selbst – das übernimmt ein vorgeschalteter Reverse
+Proxy (Synology Reverse Proxy, `docker-compose.proxy.yml` mit Caddy, o. Ä.). Drei
+Env-Variablen steuern, wie das Backend darauf reagiert (siehe `.env.example`):
+
+| Variable        | Wirkung                                                                  |
+| --------------- | ------------------------------------------------------------------------- |
+| `TRUST_PROXY`   | `app.set('trust proxy', …)` – Anzahl vertrauenswürdiger Hops davor. Nötig, damit Express `X-Forwarded-*`-Header nur vom echten Proxy akzeptiert, nicht von jedem Client |
+| `FORCE_HTTPS`   | Aktiviert `backend/src/middleware/httpsRedirect.js` (301 auf https, nur wenn der Proxy `X-Forwarded-Proto: http` meldet – fehlt der Header, z. B. beim Docker-Healthcheck direkt gegen den Container, wird nicht umgeleitet) sowie HSTS und `upgrade-insecure-requests` in `securityHeaders.js` |
+| `HSTS_MAX_AGE`  | Gültigkeitsdauer des HSTS-Headers in Sekunden (Standard 15552000 = 180 Tage), nur mit `FORCE_HTTPS=true` relevant |
+
+Alle drei sind standardmäßig aus/leer – native Entwicklung (`npm run dev`,
+`docker-compose.dev.yml`) hat keinen TLS-terminierenden Proxy davor und darf davon
+nicht betroffen sein. In `index.js` warnt eine Startmeldung (`logger.warn`), wenn
+`NODE_ENV=production` läuft, aber weder `FORCE_HTTPS` noch `COOKIE_SECURE` gesetzt
+ist – kein harter Fehler, damit bestehende Deployments nicht abstürzen.
+
+Deployment-Optionen: siehe README.md, Abschnitt "HTTPS auf Synology".
 
 ---
 
@@ -377,6 +397,8 @@ GoldRegenDB_Web/
 ├── docker-compose.yml               # Produktion (ein `app`-Service)
 ├── docker-compose.dev.yml           # Entwicklung, voll containerisiert (Alternative zu nativem `npm run dev`)
 ├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── docker-compose.proxy.yml         # Overlay: Caddy-Reverse-Proxy mit TLS (Issue #138)
+├── proxy/Caddyfile                  # Caddy-Konfiguration für docker-compose.proxy.yml
 ├── .env.example                     # Vorlage für Umgebungsvariablen
 ├── .github/
 │   ├── copilot-instructions.md     # Diese Datei
@@ -744,7 +766,7 @@ Löschen auseinander und `clearCookie` greift nicht mehr.
 | ---------- | ---- | ----- |
 | `httpOnly` | true | JavaScript kommt nicht an das Token – ein XSS kann es nicht auslesen |
 | `sameSite` | `lax` | blockt site-fremde POSTs (CSRF-Grundschutz), erlaubt normale Navigation |
-| `secure`   | `COOKIE_SECURE === 'true'` | **muss** false bleiben, solange ohne TLS deployt wird (#138) – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
+| `secure`   | `COOKIE_SECURE === 'true'` | nur auf true stellen, wenn ein Reverse Proxy TLS terminiert (`FORCE_HTTPS`, siehe Abschnitt "TLS / HTTPS") – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
 | `maxAge`   | 8 h | passend zur JWT-Laufzeit in `routes/auth.js` |
 
 Das Frontend sendet bei jedem Request `credentials: 'include'` (`api.js`) und

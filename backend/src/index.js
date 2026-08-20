@@ -8,6 +8,7 @@ const logger = require('./utils/logger');
 const db = require('./config/db');
 
 const securityHeaders = require('./middleware/securityHeaders');
+const httpsRedirect = require('./middleware/httpsRedirect');
 const cors = require('./middleware/cors');
 const { csrfProtection, csrfTokenHandler } = require('./middleware/csrf');
 const { authenticate, requireAdmin, requireBearbeiter } = require('./middleware/auth');
@@ -27,6 +28,15 @@ const bestellungPublicRoutes = require('./routes/bestellungPublic');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const forceHttps = process.env.FORCE_HTTPS === 'true';
+
+// Anzahl vertrauenswürdiger Proxy-Hops vor der App (Synology Reverse Proxy,
+// eigener Proxy-Container, …). Ohne Proxy davor bleibt das Standard "false" –
+// sonst könnten Clients ihre eigene IP/ihr eigenes Protokoll per Header vortäuschen.
+if (process.env.TRUST_PROXY) {
+  const hops = Number(process.env.TRUST_PROXY);
+  app.set('trust proxy', Number.isNaN(hops) ? process.env.TRUST_PROXY : hops);
+}
 
 // Startup logging
 logger.info('SERVER', '=== GoldRegenDB Backend startet ===');
@@ -36,6 +46,18 @@ logger.info('SERVER', `DATABASE_URL: ${process.env.DATABASE_URL ? '(gesetzt)' : 
 logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NICHT GESETZT)'}`);
 logger.info('SERVER', `ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS || '(nicht gesetzt – Standard-Dev-Origins)'}`);
 logger.info('SERVER', `COOKIE_SECURE: ${process.env.COOKIE_SECURE === 'true' ? 'true (Cookie nur über HTTPS)' : 'false (auch über HTTP)'}`);
+logger.info('SERVER', `FORCE_HTTPS: ${forceHttps ? 'true (HTTP wird auf HTTPS umgeleitet, HSTS aktiv)' : 'false'}`);
+
+// Läuft in Produktion ohne TLS-Terminierung (kein FORCE_HTTPS/COOKIE_SECURE) – Cookies
+// und Zugangsdaten gingen dann unverschlüsselt über das Netz (siehe Issue #138).
+if (process.env.NODE_ENV === 'production' && !forceHttps && process.env.COOKIE_SECURE !== 'true') {
+  logger.warn('SERVER', 'Produktions-Deployment ohne TLS: Weder FORCE_HTTPS noch COOKIE_SECURE ist gesetzt. '
+    + 'Ein vorgeschalteter Reverse Proxy sollte TLS terminieren, siehe README.md (Abschnitt Synology NAS / HTTPS).');
+}
+
+if (forceHttps) {
+  app.use(httpsRedirect);
+}
 
 app.use(securityHeaders);
 app.use(cors);
