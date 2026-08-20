@@ -58,6 +58,10 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 
 - [Docker](https://docs.docker.com/get-docker/) ≥ 24 und Docker Compose ≥ 2
 - Git (für den Entwicklungsmodus)
+- Für den nativen Entwicklungsmodus (`npm run dev` ohne Docker für Backend/Frontend):
+  Node.js **22.x (aktuelle LTS-Linie)** und npm ≥ 10 — die exakte Version steht in
+  [`.nvmrc`](.nvmrc); mit [nvm](https://github.com/nvm-sh/nvm) genügt `nvm use`.
+  Docker-Images und CI sind auf dieselbe Node-Version gepinnt.
 
 ---
 
