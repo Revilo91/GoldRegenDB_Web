@@ -195,7 +195,8 @@ router.get("/foto/:fileName", (req, res) => {
     res.sendFile(lookup.filePath, { lastModified: true }, (err) => {
       if (!err) return;
 
-      logger.error("SCHMUCK", `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, {
+      logger.error("SCHMUCK", "Fehler beim Abrufen des Fotos", {
+        fileName: req.params.fileName,
         message: err.message,
         code: err.code,
         resolvedFileName: lookup.resolvedFileName,
@@ -215,8 +216,8 @@ router.get("/foto/:fileName", (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Abrufen des Fotos: ${req.params.fileName}`,
-      { message: err.message, stack: err.stack },
+      "Fehler beim Abrufen des Fotos",
+      { fileName: req.params.fileName, message: err.message, stack: err.stack },
     );
     res.status(500).json({
       error: "Fehler beim Abrufen des Fotos",
@@ -246,8 +247,8 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Löschen des Fotos: ${req.params.fileName}`,
-      { message: err.message },
+      "Fehler beim Löschen des Fotos",
+      { fileName: req.params.fileName, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Fotos" });
   }
@@ -764,8 +765,8 @@ router.get("/:artikelnummer", async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Laden des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Laden des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Laden des Schmuckstücks" });
   }
@@ -1021,8 +1022,8 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
     }
     logger.error(
       "SCHMUCK",
-      `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Aktualisieren des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res
       .status(500)
@@ -1044,8 +1045,8 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Löschen des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Löschen des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
   }

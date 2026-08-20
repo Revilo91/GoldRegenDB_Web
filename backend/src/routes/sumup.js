@@ -49,18 +49,19 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
 
     // Relevante Spalten für Artikelnummern (explizit definierte Liste)
 
-    logger.info('SUMUP', `Import: ${rows.length} CSV-Zeilen werden verarbeitet`, {
+    logger.info('SUMUP', 'Import: CSV-Zeilen werden verarbeitet', {
+      anzahl: rows.length,
       verfuegbareFelder: rows.length > 0 ? Object.keys(rows[0]) : [],
     });
     rows.forEach((row, idx) => {
       // Durchsuche zuerst die explizit definierten Felder
-      logger.debug('SUMUP', `CSV-Zeile ${idx}`, row);
+      logger.debug('SUMUP', 'CSV-Zeile', { idx, ...row });
 
       const value = row["Beschreibung"];
       if (value) {
         const extracted = extractArtikelnummer(value);
         if (extracted) {
-          logger.debug('SUMUP', `Zeile ${idx}: "${extracted}" gefunden in Beschreibung "${value}"`);
+          logger.debug('SUMUP', 'Artikelnummer gefunden', { idx, extracted, beschreibung: value });
           artikelnummern.add(extracted.toUpperCase());
         }
       }
@@ -117,7 +118,10 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       }
     }
 
-    logger.info('SUMUP', `Import: ${artikelnummernArray.length} Artikelnummern extrahiert, ${existingItems.length} in DB gefunden`);
+    logger.info('SUMUP', 'Import: Artikelnummern extrahiert', {
+      extrahiert: artikelnummernArray.length,
+      gefunden: existingItems.length,
+    });
 
     if (existingItems.length === 0) {
       return res.status(400).json({
@@ -566,7 +570,7 @@ function extractArtikelnummer(text) {
 
   // Suche nach Artikelnummer-Muster: M/S + Buchstabe + Buchstabe + Zahlen + optional _Zahl
   const match = text.match(/([MS][A-Z]{2}\d{3}(?:_\d+)?)/i);
-  logger.debug('SUMUP', `Artikelnummer-Extraktion: "${text}" => ${match ? match[1] : 'kein Treffer'}`);
+  logger.debug('SUMUP', 'Artikelnummer-Extraktion', { text, treffer: match ? match[1] : null });
   return match ? match[1] : null;
 }
 

@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
     const { rows } = await db.query(
       "SELECT id, username, email, role, active, must_change_password, created_at, last_login FROM app_users ORDER BY username",
     );
-    logger.info("USERS", `${rows.length} Benutzer geladen`);
+    logger.info("USERS", "Benutzer geladen", { anzahl: rows.length });
     res.json(rows);
   } catch (err) {
     logger.error("USERS", "Fehler beim Laden der Benutzer", {
@@ -40,11 +40,10 @@ router.get("/:id", async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    logger.error(
-      "USERS",
-      `Fehler beim Laden des Benutzers ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Laden des Benutzers", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Laden des Benutzers" });
   }
 });
@@ -68,14 +67,14 @@ router.post("/", validate(userCreateSchema), async (req, res) => {
         active !== false,
       ],
     );
-    logger.info("USERS", `Benutzer erstellt: ${username} (Rolle: ${role})`);
+    logger.info("USERS", "Benutzer erstellt", { user: username, role });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === "23505") {
-      logger.warn(
-        "USERS",
-        `Benutzer-Erstellung fehlgeschlagen: ${req.body.username} – Name bereits vergeben`,
-      );
+      logger.warn("USERS", "Benutzer-Erstellung fehlgeschlagen – Name bereits vergeben", {
+        user: req.body.username,
+        reason: "username_taken",
+      });
       return res.status(409).json({ error: "Benutzername bereits vergeben" });
     }
     logger.error("USERS", "Fehler beim Erstellen des Benutzers", {
@@ -100,24 +99,20 @@ router.put("/:id", validate(userUpdateSchema), async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
-    logger.info(
-      "USERS",
-      `Benutzer aktualisiert: ID=${req.params.id} (${username})`,
-    );
+    logger.info("USERS", "Benutzer aktualisiert", { id: req.params.id, user: username });
     res.json(rows[0]);
   } catch (err) {
     if (err.code === "23505") {
-      logger.warn(
-        "USERS",
-        `Benutzer-Update fehlgeschlagen: ID=${req.params.id} – Name bereits vergeben`,
-      );
+      logger.warn("USERS", "Benutzer-Update fehlgeschlagen – Name bereits vergeben", {
+        id: req.params.id,
+        reason: "username_taken",
+      });
       return res.status(409).json({ error: "Benutzername bereits vergeben" });
     }
-    logger.error(
-      "USERS",
-      `Fehler beim Aktualisieren des Benutzers ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Aktualisieren des Benutzers", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Aktualisieren des Benutzers" });
   }
 });
@@ -142,17 +137,13 @@ router.post("/:id/reset-password", validate(resetPasswordSchema), async (req, re
     if (rowCount === 0) {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
-    logger.info(
-      "USERS",
-      `Passwort zurückgesetzt für Benutzer ID=${req.params.id}`,
-    );
+    logger.info("USERS", "Passwort zurückgesetzt", { id: req.params.id });
     res.json({ message: "Passwort erfolgreich zurückgesetzt" });
   } catch (err) {
-    logger.error(
-      "USERS",
-      `Fehler beim Zurücksetzen des Passworts für ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Zurücksetzen des Passworts", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Zurücksetzen des Passworts" });
   }
 });
@@ -166,14 +157,13 @@ router.delete("/:id", async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
-    logger.info("USERS", `Benutzer gelöscht: ID=${req.params.id}`);
+    logger.info("USERS", "Benutzer gelöscht", { id: req.params.id });
     res.json({ message: "Benutzer gelöscht" });
   } catch (err) {
-    logger.error(
-      "USERS",
-      `Fehler beim Löschen des Benutzers ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Löschen des Benutzers", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Löschen des Benutzers" });
   }
 });

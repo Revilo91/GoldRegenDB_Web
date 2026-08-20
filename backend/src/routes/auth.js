@@ -28,7 +28,7 @@ const {
 router.post("/login", validate(loginSchema), async (req, res) => {
   const { username, password } = req.body;
   try {
-    logger.info("AUTH", `Login-Versuch für Benutzer: ${username}`);
+    logger.info("AUTH", "Login-Versuch", { user: username, user_ip: req.ip });
     const { rows } = await db.query(
       `SELECT id, username, password_hash, role, active, must_change_password,
               failed_login_attempts, locked_until
@@ -41,10 +41,12 @@ router.post("/login", validate(loginSchema), async (req, res) => {
     // damit ein Angreifer die Sperre nicht durch Weiterraten verlängern kann.
     if (istGesperrt(user)) {
       const minuten = verbleibendeSperrminuten(user);
-      logger.warn(
-        "AUTH",
-        `Login abgewiesen – Konto gesperrt: ${username} (noch ${minuten} Minuten)`,
-      );
+      logger.warn("AUTH", "Login abgewiesen – Konto gesperrt", {
+        user: username,
+        user_ip: req.ip,
+        reason: "account_locked",
+        minuten_bis_entsperrung: minuten,
+      });
       return res.status(403).json({
         error: `Konto ist wegen zu vieler Fehlversuche gesperrt. Bitte in ${minuten} Minuten erneut versuchen.`,
       });
@@ -66,29 +68,37 @@ router.post("/login", validate(loginSchema), async (req, res) => {
           [versuche, lockedUntil, user.id],
         );
         if (lockedUntil) {
-          logger.warn(
-            "AUTH",
-            `Konto nach ${versuche} Fehlversuchen für ${SPERRDAUER_MINUTEN} Minuten gesperrt: ${username}`,
-          );
+          logger.warn("AUTH", "Konto nach zu vielen Fehlversuchen gesperrt", {
+            user: username,
+            user_ip: req.ip,
+            reason: "account_lockout_triggered",
+            versuche,
+            sperrdauer_minuten: SPERRDAUER_MINUTEN,
+          });
         } else {
-          logger.warn(
-            "AUTH",
-            `Login fehlgeschlagen für Benutzer: ${username} – Ungültige Anmeldedaten (Versuch ${versuche}/${MAX_FEHLVERSUCHE})`,
-          );
+          logger.warn("AUTH", "Login fehlgeschlagen – ungültige Anmeldedaten", {
+            user: username,
+            user_ip: req.ip,
+            reason: "invalid_credentials",
+            versuche,
+            max_versuche: MAX_FEHLVERSUCHE,
+          });
         }
       } else {
-        logger.warn(
-          "AUTH",
-          `Login fehlgeschlagen für unbekannten Benutzer: ${username}`,
-        );
+        logger.warn("AUTH", "Login fehlgeschlagen – unbekannter Benutzer", {
+          user: username,
+          user_ip: req.ip,
+          reason: "unknown_user",
+        });
       }
       return res.status(401).json({ error: "Ungültige Anmeldedaten" });
     }
     if (!user.active) {
-      logger.warn(
-        "AUTH",
-        `Login fehlgeschlagen für Benutzer: ${username} – Konto deaktiviert`,
-      );
+      logger.warn("AUTH", "Login fehlgeschlagen – Konto deaktiviert", {
+        user: username,
+        user_ip: req.ip,
+        reason: "account_inactive",
+      });
       return res.status(403).json({ error: "Benutzerkonto ist deaktiviert" });
     }
     // Altkonten tragen noch bcrypt(sha256(passwort)) aus der Zeit, als das
@@ -99,10 +109,7 @@ router.post("/login", validate(loginSchema), async (req, res) => {
         neuerHash,
         user.id,
       ]);
-      logger.info(
-        "AUTH",
-        `Passwort-Hash auf aktuelles Verfahren umgestellt: ${username}`,
-      );
+      logger.info("AUTH", "Passwort-Hash auf aktuelles Verfahren umgestellt", { user: username });
     }
 
     // Erfolgreicher Login setzt den Fehlversuchszähler zurück
@@ -121,7 +128,7 @@ router.post("/login", validate(loginSchema), async (req, res) => {
     // nicht daran, ein XSS kann es also nicht auslesen und abtransportieren.
     setAuthCookie(res, token);
 
-    logger.info("AUTH", `Login erfolgreich: ${username} (Rolle: ${user.role})`);
+    logger.info("AUTH", "Login erfolgreich", { user: username, role: user.role, user_ip: req.ip });
     res.json({
       // Das Token bleibt zusätzlich in der Antwort, damit Skripte und E2E-Tests
       // ohne Cookie-Jar den Authorization-Header nutzen können. Das Frontend
@@ -131,7 +138,8 @@ router.post("/login", validate(loginSchema), async (req, res) => {
       mustChangePassword: !!user.must_change_password,
     });
   } catch (err) {
-    logger.error("AUTH", `Login-Fehler für Benutzer: ${username}`, {
+    logger.error("AUTH", "Login-Fehler", {
+      user: username,
       message: err.message,
       code: err.code,
       stack: err.stack,
@@ -160,7 +168,7 @@ router.post("/logout", (req, res) => {
 
 // GET /api/auth/me – verify token and return current user
 router.get("/me", authenticate, (req, res) => {
-  logger.info("AUTH", `Token-Validierung erfolgreich: ${req.user.username}`);
+  logger.info("AUTH", "Token-Validierung erfolgreich", { user: req.user.username });
   res.json({ user: req.user });
 });
 
@@ -171,30 +179,27 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
   const username = req.user.username;
 
   try {
-    logger.info(
-      "AUTH",
-      `Passwortänderung angefordert von Benutzer: ${username}`,
-    );
+    logger.info("AUTH", "Passwortänderung angefordert", { user: username });
     const { rows } = await db.query(
       "SELECT id, password_hash FROM app_users WHERE id = $1",
       [userId],
     );
     const user = rows[0];
     if (!user) {
-      logger.warn(
-        "AUTH",
-        `Passwortänderung fehlgeschlagen – Benutzer nicht gefunden: ${username}`,
-      );
+      logger.warn("AUTH", "Passwortänderung fehlgeschlagen – Benutzer nicht gefunden", {
+        user: username,
+        reason: "user_not_found",
+      });
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
 
     const { valid } = await verifyPassword(currentPassword, user.password_hash);
 
     if (!valid) {
-      logger.warn(
-        "AUTH",
-        `Passwortänderung fehlgeschlagen – falsches aktuelles Passwort: ${username}`,
-      );
+      logger.warn("AUTH", "Passwortänderung fehlgeschlagen – falsches aktuelles Passwort", {
+        user: username,
+        reason: "current_password_invalid",
+      });
       return res.status(401).json({ error: "Aktuelles Passwort ist falsch" });
     }
 
@@ -204,13 +209,11 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
       [newHash, userId],
     );
 
-    logger.info(
-      "AUTH",
-      `Passwort erfolgreich geändert für Benutzer: ${username}`,
-    );
+    logger.info("AUTH", "Passwort erfolgreich geändert", { user: username });
     res.json({ message: "Passwort erfolgreich geändert" });
   } catch (err) {
-    logger.error("AUTH", `Fehler bei Passwortänderung für: ${username}`, {
+    logger.error("AUTH", "Fehler bei Passwortänderung", {
+      user: username,
       message: err.message,
       stack: err.stack,
     });
@@ -242,10 +245,10 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res)
     const user = rows[0];
 
     if (!user || !user.active) {
-      logger.warn(
-        "AUTH",
-        `Passwort-Reset für unbekanntes oder deaktiviertes Konto angefordert: ${username}`,
-      );
+      logger.warn("AUTH", "Passwort-Reset für unbekanntes oder deaktiviertes Konto angefordert", {
+        user: username,
+        reason: "unknown_or_inactive_user",
+      });
       return res.json(antwort);
     }
 
@@ -255,15 +258,19 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res)
       [tokenHash, expiry, user.id],
     );
 
+    // Der Reset-Link landet bewusst in der lesbaren Message (nicht in meta): es ist
+    // kein SMTP konfiguriert, ein Administrator muss ihn hier abholen und weiterreichen.
     logger.warn(
       "AUTH",
       `Passwort-Reset-Token für ${user.username} erzeugt (gültig ${RESET_TOKEN_GUELTIGKEIT_MINUTEN} Minuten). ` +
         `Reset-Link: /reset-password?token=${token}`,
+      { user: user.username },
     );
 
     res.json(antwort);
   } catch (err) {
-    logger.error("AUTH", `Fehler beim Anfordern eines Passwort-Resets für: ${username}`, {
+    logger.error("AUTH", "Fehler beim Anfordern eines Passwort-Resets", {
+      user: username,
       message: err.message,
     });
     res.status(500).json({ error: "Fehler beim Anfordern des Passwort-Resets" });
@@ -283,7 +290,9 @@ router.post("/reset-password", validate(resetPasswordWithTokenSchema), async (re
     );
     const user = rows[0];
     if (!user) {
-      logger.warn("AUTH", "Passwort-Reset mit ungültigem oder abgelaufenem Token");
+      logger.warn("AUTH", "Passwort-Reset mit ungültigem oder abgelaufenem Token", {
+        reason: "reset_token_invalid_or_expired",
+      });
       return res
         .status(400)
         .json({ error: "Token ist ungültig oder abgelaufen" });
@@ -304,7 +313,7 @@ router.post("/reset-password", validate(resetPasswordWithTokenSchema), async (re
       [newHash, user.id],
     );
 
-    logger.info("AUTH", `Passwort per Reset-Token neu gesetzt: ${user.username}`);
+    logger.info("AUTH", "Passwort per Reset-Token neu gesetzt", { user: user.username });
     res.json({ message: "Passwort erfolgreich geändert" });
   } catch (err) {
     logger.error("AUTH", "Fehler beim Zurücksetzen des Passworts", {

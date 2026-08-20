@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     const { rows } = await db.query(
       'SELECT * FROM "Kunde" ORDER BY "Name"'
     );
-    logger.info('KUNDEN', `${rows.length} Kunden geladen`);
+    logger.info('KUNDEN', 'Kunden geladen', { anzahl: rows.length });
     res.json(rows);
   } catch (err) {
     logger.error('KUNDEN', 'Fehler beim Laden der Kunden', { message: err.message });
@@ -28,12 +28,12 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
     if (rows.length === 0) {
-      logger.warn('KUNDEN', `Kunde nicht gefunden: ID=${req.params.id}`);
+      logger.warn('KUNDEN', 'Kunde nicht gefunden', { id: req.params.id });
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
     res.json(rows[0]);
   } catch (err) {
-    logger.error('KUNDEN', `Fehler beim Laden des Kunden ID=${req.params.id}`, { message: err.message });
+    logger.error('KUNDEN', 'Fehler beim Laden des Kunden', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Kunden' });
   }
 });
@@ -64,11 +64,10 @@ router.post('/', validate(kundeSchema), async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision || 0, Aktiv || false]
     );
-    logger.info('KUNDEN', `Kunde erstellt: ${rows[0].Name} (ID=${rows[0].ID})`);
+    logger.info('KUNDEN', `Kunde erstellt: ID=${rows[0].ID}`);
     res.status(201).json(rows[0]);
   } catch (err) {
-    // req.body.Name statt Name: die Destrukturierung liegt im try-Block und ist hier nicht sichtbar
-    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { name: req.body?.Name, message: err.message });
+    logger.error('KUNDEN', 'Fehler beim Erstellen des Kunden', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Kunden' });
   }
 });
@@ -87,10 +86,10 @@ router.put('/:id', validate(kundeSchema), async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
-    logger.info('KUNDEN', `Kunde aktualisiert: ID=${req.params.id}`);
+    logger.info('KUNDEN', 'Kunde aktualisiert', { id: req.params.id });
     res.json(rows[0]);
   } catch (err) {
-    logger.error('KUNDEN', `Fehler beim Aktualisieren des Kunden ID=${req.params.id}`, { message: err.message });
+    logger.error('KUNDEN', 'Fehler beim Aktualisieren des Kunden', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Kunden' });
   }
 });
@@ -105,10 +104,10 @@ router.put('/:id/restock', async (req, res) => {
       `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
       builder.getParams()
     );
-    logger.info('KUNDEN', `${rowCount} Artikel zurückgelagert für Kunde ID=${req.params.id}`);
+    logger.info('KUNDEN', 'Artikel zurückgelagert', { id: req.params.id, anzahl: rowCount });
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
   } catch (err) {
-    logger.error('KUNDEN', `Fehler beim Zurücklagern für Kunde ID=${req.params.id}`, { message: err.message });
+    logger.error('KUNDEN', 'Fehler beim Zurücklagern für Kunde', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Zurücklagern der Artikel' });
   }
 });
@@ -130,10 +129,14 @@ router.put('/:id/restock-selective', validate(restockSelectiveSchema), async (re
       `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
       builder.getParams()
     );
-    logger.info('KUNDEN', `${rowCount} Artikel selektiv zurückgelagert für Kunde ID=${req.params.id}`, { anzahl: artikelnummern.length });
+    logger.info('KUNDEN', 'Artikel selektiv zurückgelagert', {
+      id: req.params.id,
+      angefragt: artikelnummern.length,
+      zurueckgelagert: rowCount,
+    });
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
   } catch (err) {
-    logger.error('KUNDEN', `Fehler beim selektiven Zurücklagern für Kunde ID=${req.params.id}`, { message: err.message });
+    logger.error('KUNDEN', 'Fehler beim selektiven Zurücklagern für Kunde', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Zurücklagern der Artikel' });
   }
 });
@@ -148,10 +151,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });
     }
-    logger.info('KUNDEN', `Kunde gelöscht: ID=${req.params.id}`);
+    logger.info('KUNDEN', 'Kunde gelöscht', { id: req.params.id });
     res.json({ message: 'Kunde gelöscht' });
   } catch (err) {
-    logger.error('KUNDEN', `Fehler beim Löschen des Kunden ID=${req.params.id}`, { message: err.message });
+    logger.error('KUNDEN', 'Fehler beim Löschen des Kunden', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen des Kunden' });
   }
 });

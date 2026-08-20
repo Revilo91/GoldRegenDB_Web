@@ -14,7 +14,8 @@ function validate(schema, source = 'body') {
     const result = schema.safeParse(req[source]);
     if (!result.success) {
       const meldung = formatIssue(result.error.issues[0]);
-      logger.warn('VALIDATION', `${req.method} ${req.originalUrl} abgelehnt: ${meldung}`, {
+      logger.warn('VALIDATION', `${req.method} ${req.originalUrl} abgelehnt`, {
+        reason: meldung,
         anzahlFehler: result.error.issues.length,
       });
       return res.status(400).json({

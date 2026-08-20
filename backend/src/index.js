@@ -100,17 +100,22 @@ app.use((req, res, next) => {
   const { method, originalUrl } = req;
 
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    const status = res.statusCode;
-    const user = req.user ? req.user.username : 'anonym';
-    const logLine = `${method} ${originalUrl} → ${status} (${duration}ms) [User: ${user}]`;
+    const meta = {
+      method,
+      path: originalUrl,
+      status_code: res.statusCode,
+      duration_ms: Date.now() - start,
+      user: req.user ? req.user.username : 'anonym',
+      user_ip: req.ip,
+    };
+    const message = `${method} ${originalUrl} → ${meta.status_code} (${meta.duration_ms}ms)`;
 
-    if (status >= 500) {
-      logger.error('HTTP', logLine);
-    } else if (status >= 400) {
-      logger.warn('HTTP', logLine);
+    if (meta.status_code >= 500) {
+      logger.error('HTTP', message, meta);
+    } else if (meta.status_code >= 400) {
+      logger.warn('HTTP', message, meta);
     } else {
-      logger.info('HTTP', logLine);
+      logger.info('HTTP', message, meta);
     }
   });
 

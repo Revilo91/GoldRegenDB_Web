@@ -47,7 +47,10 @@ function extractToken(req) {
 function authenticate(req, res, next) {
   const token = extractToken(req);
   if (!token) {
-    logger.warn('AUTH', `Nicht authentifiziert: ${req.method} ${req.originalUrl} – Kein Token (Cookie oder Bearer)`);
+    logger.warn('AUTH', 'Nicht authentifiziert – kein Token (Cookie oder Bearer)', {
+      method: req.method,
+      path: req.originalUrl,
+    });
     return res.status(401).json({ error: 'Nicht authentifiziert' });
   }
   try {
@@ -76,7 +79,7 @@ function authenticate(req, res, next) {
     next();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logger.warn('AUTH', `Ungültiges Token: ${req.method} ${req.originalUrl}`, { error: message });
+    logger.warn('AUTH', 'Ungültiges Token', { method: req.method, path: req.originalUrl, error: message });
     return res.status(401).json({ error: 'Ungültiges oder abgelaufenes Token' });
   }
 }
@@ -88,7 +91,12 @@ function authenticate(req, res, next) {
  */
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    logger.warn('AUTH', `Admin-Zugriff verweigert: ${req.method} ${req.originalUrl}`, { user: req.user?.username, role: req.user?.role });
+    logger.warn('AUTH', 'Admin-Zugriff verweigert', {
+      method: req.method,
+      path: req.originalUrl,
+      user: req.user?.username,
+      role: req.user?.role,
+    });
     return res.status(403).json({ error: 'Zugriff verweigert – Admin erforderlich' });
   }
   next();
@@ -101,7 +109,12 @@ function requireAdmin(req, res, next) {
  */
 function requireBearbeiter(req, res, next) {
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'bearbeiter')) {
-    logger.warn('AUTH', `Bearbeiter-Zugriff verweigert: ${req.method} ${req.originalUrl}`, { user: req.user?.username, role: req.user?.role });
+    logger.warn('AUTH', 'Bearbeiter-Zugriff verweigert', {
+      method: req.method,
+      path: req.originalUrl,
+      user: req.user?.username,
+      role: req.user?.role,
+    });
     return res.status(403).json({ error: 'Zugriff verweigert – Bearbeiter-Berechtigung erforderlich' });
   }
   next();
