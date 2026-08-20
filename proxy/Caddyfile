@@ -1,0 +1,22 @@
+# Reverse-Proxy-Konfiguration für docker-compose.proxy.yml (Issue #138).
+#
+# Standardfall: {$DOMAIN} zeigt per DNS auf diesen Host, Port 80/443 sind frei.
+# Caddy holt sich dann automatisch ein Let's-Encrypt-Zertifikat und erneuert es
+# selbstständig. HTTP→HTTPS-Redirect, HSTS und HTTP/2 sind Caddy-Standardverhalten
+# bei TLS und müssen nicht separat konfiguriert werden.
+{$DOMAIN:localhost} {
+	header Strict-Transport-Security "max-age=15552000; includeSubDomains"
+
+	reverse_proxy app:3001
+}
+
+# Alternative: eigene Zertifikate verwenden (z. B. aus dem Synology Certificate
+# Manager exportiert) statt automatischem Let's Encrypt. Dazu die Zeile oben
+# durch die folgenden ersetzen und die Zertifikate wie in docker-compose.proxy.yml
+# beschrieben nach ./proxy/certs mounten:
+#
+# {$DOMAIN:localhost} {
+# 	tls /certs/fullchain.pem /certs/privkey.pem
+# 	header Strict-Transport-Security "max-age=15552000; includeSubDomains"
+# 	reverse_proxy app:3001
+# }

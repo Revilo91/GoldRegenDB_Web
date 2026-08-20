@@ -1,13 +1,14 @@
 const crypto = require('crypto');
 const logger = require('./logger');
+const { getSecret } = require('../config/secrets');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
-const KEY_HEX = process.env.BESTELLUNG_ENCRYPTION_KEY;
+const KEY_HEX = getSecret('BESTELLUNG_ENCRYPTION_KEY');
 if (!KEY_HEX) {
-  logger.error('ENCRYPTION', 'FATAL: BESTELLUNG_ENCRYPTION_KEY Umgebungsvariable ist nicht gesetzt');
+  logger.error('ENCRYPTION', 'FATAL: BESTELLUNG_ENCRYPTION_KEY ist nicht gesetzt (weder als Env-Var noch über BESTELLUNG_ENCRYPTION_KEY_FILE)');
   process.exit(1);
 }
 

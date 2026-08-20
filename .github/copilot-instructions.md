@@ -93,6 +93,8 @@ erDiagram
         varchar10 action_type
         varchar255 changed_by
         timestamp change_timestamp
+        char64 previous_hash
+        char64 hash
     }
 
     app_users {
@@ -180,6 +182,7 @@ erDiagram
 - **Verkauft**: SMALLINT (0 = nicht verkauft, 1 = verkauft)
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
+- **audit_log Tamper-Schutz** (Issue #139): `trg_audit_log_immutable` blockiert jedes UPDATE/DELETE auf `audit_log`; `trg_audit_log_hash_chain` verkettet jede Zeile per SHA-256 mit dem Hash der Vorgängerzeile (`previous_hash`/`hash`). Kette prüfen: `SELECT * FROM verify_audit_chain();` oder `GET /api/audit-log/verify` (admin). Details siehe `db/README.md`
 - **lagerinventur**: speichert Inventur-Entwürfe pro Benutzer; `data` ist JSONB (`{ [artikelnummer]: anzahl }`); `status` ist `entwurf` oder `abgeschlossen`; FK auf `app_users.id`; Index auf `(user_id, status)`; wird via `db.js`-Startup-Migration angelegt
 ## WHERE Clause Builder (PFLICHT!)
 
@@ -274,7 +277,7 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - Logout: `POST /api/auth/logout` → löscht das Cookie
 - Token-Validierung: `GET /api/auth/me`
 - Passwort ändern: `PUT /api/auth/change-password`
-- JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
+- JWT_SECRET muss gesetzt sein (Pflicht) – via Env-Var oder `JWT_SECRET_FILE` (Docker-Secret), siehe `backend/src/config/secrets.js`. Graceful Rollover über `JWT_SECRET_OLD`: `authenticate()` akzeptiert beim Verifizieren zusätzlich das alte Secret, signiert wird immer mit dem neuen (siehe README „Secrets rotieren“)
 - Rate Limiting: nur noch für unauthentifizierte Endpunkte – Login/Passwort-Reset
   max. 20 **fehlgeschlagene** Versuche / 15 Min pro IP, öffentliches Bestellformular
   max. 10 / 15 Min. Die angemeldete Anwendung läuft ohne Limit: eine Tabellenseite
@@ -352,7 +355,7 @@ ALLOWED_ORIGINS=http://localhost:5173,https://schmuck.example.com
 ## Security-Header (`backend/src/middleware/securityHeaders.js`)
 
 `helmet` wird als erste Middleware in `index.js` registriert und setzt u. a.
-`X-Content-Type-Options`, `X-Frame-Options` und `Strict-Transport-Security`.
+`X-Content-Type-Options` und `X-Frame-Options`.
 
 Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
 
@@ -362,13 +365,33 @@ Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
 | `font-src`    | `data:` + `fonts.gstatic.com`                                                 |
 | `img-src`     | `data:` + `blob:` – Fotos werden als Data-URL geladen (`api.js`)             |
 | `frame-ancestors` | `'none'` – Clickjacking-Schutz                                            |
-| `upgrade-insecure-requests` | deaktiviert – Deployment läuft ohne TLS (Issue #138)            |
+| `upgrade-insecure-requests` | nur mit `FORCE_HTTPS=true` aktiv (Issue #138, siehe unten)      |
 
 `crossOriginResourcePolicy` steht auf `cross-origin`, damit der Vite-Dev-Server
 (Port 5173) Fotos und Excel-Downloads vom Backend (Port 3001) laden kann.
 
 Die CSP greift nur für Dokumente, die Express selbst ausliefert (Produktions-Image).
 Im nativen Dev-Modus liefert Vite das HTML aus – dort gilt sie nicht.
+
+### TLS / HTTPS (Issue #138)
+
+Express terminiert kein TLS selbst – das übernimmt ein vorgeschalteter Reverse
+Proxy (Synology Reverse Proxy, `docker-compose.proxy.yml` mit Caddy, o. Ä.). Drei
+Env-Variablen steuern, wie das Backend darauf reagiert (siehe `.env.example`):
+
+| Variable        | Wirkung                                                                  |
+| --------------- | ------------------------------------------------------------------------- |
+| `TRUST_PROXY`   | `app.set('trust proxy', …)` – Anzahl vertrauenswürdiger Hops davor. Nötig, damit Express `X-Forwarded-*`-Header nur vom echten Proxy akzeptiert, nicht von jedem Client |
+| `FORCE_HTTPS`   | Aktiviert `backend/src/middleware/httpsRedirect.js` (301 auf https, nur wenn der Proxy `X-Forwarded-Proto: http` meldet – fehlt der Header, z. B. beim Docker-Healthcheck direkt gegen den Container, wird nicht umgeleitet) sowie HSTS und `upgrade-insecure-requests` in `securityHeaders.js` |
+| `HSTS_MAX_AGE`  | Gültigkeitsdauer des HSTS-Headers in Sekunden (Standard 15552000 = 180 Tage), nur mit `FORCE_HTTPS=true` relevant |
+
+Alle drei sind standardmäßig aus/leer – native Entwicklung (`npm run dev`,
+`docker-compose.dev.yml`) hat keinen TLS-terminierenden Proxy davor und darf davon
+nicht betroffen sein. In `index.js` warnt eine Startmeldung (`logger.warn`), wenn
+`NODE_ENV=production` läuft, aber weder `FORCE_HTTPS` noch `COOKIE_SECURE` gesetzt
+ist – kein harter Fehler, damit bestehende Deployments nicht abstürzen.
+
+Deployment-Optionen: siehe README.md, Abschnitt "HTTPS auf Synology".
 
 ---
 
@@ -382,6 +405,8 @@ GoldRegenDB_Web/
 ├── docker-compose.yml               # Produktion (ein `app`-Service)
 ├── docker-compose.dev.yml           # Entwicklung, voll containerisiert (Alternative zu nativem `npm run dev`)
 ├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── docker-compose.proxy.yml         # Overlay: Caddy-Reverse-Proxy mit TLS (Issue #138)
+├── proxy/Caddyfile                  # Caddy-Konfiguration für docker-compose.proxy.yml
 ├── .env.example                     # Vorlage für Umgebungsvariablen
 ├── .github/
 │   ├── copilot-instructions.md     # Diese Datei
@@ -589,6 +614,7 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | POST    | `/api/backup/import`  | Backup-Daten importieren (2 Formate)      |
 | GET     | `/api/audit-log`  | Änderungsprotokoll anzeigen            |
 | GET     | `/api/audit-log/artikel/:artikelnummer` | Audit-Log für ein bestimmtes Schmuckstück |
+| GET     | `/api/audit-log/verify` | Hash-Ketten-Integrität prüfen (Issue #139) |
 | GET/POST/PUT/DELETE | `/api/users` | Benutzerverwaltung              |
 | GET     | `/api/debug/tables` | Alle Datenbanktabellen auflisten     |
 | GET     | `/api/debug/tables/:tableName` | Inhalt einer Tabelle anzeigen |
@@ -749,7 +775,7 @@ Löschen auseinander und `clearCookie` greift nicht mehr.
 | ---------- | ---- | ----- |
 | `httpOnly` | true | JavaScript kommt nicht an das Token – ein XSS kann es nicht auslesen |
 | `sameSite` | `lax` | blockt site-fremde POSTs (CSRF-Grundschutz), erlaubt normale Navigation |
-| `secure`   | `COOKIE_SECURE === 'true'` | **muss** false bleiben, solange ohne TLS deployt wird (#138) – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
+| `secure`   | `COOKIE_SECURE === 'true'` | nur auf true stellen, wenn ein Reverse Proxy TLS terminiert (`FORCE_HTTPS`, siehe Abschnitt "TLS / HTTPS") – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
 | `maxAge`   | 8 h | passend zur JWT-Laufzeit in `routes/auth.js` |
 
 Das Frontend sendet bei jedem Request `credentials: 'include'` (`api.js`) und
@@ -833,6 +859,10 @@ Konten mindestens einmal angemeldet haben.
 
 **`trg_audit_schmuckstueck`** – schreibt Änderungen an Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID in `audit_log`.
 
+**`trg_audit_log_hash_chain`** (BEFORE INSERT, FOR EACH ROW) – verkettet jede neue `audit_log`-Zeile per SHA-256 mit dem Hash der Vorgängerzeile (Issue #139).
+
+**`trg_audit_log_immutable`** (BEFORE UPDATE OR DELETE, FOR EACH STATEMENT) – blockiert jedes UPDATE/DELETE auf `audit_log` mit einer Exception; siehe `db/README.md`.
+
 ---
 
 ## Entwicklungs-Workflow
@@ -892,6 +922,13 @@ DATABASE_URL=postgresql://goldregen:changeme@db:5432/goldregendb
 JWT_SECRET=change-this-to-a-long-random-secret
 VITE_API_URL=http://localhost:3001/api
 ```
+
+Secrets (`JWT_SECRET`, `JWT_SECRET_OLD`, `DB_PASSWORD`, `DATABASE_URL`,
+`BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext-Env-Var auch über
+`<NAME>_FILE` (Docker-Secret-Datei, z.B. `/run/secrets/...`) gesetzt werden –
+siehe `backend/src/config/secrets.js` (`getSecret()`) und README „Secrets
+rotieren“. Mit `NODE_ENV=production` bricht der Start ab, wenn noch ein
+Platzhalter aus `.env.example` oder ein zu kurzes Secret gesetzt ist.
 
 ---
 

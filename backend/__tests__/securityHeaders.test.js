@@ -10,22 +10,32 @@
 
 const request = require('supertest');
 const express = require('express');
-const securityHeaders = require('../src/middleware/securityHeaders');
 
-function buildApp() {
+// Middleware liest FORCE_HTTPS beim Laden – Modul-Cache pro Konfiguration leeren
+function loadSecurityHeaders(forceHttps) {
+  jest.resetModules();
+  if (forceHttps === undefined) {
+    delete process.env.FORCE_HTTPS;
+  } else {
+    process.env.FORCE_HTTPS = forceHttps;
+  }
+  return require('../src/middleware/securityHeaders');
+}
+
+function buildApp(securityHeaders) {
   const app = express();
   app.use(securityHeaders);
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
   return app;
 }
 
-describe('securityHeaders', () => {
+describe('securityHeaders ohne FORCE_HTTPS (Standard, kein TLS)', () => {
   let app;
   let csp;
   let headers;
 
   beforeAll(async () => {
-    app = buildApp();
+    app = buildApp(loadSecurityHeaders(undefined));
     const res = await request(app).get('/api/health');
     headers = res.headers;
     csp = res.headers['content-security-policy'];
@@ -45,8 +55,8 @@ describe('securityHeaders', () => {
     expect(headers['x-content-type-options']).toBe('nosniff');
   });
 
-  it('setzt Strict-Transport-Security', () => {
-    expect(headers['strict-transport-security']).toContain('max-age=');
+  it('setzt kein Strict-Transport-Security (kein TLS terminiert)', () => {
+    expect(headers['strict-transport-security']).toBeUndefined();
   });
 
   it('erlaubt Fotos als data:- und blob:-URL', () => {
@@ -59,7 +69,7 @@ describe('securityHeaders', () => {
     expect(csp).toContain('https://fonts.gstatic.com');
   });
 
-  it('erzwingt kein Upgrade auf https (Deployment läuft ohne TLS)', () => {
+  it('erzwingt kein Upgrade auf https (kein Reverse Proxy mit TLS davor)', () => {
     expect(csp).not.toContain('upgrade-insecure-requests');
   });
 
@@ -69,5 +79,45 @@ describe('securityHeaders', () => {
 
   it('verbietet Objekt-/Plugin-Einbettung', () => {
     expect(csp).toContain("object-src 'none'");
+  });
+});
+
+describe('securityHeaders mit FORCE_HTTPS=true (TLS terminiert ein Reverse Proxy)', () => {
+  let app;
+  let csp;
+  let headers;
+
+  beforeAll(async () => {
+    app = buildApp(loadSecurityHeaders('true'));
+    const res = await request(app).get('/api/health');
+    headers = res.headers;
+    csp = res.headers['content-security-policy'];
+  });
+
+  afterAll(() => {
+    delete process.env.FORCE_HTTPS;
+  });
+
+  it('setzt Strict-Transport-Security', () => {
+    expect(headers['strict-transport-security']).toContain('max-age=15552000');
+    expect(headers['strict-transport-security']).toContain('includeSubDomains');
+  });
+
+  it('erzwingt ein Upgrade auf https', () => {
+    expect(csp).toContain('upgrade-insecure-requests');
+  });
+});
+
+describe('securityHeaders mit HSTS_MAX_AGE', () => {
+  afterAll(() => {
+    delete process.env.FORCE_HTTPS;
+    delete process.env.HSTS_MAX_AGE;
+  });
+
+  it('übernimmt eine konfigurierte HSTS-Gültigkeitsdauer', async () => {
+    process.env.HSTS_MAX_AGE = '3600';
+    const app = buildApp(loadSecurityHeaders('true'));
+    const res = await request(app).get('/api/health');
+    expect(res.headers['strict-transport-security']).toContain('max-age=3600');
   });
 });

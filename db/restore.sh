@@ -15,6 +15,14 @@
 # the values in .env.example):
 #   POSTGRES_DB       Database name   (default: goldregendb)
 #   POSTGRES_USER     DB user         (default: goldregen)
+#
+# Hinweis zum audit_log Tamper-Schutz (Issue #139): audit_log blockiert
+# UPDATE/DELETE per Trigger. Das kollidiert NICHT mit diesem Skript, weil
+# pg_dump-Dumps Daten (COPY) im "pre-data"/"data"-Teil laden und Trigger erst
+# danach im "post-data"-Teil neu anlegen – die Zeilen sind also längst
+# eingefügt (nur INSERT, nie UPDATE/DELETE), bevor der Trigger überhaupt
+# existiert. Das DROP/CREATE DATABASE davor räumt zusätzlich jeden Alt-Trigger
+# weg. Verifiziert gegen einen echten PostgreSQL-16-Dump/Restore-Zyklus.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 

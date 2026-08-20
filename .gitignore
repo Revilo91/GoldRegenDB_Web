@@ -3,6 +3,8 @@ dist/
 .env
 pgdata*/
 backend/src/assets/uploads/
+# Docker-Secrets (Rotations-Werkzeug, siehe scripts/rotate-secret.sh) – nie committen
+secrets/
 
 # Playwright
 /test-results/
@@ -14,3 +16,5 @@ backend/src/assets/uploads/
 /e2e/test-results/
 .serena
 graphify-out
+# Temporäre Worktrees der Claude-Code-Agents
+.claude/worktrees/

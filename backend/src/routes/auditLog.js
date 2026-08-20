@@ -46,6 +46,17 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET Hash-Ketten-Integrität prüfen (Tamper-Schutz, Issue #139)
+router.get('/verify', async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT id, problem FROM verify_audit_chain()');
+    res.json({ valid: rows.length === 0, brokenEntries: rows });
+  } catch (err) {
+    logger.error('AUDIT-LOG', 'Fehler beim Verifizieren der Hash-Kette', { message: err.message });
+    res.status(500).json({ error: 'Fehler beim Verifizieren der Hash-Kette' });
+  }
+});
+
 // GET audit log for a specific piece
 router.get('/artikel/:artikelnummer', async (req, res) => {
   try {
