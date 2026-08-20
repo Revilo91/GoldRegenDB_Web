@@ -31,7 +31,7 @@ const connectionString = buildConnectionString();
 const maskedUrl = connectionString
   ? connectionString.replace(/:([^@:]+)@/, ':****@')
   : '(nicht gesetzt)';
-logger.info('DB', `Verbindung wird hergestellt zu: ${maskedUrl}`);
+logger.info('DB', 'Verbindung wird hergestellt', { database_url: maskedUrl });
 
 // Jeder Request belegt einen Client für seine gesamte Dauer (siehe
 // requestContextMiddleware). Mit dem pg-Standard von 10 Clients stauen sich
@@ -887,7 +887,7 @@ async function ensureTriggers() {
 
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
-    logger.info('DB', `Verbindung erfolgreich hergestellt. Server-Zeit: ${res.rows[0].server_time}`);
+    logger.info('DB', 'Verbindung erfolgreich hergestellt', { server_time: res.rows[0].server_time });
     return ensureTriggerFunctions()
       .then(() => ensureKundeTable())
       .then(() => ensureLieferscheinTable())

@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
     query += ` ORDER BY r."Datum" DESC`;
 
     const { rows } = await db.query(query, params);
-    logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen${status ? ` (status=${status})` : ''}`);
+    logger.info('RECHNUNGEN', 'Rechnungen geladen', { anzahl: rows.length, status: status || undefined });
     res.json(rows);
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnungen', { message: err.message });
@@ -77,7 +77,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
   } catch (err) {
-    logger.error('RECHNUNGEN', `Fehler beim Laden der Rechnung ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
   }
 });
@@ -136,7 +136,7 @@ router.get('/:id/excel', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=Rechnung_${rows[0].Nummer}.xlsx`);
     res.send(buffer);
   } catch (err) {
-    logger.error('RECHNUNGEN', `Excel-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Excel-Generierung fehlgeschlagen', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
   }
 });
@@ -185,7 +185,12 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
 
     await client.query('COMMIT');
 
-    logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('RECHNUNGEN', 'Rechnung erstellt', {
+      id: rechnungId,
+      nummer: rows[0].Nummer,
+      status,
+      artikelAnzahl: Artikelnummern?.length || 0,
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) {
@@ -259,10 +264,10 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
       }
     }
 
-    logger.info('RECHNUNGEN', `Rechnung aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
+    logger.info('RECHNUNGEN', 'Rechnung aktualisiert', { id: req.params.id, status: currentStatus });
     res.json(rows[0]);
   } catch (err) {
-    logger.error('RECHNUNGEN', `Fehler beim Aktualisieren der Rechnung ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Fehler beim Aktualisieren der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren der Rechnung' });
   }
 });
@@ -282,10 +287,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
-    logger.info('RECHNUNGEN', `Rechnung gelöscht: ID=${req.params.id}`);
+    logger.info('RECHNUNGEN', 'Rechnung gelöscht', { id: req.params.id });
     res.json({ message: 'Rechnung gelöscht' });
   } catch (err) {
-    logger.error('RECHNUNGEN', `Fehler beim Löschen der Rechnung ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Fehler beim Löschen der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen der Rechnung' });
   }
 });

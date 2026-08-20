@@ -67,7 +67,9 @@ function csrfProtection(req, res, next) {
   const headerToken = req.headers[CSRF_HEADER_NAME];
 
   if (!cookieToken || !headerToken || !tokenGleich(cookieToken, headerToken)) {
-    logger.warn('CSRF', `Request ohne gültiges CSRF-Token abgelehnt: ${req.method} ${req.originalUrl}`, {
+    logger.warn('CSRF', 'Request ohne gültiges CSRF-Token abgelehnt', {
+      method: req.method,
+      path: req.originalUrl,
       hatCookie: Boolean(cookieToken),
       hatHeader: Boolean(headerToken),
     });

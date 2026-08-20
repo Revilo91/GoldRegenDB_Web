@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
        GROUP BY k."ID", k."Name", k."Ort", k."Provision", k."Aktiv"
        ORDER BY k."Name"`
     );
-    logger.info('INVENTUR', `Inventur-Übersicht geladen: ${rows.length} Kunden`);
+    logger.info('INVENTUR', 'Inventur-Übersicht geladen', { anzahl: rows.length });
     res.json(rows);
   } catch (err) {
     logger.error('INVENTUR', 'Fehler beim Laden der Inventur', { message: err.message });
@@ -78,7 +78,7 @@ router.get('/:kundeId', async (req, res) => {
 
     res.json({ kunde: kundeRes.rows[0], items, stats });
   } catch (err) {
-    logger.error('INVENTUR', `Fehler beim Laden der Inventur für Kunde ID=${req.params.kundeId}`, { message: err.message });
+    logger.error('INVENTUR', 'Fehler beim Laden der Inventur für Kunde', { id: req.params.kundeId, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Inventur' });
   }
 });
@@ -119,10 +119,10 @@ router.get('/:kundeId/excel', async (req, res) => {
     const safeName = String(kunde.Name || kundeId).replace(/[\\/:*?"<>|]+/g, '_');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="Inventur_${safeName}.xlsx"`);
-    logger.info('INVENTUR', `Excel-Export erstellt für Kunde: ${kunde.Name} (${items.length} Artikel)`);
+    logger.info('INVENTUR', 'Excel-Export erstellt', { id: kundeId, artikelAnzahl: items.length });
     res.send(buffer);
   } catch (err) {
-    logger.error('INVENTUR', `Fehler beim Excel-Export für Kunde ID=${req.params.kundeId}`, { message: err.message });
+    logger.error('INVENTUR', 'Fehler beim Excel-Export für Kunde', { id: req.params.kundeId, message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Excel-Exports' });
   }
 });

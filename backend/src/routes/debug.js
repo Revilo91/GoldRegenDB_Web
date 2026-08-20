@@ -75,7 +75,7 @@ router.get('/tables/:tableName', async (req, res) => {
         primaryKeys: primaryKeys
     });
   } catch (err) {
-    logger.error('DEBUG', `Fehler beim Laden der Daten für Tabelle ${tableName}`, { message: err.message });
+    logger.error('DEBUG', 'Fehler beim Laden der Daten für Tabelle', { tabelle: tableName, message: err.message });
     res.status(500).json({ error: `Failed to fetch data for ${tableName}` });
   }
 });
@@ -104,7 +104,7 @@ router.put('/tables/:tableName', validate(debugUpdateSchema), async (req, res) =
 
     res.json(result.rows[0]);
   } catch (err) {
-    logger.error('DEBUG', `Fehler beim Aktualisieren der Daten für Tabelle ${tableName}`, { message: err.message, field });
+    logger.error('DEBUG', 'Fehler beim Aktualisieren der Daten für Tabelle', { tabelle: tableName, field, message: err.message });
     res.status(500).json({ error: `Failed to update data for ${tableName}` });
   }
 });

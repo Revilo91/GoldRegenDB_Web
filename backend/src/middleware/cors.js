@@ -18,7 +18,10 @@ const configured = (process.env.ALLOWED_ORIGINS || '')
 
 const allowedOrigins = configured.length > 0 ? configured : DEFAULT_ORIGINS;
 
-logger.info('CORS', `Erlaubte Origins: ${allowedOrigins.join(', ')}${configured.length ? '' : ' (Standard – ALLOWED_ORIGINS nicht gesetzt)'}`);
+logger.info('CORS', 'Erlaubte Origins konfiguriert', {
+  origins: allowedOrigins,
+  quelle: configured.length ? 'ALLOWED_ORIGINS' : 'Standard-Dev-Origins',
+});
 
 const corsMiddleware = cors({
   origin(origin, callback) {
@@ -26,7 +29,7 @@ const corsMiddleware = cors({
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    logger.warn('CORS', `Request von nicht erlaubter Origin abgelehnt: ${origin}`);
+    logger.warn('CORS', 'Request von nicht erlaubter Origin abgelehnt', { origin, reason: 'origin_not_allowed' });
     return callback(null, false);
   },
   credentials: true,

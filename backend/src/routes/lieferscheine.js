@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
     query += ` ORDER BY l."Datum" DESC`;
 
     const { rows } = await db.query(query, params);
-    logger.info('LIEFERSCHEINE', `${rows.length} Lieferscheine geladen${status ? ` (status=${status})` : ''}`);
+    logger.info('LIEFERSCHEINE', 'Lieferscheine geladen', { anzahl: rows.length, status: status || undefined });
     res.json(rows);
   } catch (err) {
     logger.error('LIEFERSCHEINE', 'Fehler beim Laden der Lieferscheine', { message: err.message });
@@ -78,7 +78,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Fehler beim Laden des Lieferscheins ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Fehler beim Laden des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Lieferscheins' });
   }
 });
@@ -112,7 +112,7 @@ router.get('/:id/excel', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=Lieferschein_${rows[0].Nummer}.xlsx`);
     res.send(buffer);
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Excel-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Excel-Generierung fehlgeschlagen', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
   }
 });
@@ -158,7 +158,12 @@ router.post('/', validate(lieferscheinSchema), async (req, res) => {
 
     await client.query('COMMIT');
 
-    logger.info('LIEFERSCHEINE', `Lieferschein erstellt: ${rows[0].Nummer} (ID=${lieferscheinId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('LIEFERSCHEINE', 'Lieferschein erstellt', {
+      id: lieferscheinId,
+      nummer: rows[0].Nummer,
+      status,
+      artikelAnzahl: Artikelnummern?.length || 0,
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) {
@@ -224,10 +229,10 @@ router.put('/:id', validate(lieferscheinSchema), async (req, res) => {
       }
     }
 
-    logger.info('LIEFERSCHEINE', `Lieferschein aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
+    logger.info('LIEFERSCHEINE', 'Lieferschein aktualisiert', { id: req.params.id, status: currentStatus });
     res.json(rows[0]);
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Fehler beim Aktualisieren des Lieferscheins ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Fehler beim Aktualisieren des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Lieferscheins' });
   }
 });
@@ -247,10 +252,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
     }
-    logger.info('LIEFERSCHEINE', `Lieferschein gelöscht: ID=${req.params.id}`);
+    logger.info('LIEFERSCHEINE', 'Lieferschein gelöscht', { id: req.params.id });
     res.json({ message: 'Lieferschein gelöscht' });
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Fehler beim Löschen des Lieferscheins ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Fehler beim Löschen des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen des Lieferscheins' });
   }
 });

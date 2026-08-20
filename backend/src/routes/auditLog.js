@@ -66,7 +66,7 @@ router.get('/artikel/:artikelnummer', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    logger.error('AUDIT-LOG', 'Fehler beim Laden des Audit-Logs', { message: err.message });
+    logger.error('AUDIT-LOG', 'Fehler beim Laden des Audit-Logs', { artikelnummer: req.params.artikelnummer, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Audit-Logs' });
   }
 });
