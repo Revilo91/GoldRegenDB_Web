@@ -1,4 +1,4 @@
-const { WhereClauseBuilder, where } = require('../src/utils/whereClauseBuilder');
+const { where } = require('../src/utils/whereClauseBuilder');
 
 describe('WhereClauseBuilder', () => {
   describe('Standard-Filter', () => {

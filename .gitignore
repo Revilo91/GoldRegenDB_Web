@@ -15,7 +15,6 @@ secrets/
 /e2e/.auth/
 /e2e/test-results/
 .serena
-.github
 graphify-out
 # Temporäre Worktrees der Claude-Code-Agents
 .claude/worktrees/

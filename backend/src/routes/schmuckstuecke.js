@@ -145,7 +145,50 @@ function parseBulkItemsFromPayload(payload) {
 
 // ========== SPECIAL ROUTES (MUST BE BEFORE /:artikelnummer) ==========
 
-// POST upload photo
+/**
+ * @swagger
+ * /schmuckstuecke/upload:
+ *   post:
+ *     summary: Foto hochladen
+ *     description: 'Max. 5 MB, nur jpg/png/gif (multer). Der Dateiname wird aus der Basis-Artikelnummer
+ *       (Query-Parameter artikelnummer, ohne _Suffix) gebildet. Erfordert eine gültige Anmeldung
+ *       (jede Rolle: user, bearbeiter oder admin).'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: artikelnummer
+ *         in: query
+ *         description: Basis-Artikelnummer, bestimmt den gespeicherten Dateinamen
+ *         schema: { type: string, example: MHO123 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [foto]
+ *             properties:
+ *               foto: { type: string, format: binary }
+ *     responses:
+ *       200:
+ *         description: Foto gespeichert
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 fileName: { type: string }
+ *                 path: { type: string }
+ *                 originalName: { type: string }
+ *       400:
+ *         description: Keine Datei hochgeladen, oder falscher Dateityp
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.post("/upload", upload.single("foto"), async (req, res) => {
   try {
     if (!req.file) {
@@ -173,7 +216,29 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
   }
 });
 
-// GET photo by filename
+/**
+ * @swagger
+ * /schmuckstuecke/foto/{fileName}:
+ *   get:
+ *     summary: Foto abrufen
+ *     description: 'Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: fileName, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Bilddatei
+ *         content:
+ *           image/*:
+ *             schema: { type: string, format: binary }
+ *       400:
+ *         description: Ungültiger Dateiname
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404:
+ *         description: Foto nicht gefunden
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.get("/foto/:fileName", (req, res) => {
   try {
     const lookup = resolvePhotoFile(req.params.fileName);
@@ -195,7 +260,8 @@ router.get("/foto/:fileName", (req, res) => {
     res.sendFile(lookup.filePath, { lastModified: true }, (err) => {
       if (!err) return;
 
-      logger.error("SCHMUCK", `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, {
+      logger.error("SCHMUCK", "Fehler beim Abrufen des Fotos", {
+        fileName: req.params.fileName,
         message: err.message,
         code: err.code,
         resolvedFileName: lookup.resolvedFileName,
@@ -215,8 +281,8 @@ router.get("/foto/:fileName", (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Abrufen des Fotos: ${req.params.fileName}`,
-      { message: err.message, stack: err.stack },
+      "Fehler beim Abrufen des Fotos",
+      { fileName: req.params.fileName, message: err.message, stack: err.stack },
     );
     res.status(500).json({
       error: "Fehler beim Abrufen des Fotos",
@@ -225,7 +291,28 @@ router.get("/foto/:fileName", (req, res) => {
   }
 });
 
-// DELETE photo endpoint
+/**
+ * @swagger
+ * /schmuckstuecke/foto/{fileName}:
+ *   delete:
+ *     summary: Foto löschen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: fileName, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Foto gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404:
+ *         description: Foto nicht gefunden
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
   try {
     const fileName = req.params.fileName;
@@ -246,8 +333,8 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Löschen des Fotos: ${req.params.fileName}`,
-      { message: err.message },
+      "Fehler beim Löschen des Fotos",
+      { fileName: req.params.fileName, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Fotos" });
   }
@@ -255,7 +342,35 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
 
 // ========== FILTER-OPTIONS ROUTES ==========
 
-// GET next artikelnummer preview by prefix (e.g. MBO -> MBO127)
+/**
+ * @swagger
+ * /schmuckstuecke/next-artikelnummer:
+ *   get:
+ *     summary: Nächste Artikelnummer für ein Präfix ermitteln
+ *     description: 'Präfix = Hersteller + Grundmaterial + Produktart (z. B. MHO -> MHO127).
+ *       Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - name: prefix
+ *         in: query
+ *         required: true
+ *         schema: { type: string, pattern: '^[A-Z]{3}$', example: MHO }
+ *     responses:
+ *       200:
+ *         description: Nächste Artikelnummer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 prefix: { type: string }
+ *                 nextNum: { type: integer }
+ *                 artikelnummer: { type: string, example: MHO127 }
+ *       400:
+ *         description: Ungültiger oder unbekannter Präfix
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/next-artikelnummer", async (req, res) => {
   try {
     const rawPrefix = String(req.query.prefix || "").toUpperCase().trim();
@@ -302,7 +417,64 @@ router.get("/next-artikelnummer", async (req, res) => {
   }
 });
 
-// POST bulk-create missing pieces by explicit article numbers
+/**
+ * @swagger
+ * /schmuckstuecke/bulk:
+ *   post:
+ *     summary: Mehrere Schmuckstücke per expliziten Artikelnummern anlegen
+ *     description: 'Zwei Eingabeformen: entweder eine items-Liste (je Eintrag eine vollständige
+ *       Artikelnummer inkl. Suffix, z. B. MHO123_1) oder template + artikelnummern (Vorlage wird auf
+ *       jede Artikelnummer angewendet). Maximal 200 Einträge, alle Artikelnummern müssen neu sein.
+ *       Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 maxItems: 200
+ *                 items:
+ *                   type: object
+ *                   required: [Artikelnummer]
+ *                   properties: { Artikelnummer: { type: string, example: MHO123_1 } }
+ *               template: { type: object, description: 'Freitext-/Zahlenfelder, auf alle artikelnummern angewendet' }
+ *               artikelnummern:
+ *                 description: Liste oder durch Zeilenumbruch/Komma/Semikolon getrennter Text
+ *                 oneOf: [{ type: array, items: { type: string }, maxItems: 200 }, { type: string, maxLength: 5000 }]
+ *     responses:
+ *       201:
+ *         description: Schmuckstücke erstellt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 createdCount: { type: integer }
+ *                 createdArtikelnummern: { type: array, items: { type: string } }
+ *                 items: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       400:
+ *         description: Validierungsfehler, ungültiges/dupliziertes Format
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       409:
+ *         description: Mindestens eine Artikelnummer existiert bereits
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 existingArtikelnummern: { type: array, items: { type: string } }
+ */
 router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async (req, res) => {
   let client;
   try {
@@ -468,7 +640,54 @@ router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async
   }
 });
 
-// GET with pagination, search and filters
+/**
+ * @swagger
+ * /schmuckstuecke:
+ *   get:
+ *     summary: Schmuckstücke abrufen (paginiert, durchsuchbar, filterbar)
+ *     description: 'Filter kombinieren sich per AND, umgesetzt über den whereClauseBuilder (siehe
+ *       CLAUDE.md). Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: page, in: query, schema: { type: integer, default: 1 } }
+ *       - name: limit
+ *         in: query
+ *         description: '-1 lädt alle Treffer ohne Limit'
+ *         schema: { type: integer, default: 50 }
+ *       - name: search
+ *         in: query
+ *         description: Freitextsuche über alle Felder, oder ein Grundmaterial-Code/-Name (z. B. "Perle")
+ *         schema: { type: string }
+ *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
+ *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
+ *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
+ *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID', schema: { type: integer } }
+ *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
+ *     responses:
+ *       200:
+ *         description: Seite mit Schmuckstücken
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     allOf:
+ *                       - $ref: '#/components/schemas/Schmuckstueck'
+ *                       - type: object
+ *                         properties:
+ *                           Grundmaterial: { type: string, description: 'Klartext-Name, aus Artikelnummer[1]' }
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page: { type: integer }
+ *                     limit: { type: integer }
+ *                     total: { type: integer }
+ *                     totalPages: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -638,6 +857,24 @@ const FILTER_OPTION_FIELDS = [
   "ausschussgruende",
 ];
 
+/**
+ * @swagger
+ * /schmuckstuecke/filter-options:
+ *   get:
+ *     summary: Verfügbare Filter-Optionen (Art, Farbe, Material usw.)
+ *     description: 'Ein aggregierter Scan statt 27 einzelner SELECT DISTINCT. Erfordert eine gültige
+ *       Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     responses:
+ *       200:
+ *         description: Distinct-Werte je Feld, sortiert (Zahlen numerisch, Text nach deutscher Kollation)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               additionalProperties: { type: array, items: {} }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/filter-options", async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -688,14 +925,35 @@ router.get("/filter-options", async (req, res) => {
   }
 });
 
-// GET unique base artikelnummern (without _suffix)
+/**
+ * @swagger
+ * /schmuckstuecke/unique-artikelnummern:
+ *   get:
+ *     summary: Eindeutige Basis-Artikelnummern (ohne Suffix)
+ *     description: 'Für die Lager-Inventur-Zählung. Unterstützt dieselben Filter wie GET /schmuckstuecke
+ *       (verkauft, ausgelagert, ausschuss, artikelnummer_art, grundmaterial). Erfordert eine gültige
+ *       Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
+ *       - { name: ausgelagert, in: query, schema: { type: integer } }
+ *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
+ *       - { name: artikelnummer_art, in: query, schema: { type: string } }
+ *       - { name: grundmaterial, in: query, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Basis-Artikelnummern
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { type: string, example: MHO123 } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/unique-artikelnummern", async (req, res) => {
   try {
     const verkauft = req.query.verkauft;
     const ausgelagert = req.query.ausgelagert;
     const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
-    console.log(req.query);
     // Initialisiere WHERE-Builder
     const builder = where();
 
@@ -719,8 +977,6 @@ router.get("/unique-artikelnummern", async (req, res) => {
     let whereClause = whereClauseBuilderResult;
 
     const params = builder.getParams();
-    console.log(whereClause);
-    console.log(params);
     const { rows } = await db.query(
       `SELECT base_nr FROM (
          SELECT DISTINCT split_part("Artikelnummer", '_', 1) as "base_nr"
@@ -743,7 +999,22 @@ router.get("/unique-artikelnummern", async (req, res) => {
   }
 });
 
-// GET single piece
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}:
+ *   get:
+ *     summary: Schmuckstück-Detail
+ *     description: 'Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: artikelnummer, in: path, required: true, schema: { type: string, example: MHO123_1 } }
+ *     responses:
+ *       200:
+ *         description: Schmuckstück
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Schmuckstueck' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get("/:artikelnummer", async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -767,14 +1038,64 @@ router.get("/:artikelnummer", async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Laden des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Laden des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Laden des Schmuckstücks" });
   }
 });
 
-// POST create piece
+/**
+ * @swagger
+ * /schmuckstuecke:
+ *   post:
+ *     summary: Schmuckstück(e) anlegen
+ *     description: 'Artikelnummer akzeptiert drei Kurzformen: nur Präfix (z. B. MHO -> nächste freie
+ *       Nummer wird vergeben), Präfix+Nummer ohne Suffix (z. B. MHO123 -> nächster freier Suffix), oder
+ *       eine vollständige Nummer mit Suffix. Bei Anzahl > 1 werden mehrere Exemplare mit fortlaufendem
+ *       Suffix angelegt und Attribute vom letzten existierenden Exemplar übernommen, sofern eines
+ *       existiert. Erfordert eine gültige Anmeldung (jede Rolle, auch user – siehe CLAUDE.md Rollen).'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Artikelnummer]
+ *             properties:
+ *               Artikelnummer:
+ *                 type: string
+ *                 example: MHO
+ *                 description: 'Präfix, Präfix+Nummer, oder vollständige Nummer'
+ *               Anzahl: { type: integer, minimum: 1, maximum: 200, default: 1 }
+ *               Name: { type: string, nullable: true }
+ *               Art: { type: string, nullable: true }
+ *               Form: { type: string, nullable: true }
+ *               Material: { type: string, nullable: true }
+ *               Farbe: { type: string, nullable: true }
+ *               Länge: { type: number, nullable: true }
+ *               Grösse: { type: number, nullable: true }
+ *               Herstellungskosten: { type: number, nullable: true }
+ *               Verkaufspreis: { type: number, nullable: true }
+ *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Ausschuss_Grund: { type: string, nullable: true }
+ *     responses:
+ *       201:
+ *         description: Erstelltes Schmuckstück (Anzahl=1) oder Liste (Anzahl>1)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/Schmuckstueck'
+ *                 - { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
   let client;
   try {
@@ -944,7 +1265,52 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
   }
 });
 
-// PUT update piece
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}:
+ *   put:
+ *     summary: Schmuckstück aktualisieren
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: artikelnummer, in: path, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               Name: { type: string, nullable: true }
+ *               Art: { type: string, nullable: true }
+ *               Form: { type: string, nullable: true }
+ *               Material: { type: string, nullable: true }
+ *               Farbe: { type: string, nullable: true }
+ *               Länge: { type: number, nullable: true }
+ *               Grösse: { type: number, nullable: true }
+ *               Herstellungskosten: { type: number, nullable: true }
+ *               Verkaufspreis: { type: number, nullable: true }
+ *               Ausgelagert: { type: integer, description: '0 oder Kunde.ID' }
+ *               Verkauft: { type: integer, enum: [0, 1] }
+ *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Ausschuss_Grund: { type: string, nullable: true }
+ *               Lieferschein_ID: { type: integer }
+ *               Rechnung_ID: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Aktualisiertes Schmuckstück
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Schmuckstueck' } } }
+ *       400:
+ *         description: Validierungsfehler, oder Ausschuss=1 ohne Ausschuss_Grund
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSchema), async (req, res) => {
   try {
     const b = req.body;
@@ -1024,8 +1390,8 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
     }
     logger.error(
       "SCHMUCK",
-      `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Aktualisieren des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res
       .status(500)
@@ -1033,7 +1399,26 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
   }
 });
 
-// DELETE piece
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}:
+ *   delete:
+ *     summary: Schmuckstück löschen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: artikelnummer, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Schmuckstück gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
   try {
     const { rowCount } = await db.query(
@@ -1047,8 +1432,8 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Löschen des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Löschen des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
   }

@@ -21,7 +21,30 @@ async function getNextRechnungsnummer(queryable) {
   return formatJahresNummer(aktuellesJahr, Number(nummerRows[0].max_num) + 1);
 }
 
-// GET all invoices
+/**
+ * @swagger
+ * /rechnungen:
+ *   get:
+ *     summary: Rechnungen abrufen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     parameters:
+ *       - { name: status, in: query, description: Optionaler Filter, schema: { type: string, enum: [entwurf, final] } }
+ *     responses:
+ *       200:
+ *         description: Rechnungsliste (inkl. KundenName)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/Rechnung'
+ *                   - type: object
+ *                     properties: { KundenName: { type: string, nullable: true } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/', async (req, res) => {
   try {
     const { status } = req.query; // Optional filter: ?status=entwurf or ?status=final
@@ -38,7 +61,7 @@ router.get('/', async (req, res) => {
     query += ` ORDER BY r."Datum" DESC`;
 
     const { rows } = await db.query(query, params);
-    logger.info('RECHNUNGEN', `${rows.length} Rechnungen geladen${status ? ` (status=${status})` : ''}`);
+    logger.info('RECHNUNGEN', 'Rechnungen geladen', { anzahl: rows.length, status: status || undefined });
     res.json(rows);
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnungen', { message: err.message });
@@ -46,7 +69,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single
+/**
+ * @swagger
+ * /rechnungen/next-number:
+ *   get:
+ *     summary: Nächste Rechnungsnummer ermitteln
+ *     description: 'Format JJJJ-NNN. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     responses:
+ *       200:
+ *         description: Nächste Nummer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties: { Nummer: { type: string, example: '2026-001' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/next-number', async (_req, res) => {
   try {
     const nextNummer = await getNextRechnungsnummer(db);
@@ -57,6 +97,32 @@ router.get('/next-number', async (_req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /rechnungen/{id}:
+ *   get:
+ *     summary: Rechnungs-Detail inkl. zugeordneter Schmuckstücke
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Rechnung mit Artikeln
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/Rechnung'
+ *                 - type: object
+ *                   properties:
+ *                     KundenName: { type: string, nullable: true }
+ *                     Provision: { type: integer, nullable: true }
+ *                     schmuckstuecke: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -77,12 +143,30 @@ router.get('/:id', async (req, res) => {
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
   } catch (err) {
-    logger.error('RECHNUNGEN', `Fehler beim Laden der Rechnung ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
   }
 });
 
-// GET excel
+/**
+ * @swagger
+ * /rechnungen/{id}/excel:
+ *   get:
+ *     summary: Rechnung als Excel-Datei herunterladen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: XLSX-Datei
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema: { type: string, format: binary }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 const { generateExcel } = require('../utils/excelService');
 
 router.get('/:id/excel', async (req, res) => {
@@ -136,12 +220,56 @@ router.get('/:id/excel', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=Rechnung_${rows[0].Nummer}.xlsx`);
     res.send(buffer);
   } catch (err) {
-    logger.error('RECHNUNGEN', `Excel-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Excel-Generierung fehlgeschlagen', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
   }
 });
 
-// POST create
+/**
+ * @swagger
+ * /rechnungen:
+ *   post:
+ *     summary: Rechnung anlegen
+ *     description: 'Ohne Nummer wird automatisch die nächste JJJJ-NNN-Nummer vergeben. Bei status=final
+ *       werden die enthaltenen Artikel als verkauft markiert (Verkauft=1), bei status=entwurf nur mit
+ *       Rechnung_ID verknüpft. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Kundennummer]
+ *             properties:
+ *               Nummer: { type: string, maxLength: 20, description: 'Optional, wird sonst automatisch vergeben' }
+ *               Kundennummer: { type: integer, minimum: 1 }
+ *               Artikelnummern:
+ *                 type: array
+ *                 items: { type: string, example: MHO123_1 }
+ *                 maxItems: 1000
+ *               status: { type: string, enum: [entwurf, final], default: entwurf }
+ *               rabatt_gesamt: { type: number, minimum: 0, maximum: 100 }
+ *               rabatt_positionen:
+ *                 type: object
+ *                 description: Rabatt je Artikelnummer in Prozent
+ *                 additionalProperties: { type: number, minimum: 0, maximum: 100 }
+ *                 example: { MHO123_1: 10 }
+ *     responses:
+ *       201:
+ *         description: Rechnung erstellt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Rechnung' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       409:
+ *         description: Rechnungsnummer existiert bereits
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.post('/', validate(rechnungSchema), async (req, res) => {
   let client;
   try {
@@ -185,7 +313,12 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
 
     await client.query('COMMIT');
 
-    logger.info('RECHNUNGEN', `Rechnung erstellt: ${rows[0].Nummer} (ID=${rechnungId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('RECHNUNGEN', 'Rechnung erstellt', {
+      id: rechnungId,
+      nummer: rows[0].Nummer,
+      status,
+      artikelAnzahl: Artikelnummern?.length || 0,
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) {
@@ -207,7 +340,45 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
   }
 });
 
-// PUT update
+/**
+ * @swagger
+ * /rechnungen/{id}:
+ *   put:
+ *     summary: Rechnung aktualisieren
+ *     description: 'Setzt zuerst alle bisherigen Artikel-Zuordnungen zurück und danach neu (siehe
+ *       POST /rechnungen für die Verkauft-Logik nach status). Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Kundennummer]
+ *             properties:
+ *               Nummer: { type: string, maxLength: 20 }
+ *               Kundennummer: { type: integer, minimum: 1 }
+ *               Artikelnummern: { type: array, items: { type: string } }
+ *               status: { type: string, enum: [entwurf, final] }
+ *               rabatt_gesamt: { type: number, minimum: 0, maximum: 100 }
+ *               rabatt_positionen:
+ *                 type: object
+ *                 additionalProperties: { type: number, minimum: 0, maximum: 100 }
+ *     responses:
+ *       200:
+ *         description: Rechnung aktualisiert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Rechnung' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.put('/:id', validate(rechnungSchema), async (req, res) => {
   try {
     const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen } = req.body;
@@ -259,15 +430,35 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
       }
     }
 
-    logger.info('RECHNUNGEN', `Rechnung aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
+    logger.info('RECHNUNGEN', 'Rechnung aktualisiert', { id: req.params.id, status: currentStatus });
     res.json(rows[0]);
   } catch (err) {
-    logger.error('RECHNUNGEN', `Fehler beim Aktualisieren der Rechnung ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Fehler beim Aktualisieren der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren der Rechnung' });
   }
 });
 
-// DELETE
+/**
+ * @swagger
+ * /rechnungen/{id}:
+ *   delete:
+ *     summary: Rechnung löschen
+ *     description: 'Setzt Rechnung_ID und Verkauft der zugeordneten Artikel vor dem Löschen zurück.
+ *       Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Rechnung gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.delete('/:id', async (req, res) => {
   try {
     // Reset associations before deleting
@@ -282,10 +473,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
-    logger.info('RECHNUNGEN', `Rechnung gelöscht: ID=${req.params.id}`);
+    logger.info('RECHNUNGEN', 'Rechnung gelöscht', { id: req.params.id });
     res.json({ message: 'Rechnung gelöscht' });
   } catch (err) {
-    logger.error('RECHNUNGEN', `Fehler beim Löschen der Rechnung ID=${req.params.id}`, { message: err.message });
+    logger.error('RECHNUNGEN', 'Fehler beim Löschen der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen der Rechnung' });
   }
 });

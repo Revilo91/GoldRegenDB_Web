@@ -39,8 +39,11 @@ function decryptKunde(row) {
 }
 
 function toBestellungResponse(row) {
-  const { kunde_id, kunde_pseudonym, anonymisiert, anonymisiert_am, name_enc, email_enc, telefonnummer_enc,
-    strasse_enc, hausnummer_enc, plz_enc, ort_enc, ...bestellung } = row;
+  // Kunde-Felder werden bewusst ausgeschlossen, decryptKunde() liest sie direkt aus `row`.
+  const { kunde_id: _kunde_id, kunde_pseudonym: _kunde_pseudonym, anonymisiert: _anonymisiert,
+    anonymisiert_am: _anonymisiert_am, name_enc: _name_enc, email_enc: _email_enc,
+    telefonnummer_enc: _telefonnummer_enc, strasse_enc: _strasse_enc, hausnummer_enc: _hausnummer_enc,
+    plz_enc: _plz_enc, ort_enc: _ort_enc, ...bestellung } = row;
   return {
     ...bestellung,
     kunde: decryptKunde(row),
