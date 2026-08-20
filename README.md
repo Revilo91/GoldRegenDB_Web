@@ -17,6 +17,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
   - [Produktion (lokal)](#produktion-lokal)
   - [Synology NAS](#synology-nas)
 - [Umgebungsvariablen](#umgebungsvariablen)
+- [Secrets rotieren](#secrets-rotieren)
 - [Benutzerrollen](#benutzerrollen)
 - [Projektstruktur](#projektstruktur)
 - [Backup & Wiederherstellung](#backup--wiederherstellung)
@@ -161,10 +162,68 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 | `DATABASE_URL`  | Verbindungs-URL für den nativen Backend-Prozess (`npm run dev`); Docker-Compose überschreibt dies selbst mit dem Netzwerknamen `db` | `postgresql://goldregen:changeme@localhost:5432/goldregendb` |
 | `PORT`          | Backend-Port                                       | `3001`                                                 |
 | `JWT_SECRET`    | Geheimer Schlüssel für JWT-Tokens (lang & zufällig)| `change-this-to-a-long-random-secret`                  |
+| `JWT_SECRET_OLD`| Optional: vorheriges `JWT_SECRET` während einer Rotation (Graceful Rollover) | – |
+| `BESTELLUNG_ENCRYPTION_KEY` | AES-256-GCM-Schlüssel für DSGVO-Kundendaten (`openssl rand -hex 32`) | `change-this-to-a-64-char-hex-key` |
 | `NODE_ENV`      | Laufzeit-Umgebung                                  | `production` / `development`                           |
 | `VITE_API_URL`  | API-URL für das Frontend bei nativer Entwicklung   | `http://localhost:3001/api`                            |
 
-> ⚠️ **`JWT_SECRET`** und **`DB_PASSWORD`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden.
+> ⚠️ **`JWT_SECRET`**, **`DB_PASSWORD`** und **`BESTELLUNG_ENCRYPTION_KEY`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden. Mit `NODE_ENV=production` verweigert das Backend den Start, solange noch ein Platzhalterwert aus `.env.example` oder ein zu kurzes Secret gesetzt ist (`backend/src/config/secrets.js`).
+
+**Secrets aus Dateien statt Klartext-Env-Vars** (Docker Secrets/NAS-Deployments): Für jede der obigen Variablen kann zusätzlich `<NAME>_FILE` gesetzt werden, z. B. `JWT_SECRET_FILE=/run/secrets/jwt_secret` – der Dateiinhalt hat dann Vorrang vor `JWT_SECRET`. Unterstützt für `JWT_SECRET`, `JWT_SECRET_OLD`, `DB_PASSWORD`, `DATABASE_URL` und `BESTELLUNG_ENCRYPTION_KEY`. Details und ein Beispiel für `docker-compose.yml` siehe [Secrets rotieren](#secrets-rotieren).
+
+---
+
+## Secrets rotieren
+
+Ein geleaktes Secret (z. B. durch ein versehentliches Commit oder einen kompromittierten NAS-Zugang) blieb bisher für immer gültig – es gab keine Rotation. Dieser Abschnitt beschreibt den unterstützten Ablauf.
+
+### Secrets aus Dateien statt `.env` laden
+
+Standardmäßig liegen Secrets als Klartext in der `.env`-Datei. Für ein produktives Deployment empfiehlt sich stattdessen die datei-basierte Variante:
+
+1. Werte erzeugen und unter `./secrets/` ablegen (Verzeichnis ist in `.gitignore`, wird **nie** committet):
+   ```bash
+   ./scripts/rotate-secret.sh jwt_secret
+   ./scripts/rotate-secret.sh db_password
+   ./scripts/rotate-secret.sh bestellung_encryption_key
+   ```
+2. In `docker-compose.yml` (bzw. `docker-compose.synology.yml`) den einkommentierten `secrets:`-Block aktivieren und `DATABASE_URL`/`JWT_SECRET`/`BESTELLUNG_ENCRYPTION_KEY` in der `app`-Umgebung durch die `*_FILE`-Variante ersetzen (siehe Kommentare in der jeweiligen Datei).
+3. `docker compose up -d` – das Backend liest die Werte dann über `getSecret()` (`backend/src/config/secrets.js`) aus den gemounteten Dateien.
+
+> Warum dateibasiert und nicht `external: true`-Docker-Secrets? Letztere funktionieren nur im Swarm-Modus. Auf einer Synology bzw. mit einfachem `docker compose up` sind file-basierte Secrets (`file: ./secrets/...`) der realistische Weg – Compose mountet sie auch ohne Swarm nach `/run/secrets/`.
+
+### `JWT_SECRET` rotieren (Graceful Rollover)
+
+Ein hartes Rotieren würde alle angemeldeten Nutzer sofort ausloggen (bestehende Tokens werden mit dem alten Secret signiert und wären ungültig). Stattdessen:
+
+1. Neues Secret erzeugen: `./scripts/rotate-secret.sh jwt_secret` (oder `openssl rand -hex 32`).
+2. Das **bisherige** `JWT_SECRET` als `JWT_SECRET_OLD` setzen, das **neue** als `JWT_SECRET`.
+3. Backend neu starten. Ab jetzt werden neue Tokens mit dem neuen Secret signiert; bereits ausgestellte Tokens werden weiterhin akzeptiert, weil `authenticate()` beim Verifizieren zusätzlich `JWT_SECRET_OLD` prüft (`backend/src/middleware/auth.js`).
+4. Nach Ablauf der maximalen Token-Lebensdauer (8 Stunden, siehe `AUTH_COOKIE_MAX_AGE_MS`) sind alle Alt-Tokens ohnehin abgelaufen – `JWT_SECRET_OLD` wieder entfernen und erneut neu starten.
+
+**Auswirkung für angemeldete Nutzer:** keine – niemand wird während der Rotation ausgeloggt, solange Schritt 4 erst nach Ablauf der Alt-Tokens erfolgt.
+
+### `DB_PASSWORD` rotieren
+
+1. Neues Passwort erzeugen: `./scripts/rotate-secret.sh db_password`.
+2. Passwort in PostgreSQL selbst ändern (Downtime-frei möglich):
+   ```bash
+   docker compose exec db psql -U "$POSTGRES_USER" -c "ALTER USER \"$POSTGRES_USER\" WITH PASSWORD 'NEUES_PASSWORT';"
+   ```
+3. `DB_PASSWORD` (bzw. `DB_PASSWORD_FILE`) in der `.env`/den Secrets aktualisieren.
+4. Backend-Container neu starten, damit der Connection-Pool die neue `DATABASE_URL` verwendet: `docker compose restart app`.
+
+Es gibt hier keinen Graceful Rollover – der Connection-Pool baut bei jedem Neustart eine neue Verbindung auf, ein kurzer Verbindungsabbruch während des Neustarts ist normal.
+
+### `BESTELLUNG_ENCRYPTION_KEY` rotieren – **dokumentierte Grenze**
+
+`BESTELLUNG_ENCRYPTION_KEY` verschlüsselt die DSGVO-Kundendaten in `bestellung_kunde` (AES-256-GCM, siehe `backend/src/utils/encryptionService.js`). Ein Rotieren dieses Schlüssels erfordert, dass **alle** bestehenden verschlüsselten Datensätze mit dem alten Schlüssel entschlüsselt und mit dem neuen wieder verschlüsselt werden (Re-Encryption) – anders als bei `JWT_SECRET` gibt es keinen Graceful-Rollover-Mechanismus, da die Daten dauerhaft gespeichert sind (nicht wie Tokens nach Stunden ablaufen).
+
+`./scripts/rotate-secret.sh bestellung_encryption_key` erzeugt bewusst **nur** den neuen Schlüssel und warnt davor, ihn ohne Re-Encryption scharf zu schalten – ein automatisiertes Daten-Migrationsskript ist **nicht** Teil dieser Umsetzung (Scope von Issue #140: OS-Env/Docker-Secrets + JWT-Rollover). Wer diesen Schlüssel rotieren muss:
+
+1. Alten Schlüssel sicher aufbewahren (ohne ihn sind bestehende Daten unwiederbringlich verloren).
+2. Alle Zeilen aus `bestellung_kunde` mit `decryptField()` (altem Schlüssel) lesen, mit `encryptField()` (neuem Schlüssel) neu schreiben – am besten als einmaliges, transaktional abgesichertes Migrationsskript nach dem Muster von `backend/scripts/dsgvo-retention.js`.
+3. Erst danach `BESTELLUNG_ENCRYPTION_KEY` produktiv umstellen.
 
 ---
 

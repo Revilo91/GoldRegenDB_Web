@@ -2,8 +2,30 @@ const { Pool } = require('pg');
 const { AsyncLocalStorage } = require('async_hooks');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
+const { getSecret } = require('./secrets');
 
-const connectionString = process.env.DATABASE_URL;
+// DATABASE_URL (bzw. DATABASE_URL_FILE) hat Vorrang, falls gesetzt – das ist
+// der bisherige Weg (Docker-Compose baut die URL aus DB_PASSWORD zusammen).
+// Ohne DATABASE_URL wird die URL aus den Einzelteilen zusammengesetzt, damit
+// auch ein reines DB_PASSWORD_FILE (Docker-Secret) ohne Compose-Interpolation
+// funktioniert (siehe Issue #140).
+function buildConnectionString() {
+  const explicit = getSecret('DATABASE_URL');
+  if (explicit) {
+    return explicit;
+  }
+  const user = process.env.POSTGRES_USER;
+  const password = getSecret('DB_PASSWORD');
+  const database = process.env.POSTGRES_DB;
+  if (!user || !password || !database) {
+    return undefined;
+  }
+  const host = process.env.DB_HOST || 'db';
+  const port = process.env.DB_PORT || '5432';
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
+const connectionString = buildConnectionString();
 
 // Log connection target (mask password)
 const maskedUrl = connectionString
@@ -746,4 +768,5 @@ module.exports = {
   setCurrentDbUsername,
   requestContextMiddleware,
   pool,
+  connectionString,
 };

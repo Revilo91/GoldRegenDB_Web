@@ -1,10 +1,29 @@
 const path = require('path');
 const { existsSync } = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+const logger = require('./utils/logger');
+const { getSecret, validateProductionSecrets, extractDatabaseUrlPassword } = require('./config/secrets');
+
+// Bricht den Start ab, wenn in Produktion noch Platzhalter aus .env.example
+// oder zu kurze Secrets gesetzt sind (Issue #140). Im Dev-Betrieb ein No-Op.
+const secretProbleme = validateProductionSecrets([
+  { name: 'JWT_SECRET', value: getSecret('JWT_SECRET'), minLength: 32 },
+  {
+    name: 'DB_PASSWORD',
+    value: getSecret('DB_PASSWORD') || extractDatabaseUrlPassword(getSecret('DATABASE_URL')),
+    minLength: 12,
+  },
+  { name: 'BESTELLUNG_ENCRYPTION_KEY', value: getSecret('BESTELLUNG_ENCRYPTION_KEY'), minLength: 64 },
+]);
+if (secretProbleme.length > 0) {
+  secretProbleme.forEach((problem) => logger.error('SECRETS', problem));
+  logger.error('SECRETS', 'FATAL: Unsichere Secrets in Produktion (NODE_ENV=production) – Start abgebrochen. Siehe .env.example bzw. Rotations-Anleitung in der Doku.');
+  process.exit(1);
+}
+
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
-const logger = require('./utils/logger');
 const db = require('./config/db');
 
 const securityHeaders = require('./middleware/securityHeaders');
@@ -32,8 +51,8 @@ const PORT = process.env.PORT || 3001;
 logger.info('SERVER', '=== GoldRegenDB Backend startet ===');
 logger.info('SERVER', `Umgebung: ${process.env.NODE_ENV || 'development'}`);
 logger.info('SERVER', `Port: ${PORT}`);
-logger.info('SERVER', `DATABASE_URL: ${process.env.DATABASE_URL ? '(gesetzt)' : '(NICHT GESETZT)'}`);
-logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+logger.info('SERVER', `DATABASE_URL: ${db.connectionString ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+logger.info('SERVER', `JWT_SECRET: ${getSecret('JWT_SECRET') ? '(gesetzt)' : '(NICHT GESETZT)'}${getSecret('JWT_SECRET_OLD') ? ' + JWT_SECRET_OLD (Rollover aktiv)' : ''}`);
 logger.info('SERVER', `ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS || '(nicht gesetzt – Standard-Dev-Origins)'}`);
 logger.info('SERVER', `COOKIE_SECURE: ${process.env.COOKIE_SECURE === 'true' ? 'true (Cookie nur über HTTPS)' : 'false (auch über HTTP)'}`);
 

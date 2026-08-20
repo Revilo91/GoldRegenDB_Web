@@ -3,6 +3,8 @@ dist/
 .env
 pgdata*/
 backend/src/assets/uploads/
+# Docker-Secrets (Rotations-Werkzeug, siehe scripts/rotate-secret.sh) – nie committen
+secrets/
 
 # Playwright
 /test-results/

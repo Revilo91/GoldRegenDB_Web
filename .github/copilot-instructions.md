@@ -274,7 +274,7 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - Logout: `POST /api/auth/logout` → löscht das Cookie
 - Token-Validierung: `GET /api/auth/me`
 - Passwort ändern: `PUT /api/auth/change-password`
-- JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
+- JWT_SECRET muss gesetzt sein (Pflicht) – via Env-Var oder `JWT_SECRET_FILE` (Docker-Secret), siehe `backend/src/config/secrets.js`. Graceful Rollover über `JWT_SECRET_OLD`: `authenticate()` akzeptiert beim Verifizieren zusätzlich das alte Secret, signiert wird immer mit dem neuen (siehe README „Secrets rotieren“)
 - Rate Limiting: Login max. 20 Versuche / 15 Min; allgemeine API max. 300 Req / Min
 - Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
 - Passwort-Hashing: Das Frontend sendet das Passwort im **Klartext** (über TLS); ausschließlich das Backend hasht und vergleicht mit `bcryptjs` (10 Rounds) – siehe `backend/src/utils/passwordService.js`
@@ -887,6 +887,13 @@ DATABASE_URL=postgresql://goldregen:changeme@db:5432/goldregendb
 JWT_SECRET=change-this-to-a-long-random-secret
 VITE_API_URL=http://localhost:3001/api
 ```
+
+Secrets (`JWT_SECRET`, `JWT_SECRET_OLD`, `DB_PASSWORD`, `DATABASE_URL`,
+`BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext-Env-Var auch über
+`<NAME>_FILE` (Docker-Secret-Datei, z.B. `/run/secrets/...`) gesetzt werden –
+siehe `backend/src/config/secrets.js` (`getSecret()`) und README „Secrets
+rotieren“. Mit `NODE_ENV=production` bricht der Start ab, wenn noch ein
+Platzhalter aus `.env.example` oder ein zu kurzes Secret gesetzt ist.
 
 ---
 
