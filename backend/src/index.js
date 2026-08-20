@@ -28,6 +28,20 @@ const bestellungPublicRoutes = require('./routes/bestellungPublic');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Hinter einem Reverse Proxy (Synology, Traefik, nginx …) sieht Express sonst
+// nur die Proxy-IP – alle Benutzer teilen sich dann eine einzige Rate-Limit-
+// Quote und req.ip ist im Log wertlos. TRUST_PROXY nimmt die Anzahl der
+// vorgelagerten Proxys ("1"), "loopback"/eine IP-Liste oder "true" entgegen.
+// Standard ist "false": ohne Proxy darf X-Forwarded-For nicht vertraut werden.
+const trustProxySetting = (() => {
+  const raw = (process.env.TRUST_PROXY || '').trim();
+  if (!raw || raw === 'false') return false;
+  if (raw === 'true') return true;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  return raw;
+})();
+app.set('trust proxy', trustProxySetting);
+
 // Startup logging
 logger.info('SERVER', '=== GoldRegenDB Backend startet ===');
 logger.info('SERVER', `Umgebung: ${process.env.NODE_ENV || 'development'}`);
@@ -36,6 +50,7 @@ logger.info('SERVER', `DATABASE_URL: ${process.env.DATABASE_URL ? '(gesetzt)' : 
 logger.info('SERVER', `JWT_SECRET: ${process.env.JWT_SECRET ? '(gesetzt)' : '(NICHT GESETZT)'}`);
 logger.info('SERVER', `ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS || '(nicht gesetzt – Standard-Dev-Origins)'}`);
 logger.info('SERVER', `COOKIE_SECURE: ${process.env.COOKIE_SECURE === 'true' ? 'true (Cookie nur über HTTPS)' : 'false (auch über HTTP)'}`);
+logger.info('SERVER', `TRUST_PROXY: ${trustProxySetting === false ? 'false (kein Reverse Proxy)' : String(trustProxySetting)}`);
 
 app.use(securityHeaders);
 app.use(cors);
@@ -69,21 +84,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiters
+// Rate limiter nur noch dort, wo unauthentifizierte Requests missbraucht werden
+// können. Die angemeldete Anwendung läuft bewusst ohne Limit: eine einzige
+// Tabellenseite löst je Zeile einen Foto-Request aus, sodass jedes Limit im
+// normalen Arbeitsablauf (erst recht mit zwei Tabs) sofort zuschlug.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  // Erfolgreiche Anmeldungen zählen nicht mit – sonst sperrt ein gemeinsamer
+  // Firmen-/NAS-Ausgang alle Benutzer gemeinsam aus. Der eigentliche
+  // Brute-Force-Schutz ist die Kontosperre in utils/accountSecurity.js.
+  skipSuccessfulRequests: true,
   message: { error: 'Zu viele Anmeldeversuche. Bitte in 15 Minuten erneut versuchen.' },
-});
-
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
 });
 
 // Strenger Limiter für das öffentliche, unauthentifizierte Bestellformular (Spam-/Abuse-Schutz)
@@ -101,7 +115,7 @@ const publicOrderLimiter = rateLimit({
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/forgot-password', loginLimiter);
 app.use('/api/auth/reset-password', loginLimiter);
-app.use('/api/auth', apiLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Öffentliches Bestellformular (kein Login erforderlich) – nur Erstellung neuer Bestellungen möglich
 app.use('/api/public/bestellung', publicOrderLimiter, bestellungPublicRoutes);
@@ -122,26 +136,26 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Protected routes – bearbeiter and admin (all non-admin authenticated users with full access)
-app.use('/api/dashboard', apiLimiter, authenticate, requireBearbeiter, dashboardRoutes);
-app.use('/api/kunden', apiLimiter, authenticate, requireBearbeiter, kundenRoutes);
-app.use('/api/schmuckstuecke', apiLimiter, authenticate, schmuckstueckeRoutes);
-app.use('/api/lieferscheine', apiLimiter, authenticate, requireBearbeiter, lieferscheineRoutes);
-app.use('/api/rechnungen', apiLimiter, authenticate, requireBearbeiter, rechnungenRoutes);
-app.use('/api/bestelluebersicht', apiLimiter, authenticate, requireBearbeiter, bestelluebersichtRoutes);
-app.use('/api/users', apiLimiter, authenticate, requireAdmin, usersRoutes);
+app.use('/api/dashboard', authenticate, requireBearbeiter, dashboardRoutes);
+app.use('/api/kunden', authenticate, requireBearbeiter, kundenRoutes);
+app.use('/api/schmuckstuecke', authenticate, schmuckstueckeRoutes);
+app.use('/api/lieferscheine', authenticate, requireBearbeiter, lieferscheineRoutes);
+app.use('/api/rechnungen', authenticate, requireBearbeiter, rechnungenRoutes);
+app.use('/api/bestelluebersicht', authenticate, requireBearbeiter, bestelluebersichtRoutes);
+app.use('/api/users', authenticate, requireAdmin, usersRoutes);
 
 // SumUp routes (Bearbeiter und Admin)
-app.use('/api/sumup', apiLimiter, authenticate, requireBearbeiter, sumupRoutes);
+app.use('/api/sumup', authenticate, requireBearbeiter, sumupRoutes);
 
 // Inventur route (Bearbeiter und Admin)
-app.use('/api/inventur', apiLimiter, authenticate, requireBearbeiter, inventurRoutes);
+app.use('/api/inventur', authenticate, requireBearbeiter, inventurRoutes);
 // Lager-Inventur-Entwürfe (Bearbeiter und Admin)
-app.use('/api/lagerinventur', apiLimiter, authenticate, requireBearbeiter, lagerinventurRoutes);
+app.use('/api/lagerinventur', authenticate, requireBearbeiter, lagerinventurRoutes);
 
 // Admin-only routes
-app.use('/api/audit-log', apiLimiter, authenticate, requireAdmin, auditLogRoutes);
-app.use('/api/debug', apiLimiter, authenticate, requireAdmin, require('./routes/debug'));
-app.use('/api/backup', apiLimiter, authenticate, requireAdmin, require('./routes/backup'));
+app.use('/api/audit-log', authenticate, requireAdmin, auditLogRoutes);
+app.use('/api/debug', authenticate, requireAdmin, require('./routes/debug'));
+app.use('/api/backup', authenticate, requireAdmin, require('./routes/backup'));
 
 logger.info('SERVER', 'Alle Routen registriert');
 

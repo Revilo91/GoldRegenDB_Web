@@ -275,7 +275,12 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 - Token-Validierung: `GET /api/auth/me`
 - Passwort ändern: `PUT /api/auth/change-password`
 - JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
-- Rate Limiting: Login max. 20 Versuche / 15 Min; allgemeine API max. 300 Req / Min
+- Rate Limiting: nur noch für unauthentifizierte Endpunkte – Login/Passwort-Reset
+  max. 20 **fehlgeschlagene** Versuche / 15 Min pro IP, öffentliches Bestellformular
+  max. 10 / 15 Min. Die angemeldete Anwendung läuft ohne Limit: eine Tabellenseite
+  löst pro Zeile einen Foto-Request aus, jedes Limit schlug im Normalbetrieb zu
+- `TRUST_PROXY` setzen (z. B. `1`), wenn ein Reverse Proxy davor steht – sonst
+  teilen sich alle Benutzer die Login-Quote einer einzigen IP
 - Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
 - Passwort-Hashing: Das Frontend sendet das Passwort im **Klartext** (über TLS); ausschließlich das Backend hasht und vergleicht mit `bcryptjs` (10 Rounds) – siehe `backend/src/utils/passwordService.js`
 - Mindestlänge für **neu gesetzte** Passwörter: 8 Zeichen. Beim Login gilt keine Mindestlänge, damit Altkonten sich weiterhin anmelden können

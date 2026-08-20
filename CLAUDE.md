@@ -95,7 +95,7 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 - Consolidated GRUNDMATERIAL & PRODUKTART constants → `utils/constants.js`
 - Merged duplicate request() + requestFormData() in api.js (90% code duplication)
 - Removed inline debug logging (console.log emoji-comments in api.js)
-- Set real rate limits (5 login, 100 api/min) in index.js
+- Set real rate limits in index.js (später auf unauthentifizierte Endpunkte beschränkt, siehe unten)
 - Deleted boilerplate JSDoc in DocumentManager.jsx
 
 **Code Conventions (to prevent future slop):**
@@ -103,7 +103,10 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 - **No verbose docstrings:** Method names are self-documenting; one-liner comments only if WHY is non-obvious
 - **Merge duplicates:** If constants/logic exists in 2+ files, move to shared utils/
 - **Delete dead logging:** console.log/error only for errors; remove debug traces after use
-- **Rate limiters:** Must have real limits; no "10000 = practically unlimited" boilerplate
+- **Rate limiters:** Nur für unauthentifizierte Endpunkte (Login, Passwort-Reset,
+  öffentliches Bestellformular) – dort mit echten Limits, kein "10000 = praktisch
+  unbegrenzt". Die angemeldete Anwendung bleibt bewusst ungedrosselt: die
+  Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
 - **No JSDoc boilerplate:** Describe props via code comments inline, not at-the-top blocks
 
 ---
