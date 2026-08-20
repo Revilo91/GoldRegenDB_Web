@@ -13,5 +13,4 @@ backend/src/assets/uploads/
 /e2e/.auth/
 /e2e/test-results/
 .serena
-.github
 graphify-out
