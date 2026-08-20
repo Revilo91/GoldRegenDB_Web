@@ -376,6 +376,133 @@ async function ensureAuditLogTable() {
   }
 }
 
+// ---- Tamper-Schutz audit_log (Issue #139): Hash-Kette + Immutabilität ----
+// Reihenfolge ist zwingend: Spalten/Funktionen anlegen → Alt-Einträge per
+// backfill_audit_chain() nachverketten → erst danach trg_audit_log_immutable
+// anlegen. Sonst würde der Immutable-Trigger das eigene Backfill-UPDATE blockieren.
+
+async function ensureAuditLogTamperProtection() {
+  try {
+    await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+    await pool.query(`
+      ALTER TABLE audit_log
+        ADD COLUMN IF NOT EXISTS previous_hash CHAR(64),
+        ADD COLUMN IF NOT EXISTS hash CHAR(64);
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION audit_log_hash_chain()
+      RETURNS TRIGGER AS $$
+      DECLARE
+          prev_hash CHAR(64);
+      BEGIN
+          PERFORM pg_advisory_xact_lock(hashtext('audit_log_chain'));
+          SELECT hash INTO prev_hash FROM audit_log ORDER BY id DESC LIMIT 1;
+          NEW.previous_hash := prev_hash;
+          NEW.hash := encode(digest(concat_ws('|',
+              NEW.id::text, NEW.table_name, COALESCE(NEW.artikelnummer_id, ''),
+              COALESCE(NEW.column_name, ''), COALESCE(NEW.old_value, ''),
+              COALESCE(NEW.new_value, ''), NEW.action_type, COALESCE(NEW.changed_by, ''),
+              NEW.change_timestamp::text, COALESCE(NEW.previous_hash, '')
+          ), 'sha256'), 'hex');
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION audit_log_prevent_tamper()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          RAISE EXCEPTION 'audit_log ist unveränderlich (Tamper-Schutz, Issue #139): % ist nicht erlaubt', TG_OP;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION backfill_audit_chain()
+      RETURNS VOID AS $$
+      DECLARE
+          rec RECORD;
+          prev_hash CHAR(64);
+          new_hash CHAR(64);
+      BEGIN
+          SELECT hash INTO prev_hash FROM audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1;
+          FOR rec IN SELECT * FROM audit_log WHERE hash IS NULL ORDER BY id LOOP
+              new_hash := encode(digest(concat_ws('|',
+                  rec.id::text, rec.table_name, COALESCE(rec.artikelnummer_id, ''),
+                  COALESCE(rec.column_name, ''), COALESCE(rec.old_value, ''),
+                  COALESCE(rec.new_value, ''), rec.action_type, COALESCE(rec.changed_by, ''),
+                  rec.change_timestamp::text, COALESCE(prev_hash, '')
+              ), 'sha256'), 'hex');
+              UPDATE audit_log SET previous_hash = prev_hash, hash = new_hash WHERE id = rec.id;
+              prev_hash := new_hash;
+          END LOOP;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION verify_audit_chain()
+      RETURNS TABLE(id INTEGER, problem TEXT) AS $$
+      BEGIN
+          RETURN QUERY
+          WITH chain AS (
+              SELECT a.id, a.hash, a.previous_hash,
+                     lag(a.hash) OVER (ORDER BY a.id) AS expected_previous_hash,
+                     encode(digest(concat_ws('|',
+                         a.id::text, a.table_name, COALESCE(a.artikelnummer_id, ''),
+                         COALESCE(a.column_name, ''), COALESCE(a.old_value, ''),
+                         COALESCE(a.new_value, ''), a.action_type, COALESCE(a.changed_by, ''),
+                         a.change_timestamp::text, COALESCE(a.previous_hash, '')
+                     ), 'sha256'), 'hex') AS recomputed_hash
+              FROM audit_log a
+          )
+          SELECT chain.id,
+                 CASE
+                     WHEN chain.hash IS DISTINCT FROM chain.recomputed_hash THEN 'hash_mismatch'
+                     ELSE 'chain_broken'
+                 END AS problem
+          FROM chain
+          WHERE chain.hash IS DISTINCT FROM chain.recomputed_hash
+             OR chain.previous_hash IS DISTINCT FROM chain.expected_previous_hash
+          ORDER BY chain.id;
+      END;
+      $$ LANGUAGE plpgsql STABLE;
+    `);
+
+    // Alt-Einträge ohne Hash nachverketten (No-Op, wenn bereits vollständig verkettet)
+    await pool.query('SELECT backfill_audit_chain()');
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_log_hash_chain'
+        ) THEN
+          CREATE TRIGGER trg_audit_log_hash_chain
+            BEFORE INSERT ON audit_log
+            FOR EACH ROW
+            EXECUTE FUNCTION audit_log_hash_chain();
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_log_immutable'
+        ) THEN
+          CREATE TRIGGER trg_audit_log_immutable
+            BEFORE UPDATE OR DELETE ON audit_log
+            FOR EACH STATEMENT
+            EXECUTE FUNCTION audit_log_prevent_tamper();
+        END IF;
+      END
+      $$;
+    `);
+
+    logger.info('DB', 'audit_log Tamper-Schutz (Hash-Kette + Immutabilität) verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren des audit_log Tamper-Schutzes', { message: err.message });
+  }
+}
+
 // ---- Tabelle: app_users ----
 
 async function ensureAppUsersTable() {
@@ -716,10 +843,12 @@ async function ensureTriggers() {
 //   4. Rechnung
 //   5. Schmuckstück
 //   6. audit_log (wird von Audit-Trigger beschrieben)
-//   7. app_users (wird von lagerinventur referenziert)
-//   8. Bestellübersicht (bestellung_kunde/bestellung/bestellung_consent, braucht Rechnung)
-//   9. lagerinventur
-//   10. Constraints & Trigger (brauchen die Tabellen)
+//   7. audit_log Tamper-Schutz (Hash-Kette + Immutable-Trigger, Issue #139;
+//      muss nach audit_log, aber vor jedem weiteren Schritt, der dort einträgt)
+//   8. app_users (wird von lagerinventur referenziert)
+//   9. Bestellübersicht (bestellung_kunde/bestellung/bestellung_consent, braucht Rechnung)
+//   10. lagerinventur
+//   11. Constraints & Trigger (brauchen die Tabellen)
 
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
@@ -730,6 +859,7 @@ pool.query('SELECT NOW() AS server_time')
       .then(() => ensureRechnungTable())
       .then(() => ensureSchmuckstueckTable())
       .then(() => ensureAuditLogTable())
+      .then(() => ensureAuditLogTamperProtection())
       .then(() => ensureAppUsersTable())
       .then(() => ensureBestelluebersichtSchema())
       .then(() => ensureLagerinventurEntwurfTable())

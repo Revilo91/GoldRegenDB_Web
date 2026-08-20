@@ -93,6 +93,8 @@ erDiagram
         varchar10 action_type
         varchar255 changed_by
         timestamp change_timestamp
+        char64 previous_hash
+        char64 hash
     }
 
     app_users {
@@ -180,6 +182,7 @@ erDiagram
 - **Verkauft**: SMALLINT (0 = nicht verkauft, 1 = verkauft)
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
+- **audit_log Tamper-Schutz** (Issue #139): `trg_audit_log_immutable` blockiert jedes UPDATE/DELETE auf `audit_log`; `trg_audit_log_hash_chain` verkettet jede Zeile per SHA-256 mit dem Hash der Vorgängerzeile (`previous_hash`/`hash`). Kette prüfen: `SELECT * FROM verify_audit_chain();` oder `GET /api/audit-log/verify` (admin). Details siehe `db/README.md`
 - **lagerinventur**: speichert Inventur-Entwürfe pro Benutzer; `data` ist JSONB (`{ [artikelnummer]: anzahl }`); `status` ist `entwurf` oder `abgeschlossen`; FK auf `app_users.id`; Index auf `(user_id, status)`; wird via `db.js`-Startup-Migration angelegt
 ## WHERE Clause Builder (PFLICHT!)
 
@@ -584,6 +587,7 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | POST    | `/api/backup/import`  | Backup-Daten importieren (2 Formate)      |
 | GET     | `/api/audit-log`  | Änderungsprotokoll anzeigen            |
 | GET     | `/api/audit-log/artikel/:artikelnummer` | Audit-Log für ein bestimmtes Schmuckstück |
+| GET     | `/api/audit-log/verify` | Hash-Ketten-Integrität prüfen (Issue #139) |
 | GET/POST/PUT/DELETE | `/api/users` | Benutzerverwaltung              |
 | GET     | `/api/debug/tables` | Alle Datenbanktabellen auflisten     |
 | GET     | `/api/debug/tables/:tableName` | Inhalt einer Tabelle anzeigen |
@@ -827,6 +831,10 @@ Konten mindestens einmal angemeldet haben.
 **`trg_update_letzte_aenderung`** – aktualisiert `Letzte_Änderung` bei jedem UPDATE auf `Schmuckstück`.
 
 **`trg_audit_schmuckstueck`** – schreibt Änderungen an Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID in `audit_log`.
+
+**`trg_audit_log_hash_chain`** (BEFORE INSERT, FOR EACH ROW) – verkettet jede neue `audit_log`-Zeile per SHA-256 mit dem Hash der Vorgängerzeile (Issue #139).
+
+**`trg_audit_log_immutable`** (BEFORE UPDATE OR DELETE, FOR EACH STATEMENT) – blockiert jedes UPDATE/DELETE auf `audit_log` mit einer Exception; siehe `db/README.md`.
 
 ---
 
