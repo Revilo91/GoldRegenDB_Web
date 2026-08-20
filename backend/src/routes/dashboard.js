@@ -4,7 +4,39 @@ const db = require("../config/db");
 const logger = require("../utils/logger");
 const { where } = require("../utils/whereClauseBuilder");
 
-// GET dashboard statistics
+/**
+ * @swagger
+ * /dashboard:
+ *   get:
+ *     summary: Statistiken (Bestände, Umsatz, Verteilung nach Status/Hersteller)
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Dashboard]
+ *     responses:
+ *       200:
+ *         description: Aggregierte Kennzahlen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 statistics:
+ *                   type: object
+ *                   properties:
+ *                     verkauft: { type: integer }
+ *                     ausgelagert: { type: integer }
+ *                     verfuegbar: { type: integer }
+ *                     ausschuss: { type: integer }
+ *                     umsatz: { type: number }
+ *                 recentChanges: { type: array, items: { $ref: '#/components/schemas/AuditLogEintrag' } }
+ *                 piecesByArt: { type: array, items: { type: object } }
+ *                 piecesByKunde: { type: array, items: { type: object } }
+ *                 statusDistribution: { type: array, items: { type: object } }
+ *                 monthlyRevenueTrend: { type: array, items: { type: object } }
+ *                 manufacturerStats: { type: object, additionalProperties: { type: object } }
+ *                 manufacturerByKunde: { type: array, items: { type: object } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get("/", async (req, res) => {
   try {
     const tenantId = req.user?.tenant_id ?? null;

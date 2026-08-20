@@ -7,7 +7,57 @@ const { PRODUKTART } = require("../utils/constants");
 const { validate } = require("../middleware/validate");
 const { sumupImportSchema } = require("../schemas");
 
-// POST /api/sumup/import - Import SumUp Verkaufsbericht
+/**
+ * @swagger
+ * /sumup/import:
+ *   post:
+ *     summary: SumUp-Verkaufsbericht importieren
+ *     description: 'Markiert die enthaltenen Artikel als verkauft und legt je Hersteller (Marina/Saskia)
+ *       automatisch Lieferschein und Rechnung an. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [SumUp]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [csvData]
+ *             properties:
+ *               csvData:
+ *                 oneOf:
+ *                   - { type: string, description: 'Roher CSV-Inhalt des SumUp-Exports' }
+ *                   - { type: array, items: { type: object } }
+ *     responses:
+ *       200:
+ *         description: Import abgeschlossen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 lieferschein: { $ref: '#/components/schemas/Lieferschein' }
+ *                 rechnungen:
+ *                   type: object
+ *                   properties:
+ *                     marina: { $ref: '#/components/schemas/Rechnung' }
+ *                     saskia: { $ref: '#/components/schemas/Rechnung' }
+ *                 artikel:
+ *                   type: object
+ *                   properties:
+ *                     gesamt: { type: integer }
+ *                     marina: { type: integer }
+ *                     saskia: { type: integer }
+ *       400:
+ *         description: Keine/ungültige CSV-Daten
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.post("/import", validate(sumupImportSchema), async (req, res) => {
   try {
     // CSV-Daten aus Body (als String oder Array)
@@ -291,7 +341,23 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
   }
 });
 
-// GET Sumup CSV export (Ausgelagert=0, Ausschuss=0, Verkauft=0)
+/**
+ * @swagger
+ * /sumup/export:
+ *   get:
+ *     summary: Verfügbare Schmuckstücke als SumUp-CSV exportieren
+ *     description: 'Nur verfügbare Artikel (Verkauft=0, Ausschuss=0, Ausgelagert=0). Erfordert Rolle:
+ *       bearbeiter oder admin.'
+ *     tags: [SumUp]
+ *     responses:
+ *       200:
+ *         description: CSV-Datei
+ *         content:
+ *           text/csv:
+ *             schema: { type: string }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get("/export", async (req, res) => {
   try {
     const builder = where();

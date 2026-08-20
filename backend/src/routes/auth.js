@@ -24,7 +24,51 @@ const {
   hashResetToken,
 } = require("../utils/accountSecurity");
 
-// POST /api/auth/login
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Anmelden
+ *     description: Setzt bei Erfolg das httpOnly-JWT-Cookie `jwt` und gibt das Token zusätzlich im Body zurück
+ *       (für Skripte/E2E-Tests ohne Cookie-Jar). Öffentlich, aber per IP auf 20 fehlgeschlagene Versuche/15 Min
+ *       begrenzt; zusätzlich Konto-Sperre nach 5 Fehlversuchen (30 Minuten).
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username: { type: string, example: admin }
+ *               password: { type: string, format: password }
+ *     responses:
+ *       200:
+ *         description: Login erfolgreich
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token: { type: string, description: 'JWT, zusätzlich zum httpOnly-Cookie' }
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     username: { type: string }
+ *                     role: { type: string, enum: [admin, bearbeiter, user] }
+ *                 mustChangePassword: { type: boolean }
+ *       401:
+ *         description: Ungültige Anmeldedaten
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       403:
+ *         description: Konto gesperrt oder deaktiviert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       429:
+ *         description: Zu viele Anmeldeversuche von dieser IP
+ */
 router.post("/login", validate(loginSchema), async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -151,20 +195,82 @@ router.post("/login", validate(loginSchema), async (req, res) => {
   }
 });
 
-// POST /api/auth/logout – Auth-Cookie löschen
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Abmelden
+ *     description: Löscht das JWT-Cookie. Erfordert selbst kein gültiges Cookie, da löschen keine Seiteneffekte
+ *       auf fremde Konten hat.
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Abgemeldet
+ */
 router.post("/logout", (req, res) => {
   clearAuthCookie(res);
   logger.info("AUTH", "Logout");
   res.json({ message: "Abgemeldet" });
 });
 
-// GET /api/auth/me – verify token and return current user
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Eigene Benutzerdaten aus dem Token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Aktueller Benutzer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     username: { type: string }
+ *                     role: { type: string, enum: [admin, bearbeiter, user] }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/me", authenticate, (req, res) => {
   logger.info("AUTH", `Token-Validierung erfolgreich: ${req.user.username}`);
   res.json({ user: req.user });
 });
 
-// PUT /api/auth/change-password – change own password (authenticated)
+/**
+ * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Eigenes Passwort ändern
+ *     tags: [Auth]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword: { type: string, format: password }
+ *               newPassword: { type: string, format: password, minLength: 8 }
+ *     responses:
+ *       200:
+ *         description: Passwort geändert
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401:
+ *         description: Aktuelles Passwort falsch, oder kein/ungültiges JWT
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.put("/change-password", authenticate, validate(changePasswordSchema), async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
@@ -224,6 +330,31 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
 // Backend-Log ausgegeben; ein Administrator gibt ihn an den Benutzer weiter.
 // Sobald SMTP verfügbar ist, muss nur diese Stelle auf Mailversand umgestellt
 // werden – der Ablauf für den Benutzer bleibt gleich.
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Passwort-Reset-Token anfordern
+ *     description: Antwort ist immer identisch, unabhängig davon, ob das Konto existiert (kein
+ *       Benutzernamen-Orakel). Kein SMTP konfiguriert – der Reset-Link landet im Backend-Log, ein
+ *       Administrator gibt ihn weiter. Läuft unter dem strengen Login-Rate-Limiter (20/15 Min pro IP).
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username]
+ *             properties:
+ *               username: { type: string }
+ *     responses:
+ *       200:
+ *         description: Immer erfolgreich, unabhängig davon ob das Konto existiert
+ *       429:
+ *         description: Zu viele Anfragen von dieser IP
+ */
 router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res) => {
   const { username } = req.body;
 
@@ -270,7 +401,33 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res)
   }
 });
 
-// POST /api/auth/reset-password – Passwort mit Reset-Token neu setzen
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Passwort mit Reset-Token neu setzen
+ *     description: Setzt zusätzlich eine bestehende Konto-Sperre und den Fehlversuchszähler zurück.
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, newPassword]
+ *             properties:
+ *               token: { type: string, description: '64-stelliges Hex-Token aus dem Reset-Link' }
+ *               newPassword: { type: string, format: password, minLength: 8 }
+ *     responses:
+ *       200:
+ *         description: Passwort geändert
+ *       400:
+ *         description: Token ungültig/abgelaufen, oder Validierungsfehler
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       429:
+ *         description: Zu viele Anfragen von dieser IP
+ */
 router.post("/reset-password", validate(resetPasswordWithTokenSchema), async (req, res) => {
   const { token, newPassword } = req.body;
 

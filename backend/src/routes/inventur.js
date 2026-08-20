@@ -5,7 +5,37 @@ const { generateInventurExcel } = require('../utils/excelService');
 const { where } = require('../utils/whereClauseBuilder');
 const logger = require('../utils/logger');
 
-// GET inventory summary for all customers with items ausgelagert
+/**
+ * @swagger
+ * /inventur:
+ *   get:
+ *     summary: Inventurübersicht aller Kunden mit ausgelagerten Stücken
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Inventur]
+ *     responses:
+ *       200:
+ *         description: Ein Eintrag je Kunde mit ausgelagerten Artikeln
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   ID: { type: integer }
+ *                   Name: { type: string }
+ *                   Ort: { type: string }
+ *                   Provision: { type: integer }
+ *                   Aktiv: { type: boolean }
+ *                   gesamt: { type: integer }
+ *                   aktiv: { type: integer }
+ *                   verkauft: { type: integer }
+ *                   ausschuss: { type: integer }
+ *                   wert_aktiv: { type: number }
+ *                   wert_verkauft: { type: number }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -34,7 +64,38 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET inventory detail for a single customer
+/**
+ * @swagger
+ * /inventur/{kundeId}:
+ *   get:
+ *     summary: Inventurdetail für einen Kunden
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Inventur]
+ *     parameters:
+ *       - { name: kundeId, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Kunde, ausgelagerte Artikel und Kennzahlen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 kunde: { $ref: '#/components/schemas/Kunde' }
+ *                 items: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     gesamt: { type: integer }
+ *                     aktiv: { type: integer }
+ *                     verkauft: { type: integer }
+ *                     ausschuss: { type: integer }
+ *                     wert_aktiv: { type: number }
+ *                     wert_verkauft: { type: number }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:kundeId', async (req, res) => {
   try {
     const { kundeId } = req.params;
@@ -83,7 +144,25 @@ router.get('/:kundeId', async (req, res) => {
   }
 });
 
-// GET Excel export for a single customer
+/**
+ * @swagger
+ * /inventur/{kundeId}/excel:
+ *   get:
+ *     summary: Inventur eines Kunden als Excel-Datei herunterladen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Inventur]
+ *     parameters:
+ *       - { name: kundeId, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: XLSX-Datei
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema: { type: string, format: binary }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:kundeId/excel', async (req, res) => {
   try {
     const { kundeId } = req.params;

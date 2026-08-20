@@ -190,6 +190,23 @@ app.use('/api/audit-log', authenticate, requireAdmin, auditLogRoutes);
 app.use('/api/debug', authenticate, requireAdmin, require('./routes/debug'));
 app.use('/api/backup', authenticate, requireAdmin, require('./routes/backup'));
 
+// API-Dokumentation (Swagger UI, Issue #143): legt die komplette Routenstruktur
+// offen, daher weder in Produktion noch anonym erreichbar. shouldEnableApiDocs()
+// mountet standardmäßig nur außerhalb von Produktion; ENABLE_API_DOCS erlaubt
+// eine explizite Übersteuerung (z. B. Staging mit NODE_ENV=production).
+// Zusätzlich unabhängig davon immer hinter authenticate + requireAdmin, damit
+// eine versehentlich aktivierte Doku nie anonym erreichbar ist. Die Standard-CSP
+// (style-src 'unsafe-inline', sonst same-origin) reicht für Swagger UI aus –
+// geprüft, keine Lockerung nötig, siehe Issue #143.
+const swaggerSpec = require('./config/swagger');
+if (swaggerSpec.shouldEnableApiDocs()) {
+  const swaggerUi = require('swagger-ui-express');
+  app.use('/api-docs', authenticate, requireAdmin, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  logger.info('SERVER', 'API-Dokumentation verfügbar unter /api-docs (nur für admin)');
+} else {
+  logger.info('SERVER', 'API-Dokumentation deaktiviert (ENABLE_API_DOCS=false)');
+}
+
 logger.info('SERVER', 'Alle Routen registriert');
 
 // Frontend-Build ausliefern (Single-Container-Docker-Image, siehe Root-Dockerfile).
