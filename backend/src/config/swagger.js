@@ -205,6 +205,7 @@ const definition = {
           beschreibung: { type: 'string' },
           status: { type: 'string', enum: ['offen', 'in_bearbeitung', 'abgeschlossen', 'storniert'] },
           rechnung_nummer: { type: 'string', nullable: true },
+          foto_pfad: { type: 'string', nullable: true, description: 'Dateiname des Referenzfotos, abrufbar über GET /bestelluebersicht/foto/:fileName' },
           kunde: {
             type: 'object',
             properties: {

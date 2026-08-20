@@ -72,7 +72,7 @@ describe('Bestellübersicht API', () => {
       .send({
         versandart: 'abholung',
         beschreibung: 'Test Bestellung',
-        kunde: { name: 'Erika Mustermann', email: 'erika@example.com' },
+        kunde: { name: 'Erika Mustermann', email: 'erika@example.com', telefonnummer: '0123456789' },
         consent: { erteilt: true },
       });
 
@@ -82,13 +82,28 @@ describe('Bestellübersicht API', () => {
     expect(db.connect).toHaveBeenCalled();
   });
 
-  it('POST / lehnt Versandart "lieferung" ohne Adresse/Telefon ab (Datenminimierung)', async () => {
+  it('POST / lehnt fehlende Telefonnummer ab (Datenminimierung)', async () => {
+    const res = await request(buildApp())
+      .post('/api/bestelluebersicht')
+      .send({
+        versandart: 'abholung',
+        beschreibung: 'Test',
+        kunde: { name: 'Max Mustermann' },
+        consent: { erteilt: true },
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Telefonnummer/);
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('POST / lehnt Versandart "lieferung" ohne Adresse ab (Datenminimierung)', async () => {
     const res = await request(buildApp())
       .post('/api/bestelluebersicht')
       .send({
         versandart: 'lieferung',
         beschreibung: 'Test',
-        kunde: { name: 'Max Mustermann' },
+        kunde: { name: 'Max Mustermann', telefonnummer: '0123456789' },
         consent: { erteilt: true },
       });
 
@@ -103,7 +118,7 @@ describe('Bestellübersicht API', () => {
       .send({
         versandart: 'abholung',
         beschreibung: 'Test',
-        kunde: { name: 'Max Mustermann', email: 'max@example.com' },
+        kunde: { name: 'Max Mustermann', email: 'max@example.com', telefonnummer: '0123456789' },
         consent: { erteilt: false },
       });
 

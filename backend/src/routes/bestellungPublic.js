@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validateDatenminimierung, insertBestellung } = require('../utils/bestellungService');
+const { speichereBestellungFoto } = require('../utils/bestellungFotoService');
 const { validate } = require('../middleware/validate');
 const { bestellungPublicSchema } = require('../schemas');
 
@@ -64,6 +65,10 @@ function pruefeFeldLaengen(kunde, beschreibung) {
  *                 type: string
  *                 maxLength: 200
  *                 description: Honeypot – im echten Formular für Menschen unsichtbar, muss leer bleiben
+ *               foto:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Referenzfoto als Data-URL (JPG/PNG/GIF, base64), max. 5 MB dekodiert
  *     responses:
  *       201:
  *         description: Bestellung erstellt – bewusst minimale Antwort (keine Kunden-ID/PII)
@@ -82,7 +87,7 @@ function pruefeFeldLaengen(kunde, beschreibung) {
 router.post('/', validate(bestellungPublicSchema), async (req, res) => {
   let client;
   try {
-    const { versandart, wunschdatum, beschreibung, kunde, consent, webseite } = req.body;
+    const { versandart, wunschdatum, beschreibung, kunde, consent, webseite, foto } = req.body;
 
     // Honeypot-Feld: für Menschen unsichtbar, wird nur von Bots automatisch ausgefüllt.
     if (webseite) {
@@ -105,6 +110,15 @@ router.post('/', validate(bestellungPublicSchema), async (req, res) => {
       return res.status(400).json({ error: 'Einwilligung zur Datenverarbeitung ist erforderlich' });
     }
 
+    let fotoPfad = null;
+    if (foto) {
+      try {
+        fotoPfad = speichereBestellungFoto(foto);
+      } catch (fotoErr) {
+        return res.status(400).json({ error: fotoErr.message });
+      }
+    }
+
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE bestellung IN SHARE ROW EXCLUSIVE MODE');
@@ -116,6 +130,7 @@ router.post('/', validate(bestellungPublicSchema), async (req, res) => {
       kunde,
       ip: req.ip,
       erstelltVon: 'Online-Formular',
+      fotoPfad,
     });
 
     await client.query('COMMIT');

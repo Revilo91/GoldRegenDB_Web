@@ -55,25 +55,21 @@ function validateDatenminimierung(versandart, kunde) {
   if (!kunde?.name?.trim()) {
     return 'Name ist erforderlich';
   }
+  if (!kunde.telefonnummer?.trim()) {
+    return 'Telefonnummer ist erforderlich';
+  }
   if (versandart === 'lieferung') {
     if (!kunde.strasse?.trim() || !kunde.hausnummer?.toString().trim() || !kunde.plz?.toString().trim() || !kunde.ort?.trim()) {
       return 'Versandart "Lieferung" erfordert eine vollständige Adresse';
     }
-    if (!kunde.telefonnummer?.trim()) {
-      return 'Versandart "Lieferung" erfordert eine Telefonnummer für die Spedition';
-    }
-  } else if (versandart === 'abholung') {
-    if (!kunde.email?.trim()) {
-      return 'Versandart "Abholung" erfordert eine E-Mail-Adresse für die Abholbenachrichtigung';
-    }
-  } else {
+  } else if (versandart !== 'abholung') {
     return 'Ungültige Versandart';
   }
   return null;
 }
 
 // Legt Kunde + Consent + Bestellung innerhalb einer laufenden Transaktion (BEGIN/LOCK bereits vom Aufrufer gesetzt) an.
-async function insertBestellung(client, { versandart, wunschdatum, beschreibung, kunde, ip, erstelltVon }) {
+async function insertBestellung(client, { versandart, wunschdatum, beschreibung, kunde, ip, erstelltVon, fotoPfad }) {
   const kundePseudonym = generateKundePseudonym();
   const { rows: kundeRows } = await client.query(
     `INSERT INTO bestellung_kunde
@@ -102,10 +98,10 @@ async function insertBestellung(client, { versandart, wunschdatum, beschreibung,
 
   const bestellnummer = await getNextBestellnummer(client);
   const { rows } = await client.query(
-    `INSERT INTO bestellung (bestellnummer, kunde_id, versandart, wunschdatum, beschreibung, erstellt_von)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO bestellung (bestellnummer, kunde_id, versandart, wunschdatum, beschreibung, erstellt_von, foto_pfad)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [bestellnummer, kundeId, versandart, wunschdatum || null, beschreibung.trim(), erstelltVon]
+    [bestellnummer, kundeId, versandart, wunschdatum || null, beschreibung.trim(), erstelltVon, fotoPfad || null]
   );
 
   return { bestellungRow: rows[0], kundeId, kundePseudonym };

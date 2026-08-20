@@ -165,6 +165,24 @@ async function ladeFotoAlsDataUrl(cleanFileName) {
   });
 }
 
+const bestellungFotoCache = new Map();
+
+async function ladeBestellungFotoAlsDataUrl(fileName) {
+  if (!fileName) return null;
+  const zwischengespeichert = bestellungFotoCache.get(fileName);
+  if (zwischengespeichert) return zwischengespeichert;
+
+  const blob = await downloadBlob(`/bestelluebersicht/foto/${fileName}`);
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(reader.error || new Error('Foto konnte nicht gelesen werden'));
+    reader.readAsDataURL(blob);
+  });
+  bestellungFotoCache.set(fileName, dataUrl);
+  return dataUrl;
+}
+
 // Passwörter werden im Klartext über TLS gesendet und erst im Backend mit
 // bcrypt gehasht (siehe backend/src/utils/passwordService.js).
 export const authApi = {
@@ -279,6 +297,7 @@ export const api = {
   createBestellung: (data) => request('/bestelluebersicht', { method: 'POST', body: JSON.stringify(data) }),
   updateBestellung: (id, data) => request(`/bestelluebersicht/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   anonymisiereBestellungKunde: (id) => request(`/bestelluebersicht/${id}/anonymisieren`, { method: 'POST', body: JSON.stringify({}) }),
+  loadBestellungFotoAsDataUrl: (fileName) => ladeBestellungFotoAlsDataUrl(fileName),
 
   // Rechnungen
   getRechnungen: () => request('/rechnungen'),

@@ -1845,6 +1845,10 @@ select.form-control {
   background: var(--accent-glow);
 }
 
+.drag-drop-zone input[type="file"] {
+  display: none;
+}
+
 .upload-label {
   cursor: pointer;
   display: block;

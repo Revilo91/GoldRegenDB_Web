@@ -687,12 +687,14 @@ async function ensureBestelluebersichtSchema() {
           erstellt_von    VARCHAR(100) NOT NULL,
           erstellt_am     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
           aktualisiert_am TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          foto_pfad       VARCHAR(255) DEFAULT NULL,
           CONSTRAINT bestellung_wunschdatum_check
               CHECK (wunschdatum IS NULL OR wunschdatum >= erfassungsdatum::date)
       );
       CREATE INDEX IF NOT EXISTS idx_bestellung_kunde ON bestellung(kunde_id);
       CREATE INDEX IF NOT EXISTS idx_bestellung_status ON bestellung(status);
       CREATE INDEX IF NOT EXISTS idx_bestellung_erfassungsdatum ON bestellung(erfassungsdatum);
+      ALTER TABLE bestellung ADD COLUMN IF NOT EXISTS foto_pfad VARCHAR(255) DEFAULT NULL;
     `);
 
     await pool.query(`
@@ -716,21 +718,19 @@ async function ensureBestelluebersichtSchema() {
           hat_telefon BOOLEAN;
           ist_anonymisiert BOOLEAN;
       BEGIN
-          IF NEW.versandart = 'lieferung' THEN
-              SELECT (strasse_enc IS NOT NULL AND hausnummer_enc IS NOT NULL
-                      AND plz_enc IS NOT NULL AND ort_enc IS NOT NULL),
-                     (telefonnummer_enc IS NOT NULL),
-                     anonymisiert
-                INTO hat_adresse, hat_telefon, ist_anonymisiert
-                FROM bestellung_kunde WHERE id = NEW.kunde_id;
+          SELECT (strasse_enc IS NOT NULL AND hausnummer_enc IS NOT NULL
+                  AND plz_enc IS NOT NULL AND ort_enc IS NOT NULL),
+                 (telefonnummer_enc IS NOT NULL),
+                 anonymisiert
+            INTO hat_adresse, hat_telefon, ist_anonymisiert
+            FROM bestellung_kunde WHERE id = NEW.kunde_id;
 
-              IF NOT ist_anonymisiert THEN
-                  IF NOT hat_adresse THEN
-                      RAISE EXCEPTION 'Versandart "lieferung" erfordert eine vollständige Adresse (Art. 5 Abs. 1 lit. c DSGVO)';
-                  END IF;
-                  IF NOT hat_telefon THEN
-                      RAISE EXCEPTION 'Versandart "lieferung" erfordert eine Telefonnummer für die Spedition';
-                  END IF;
+          IF NOT ist_anonymisiert THEN
+              IF NOT hat_telefon THEN
+                  RAISE EXCEPTION 'Telefonnummer ist erforderlich';
+              END IF;
+              IF NEW.versandart = 'lieferung' AND NOT hat_adresse THEN
+                  RAISE EXCEPTION 'Versandart "lieferung" erfordert eine vollständige Adresse (Art. 5 Abs. 1 lit. c DSGVO)';
               END IF;
           END IF;
           RETURN NEW;

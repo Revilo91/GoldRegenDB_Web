@@ -24,8 +24,12 @@ const EMPTY_FORM = {
   beschreibung: "",
   status: "offen",
   kunde: { name: "", email: "", telefonnummer: "", strasse: "", hausnummer: "", plz: "", ort: "" },
+  foto: "",
   consentErteilt: false,
 };
+
+const ERLAUBTE_FOTO_TYPEN = ["image/jpeg", "image/png", "image/gif"];
+const MAX_FOTO_BYTES = 5 * 1024 * 1024;
 
 export default function Bestelluebersicht() {
   const { user } = useAuth();
@@ -38,6 +42,9 @@ export default function Bestelluebersicht() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
+  const [fotoDataUrl, setFotoDataUrl] = useState(null);
+  const [fotoError, setFotoError] = useState("");
+  const [dragActive, setDragActive] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -55,6 +62,8 @@ export default function Bestelluebersicht() {
   const openNew = () => {
     setForm(EMPTY_FORM);
     setError("");
+    setFotoError("");
+    setFotoDataUrl(null);
     setEditing("new");
   };
 
@@ -73,14 +82,58 @@ export default function Bestelluebersicht() {
         plz: b.kunde.plz || "",
         ort: b.kunde.ort || "",
       },
+      foto: "",
       consentErteilt: true,
     });
     setError("");
+    setFotoError("");
+    setFotoDataUrl(null);
     setEditing(b);
+    if (b.foto_pfad) {
+      api
+        .loadBestellungFotoAsDataUrl(b.foto_pfad)
+        .then(setFotoDataUrl)
+        .catch(() => setFotoDataUrl(null));
+    }
   };
 
   const updateKundeField = (field, value) =>
     setForm((f) => ({ ...f, kunde: { ...f.kunde, [field]: value } }));
+
+  const handleFoto = (file) => {
+    if (!file) return;
+    if (!ERLAUBTE_FOTO_TYPEN.includes(file.type)) {
+      setFotoError("Nur JPG, PNG und GIF Dateien sind erlaubt");
+      return;
+    }
+    if (file.size > MAX_FOTO_BYTES) {
+      setFotoError("Datei ist zu groß (max. 5 MB)");
+      return;
+    }
+    setFotoError("");
+    const reader = new FileReader();
+    reader.onload = (e) => setForm((f) => ({ ...f, foto: e.target.result }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files?.[0]) {
+      handleFoto(e.dataTransfer.files[0]);
+    }
+  };
 
   const handleSave = async () => {
     setError("");
@@ -91,6 +144,7 @@ export default function Bestelluebersicht() {
         beschreibung: form.beschreibung,
         status: form.status,
         kunde: form.kunde,
+        foto: form.foto || undefined,
       };
       if (editing === "new") {
         await api.createBestellung({ ...payload, consent: { erteilt: form.consentErteilt } });
@@ -278,7 +332,7 @@ export default function Bestelluebersicht() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">E-Mail {!isLieferung && "*"}</label>
+                  <label className="form-label">E-Mail</label>
                   <input
                     type="email"
                     className="form-control"
@@ -288,17 +342,18 @@ export default function Bestelluebersicht() {
                   />
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Telefonnummer *</label>
+                  <input
+                    className="form-control"
+                    value={form.kunde.telefonnummer}
+                    disabled={kundeDisabled}
+                    onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
+                  />
+                </div>
+
                 {isLieferung && (
                   <>
-                    <div className="form-group">
-                      <label className="form-label">Telefonnummer *</label>
-                      <input
-                        className="form-control"
-                        value={form.kunde.telefonnummer}
-                        disabled={kundeDisabled}
-                        onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
-                      />
-                    </div>
                     <div className="form-group">
                       <label className="form-label">Straße *</label>
                       <input
@@ -346,6 +401,39 @@ export default function Bestelluebersicht() {
                     value={form.beschreibung}
                     onChange={(e) => setForm({ ...form, beschreibung: e.target.value })}
                   />
+                </div>
+
+                <div className="form-group form-group-full">
+                  <label className="form-label">Referenzfoto (optional)</label>
+                  <div className="photo-upload-container">
+                    <div
+                      className={`drag-drop-zone ${dragActive ? "active" : ""}`}
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                    >
+                      <input
+                        type="file"
+                        id="bestelluebersicht-foto"
+                        accept="image/jpeg,image/png,image/gif"
+                        onChange={(e) => handleFoto(e.target.files?.[0])}
+                      />
+                      <label htmlFor="bestelluebersicht-foto" className="upload-label">
+                        <div className="upload-content">
+                          <div className="upload-icon">📸</div>
+                          <p>Ziehe ein Foto hier hin oder klicke zum Auswählen</p>
+                          <small>JPG, PNG, GIF (max. 5 MB){fotoDataUrl ? " – ersetzt das vorhandene Foto" : ""}</small>
+                        </div>
+                      </label>
+                    </div>
+                    {fotoError && <div className="alert alert-danger">{fotoError}</div>}
+                    {(form.foto || fotoDataUrl) && (
+                      <div className="photo-preview">
+                        <img src={form.foto || fotoDataUrl} alt={form.foto ? "Neues Foto" : "Referenzfoto vom Kunden"} />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {editing === "new" && (

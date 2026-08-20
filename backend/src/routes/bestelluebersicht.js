@@ -9,6 +9,7 @@ const {
   validateDatenminimierung,
   insertBestellung,
 } = require('../utils/bestellungService');
+const { speichereBestellungFoto, bestellungFotoPfad } = require('../utils/bestellungFotoService');
 const { encryptField } = require('../utils/encryptionService');
 const { validate } = require('../middleware/validate');
 const { bestellungBasisSchema, bestellungUpdateSchema } = require('../schemas');
@@ -72,6 +73,37 @@ router.get('/next-number', async (_req, res) => {
     logger.error('BESTELLUEBERSICHT', 'Fehler beim Ermitteln der nächsten Bestellnummer', { message: err.message });
     res.status(500).json({ error: 'Fehler beim Ermitteln der nächsten Bestellnummer' });
   }
+});
+
+/**
+ * @swagger
+ * /bestelluebersicht/foto/{fileName}:
+ *   get:
+ *     summary: Vom Kunden übermitteltes Referenzfoto abrufen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Bestellübersicht]
+ *     parameters:
+ *       - { name: fileName, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Bilddatei
+ *         content: { image/*: { schema: { type: string, format: binary } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.get('/foto/:fileName', (req, res) => {
+  const filePath = bestellungFotoPfad(req.params.fileName);
+  if (!filePath) {
+    return res.status(400).json({ error: 'Ungültiger Dateiname' });
+  }
+  res.sendFile(filePath, { lastModified: true }, (err) => {
+    if (!err || res.headersSent) return;
+    if (err.code !== 'ENOENT') {
+      logger.error('BESTELLUEBERSICHT', 'Fehler beim Abrufen des Referenzfotos', { fileName: req.params.fileName, message: err.message });
+    }
+    res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: err.code === 'ENOENT' ? 'Foto nicht gefunden' : 'Fehler beim Abrufen des Fotos' });
+  });
 });
 
 /**
@@ -152,6 +184,10 @@ router.get('/:id', async (req, res) => {
  *                 properties:
  *                   erteilt: { type: boolean }
  *                   version: { type: string, example: '2026-01-v1' }
+ *               foto:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Referenzfoto als Data-URL (JPG/PNG/GIF, base64), max. 5 MB dekodiert
  *     responses:
  *       201:
  *         description: Bestellung erstellt
@@ -168,7 +204,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', validate(bestellungBasisSchema), async (req, res) => {
   let client;
   try {
-    const { versandart, wunschdatum, beschreibung, kunde, consent } = req.body;
+    const { versandart, wunschdatum, beschreibung, kunde, consent, foto } = req.body;
 
     if (!beschreibung?.trim()) {
       return res.status(400).json({ error: 'Auftragsbeschreibung ist erforderlich' });
@@ -181,6 +217,15 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
       return res.status(400).json({ error: 'Einwilligung zur Datenverarbeitung ist erforderlich' });
     }
 
+    let fotoPfad = null;
+    if (foto) {
+      try {
+        fotoPfad = speichereBestellungFoto(foto);
+      } catch (fotoErr) {
+        return res.status(400).json({ error: fotoErr.message });
+      }
+    }
+
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE bestellung IN SHARE ROW EXCLUSIVE MODE');
@@ -190,6 +235,7 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
       wunschdatum,
       beschreibung,
       kunde,
+      fotoPfad,
       ip: req.ip,
       erstelltVon: req.user?.username || 'unbekannt',
     });
@@ -268,6 +314,10 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
  *                   hausnummer: { type: string, nullable: true }
  *                   plz: { type: string, nullable: true }
  *                   ort: { type: string, nullable: true }
+ *               foto:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Referenzfoto als Data-URL (JPG/PNG/GIF, base64), max. 5 MB dekodiert. Ohne Angabe bleibt ein vorhandenes Foto unverändert.
  *     responses:
  *       200:
  *         description: Bestellung aktualisiert
@@ -280,7 +330,7 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
 router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
   let client;
   try {
-    const { versandart, wunschdatum, beschreibung, status, kunde } = req.body;
+    const { versandart, wunschdatum, beschreibung, status, kunde, foto } = req.body;
 
     if (!beschreibung?.trim()) {
       return res.status(400).json({ error: 'Auftragsbeschreibung ist erforderlich' });
@@ -303,6 +353,15 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
       }
     }
 
+    let fotoPfad;
+    if (foto) {
+      try {
+        fotoPfad = speichereBestellungFoto(foto);
+      } catch (fotoErr) {
+        return res.status(400).json({ error: fotoErr.message });
+      }
+    }
+
     client = await db.connect();
     await client.query('BEGIN');
 
@@ -320,11 +379,19 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
       );
     }
 
-    await client.query(
-      `UPDATE bestellung SET versandart = $1, wunschdatum = $2, beschreibung = $3, status = $4
-       WHERE id = $5 RETURNING *`,
-      [versandart, wunschdatum || null, beschreibung.trim(), status || 'offen', req.params.id]
-    );
+    if (fotoPfad) {
+      await client.query(
+        `UPDATE bestellung SET versandart = $1, wunschdatum = $2, beschreibung = $3, status = $4, foto_pfad = $5
+         WHERE id = $6 RETURNING *`,
+        [versandart, wunschdatum || null, beschreibung.trim(), status || 'offen', fotoPfad, req.params.id]
+      );
+    } else {
+      await client.query(
+        `UPDATE bestellung SET versandart = $1, wunschdatum = $2, beschreibung = $3, status = $4
+         WHERE id = $5 RETURNING *`,
+        [versandart, wunschdatum || null, beschreibung.trim(), status || 'offen', req.params.id]
+      );
+    }
 
     await client.query('COMMIT');
 

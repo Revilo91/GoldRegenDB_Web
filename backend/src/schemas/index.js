@@ -200,6 +200,8 @@ const bestellungBasisSchema = z.object({
   beschreibung: pflichttext(2000),
   kunde: bestellungKundeSchema.nullish(),
   consent: z.object({ erteilt: bool(), version: text(50) }).nullish(),
+  // Referenzfoto als Data-URL (base64); 5 MB Bild ≈ 6,7 MB Base64-Text, Puffer für den Data-URL-Header.
+  foto: text(7 * 1024 * 1024),
 });
 
 const bestellungPublicSchema = bestellungBasisSchema.extend({

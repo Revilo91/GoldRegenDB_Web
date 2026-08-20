@@ -5,21 +5,62 @@ const EMPTY_FORM = {
   versandart: "abholung",
   wunschdatum: "",
   beschreibung: "",
-  kunde: { name: "", email: "", telefonnummer: "", strasse: "", hausnummer: "", plz: "", ort: "" },
+  kunde: { name: "", telefonnummer: "", strasse: "", hausnummer: "", plz: "", ort: "" },
+  foto: "",
   consentErteilt: false,
   webseite: "", // Honeypot – bleibt für Menschen unsichtbar und leer
 };
+
+const ERLAUBTE_FOTO_TYPEN = ["image/jpeg", "image/png", "image/gif"];
+const MAX_FOTO_BYTES = 5 * 1024 * 1024;
 
 export default function BestellungPublic() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fotoError, setFotoError] = useState("");
+  const [dragActive, setDragActive] = useState(false);
   const [bestellnummer, setBestellnummer] = useState(null);
 
   const updateKundeField = (field, value) =>
     setForm((f) => ({ ...f, kunde: { ...f.kunde, [field]: value } }));
 
   const isLieferung = form.versandart === "lieferung";
+
+  const handleFoto = (file) => {
+    if (!file) return;
+    if (!ERLAUBTE_FOTO_TYPEN.includes(file.type)) {
+      setFotoError("Nur JPG, PNG und GIF Dateien sind erlaubt");
+      return;
+    }
+    if (file.size > MAX_FOTO_BYTES) {
+      setFotoError("Datei ist zu groß (max. 5 MB)");
+      return;
+    }
+    setFotoError("");
+    const reader = new FileReader();
+    reader.onload = (e) => setForm((f) => ({ ...f, foto: e.target.result }));
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files?.[0]) {
+      handleFoto(e.dataTransfer.files[0]);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,6 +76,7 @@ export default function BestellungPublic() {
         wunschdatum: form.wunschdatum || null,
         beschreibung: form.beschreibung,
         kunde: form.kunde,
+        foto: form.foto || undefined,
         consent: { erteilt: form.consentErteilt },
         webseite: form.webseite,
       });
@@ -121,27 +163,17 @@ export default function BestellungPublic() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">E-Mail {!isLieferung && "*"}</label>
+            <label className="form-label">Telefonnummer *</label>
             <input
-              type="email"
               className="form-control"
-              required={!isLieferung}
-              value={form.kunde.email}
-              onChange={(e) => updateKundeField("email", e.target.value)}
+              required
+              value={form.kunde.telefonnummer}
+              onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
             />
           </div>
 
           {isLieferung && (
             <>
-              <div className="form-group">
-                <label className="form-label">Telefonnummer *</label>
-                <input
-                  className="form-control"
-                  required
-                  value={form.kunde.telefonnummer}
-                  onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
-                />
-              </div>
               <div className="form-group">
                 <label className="form-label">Straße *</label>
                 <input
@@ -191,6 +223,39 @@ export default function BestellungPublic() {
               value={form.beschreibung}
               onChange={(e) => setForm({ ...form, beschreibung: e.target.value })}
             />
+          </div>
+
+          <div className="form-group form-group-full">
+            <label className="form-label">Referenzfoto (optional)</label>
+            <div className="photo-upload-container">
+              <div
+                className={`drag-drop-zone ${dragActive ? "active" : ""}`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  type="file"
+                  id="bestellung-foto"
+                  accept="image/jpeg,image/png,image/gif"
+                  onChange={(e) => handleFoto(e.target.files?.[0])}
+                />
+                <label htmlFor="bestellung-foto" className="upload-label">
+                  <div className="upload-content">
+                    <div className="upload-icon">📸</div>
+                    <p>Ziehe ein Foto hier hin oder klicke zum Auswählen</p>
+                    <small>JPG, PNG, GIF (max. 5 MB) – zeigt uns, was Sie sich vorstellen</small>
+                  </div>
+                </label>
+              </div>
+              {fotoError && <div className="alert alert-danger">{fotoError}</div>}
+              {form.foto && (
+                <div className="photo-preview">
+                  <img src={form.foto} alt="Vorschau" />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="form-group form-group-full">
