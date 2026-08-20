@@ -14,49 +14,11 @@ const {
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
 const { GRUNDMATERIAL } = require("../utils/constants");
-
-// Erstelle uploads-Verzeichnis falls nicht vorhanden
-const uploadsDir = path.join(__dirname, "../assets/uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Hilfsfunktion: Löst Artikelnummer oder Dateiname zu einer existierenden Fotodatei auf
-function resolvePhotoFile(identifier) {
-  const requestedFileName = path.basename(String(identifier || "").trim());
-
-  if (!requestedFileName) {
-    return { error: "Ungültiger Dateiname", requestedFileName };
-  }
-
-  // 1. Direkter Match falls vorhanden (z.B. "MXO002.jpg")
-  const directPath = path.join(uploadsDir, requestedFileName);
-  if (fs.existsSync(directPath)) {
-    return { filePath: directPath, resolvedFileName: requestedFileName, resolvedBy: "exact" };
-  }
-
-  // 2. Suche nach Basis-Artikelnummer (ohne Suffix _1, _2 oder Dateiendung)
-  const baseName = path.parse(requestedFileName.split("_")[0]).name;
-  const files = fs.readdirSync(uploadsDir);
-  const matchingFiles = files.filter((file) => path.parse(file).name === baseName);
-
-  if (matchingFiles.length >= 1) {
-    return {
-      filePath: path.join(uploadsDir, matchingFiles[0]),
-      resolvedFileName: matchingFiles[0],
-      resolvedBy: matchingFiles[0] === requestedFileName ? "exact" : "basename",
-    };
-  }
-
-  return {
-    error: "Foto nicht gefunden",
-    requestedFileName,
-    baseName,
-    matchingFiles,
-    availableFiles: files.length,
-  };
-}
-
+const {
+  uploadsDir,
+  resolvePhotoFile,
+  invalidate: invalidatePhotoIndex,
+} = require("../utils/photoIndex");
 
 // Multer-Konfiguration für Foto-Upload
 const storage = multer.diskStorage({
@@ -191,6 +153,7 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
     }
 
     const fileName = req.file.filename;
+    invalidatePhotoIndex();
 
     res.json({
       success: true,
@@ -224,7 +187,12 @@ router.get("/foto/:fileName", (req, res) => {
       });
     }
 
-    res.sendFile(lookup.filePath, (err) => {
+    // Ohne Cache-Header lädt jede Tabellenseite dieselben Fotos erneut.
+    // max-age=60 hält die Anzeige nach einem Neu-Upload trotzdem aktuell,
+    // danach beantwortet der ETag-Abgleich die meisten Anfragen mit 304.
+    res.set("Cache-Control", "private, max-age=60");
+
+    res.sendFile(lookup.filePath, { lastModified: true }, (err) => {
       if (!err) return;
 
       logger.error("SCHMUCK", `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, {
@@ -270,6 +238,7 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+      invalidatePhotoIndex();
       res.json({ message: "Foto gelöscht" });
     } else {
       res.status(404).json({ error: "Foto nicht gefunden" });
@@ -573,29 +542,30 @@ router.get("/", async (req, res) => {
     const params = builder.getParams();
     const nextParamIdx = builder.getNextParamIdx();
 
-    // Count total
-    const countResult = await db.query(
-      `SELECT COUNT(*) FROM "Schmuckstück" ${whereClause}`,
-      params,
-    );
-    const total = parseInt(countResult.rows[0].count);
+    // Gesamtzahl per Fensterfunktion statt separater COUNT-Abfrage: ein
+    // Tabellendurchlauf weniger pro Seitenaufruf. Alle Requests teilen sich
+    // denselben request-gebundenen DB-Client, laufen also ohnehin nacheinander.
+    const ORDER_BY = 'ORDER BY length("Artikelnummer"), "Artikelnummer"';
+    const sql =
+      limit === -1
+        ? `SELECT *, COUNT(*) OVER() AS "__total" FROM "Schmuckstück" ${whereClause} ${ORDER_BY}`
+        : `SELECT *, COUNT(*) OVER() AS "__total" FROM "Schmuckstück" ${whereClause} ${ORDER_BY} LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
+    const sqlParams = limit === -1 ? params : [...params, limit, offset];
 
-    let rows;
-    if (limit === -1) {
-      // Alle laden, kein LIMIT/OFFSET
-      const result = await db.query(
-        `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+    const { rows } = await db.query(sql, sqlParams);
+
+    let total = rows.length > 0 ? parseInt(rows[0].__total) : 0;
+    if (rows.length === 0 && offset > 0) {
+      // Leere Seite hinter dem Ende: Gesamtzahl separat ermitteln, damit die
+      // Blätter-Navigation im Frontend korrekt bleibt.
+      const countResult = await db.query(
+        `SELECT COUNT(*) FROM "Schmuckstück" ${whereClause}`,
         params,
       );
-      rows = result.rows;
-    } else {
-      const result = await db.query(
-        `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`,
-        [...params, limit, offset],
-      );
-      rows = result.rows;
+      total = parseInt(countResult.rows[0].count);
     }
-    const processedRows = rows.map((row) => {
+
+    const processedRows = rows.map(({ __total, ...row }) => {
       // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
       if (!row.Foto || row.Foto.trim() === "") {
         const photoResult = resolvePhotoFile(row.Artikelnummer);
@@ -628,166 +598,88 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Sortierung wie zuvor die 27 ORDER-BY-Klauseln: Zahlen numerisch,
+// Text nach deutscher Kollation.
+function vergleicheFilterwerte(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), "de");
+}
+
 // GET filter-options (must come before /:artikelnummer!)
+// Früher: 27 einzelne SELECT DISTINCT – also 27 Full-Table-Scans pro Aufruf.
+// Jetzt ein einziger Scan, der alle Spalten gleichzeitig aggregiert.
+const FILTER_OPTION_FIELDS = [
+  "arten",
+  "farben",
+  "materialien",
+  "formen",
+  "anhaenger_fassungen",
+  "anhaenger_formen",
+  "anhaenger_farben",
+  "anhaenger_groessen",
+  "anhaenger_inhalt_materialien",
+  "anhaenger_inhalt_farben",
+  "anhaenger_inhalt_farbakzente",
+  "anhaenger_inhalt_zusatzmaterialien",
+  "inhalt_materialien",
+  "inhalt_farben",
+  "inhalt_farbakzente",
+  "inhalt_zusatzmaterialien",
+  "zwischenstuecke",
+  "fassungen",
+  "laengen",
+  "groessen",
+  "fotos",
+  "namen",
+  "verkaufspreise",
+  "herstellungskosten",
+  "ausschuesse",
+  "anhaenger",
+  "ausschussgruende",
+];
+
 router.get("/filter-options", async (req, res) => {
   try {
-    const [
-      arten,
-      farben,
-      materialien,
-      formen,
-      anhaenger_fassungen,
-      anhaenger_formen,
-      anhaenger_farben,
-      anhaenger_groessen,
-      anhaenger_inhalt_materialien,
-      anhaenger_inhalt_farben,
-      anhaenger_inhalt_farbakzente,
-      anhaenger_inhalt_zusatzmaterialien,
-      inhalt_materialien,
-      inhalt_farben,
-      inhalt_farbakzente,
-      inhalt_zusatzmaterialien,
-      zwischenstuecke,
-      fassungen,
-      laengen,
-      groessen,
-      fotos,
-      namen,
-      verkaufspreise,
-      herstellungskosten,
-      ausschuesse,
-      anhaenger,
-      ausschussgruende,
-    ] = await Promise.all([
-      db.query(
-        'SELECT DISTINCT "Art" FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != \'\' ORDER BY "Art"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Farbe" FROM "Schmuckstück" WHERE "Farbe" IS NOT NULL AND "Farbe" != \'\' ORDER BY "Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Material" FROM "Schmuckstück" WHERE "Material" IS NOT NULL AND "Material" != \'\' ORDER BY "Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Form" FROM "Schmuckstück" WHERE "Form" IS NOT NULL AND "Form" != \'\' ORDER BY "Form"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Fassung" FROM "Schmuckstück" WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" != \'\' ORDER BY "Anhänger_Fassung"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Form" FROM "Schmuckstück" WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" != \'\' ORDER BY "Anhänger_Form"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" != \'\' ORDER BY "Anhänger_Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Grösse" FROM "Schmuckstück" WHERE "Anhänger_Grösse" IS NOT NULL ORDER BY "Anhänger_Grösse"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Material" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" != \'\' ORDER BY "Anhänger_Inhalt_Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" != \'\' ORDER BY "Anhänger_Inhalt_Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Farbakzente" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" != \'\' ORDER BY "Anhänger_Inhalt_Farbakzente"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" != \'\' ORDER BY "Anhänger_Inhalt_Zusatzmaterial"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Material" FROM "Schmuckstück" WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" != \'\' ORDER BY "Inhalt_Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Farbe" FROM "Schmuckstück" WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" != \'\' ORDER BY "Inhalt_Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Farbakzent" FROM "Schmuckstück" WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" != \'\' ORDER BY "Inhalt_Farbakzent"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" != \'\' ORDER BY "Inhalt_Zusatzmaterial"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Zwischenstück" FROM "Schmuckstück" WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" != \'\' ORDER BY "Zwischenstück"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Fassung" FROM "Schmuckstück" WHERE "Fassung" IS NOT NULL AND "Fassung" != \'\' ORDER BY "Fassung"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Länge" FROM "Schmuckstück" WHERE "Länge" IS NOT NULL ORDER BY "Länge"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Grösse" FROM "Schmuckstück" WHERE "Grösse" IS NOT NULL ORDER BY "Grösse"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Foto" FROM "Schmuckstück" WHERE "Foto" IS NOT NULL AND "Foto" != \'\' ORDER BY "Foto"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Name" FROM "Schmuckstück" WHERE "Name" IS NOT NULL AND "Name" != \'\' ORDER BY "Name"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Verkaufspreis" FROM "Schmuckstück" WHERE "Verkaufspreis" IS NOT NULL ORDER BY "Verkaufspreis"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Herstellungskosten" FROM "Schmuckstück" WHERE "Herstellungskosten" IS NOT NULL ORDER BY "Herstellungskosten"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Ausschuss" FROM "Schmuckstück" WHERE "Ausschuss" IS NOT NULL ORDER BY "Ausschuss"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger" FROM "Schmuckstück" WHERE "Anhänger" IS NOT NULL AND "Anhänger" != \'\' ORDER BY "Anhänger"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Ausschuss_Grund" FROM "Schmuckstück" WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" != \'\' ORDER BY "Ausschuss_Grund"',
-      ),
-    ]);
-    res.json({
-      arten: arten.rows.map((r) => r.Art),
-      farben: farben.rows.map((r) => r.Farbe),
-      materialien: materialien.rows.map((r) => r.Material),
-      formen: formen.rows.map((r) => r.Form),
-      anhaenger_fassungen: anhaenger_fassungen.rows.map(
-        (r) => r.Anhänger_Fassung,
-      ),
-      anhaenger_formen: anhaenger_formen.rows.map((r) => r.Anhänger_Form),
-      anhaenger_farben: anhaenger_farben.rows.map((r) => r.Anhänger_Farbe),
-      anhaenger_groessen: anhaenger_groessen.rows.map((r) => r.Anhänger_Grösse),
-      anhaenger_inhalt_materialien: anhaenger_inhalt_materialien.rows.map(
-        (r) => r.Anhänger_Inhalt_Material,
-      ),
-      anhaenger_inhalt_farben: anhaenger_inhalt_farben.rows.map(
-        (r) => r.Anhänger_Inhalt_Farbe,
-      ),
-      anhaenger_inhalt_farbakzente: anhaenger_inhalt_farbakzente.rows.map(
-        (r) => r.Anhänger_Inhalt_Farbakzente,
-      ),
-      anhaenger_inhalt_zusatzmaterialien:
-        anhaenger_inhalt_zusatzmaterialien.rows.map(
-          (r) => r.Anhänger_Inhalt_Zusatzmaterial,
-        ),
-      inhalt_materialien: inhalt_materialien.rows.map((r) => r.Inhalt_Material),
-      inhalt_farben: inhalt_farben.rows.map((r) => r.Inhalt_Farbe),
-      inhalt_farbakzente: inhalt_farbakzente.rows.map(
-        (r) => r.Inhalt_Farbakzent,
-      ),
-      inhalt_zusatzmaterialien: inhalt_zusatzmaterialien.rows.map(
-        (r) => r.Inhalt_Zusatzmaterial,
-      ),
-      zwischenstuecke: zwischenstuecke.rows.map((r) => r.Zwischenstück),
-      fassungen: fassungen.rows.map((r) => r.Fassung),
-      laengen: laengen.rows.map((r) => r.Länge),
-      groessen: groessen.rows.map((r) => r.Grösse),
-      fotos: fotos.rows.map((r) => r.Foto),
-      namen: namen.rows.map((r) => r.Name),
-      verkaufspreise: verkaufspreise.rows.map((r) => r.Verkaufspreis),
-      herstellungskosten: herstellungskosten.rows.map(
-        (r) => r.Herstellungskosten,
-      ),
-      ausschuesse: ausschuesse.rows.map((r) => r.Ausschuss),
-      anhaenger: anhaenger.rows.map((r) => r.Anhänger),
-      ausschussgruende: ausschussgruende.rows.map((r) => r.Ausschuss_Grund),
-    });
+    const { rows } = await db.query(
+      `SELECT
+         array_agg(DISTINCT "Art") FILTER (WHERE "Art" IS NOT NULL AND "Art" <> '') AS arten,
+         array_agg(DISTINCT "Farbe") FILTER (WHERE "Farbe" IS NOT NULL AND "Farbe" <> '') AS farben,
+         array_agg(DISTINCT "Material") FILTER (WHERE "Material" IS NOT NULL AND "Material" <> '') AS materialien,
+         array_agg(DISTINCT "Form") FILTER (WHERE "Form" IS NOT NULL AND "Form" <> '') AS formen,
+         array_agg(DISTINCT "Anhänger_Fassung") FILTER (WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" <> '') AS anhaenger_fassungen,
+         array_agg(DISTINCT "Anhänger_Form") FILTER (WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" <> '') AS anhaenger_formen,
+         array_agg(DISTINCT "Anhänger_Farbe") FILTER (WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" <> '') AS anhaenger_farben,
+         array_agg(DISTINCT "Anhänger_Grösse") FILTER (WHERE "Anhänger_Grösse" IS NOT NULL) AS anhaenger_groessen,
+         array_agg(DISTINCT "Anhänger_Inhalt_Material") FILTER (WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" <> '') AS anhaenger_inhalt_materialien,
+         array_agg(DISTINCT "Anhänger_Inhalt_Farbe") FILTER (WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" <> '') AS anhaenger_inhalt_farben,
+         array_agg(DISTINCT "Anhänger_Inhalt_Farbakzente") FILTER (WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" <> '') AS anhaenger_inhalt_farbakzente,
+         array_agg(DISTINCT "Anhänger_Inhalt_Zusatzmaterial") FILTER (WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" <> '') AS anhaenger_inhalt_zusatzmaterialien,
+         array_agg(DISTINCT "Inhalt_Material") FILTER (WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" <> '') AS inhalt_materialien,
+         array_agg(DISTINCT "Inhalt_Farbe") FILTER (WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" <> '') AS inhalt_farben,
+         array_agg(DISTINCT "Inhalt_Farbakzent") FILTER (WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" <> '') AS inhalt_farbakzente,
+         array_agg(DISTINCT "Inhalt_Zusatzmaterial") FILTER (WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" <> '') AS inhalt_zusatzmaterialien,
+         array_agg(DISTINCT "Zwischenstück") FILTER (WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" <> '') AS zwischenstuecke,
+         array_agg(DISTINCT "Fassung") FILTER (WHERE "Fassung" IS NOT NULL AND "Fassung" <> '') AS fassungen,
+         array_agg(DISTINCT "Länge") FILTER (WHERE "Länge" IS NOT NULL) AS laengen,
+         array_agg(DISTINCT "Grösse") FILTER (WHERE "Grösse" IS NOT NULL) AS groessen,
+         array_agg(DISTINCT "Foto") FILTER (WHERE "Foto" IS NOT NULL AND "Foto" <> '') AS fotos,
+         array_agg(DISTINCT "Name") FILTER (WHERE "Name" IS NOT NULL AND "Name" <> '') AS namen,
+         array_agg(DISTINCT "Verkaufspreis") FILTER (WHERE "Verkaufspreis" IS NOT NULL) AS verkaufspreise,
+         array_agg(DISTINCT "Herstellungskosten") FILTER (WHERE "Herstellungskosten" IS NOT NULL) AS herstellungskosten,
+         array_agg(DISTINCT "Ausschuss") FILTER (WHERE "Ausschuss" IS NOT NULL) AS ausschuesse,
+         array_agg(DISTINCT "Anhänger") FILTER (WHERE "Anhänger" IS NOT NULL AND "Anhänger" <> '') AS anhaenger,
+         array_agg(DISTINCT "Ausschuss_Grund") FILTER (WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" <> '') AS ausschussgruende
+       FROM "Schmuckstück"`,
+    );
+
+    const row = rows[0] || {};
+    const options = {};
+    for (const key of FILTER_OPTION_FIELDS) {
+      // array_agg liefert NULL, wenn die Tabelle leer ist
+      options[key] = (row[key] || []).sort(vergleicheFilterwerte);
+    }
+
+    res.json(options);
   } catch (err) {
     logger.error("SCHMUCK", "Fehler beim Laden der Filter-Optionen", {
       message: err.message,

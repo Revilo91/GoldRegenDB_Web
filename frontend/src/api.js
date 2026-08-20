@@ -126,6 +126,45 @@ async function downloadBlob(url, options = {}) {
   }
 }
 
+// ── Foto-Cache ───────────────────────────────────────────────────────────────
+// Jede Tabellenzeile lädt ihr Foto einzeln. Ohne Cache erzeugt jeder
+// Seitenwechsel erneut so viele Requests, wie die Seite Zeilen hat.
+
+const FOTO_CACHE_MAX = 400;
+const fotoCache = new Map();
+const fotoRequests = new Map();
+
+function merkeFoto(fileName, dataUrl) {
+  if (fotoCache.size >= FOTO_CACHE_MAX) {
+    fotoCache.delete(fotoCache.keys().next().value);
+  }
+  fotoCache.set(fileName, dataUrl);
+}
+
+function vergissFoto(artikelnummer) {
+  const basis = String(artikelnummer || '').split('_')[0];
+  if (!basis) return;
+  const gehoertDazu = (key) => key.split('.')[0].split('_')[0] === basis;
+  for (const key of [...fotoCache.keys()]) {
+    if (gehoertDazu(key)) fotoCache.delete(key);
+  }
+  for (const key of [...fotoRequests.keys()]) {
+    if (gehoertDazu(key)) fotoRequests.delete(key);
+  }
+}
+
+// Kein AbortSignal: Der Request wird geteilt, ein abbrechender Aufrufer würde
+// ihn sonst auch für alle anderen Wartenden beenden.
+async function ladeFotoAlsDataUrl(cleanFileName) {
+  const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(reader.error || new Error('Foto konnte nicht gelesen werden'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // Passwörter werden im Klartext über TLS gesendet und erst im Backend mit
 // bcrypt gehasht (siehe backend/src/utils/passwordService.js).
 export const authApi = {
@@ -182,28 +221,47 @@ export const api = {
     const formData = new FormData();
     formData.append('foto', file);
     const qs = new URLSearchParams({ artikelnummer }).toString();
+    // Das Backend legt die Datei unter der Basis-Artikelnummer ab, überschreibt
+    // also den bisherigen Dateinamen – der Cache-Eintrag muss deshalb weg.
+    vergissFoto(artikelnummer);
     return request(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
   loadPhotoAsDataUrl: async (fileName, options = {}) => {
     if (!fileName) return null;
-    const { signal } = options;
+    const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
+
+    const zwischengespeichert = fotoCache.get(cleanFileName);
+    if (zwischengespeichert) return zwischengespeichert;
+
+    // Beim Blättern und beim Wechsel zwischen Tabelle und Detailansicht werden
+    // dieselben Fotos immer wieder angefragt. Laufende Requests werden geteilt,
+    // fertige Data-URLs bleiben für die Sitzung im Speicher.
+    let laufend = fotoRequests.get(cleanFileName);
+    if (!laufend) {
+      laufend = ladeFotoAlsDataUrl(cleanFileName)
+        .then((dataUrl) => {
+          if (dataUrl) merkeFoto(cleanFileName, dataUrl);
+          return dataUrl;
+        })
+        .finally(() => fotoRequests.delete(cleanFileName));
+      fotoRequests.set(cleanFileName, laufend);
+    }
+
     try {
-      const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
-      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`, { signal });
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.readAsDataURL(blob);
-      });
+      return await laufend;
     } catch (err) {
-      if (err?.name === 'AbortError') return null;
+      if (err?.name === 'AbortError' || options.signal?.aborted) return null;
       const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
       const photoError = new Error(message);
       photoError.status = err.status;
       photoError.payload = err.payload;
       throw photoError;
     }
+  },
+  clearPhotoCache: () => {
+    fotoCache.clear();
+    fotoRequests.clear();
   },
 
   // Lieferscheine

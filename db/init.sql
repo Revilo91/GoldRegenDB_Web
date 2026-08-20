@@ -140,6 +140,10 @@ CREATE TABLE "Schmuckstück" (
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");
 CREATE INDEX idx_schmuck_lieferschein ON "Schmuckstück" ("Lieferschein_ID");
 CREATE INDEX idx_schmuck_rechnung ON "Schmuckstück" ("Rechnung_ID");
+-- Sortierreihenfolge der Listenansicht (length + Artikelnummer)
+CREATE INDEX idx_schmuck_artikelnummer_sort ON "Schmuckstück" (length("Artikelnummer"), "Artikelnummer");
+-- Statusfilter aus dem whereClauseBuilder
+CREATE INDEX idx_schmuck_status ON "Schmuckstück" ("Verkauft", "Ausschuss", "Ausgelagert");
 
 CREATE TABLE audit_log (
     id SERIAL PRIMARY KEY,

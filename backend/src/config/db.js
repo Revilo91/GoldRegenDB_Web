@@ -11,8 +11,14 @@ const maskedUrl = connectionString
   : '(nicht gesetzt)';
 logger.info('DB', `Verbindung wird hergestellt zu: ${maskedUrl}`);
 
+// Jeder Request belegt einen Client für seine gesamte Dauer (siehe
+// requestContextMiddleware). Mit dem pg-Standard von 10 Clients stauen sich
+// parallele Requests deshalb schon bei zwei aktiven Browser-Tabs.
 const pool = new Pool({
   connectionString,
+  max: parseInt(process.env.DB_POOL_MAX, 10) || 25,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 const requestContext = new AsyncLocalStorage();
@@ -346,6 +352,13 @@ async function ensureSchmuckstueckTable() {
       CREATE INDEX IF NOT EXISTS idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");
       CREATE INDEX IF NOT EXISTS idx_schmuck_lieferschein ON "Schmuckstück" ("Lieferschein_ID");
       CREATE INDEX IF NOT EXISTS idx_schmuck_rechnung ON "Schmuckstück" ("Rechnung_ID");
+      -- Sortierreihenfolge der Listenansicht; ohne diesen Index sortiert
+      -- Postgres bei jedem Seitenwechsel die komplette Tabelle neu.
+      CREATE INDEX IF NOT EXISTS idx_schmuck_artikelnummer_sort
+        ON "Schmuckstück" (length("Artikelnummer"), "Artikelnummer");
+      -- Statusfilter (verfügbar / verkauft / Ausschuss) aus dem whereClauseBuilder
+      CREATE INDEX IF NOT EXISTS idx_schmuck_status
+        ON "Schmuckstück" ("Verkauft", "Ausschuss", "Ausgelagert");
     `);
     logger.info('DB', '"Schmuckstück" Tabelle verifiziert');
   } catch (err) {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { authApi } from "../api";
+import { api, authApi } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -67,6 +67,8 @@ export function AuthProvider({ children }) {
       logWarn(`Logout am Backend fehlgeschlagen: ${err.message}`);
     }
     sessionStorage.removeItem("mustChangePassword");
+    // Fotos des abgemeldeten Benutzers nicht im Speicher liegen lassen
+    api.clearPhotoCache();
     setUser(null);
     setMustChangePassword(false);
   }
