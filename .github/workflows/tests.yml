@@ -30,6 +30,10 @@ jobs:
         working-directory: backend
         run: npm run lint
 
+      - name: Typprüfung ausführen
+        working-directory: backend
+        run: npm run typecheck
+
       - name: Tests ausführen
         working-directory: backend
         env:
