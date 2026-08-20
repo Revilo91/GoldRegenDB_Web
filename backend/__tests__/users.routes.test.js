@@ -28,7 +28,6 @@ jest.mock('../src/utils/logger', () => ({
 
 const request = require('supertest');
 const express = require('express');
-const jwt = require('jsonwebtoken');
 
 function buildApp() {
   const app = express();

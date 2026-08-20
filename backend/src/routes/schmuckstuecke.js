@@ -803,7 +803,6 @@ router.get("/unique-artikelnummern", async (req, res) => {
     const ausgelagert = req.query.ausgelagert;
     const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
-    console.log(req.query);
     // Initialisiere WHERE-Builder
     const builder = where();
 
@@ -827,8 +826,6 @@ router.get("/unique-artikelnummern", async (req, res) => {
     let whereClause = whereClauseBuilderResult;
 
     const params = builder.getParams();
-    console.log(whereClause);
-    console.log(params);
     const { rows } = await db.query(
       `SELECT base_nr FROM (
          SELECT DISTINCT split_part("Artikelnummer", '_', 1) as "base_nr"
