@@ -39,6 +39,9 @@ services:
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
+      # Während einer JWT-Secret-Rotation zusätzlich das alte Secret setzen,
+      # damit noch gültige Alt-Tokens akzeptiert werden (siehe README "Secrets rotieren").
+      JWT_SECRET_OLD: ${JWT_SECRET_OLD:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       FORCE_HTTPS: ${FORCE_HTTPS:-false}
@@ -61,3 +64,28 @@ networks:
     driver: bridge
 
 # Keine named volumes nötig bei absoluten Pfaden
+
+# ── Datei-basierte Secrets statt Klartext in .env (Issue #140) ──────────────
+# Auf DSM läuft nur `docker compose up`, kein Swarm – `external: true`-Secrets
+# funktionieren dort nicht, dateibasierte Secrets (`file: ...`) dagegen schon:
+# Compose mountet sie auch ohne Swarm nach /run/secrets/. Empfohlen für die
+# Synology, da die .env sonst dauerhaft im Klartext auf dem NAS-Volume liegt.
+# Aktivieren: Dateien unter /volume1/docker/goldregendb/secrets/ anlegen
+# (0600, nur root), unten einkommentieren, und oben in der `app`-Umgebung
+# DATABASE_URL/JWT_SECRET/BESTELLUNG_ENCRYPTION_KEY durch die *_FILE-Variante
+# ersetzen. Details: README.md "Secrets rotieren".
+#
+# secrets:
+#   jwt_secret:
+#     file: /volume1/docker/goldregendb/secrets/jwt_secret.txt
+#   db_password:
+#     file: /volume1/docker/goldregendb/secrets/db_password.txt
+#   bestellung_encryption_key:
+#     file: /volume1/docker/goldregendb/secrets/bestellung_encryption_key.txt
+#
+# app:
+#   secrets: [jwt_secret, db_password, bestellung_encryption_key]
+# db:
+#   secrets: [db_password]
+#   environment:
+#     POSTGRES_PASSWORD_FILE: /run/secrets/db_password  # vom offiziellen postgres-Image nativ unterstützt

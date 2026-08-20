@@ -14,6 +14,7 @@
 const path = require("path");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
+const { getSecret } = require("../src/config/secrets");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -21,7 +22,7 @@ const dryRun = args.includes("--dry-run");
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = getSecret("DATABASE_URL");
 const retentionTageOhneRechnung = parseInt(process.env.BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG || "90", 10);
 const retentionJahreMitRechnung = parseInt(process.env.BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG || "10", 10);
 
