@@ -21,9 +21,64 @@ function pruefeFeldLaengen(kunde, beschreibung) {
   return null;
 }
 
-// Öffentliches Bestellformular (ohne Login) – z. B. eingebettet unter goldregen.de/Bestellung.
-// Erlaubt ausschließlich das Anlegen neuer Bestellungen; Ansicht, Bearbeitung und Anonymisierung
-// bleiben dem internen, authentifizierten Bereich vorbehalten.
+/**
+ * @swagger
+ * /public/bestellung:
+ *   post:
+ *     summary: Bestellung öffentlich anlegen (kein Login erforderlich)
+ *     description: 'Eingebettet z. B. unter goldregen.de/Bestellung. Erlaubt ausschließlich das Anlegen
+ *       neuer Bestellungen – Ansicht, Bearbeitung und Anonymisierung bleiben dem internen,
+ *       authentifizierten Bereich (/bestelluebersicht) vorbehalten. Enthält ein Honeypot-Feld
+ *       (webseite) gegen Bots. Rate-Limit: max. 10 Anfragen / 15 Min pro IP.'
+ *     tags: [Bestellübersicht]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [versandart, beschreibung]
+ *             properties:
+ *               versandart: { type: string, enum: [abholung, lieferung] }
+ *               wunschdatum: { type: string, format: date, nullable: true }
+ *               beschreibung: { type: string, maxLength: 2000 }
+ *               kunde:
+ *                 type: object
+ *                 nullable: true
+ *                 properties:
+ *                   name: { type: string, maxLength: 200 }
+ *                   email: { type: string, maxLength: 200, nullable: true }
+ *                   telefonnummer: { type: string, maxLength: 200, nullable: true }
+ *                   strasse: { type: string, maxLength: 200, nullable: true }
+ *                   hausnummer: { type: string, maxLength: 200, nullable: true }
+ *                   plz: { type: string, maxLength: 200, nullable: true }
+ *                   ort: { type: string, maxLength: 200, nullable: true }
+ *               consent:
+ *                 type: object
+ *                 nullable: true
+ *                 properties:
+ *                   erteilt: { type: boolean }
+ *                   version: { type: string }
+ *               webseite:
+ *                 type: string
+ *                 maxLength: 200
+ *                 description: Honeypot – im echten Formular für Menschen unsichtbar, muss leer bleiben
+ *     responses:
+ *       201:
+ *         description: Bestellung erstellt – bewusst minimale Antwort (keine Kunden-ID/PII)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties: { bestellnummer: { type: string, example: B-2026-0002 } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       409:
+ *         description: Bestellnummer-Kollision, bitte erneut versuchen
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       429:
+ *         description: Zu viele Bestellungen von dieser IP
+ */
 router.post('/', validate(bestellungPublicSchema), async (req, res) => {
   let client;
   try {

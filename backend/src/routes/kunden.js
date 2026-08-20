@@ -6,7 +6,22 @@ const { where } = require('../utils/whereClauseBuilder');
 const { validate } = require('../middleware/validate');
 const { kundeSchema, restockSelectiveSchema } = require('../schemas');
 
-// GET all customers
+/**
+ * @swagger
+ * /kunden:
+ *   get:
+ *     summary: Alle Kunden abrufen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     responses:
+ *       200:
+ *         description: Kundenliste
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { $ref: '#/components/schemas/Kunde' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -20,7 +35,23 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single customer by ID
+/**
+ * @swagger
+ * /kunden/{id}:
+ *   get:
+ *     summary: Einzelnen Kunden abrufen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Kunde
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Kunde' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -38,7 +69,24 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// GET jewelry pieces for a customer (ausgelagert)
+/**
+ * @swagger
+ * /kunden/{id}/schmuckstuecke:
+ *   get:
+ *     summary: Beim Kunden ausgelagerte Schmuckstücke
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Schmuckstückliste
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/:id/schmuckstuecke', async (req, res) => {
   try {
     const builder = where();
@@ -55,7 +103,42 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
   }
 });
 
-// POST create customer
+/**
+ * @swagger
+ * /kunden:
+ *   post:
+ *     summary: Kunden anlegen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Name, Strasse, Hausnummer, Ort, PLZ]
+ *             properties:
+ *               Name: { type: string, maxLength: 100 }
+ *               Strasse: { type: string, maxLength: 200 }
+ *               Hausnummer: { type: integer, minimum: 0, maximum: 99999 }
+ *               Ort: { type: string, maxLength: 100 }
+ *               PLZ: { type: integer, minimum: 0, maximum: 99999 }
+ *               Email: { type: string, nullable: true }
+ *               Telefonnummer: { type: string, nullable: true }
+ *               Provision: { type: integer, minimum: 0, maximum: 100 }
+ *               Aktiv: { type: boolean }
+ *     responses:
+ *       201:
+ *         description: Kunde erstellt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Kunde' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.post('/', validate(kundeSchema), async (req, res) => {
   try {
     const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
@@ -72,7 +155,33 @@ router.post('/', validate(kundeSchema), async (req, res) => {
   }
 });
 
-// PUT update customer
+/**
+ * @swagger
+ * /kunden/{id}:
+ *   put:
+ *     summary: Kunden aktualisieren
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/Kunde' }
+ *     responses:
+ *       200:
+ *         description: Kunde aktualisiert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Kunde' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.put('/:id', validate(kundeSchema), async (req, res) => {
   try {
     const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
@@ -94,7 +203,28 @@ router.put('/:id', validate(kundeSchema), async (req, res) => {
   }
 });
 
-// PUT restock all items for a customer (set Ausgelagert = 0)
+/**
+ * @swagger
+ * /kunden/{id}/restock:
+ *   put:
+ *     summary: Alle beim Kunden ausgelagerten Artikel zurücklagern
+ *     description: 'Setzt Ausgelagert = 0 für alle Artikel dieses Kunden. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Anzahl zurückgelagerter Artikel
+ *         content:
+ *           application/json:
+ *             schema: { type: object, properties: { message: { type: string } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.put('/:id/restock', async (req, res) => {
   try {
     const builder = where();
@@ -112,7 +242,42 @@ router.put('/:id/restock', async (req, res) => {
   }
 });
 
-// PUT restock specific items for a customer (set Ausgelagert = 0)
+/**
+ * @swagger
+ * /kunden/{id}/restock-selective:
+ *   put:
+ *     summary: Ausgewählte Artikel eines Kunden zurücklagern
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [artikelnummern]
+ *             properties:
+ *               artikelnummern:
+ *                 type: array
+ *                 items: { type: string, example: MHO123_1 }
+ *                 minItems: 1
+ *                 maxItems: 1000
+ *     responses:
+ *       200:
+ *         description: Anzahl zurückgelagerter Artikel
+ *         content:
+ *           application/json:
+ *             schema: { type: object, properties: { message: { type: string } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.put('/:id/restock-selective', validate(restockSelectiveSchema), async (req, res) => {
   try {
     const { artikelnummern } = req.body;
@@ -141,7 +306,26 @@ router.put('/:id/restock-selective', validate(restockSelectiveSchema), async (re
   }
 });
 
-// DELETE customer
+/**
+ * @swagger
+ * /kunden/{id}:
+ *   delete:
+ *     summary: Kunden löschen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Kunden]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Kunde gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.delete('/:id', async (req, res) => {
   try {
     const { rowCount } = await db.query(

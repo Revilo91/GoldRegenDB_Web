@@ -13,7 +13,23 @@ const { encryptField } = require('../utils/encryptionService');
 const { validate } = require('../middleware/validate');
 const { bestellungBasisSchema, bestellungUpdateSchema } = require('../schemas');
 
-// GET all orders
+/**
+ * @swagger
+ * /bestelluebersicht:
+ *   get:
+ *     summary: Alle Bestellungen abrufen
+ *     description: 'Personenbezogene Kundenfelder werden entschlüsselt zurückgegeben (außer bei
+ *       anonymisierten Bestellungen). Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Bestellübersicht]
+ *     responses:
+ *       200:
+ *         description: Bestellliste
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { $ref: '#/components/schemas/Bestellung' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -30,7 +46,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET next order number (for the create form)
+/**
+ * @swagger
+ * /bestelluebersicht/next-number:
+ *   get:
+ *     summary: Nächste Bestellnummer ermitteln (für das Anlage-Formular)
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Bestellübersicht]
+ *     responses:
+ *       200:
+ *         description: Nächste Bestellnummer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties: { bestellnummer: { type: string, example: B-2026-0002 } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/next-number', async (_req, res) => {
   try {
     const nextNummer = await getNextBestellnummer(db);
@@ -41,7 +74,23 @@ router.get('/next-number', async (_req, res) => {
   }
 });
 
-// GET single order
+/**
+ * @swagger
+ * /bestelluebersicht/{id}:
+ *   get:
+ *     summary: Einzelne Bestellung abrufen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Bestellübersicht]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Bestellung
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Bestellung' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -62,7 +111,60 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST create order
+/**
+ * @swagger
+ * /bestelluebersicht:
+ *   post:
+ *     summary: Bestellung anlegen (interner, authentifizierter Bereich)
+ *     description: 'DSGVO-Datenminimierung: bei Abholung sind Adressfelder nicht erforderlich, bei
+ *       Lieferung schon (siehe utils/bestellungService.js validateDatenminimierung). Einwilligung
+ *       (consent.erteilt) ist Pflicht. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Bestellübersicht]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [versandart, beschreibung]
+ *             properties:
+ *               versandart: { type: string, enum: [abholung, lieferung] }
+ *               wunschdatum: { type: string, format: date, nullable: true }
+ *               beschreibung: { type: string, maxLength: 2000 }
+ *               kunde:
+ *                 type: object
+ *                 nullable: true
+ *                 properties:
+ *                   name: { type: string, maxLength: 200 }
+ *                   email: { type: string, maxLength: 200, nullable: true }
+ *                   telefonnummer: { type: string, maxLength: 200, nullable: true }
+ *                   strasse: { type: string, maxLength: 200, nullable: true }
+ *                   hausnummer: { type: string, maxLength: 200, nullable: true }
+ *                   plz: { type: string, maxLength: 200, nullable: true }
+ *                   ort: { type: string, maxLength: 200, nullable: true }
+ *               consent:
+ *                 type: object
+ *                 nullable: true
+ *                 properties:
+ *                   erteilt: { type: boolean }
+ *                   version: { type: string, example: '2026-01-v1' }
+ *     responses:
+ *       201:
+ *         description: Bestellung erstellt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Bestellung' } } }
+ *       400:
+ *         description: Validierungsfehler, fehlende Einwilligung oder DSGVO-Datenminimierung verletzt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       409:
+ *         description: Bestellnummer-Kollision, bitte erneut versuchen
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.post('/', validate(bestellungBasisSchema), async (req, res) => {
   let client;
   try {
@@ -129,7 +231,52 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
   }
 });
 
-// PUT update order
+/**
+ * @swagger
+ * /bestelluebersicht/{id}:
+ *   put:
+ *     summary: Bestellung aktualisieren
+ *     description: 'Bei bereits anonymisierten Bestellungen werden Kundendaten nicht mehr angefasst.
+ *       Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Bestellübersicht]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [versandart, beschreibung]
+ *             properties:
+ *               versandart: { type: string, enum: [abholung, lieferung] }
+ *               wunschdatum: { type: string, format: date, nullable: true }
+ *               beschreibung: { type: string, maxLength: 2000 }
+ *               status: { type: string, enum: [offen, in_bearbeitung, abgeschlossen, storniert] }
+ *               kunde:
+ *                 type: object
+ *                 nullable: true
+ *                 properties:
+ *                   name: { type: string }
+ *                   email: { type: string, nullable: true }
+ *                   telefonnummer: { type: string, nullable: true }
+ *                   strasse: { type: string, nullable: true }
+ *                   hausnummer: { type: string, nullable: true }
+ *                   plz: { type: string, nullable: true }
+ *                   ort: { type: string, nullable: true }
+ *     responses:
+ *       200:
+ *         description: Bestellung aktualisiert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Bestellung' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
   let client;
   try {
@@ -205,7 +352,27 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
   }
 });
 
-// POST anonymize customer data (Recht auf Vergessenwerden, Art. 17 DSGVO) – Admin only
+/**
+ * @swagger
+ * /bestelluebersicht/{id}/anonymisieren:
+ *   post:
+ *     summary: Kundendaten einer Bestellung anonymisieren (Recht auf Vergessenwerden, Art. 17 DSGVO)
+ *     description: 'Ruft die DB-Funktion anonymisiere_bestellung_kunde() auf. Erfordert Rolle: admin
+ *       (zusätzlich zu bearbeiter/admin für den restlichen Router).'
+ *     tags: [Bestellübersicht]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Kundendaten anonymisiert
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.post('/:id/anonymisieren', requireAdmin, async (req, res) => {
   try {
     const { rows } = await db.query('SELECT kunde_id FROM bestellung WHERE id = $1', [req.params.id]);
