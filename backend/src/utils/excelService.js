@@ -156,7 +156,7 @@ function autoFitColumns(worksheet) {
   const columnWidths = {};
 
   // Process all rows to calculate required widths
-  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+  worksheet.eachRow({ includeEmpty: false }, (row) => {
     row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
       if (!cell.value) return;
 

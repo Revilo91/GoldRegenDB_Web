@@ -173,7 +173,7 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
       );
     }
 
-    const { rows } = await client.query(
+    await client.query(
       `UPDATE bestellung SET versandart = $1, wunschdatum = $2, beschreibung = $3, status = $4
        WHERE id = $5 RETURNING *`,
       [versandart, wunschdatum || null, beschreibung.trim(), status || 'offen', req.params.id]

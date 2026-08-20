@@ -14,7 +14,9 @@
     "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run",
     "dsgvo:retention": "node scripts/dsgvo-retention.js",
     "dsgvo:retention:dry": "node scripts/dsgvo-retention.js --dry-run",
-    "test": "jest --forceExit"
+    "test": "jest --forceExit",
+    "lint": "eslint src/ scripts/ __tests__/",
+    "lint:fix": "eslint src/ scripts/ __tests__/ --fix"
   },
   "jest": {
     "testEnvironment": "node",
@@ -42,6 +44,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "eslint": "^9.39.3",
+    "globals": "^16.5.0",
     "jest": "^30.2.0",
     "supertest": "^7.2.2"
   }
