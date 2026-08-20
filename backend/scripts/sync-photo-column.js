@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
+const { getSecret } = require("../src/config/secrets");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -13,7 +14,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const uploadsDir = path.resolve(__dirname, "../src/assets/uploads");
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = getSecret("DATABASE_URL");
 
 if (!databaseUrl) {
   console.error("❌ DATABASE_URL ist nicht gesetzt. Bitte .env prüfen.");

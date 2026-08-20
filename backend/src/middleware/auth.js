@@ -2,13 +2,18 @@ const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const db = require('../config/db');
 const { AUTH_COOKIE_NAME } = require('../utils/authCookie');
+const { getSecret } = require('../config/secrets');
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = getSecret('JWT_SECRET');
 if (!JWT_SECRET) {
-  logger.error('AUTH', 'FATAL: JWT_SECRET Umgebungsvariable ist nicht gesetzt');
+  logger.error('AUTH', 'FATAL: JWT_SECRET ist nicht gesetzt (weder als Env-Var noch über JWT_SECRET_FILE)');
   process.exit(1);
 }
-logger.info('AUTH', 'JWT-Authentifizierung initialisiert');
+// Graceful Rollover (Issue #140): während einer Secret-Rotation verifizieren
+// wir zusätzlich mit dem alten Secret, damit bereits ausgestellte Tokens bis
+// zu ihrem Ablauf gültig bleiben. Signiert wird immer nur mit JWT_SECRET.
+const JWT_SECRET_OLD = getSecret('JWT_SECRET_OLD');
+logger.info('AUTH', `JWT-Authentifizierung initialisiert${JWT_SECRET_OLD ? ' (Rollover aktiv: JWT_SECRET_OLD gesetzt)' : ''}`);
 
 // Das JWT kommt primär aus dem httpOnly-Cookie (Issue #132). Der
 // Authorization-Header bleibt als Fallback bestehen, damit Skripte, E2E-Tests
@@ -32,7 +37,16 @@ function authenticate(req, res, next) {
     return res.status(401).json({ error: 'Nicht authentifiziert' });
   }
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (!JWT_SECRET_OLD) {
+        throw err;
+      }
+      payload = jwt.verify(token, JWT_SECRET_OLD);
+      logger.info('AUTH', `Token mit JWT_SECRET_OLD verifiziert (Rollover): ${req.method} ${req.originalUrl}`);
+    }
     req.user = payload;
     db.setCurrentDbUsername(payload.username);
     next();
