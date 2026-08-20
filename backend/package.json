@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "GoldRegenDB REST API",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
