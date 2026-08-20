@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    // Laufzeit ist Node 20 (siehe Dockerfile: node:20-alpine, .github/workflows/tests.yml).
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+
+    // Typprüfung ohne Build: der Produktions-Start bleibt `node src/index.js`
+    // (kein tsc-Kompilierschritt, kein dist/). Siehe TYPESCRIPT.md.
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "resolveJsonModule": true
+  },
+  // __tests__/ bewusst ausgeschlossen: die Tests haben kein @types/jest
+  // (nicht Teil dieses Issues) und laufen unverändert über Jest/Babel, nicht tsc.
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/assets/uploads"]
+}

@@ -1,3 +1,6 @@
+// @ts-check
+
+/** @type {Record<string, string>} */
 const GRUNDMATERIAL = {
   A: "Alkoholtinte",
   B: "Beton",
@@ -18,6 +21,7 @@ const GRUNDMATERIAL = {
   Y: "Cabochon",
 };
 
+/** @type {Record<string, string>} */
 const PRODUKTART = {
   A: "Armband",
   H: "Halskette",

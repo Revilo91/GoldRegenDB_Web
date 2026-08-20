@@ -10,7 +10,8 @@
     "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run",
     "dsgvo:retention": "node scripts/dsgvo-retention.js",
     "dsgvo:retention:dry": "node scripts/dsgvo-retention.js --dry-run",
-    "test": "jest --forceExit"
+    "test": "jest --forceExit",
+    "typecheck": "tsc --noEmit"
   },
   "jest": {
     "testEnvironment": "node",
@@ -38,7 +39,15 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^20.19.43",
+    "@types/pg": "^8.23.1",
     "jest": "^30.2.0",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "typescript": "^5.9.3"
   }
 }
