@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -26,6 +26,8 @@ import {
   faKey,
   faSignOutAlt,
   faTruck,
+  faAnglesLeft,
+  faAnglesRight,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
@@ -48,10 +50,22 @@ import Inventur from "./pages/Inventur";
 import SchmuckstueckDetail from "./pages/SchmuckstueckDetail";
 import "./index.css";
 
+const COLLAPSE_KEY = "sidebarCollapsed";
+const DRAWER_BREAKPOINT = 768;
+
+function readCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function AppLayout() {
   const { user, logout, mustChangePassword, clearMustChangePassword } =
     useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readCollapsed);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -64,6 +78,37 @@ function AppLayout() {
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        // localStorage kann blockiert sein - die Ansicht funktioniert trotzdem
+      }
+      return next;
+    });
+  }, []);
+
+  // Escape schliesst den mobilen Drawer; oberhalb des Breakpoints gibt es keinen
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false);
+    };
+    const onResize = () => {
+      if (window.innerWidth > DRAWER_BREAKPOINT) setIsMobileMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [isMobileMenuOpen]);
 
   const toggleUserMenu = () => setShowUserMenu(!showUserMenu);
   const closeUserMenu = () => setShowUserMenu(false);
@@ -136,6 +181,42 @@ function AppLayout() {
   const isAdmin = user.role === "admin";
   const isBearbeiter = user.role === "admin" || user.role === "bearbeiter";
 
+  const navLinks = [
+    { to: "/", end: true, icon: faChartBar, label: "Dashboard", show: isBearbeiter },
+    { to: "/schmuckstuecke", icon: faGem, label: "Schmuckst\u00fccke", show: true },
+    { to: "/kunden", icon: faUsers, label: "Kunden", show: isBearbeiter },
+    { to: "/lieferscheine", icon: faBox, label: "Lieferscheine", show: isBearbeiter },
+    { to: "/rechnungen", icon: faFileInvoice, label: "Rechnungen", show: isBearbeiter },
+    { to: "/bestelluebersicht", icon: faTruck, label: "Bestell\u00fcbersicht", show: isBearbeiter },
+    { to: "/sumup", icon: faCreditCard, label: "SumUp", show: isBearbeiter },
+    { to: "/inventur", icon: faWarehouse, label: "Inventur", show: isBearbeiter },
+  ].filter((link) => link.show);
+
+  const adminLinks = [
+    { to: "/audit-log", icon: faClipboardList, label: "Audit Log" },
+    { to: "/debug", icon: faWrench, label: "Debug" },
+    { to: "/benutzerverwaltung", icon: faUserLock, label: "Benutzerverwaltung" },
+    { to: "/datensicherung", icon: faDatabase, label: "Datensicherung" },
+  ];
+
+  const renderNavLink = ({ to, end, icon, label }, extraClass = "") => (
+    <NavLink
+      key={to}
+      to={to}
+      end={end}
+      title={label}
+      className={({ isActive }) =>
+        `nav-link ${extraClass} ${isActive ? "active" : ""}`.replace(/\s+/g, " ").trim()
+      }
+      onClick={closeMobileMenu}
+    >
+      <span className="nav-link-icon">
+        <FontAwesomeIcon icon={icon} />
+      </span>
+      <span className="nav-link-label">{label}</span>
+    </NavLink>
+  );
+
   // Determine if we need to show the forced password change modal
   const showForcedPasswordChange = mustChangePassword;
   const isPasswordModalVisible = showPasswordModal || showForcedPasswordChange;
@@ -165,7 +246,15 @@ function AppLayout() {
         <div className="sidebar-overlay" onClick={closeMobileMenu}></div>
       )}
 
-      <aside className={`sidebar ${isMobileMenuOpen ? "open" : ""}`}>
+      <aside
+        id="app-sidebar"
+        className={`sidebar ${isSidebarCollapsed ? "collapsed" : ""} ${
+          isMobileMenuOpen ? "open" : ""
+        }`
+          .replace(/\s+/g, " ")
+          .trim()}
+        aria-label="Hauptnavigation"
+      >
         <div className="sidebar-brand">
           <img
             src="/Logo transparent.png"
@@ -174,154 +263,14 @@ function AppLayout() {
           />
         </div>
         <nav className="sidebar-nav">
-          {isBearbeiter && (
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faChartBar} />
-            </span>
-            <span>Dashboard</span>
-          </NavLink>
-          )}
-          <NavLink
-            to="/schmuckstuecke"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faGem} />
-            </span>
-            <span>Schmuckstücke</span>
-          </NavLink>
-          {isBearbeiter && (
-          <NavLink
-            to="/kunden"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faUsers} />
-            </span>
-            <span>Kunden</span>
-          </NavLink>
-          )}
-          {isBearbeiter && (
-          <NavLink
-            to="/lieferscheine"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faBox} />
-            </span>
-            <span>Lieferscheine</span>
-          </NavLink>
-          )}
-          {isBearbeiter && (
-          <NavLink
-            to="/rechnungen"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faFileInvoice} />
-            </span>
-            <span>Rechnungen</span>
-          </NavLink>
-          )}
-          {isBearbeiter && (
-          <NavLink
-            to="/bestelluebersicht"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faTruck} />
-            </span>
-            <span>Bestellübersicht</span>
-          </NavLink>
-          )}
-          {isBearbeiter && (
-          <NavLink
-            to="/sumup"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faCreditCard} />
-            </span>
-            <span>SumUp</span>
-          </NavLink>
-          )}
-          {isBearbeiter && (
-          <NavLink
-            to="/inventur"
-            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <span className="nav-icon">
-              <FontAwesomeIcon icon={faWarehouse} />
-            </span>
-            <span>Inventur</span>
-          </NavLink>
-          )}
+          {navLinks.map((link) => renderNavLink(link))}
           {isAdmin && (
             <div className="nav-section-admin">
-              <div className="nav-section nav-section-admin-title">
-                <FontAwesomeIcon icon={faUserLock} /> Admin
+              <div className="nav-section nav-section-admin-title" title="Admin">
+                <FontAwesomeIcon icon={faUserLock} />
+                <span className="nav-link-label">Admin</span>
               </div>
-              <NavLink
-                to="/audit-log"
-                className={({ isActive }) =>
-                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
-                }
-                onClick={closeMobileMenu}
-              >
-                <span className="nav-icon">
-                  <FontAwesomeIcon icon={faClipboardList} />
-                </span>
-                <span>Audit Log</span>
-              </NavLink>
-              <NavLink
-                to="/debug"
-                className={({ isActive }) =>
-                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
-                }
-                onClick={closeMobileMenu}
-              >
-                <span className="nav-icon">
-                  <FontAwesomeIcon icon={faWrench} />
-                </span>
-                <span>Debug</span>
-              </NavLink>
-              <NavLink
-                to="/benutzerverwaltung"
-                className={({ isActive }) =>
-                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
-                }
-                onClick={closeMobileMenu}
-              >
-                <span className="nav-icon">
-                  <FontAwesomeIcon icon={faUserLock} />
-                </span>
-                <span>Benutzerverwaltung</span>
-              </NavLink>
-              <NavLink
-                to="/datensicherung"
-                className={({ isActive }) =>
-                  `nav-link nav-link-admin ${isActive ? "active" : ""}`
-                }
-                onClick={closeMobileMenu}
-              >
-                <span className="nav-icon">
-                  <FontAwesomeIcon icon={faDatabase} />
-                </span>
-                <span>Datensicherung</span>
-              </NavLink>
+              {adminLinks.map((link) => renderNavLink(link, "nav-link-admin"))}
             </div>
           )}
         </nav>
@@ -329,13 +278,31 @@ function AppLayout() {
           <button
             className="btn btn-secondary btn-sm user-menu-btn"
             onClick={toggleUserMenu}
-            aria-label="Benutzermenü"
+            aria-label="Benutzermen\u00fc"
+            title={user.username}
           >
             <FontAwesomeIcon icon={faUser} />
             <span className="sidebar-username">{user.username}</span>
             <span className={`role-badge role-${user.role}`}>
               {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
             </span>
+          </button>
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            aria-label={
+              isSidebarCollapsed
+                ? "Seitenleiste ausklappen"
+                : "Seitenleiste einklappen"
+            }
+            aria-pressed={isSidebarCollapsed}
+            aria-controls="app-sidebar"
+            onClick={toggleSidebarCollapsed}
+          >
+            <FontAwesomeIcon
+              icon={isSidebarCollapsed ? faAnglesRight : faAnglesLeft}
+            />
+            <span className="nav-link-label">Einklappen</span>
           </button>
         </div>
       </aside>

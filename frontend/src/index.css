@@ -38,6 +38,8 @@
   --info-bg: rgba(59, 130, 246, 0.1);
   --gold: #d4a853;
   --gold-bg: rgba(212, 168, 83, 0.1);
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 80px;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
@@ -69,7 +71,7 @@ body {
 
 /* ============ SIDEBAR ============ */
 .sidebar {
-  width: 260px;
+  width: var(--sidebar-width);
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   padding: 24px 16px;
@@ -152,16 +154,85 @@ body {
   color: var(--accent-hover);
 }
 
-.nav-link .nav-icon {
+.nav-link .nav-link-icon {
   font-size: 18px;
   width: 24px;
+  flex: 0 0 auto;
   text-align: center;
+}
+
+.nav-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============ SIDEBAR EINGEKLAPPT ============ */
+.sidebar-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.sidebar-collapse-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+  padding: 16px 8px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  padding: 8px 0 16px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  max-height: 44px;
+}
+
+.sidebar.collapsed .nav-link-label,
+.sidebar.collapsed .sidebar-username,
+.sidebar.collapsed .user-menu-btn .role-badge {
+  display: none;
+}
+
+.sidebar.collapsed .nav-link,
+.sidebar.collapsed .user-menu-btn,
+.sidebar.collapsed .sidebar-collapse-toggle,
+.sidebar.collapsed .nav-section-admin-title {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.collapsed .nav-section-admin {
+  padding: 8px 4px;
+}
+
+.sidebar.collapsed ~ .main-content {
+  margin-left: var(--sidebar-collapsed-width);
 }
 
 /* ============ MAIN CONTENT ============ */
 .main-content {
   flex: 1;
-  margin-left: 260px;
+  margin-left: var(--sidebar-width);
   padding: 32px;
   min-height: 100vh;
   transition: var(--transition);
@@ -1182,8 +1253,9 @@ select.form-control {
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1024px) {
-  .sidebar {
-    width: 80px;
+  .sidebar,
+  .sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
     padding: 16px 8px;
   }
   .sidebar-brand {
@@ -1200,7 +1272,7 @@ select.form-control {
     align-items: center;
   }
   .sidebar-brand h1,
-  .nav-link span {
+  .nav-link-label {
     display: none;
   }
   .nav-link {
@@ -1208,14 +1280,19 @@ select.form-control {
     justify-content: center;
     padding: 16px 0;
   }
-  .nav-link .nav-icon {
+  .nav-link .nav-link-icon {
     font-size: 24px;
     width: auto;
     margin: 0;
     display: block;
   }
-  .main-content {
-    margin-left: 80px;
+  /* Unterhalb dieser Breite ist die Leiste ohnehin eingeklappt */
+  .sidebar-collapse-toggle {
+    display: none;
+  }
+  .main-content,
+  .sidebar.collapsed ~ .main-content {
+    margin-left: var(--sidebar-collapsed-width);
   }
 }
 
@@ -1235,9 +1312,11 @@ select.form-control {
   .mobile-header {
     display: flex;
   }
-  .sidebar {
+  .sidebar,
+  .sidebar.collapsed {
     left: -280px;
-    width: 260px;
+    width: var(--sidebar-width);
+    padding: 24px 16px;
     z-index: 1200;
     top: 60px;
     height: calc(100vh - 60px);
@@ -1249,13 +1328,25 @@ select.form-control {
     display: none;
   }
   .sidebar-brand h1,
-  .nav-link span {
+  .nav-link-label,
+  .sidebar.collapsed .nav-link-label {
     display: block;
   }
-  .nav-link {
+  .nav-link,
+  .sidebar.collapsed .nav-link,
+  .sidebar.collapsed .user-menu-btn,
+  .sidebar.collapsed .nav-section-admin-title {
     justify-content: flex-start;
+    gap: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
-  .main-content {
+  .sidebar.collapsed .sidebar-username,
+  .sidebar.collapsed .user-menu-btn .role-badge {
+    display: block;
+  }
+  .main-content,
+  .sidebar.collapsed ~ .main-content {
     margin-left: 0;
     padding: 80px 16px 20px;
   }
