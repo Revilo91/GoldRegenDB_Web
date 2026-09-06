@@ -1764,6 +1764,31 @@ select.form-control {
   gap: 10px;
 }
 
+.sidebar-version {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+.sidebar-version:hover {
+  color: var(--accent-hover);
+  background: var(--bg-hover);
+}
+
+.sidebar-version .fa-code-branch {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
 .user-menu-btn {
   width: 100%;
   display: flex;

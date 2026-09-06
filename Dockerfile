@@ -5,6 +5,9 @@ FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
+# Versionsangabe für die Sidebar – im Release-Workflow auf den Git-Tag gesetzt
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./

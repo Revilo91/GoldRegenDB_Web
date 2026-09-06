@@ -28,6 +28,7 @@ import {
   faTruck,
   faAnglesLeft,
   faAnglesRight,
+  faCodeBranch,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
@@ -52,6 +53,15 @@ import "./index.css";
 
 const COLLAPSE_KEY = "sidebarCollapsed";
 const DRAWER_BREAKPOINT = 768;
+
+// Von Vite zur Build-Zeit ersetzt (siehe vite.config.js). Fallback für Tests,
+// in denen das define nicht greift.
+const APP_VERSION =
+  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev";
+// Nur der reine Tag (ohne "-<n>-g<hash>"-Suffix von `git describe`)
+const APP_VERSION_TAG = APP_VERSION.split("-")[0];
+const RELEASES_URL =
+  "https://github.com/Revilo91/GoldRegenDB_Web/releases";
 
 function readCollapsed() {
   try {
@@ -304,6 +314,16 @@ function AppLayout() {
             />
             <span className="nav-link-label">Einklappen</span>
           </button>
+          <a
+            className="sidebar-version"
+            href={RELEASES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Version ${APP_VERSION} – Release-Notes öffnen`}
+          >
+            <FontAwesomeIcon icon={faCodeBranch} />
+            <span className="nav-link-label">{APP_VERSION_TAG}</span>
+          </a>
         </div>
       </aside>
 
