@@ -61,6 +61,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             VITE_API_URL=/api
+            APP_VERSION=${{ github.ref_name }}
 
   create-release:
     name: GitHub Release erstellen
