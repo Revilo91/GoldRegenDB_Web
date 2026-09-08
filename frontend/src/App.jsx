@@ -191,23 +191,43 @@ function AppLayout() {
   const isAdmin = user.role === "admin";
   const isBearbeiter = user.role === "admin" || user.role === "bearbeiter";
 
-  const navLinks = [
-    { to: "/", end: true, icon: faChartBar, label: "Dashboard", show: isBearbeiter },
-    { to: "/schmuckstuecke", icon: faGem, label: "Schmuckst\u00fccke", show: true },
-    { to: "/kunden", icon: faUsers, label: "Kunden", show: isBearbeiter },
-    { to: "/lieferscheine", icon: faBox, label: "Lieferscheine", show: isBearbeiter },
-    { to: "/rechnungen", icon: faFileInvoice, label: "Rechnungen", show: isBearbeiter },
-    { to: "/bestelluebersicht", icon: faTruck, label: "Bestell\u00fcbersicht", show: isBearbeiter },
-    { to: "/sumup", icon: faCreditCard, label: "SumUp", show: isBearbeiter },
-    { to: "/inventur", icon: faWarehouse, label: "Inventur", show: isBearbeiter },
-  ].filter((link) => link.show);
-
   const adminLinks = [
     { to: "/audit-log", icon: faClipboardList, label: "Audit Log" },
     { to: "/debug", icon: faWrench, label: "Debug" },
     { to: "/benutzerverwaltung", icon: faUserLock, label: "Benutzerverwaltung" },
     { to: "/datensicherung", icon: faDatabase, label: "Datensicherung" },
   ];
+
+  // Navigation in dezente Gruppen geteilt \u2013 die \u00dcberschriften sind reine
+  // Labels (keine K\u00e4sten), Administration ist einfach die letzte Gruppe.
+  const navGroups = [
+    {
+      links: [
+        { to: "/", end: true, icon: faChartBar, label: "Dashboard", show: isBearbeiter },
+        { to: "/schmuckstuecke", icon: faGem, label: "Schmuckst\u00fccke", show: true },
+        { to: "/inventur", icon: faWarehouse, label: "Inventur", show: isBearbeiter },
+        { to: "/kunden", icon: faUsers, label: "Kunden", show: isBearbeiter }
+      ],
+    },
+    {
+      label: "Verkauf",
+      links: [
+        { to: "/lieferscheine", icon: faBox, label: "Lieferscheine", show: isBearbeiter },
+        { to: "/rechnungen", icon: faFileInvoice, label: "Rechnungen", show: isBearbeiter },
+        { to: "/bestelluebersicht", icon: faTruck, label: "Bestell\u00fcbersicht", show: isBearbeiter },
+        { to: "/sumup", icon: faCreditCard, label: "SumUp", show: isBearbeiter },
+      ],
+    },
+  ];
+  if (isAdmin) {
+    navGroups.push({ label: "Administration", muted: true, links: adminLinks });
+  }
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      links: group.links.filter((link) => link.show !== false),
+    }))
+    .filter((group) => group.links.length > 0);
 
   const renderNavLink = ({ to, end, icon, label }, extraClass = "") => (
     <NavLink
@@ -237,7 +257,7 @@ function AppLayout() {
       <header className="mobile-header">
         <div className="mobile-brand">
           <img
-            src="/Logo transparent.png"
+            src="/Schriftzug_Goldregen_dicker_kleiner.svg"
             alt="GoldRegen"
             className="mobile-logo"
           />
@@ -267,53 +287,56 @@ function AppLayout() {
       >
         <div className="sidebar-brand">
           <img
-            src="/Logo transparent.png"
+            src="/Schriftzug_Goldregen_dicker_kleiner.svg"
             alt="GoldRegen Logo"
             className="sidebar-logo"
           />
         </div>
         <nav className="sidebar-nav">
-          {navLinks.map((link) => renderNavLink(link))}
-          {isAdmin && (
-            <div className="nav-section-admin">
-              <div className="nav-section nav-section-admin-title" title="Admin">
-                <FontAwesomeIcon icon={faUserLock} />
-                <span className="nav-link-label">Admin</span>
-              </div>
-              {adminLinks.map((link) => renderNavLink(link, "nav-link-admin"))}
+          {visibleGroups.map((group, groupIndex) => (
+            <div className="nav-group" key={group.label || `group-${groupIndex}`}>
+              {group.label && (
+                <div className="nav-section" title={group.label}>
+                  {group.label}
+                </div>
+              )}
+              {group.links.map((link) =>
+                renderNavLink(link, group.muted ? "nav-link-admin" : "")
+              )}
             </div>
-          )}
+          ))}
         </nav>
         <div className="sidebar-footer">
-          <button
-            className="btn btn-secondary btn-sm user-menu-btn"
-            onClick={toggleUserMenu}
-            aria-label="Benutzermen\u00fc"
-            title={user.username}
-          >
-            <FontAwesomeIcon icon={faUser} />
-            <span className="sidebar-username">{user.username}</span>
-            <span className={`role-badge role-${user.role}`}>
-              {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="sidebar-collapse-toggle"
-            aria-label={
-              isSidebarCollapsed
-                ? "Seitenleiste ausklappen"
-                : "Seitenleiste einklappen"
-            }
-            aria-pressed={isSidebarCollapsed}
-            aria-controls="app-sidebar"
-            onClick={toggleSidebarCollapsed}
-          >
-            <FontAwesomeIcon
-              icon={isSidebarCollapsed ? faAnglesRight : faAnglesLeft}
-            />
-            <span className="nav-link-label">Einklappen</span>
-          </button>
+          <div className="sidebar-account-row">
+            <button
+              className="btn btn-secondary btn-sm user-menu-btn"
+              onClick={toggleUserMenu}
+              aria-label="Benutzermen\u00fc"
+              title={user.username}
+            >
+              <FontAwesomeIcon icon={faUser} />
+              <span className="sidebar-username">{user.username}</span>
+              <span className={`role-badge role-${user.role}`}>
+                {user.role === "admin" ? "Admin" : user.role === "bearbeiter" ? "Bearbeiter" : "Benutzer"}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="sidebar-collapse-toggle"
+              aria-label={
+                isSidebarCollapsed
+                  ? "Seitenleiste ausklappen"
+                  : "Seitenleiste einklappen"
+              }
+              aria-pressed={isSidebarCollapsed}
+              aria-controls="app-sidebar"
+              onClick={toggleSidebarCollapsed}
+            >
+              <FontAwesomeIcon
+                icon={isSidebarCollapsed ? faAnglesRight : faAnglesLeft}
+              />
+            </button>
+          </div>
           <a
             className="sidebar-version"
             href={RELEASES_URL}
