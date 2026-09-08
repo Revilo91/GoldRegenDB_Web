@@ -22,6 +22,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 - [Benutzerrollen](#benutzerrollen)
 - [Projektstruktur](#projektstruktur)
 - [Backup & Wiederherstellung](#backup--wiederherstellung)
+- [Tests](#tests)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -38,6 +39,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 - **Audit-Log** – automatisches Änderungsprotokoll über DB-Trigger
 - **Datensicherung** – JSON-Export und -Import aller Tabellen (Admin)
 - **Benutzerverwaltung** – JWT-Authentifizierung mit drei Rollen (Admin)
+- **API-Dokumentation** – Swagger-UI unter `/api-docs` (nur Admin; standardmäßig außerhalb Produktion aktiv, siehe `ENABLE_API_DOCS`)
 
 ---
 
@@ -217,8 +219,16 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 | `NODE_ENV`      | Laufzeit-Umgebung                                  | `production` / `development`                           |
 | `VITE_API_URL`  | API-URL für das Frontend bei nativer Entwicklung   | `http://localhost:3001/api`                            |
 | `FORCE_HTTPS`   | HTTP→HTTPS-Redirect + HSTS aktivieren (nur mit TLS-terminierendem Reverse Proxy davor, siehe [HTTPS auf Synology](#https-auf-synology-issue-138)) | `true` / `false` |
+| `HSTS_MAX_AGE`  | Gültigkeitsdauer des HSTS-Headers in Sekunden (nur mit `FORCE_HTTPS=true`) | `15552000` (180 Tage) |
 | `COOKIE_SECURE` | Secure-Flag auf dem JWT-Cookie (nur mit `FORCE_HTTPS`) | `true` / `false`                                    |
 | `TRUST_PROXY`   | Anzahl vertrauenswürdiger Proxy-Hops vor der App   | `1`                                                     |
+| `ALLOWED_ORIGINS` | Kommaseparierte CORS-Origins, die auf die API zugreifen dürfen (nur relevant, wenn Frontend/Backend nicht same-origin laufen) | `http://localhost:5173,http://localhost:3000` |
+| `DB_POOL_MAX`   | Maximale Anzahl paralleler PostgreSQL-Verbindungen | `25`                                                    |
+| `LOG_FORMAT`    | Logger-Ausgabeformat (`utils/logger.js`): `json` (maschinenlesbar) oder `pretty` (lesbar); Standard: `json` in Produktion, sonst `pretty` | `pretty` |
+| `ENABLE_API_DOCS` | Swagger-UI unter `/api-docs` erzwingen/deaktivieren (Standard: nur außerhalb `NODE_ENV=production` aktiv; immer zusätzlich hinter `authenticate` + `requireAdmin`) | `true` / `false` |
+| `PRIVACY_POLICY_VERSION` | Version der Datenschutzerklärung, die beim Consent protokolliert wird | `2026-01-v1` |
+| `BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG` | Aufbewahrungsfrist (Tage) für die DSGVO-Anonymisierung ohne Rechnung (`backend/scripts/dsgvo-retention.js`) | `90` |
+| `BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG` | Aufbewahrungsfrist (Jahre) für die DSGVO-Anonymisierung mit Rechnung | `10` |
 
 > ⚠️ **`JWT_SECRET`**, **`DB_PASSWORD`** und **`BESTELLUNG_ENCRYPTION_KEY`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden. Mit `NODE_ENV=production` verweigert das Backend den Start, solange noch ein Platzhalterwert aus `.env.example` oder ein zu kurzes Secret gesetzt ist (`backend/src/config/secrets.js`).
 
@@ -377,6 +387,23 @@ Backups werden im Docker-Volume `pgbackups` unter `/backups/daily/` und `/backup
 ### JSON-Backup über die Web-Oberfläche (Admin)
 
 Unter **Einstellungen → Datensicherung** können alle Tabellen als JSON exportiert und wieder importiert werden.
+
+---
+
+## Tests
+
+```bash
+# Backend (Jest)
+cd backend && npm test
+
+# Frontend (Vitest)
+cd frontend && npm test
+
+# End-to-End (Playwright, gegen eine laufende docker-compose.dev.yml-Instanz)
+npm run test:e2e
+```
+
+E2E-Tests liegen in `e2e/` und nutzen die `.env`-Variablen `BASE_URL`, `API_URL`, `TEST_USERNAME`, `TEST_PASSWORD`.
 
 ---
 
