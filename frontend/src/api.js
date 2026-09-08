@@ -208,6 +208,8 @@ export const publicApi = {
 export const api = {
   // Dashboard
   getDashboard: () => request('/dashboard'),
+  getHerstellerUebersicht: (jahr) =>
+    request(`/dashboard/hersteller-uebersicht${jahr ? `?jahr=${jahr}` : ''}`),
 
   // Kunden
   getKunden: () => request('/kunden'),

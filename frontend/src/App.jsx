@@ -10,6 +10,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartBar,
+  faLayerGroup,
   faGem,
   faUsers,
   faBox,
@@ -36,6 +37,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
+import HerstellerUebersicht from "./pages/HerstellerUebersicht";
 import Schmuckstuecke from "./pages/Schmuckstuecke";
 import Kunden from "./pages/Kunden";
 import Lieferscheine from "./pages/Lieferscheine";
@@ -204,6 +206,7 @@ function AppLayout() {
     {
       links: [
         { to: "/", end: true, icon: faChartBar, label: "Dashboard", show: isBearbeiter },
+        { to: "/hersteller-uebersicht", icon: faLayerGroup, label: "Hersteller & Mietf\u00e4cher", show: isBearbeiter },
         { to: "/schmuckstuecke", icon: faGem, label: "Schmuckst\u00fccke", show: true },
         { to: "/inventur", icon: faWarehouse, label: "Inventur", show: isBearbeiter },
         { to: "/kunden", icon: faUsers, label: "Kunden", show: isBearbeiter }
@@ -562,6 +565,14 @@ function AppLayout() {
               ) : (
                 <Navigate to="/schmuckstuecke" replace />
               )
+            }
+          />
+          <Route
+            path="/hersteller-uebersicht"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <HerstellerUebersicht />
+              </ProtectedRoute>
             }
           />
           <Route

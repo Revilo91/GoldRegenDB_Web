@@ -2288,3 +2288,328 @@ select.form-control {
   color: var(--gold);
   margin-bottom: 16px !important;
 }
+
+/* ============================================================
+   HERSTELLER-ÜBERSICHT  (Seite /hersteller-uebersicht)
+   Prefix hu-  ·  Marina = --accent (#6366f1), Saskia = #ec4899
+   ============================================================ */
+.hu-mb {
+  margin-bottom: 24px;
+}
+
+.hu-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 8px 0 16px;
+  color: var(--text-primary);
+}
+
+.hu-muted {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ── Hero ─────────────────────────────────────────────── */
+.hu-hero {
+  display: grid;
+  grid-template-columns: 1fr 280px 1fr;
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.hu-hero-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  border-top: 3px solid var(--border);
+}
+.hu-hero-card--marina {
+  border-top-color: #6366f1;
+}
+.hu-hero-card--saskia {
+  border-top-color: #ec4899;
+}
+
+.hu-hero-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.hu-hero-card-head h3 {
+  font-size: 20px;
+  font-weight: 700;
+}
+.hu-hero-sub {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.hu-hero-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.hu-hero-card--marina .hu-hero-dot {
+  background: #6366f1;
+}
+.hu-hero-card--saskia .hu-hero-dot {
+  background: #ec4899;
+}
+
+.hu-hero-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.hu-kpi {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.hu-kpi-icon {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.hu-kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.hu-kpi-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+}
+
+.hu-hero-bestand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.hu-hero-bestand b {
+  color: var(--text-primary);
+}
+
+.hu-hero-donut {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.hu-hero-donut-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.hu-hero-donut-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.hu-hero-donut-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Inline-Punkte für Kartenüberschriften ────────────── */
+.hu-inline-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.hu-inline-dot--marina {
+  background: #6366f1;
+}
+.hu-inline-dot--saskia {
+  background: #ec4899;
+}
+
+/* ── Aging-Balken ────────────────────────────────────── */
+.hu-aging-body {
+  padding: 20px 24px 24px;
+}
+.hu-aging-track {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+.hu-aging-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f1117;
+  min-width: 22px;
+  transition: var(--transition);
+}
+.hu-aging-legend {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.hu-aging-legend li {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.hu-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.hu-legend-label {
+  color: var(--text-secondary);
+}
+.hu-legend-count {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.hu-legend-value {
+  color: var(--gold);
+  font-weight: 600;
+  min-width: 72px;
+  text-align: right;
+}
+
+/* ── Tabellen ────────────────────────────────────────── */
+.hu-table-wrap {
+  padding: 8px 12px 16px;
+  overflow-x: auto;
+}
+.hu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.hu-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--border);
+}
+.hu-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-hair);
+  color: var(--text-primary);
+}
+.hu-table tr:last-child td {
+  border-bottom: none;
+}
+.hu-table .hu-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Ladenhüter-Liste ────────────────────────────────── */
+.hu-oldest {
+  padding: 12px 16px 16px;
+}
+.hu-oldest ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.hu-oldest li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "badge main" "badge meta";
+  column-gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+.hu-oldest li .badge {
+  grid-area: badge;
+}
+.hu-oldest-main {
+  grid-area: main;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.hu-oldest-meta {
+  grid-area: meta;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Umschalter ──────────────────────────────────────── */
+.hu-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hu-toggle .btn,
+.hu-toggle .btn-secondary {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.hu-jahr-filter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.hu-jahr-filter .hu-toggle {
+  justify-content: flex-end;
+}
+
+.hu-busy {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+@media (max-width: 1024px) {
+  .hu-hero {
+    grid-template-columns: 1fr;
+  }
+  .hu-hero-donut {
+    order: -1;
+  }
+}
+@media (max-width: 640px) {
+  .hu-hero-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
