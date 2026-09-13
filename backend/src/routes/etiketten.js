@@ -34,7 +34,7 @@ let printCssTemplateCache = null;
  * showQr: false = kein QR-Code (zu kleines Etikett zum Scannen)
  */
 const LABEL_SIZE_DEFAULTS = {
-  "extra-small": {
+  small: {
     w: "30mm",
     h: "20mm",
     brandH: "5mm",
@@ -42,28 +42,12 @@ const LABEL_SIZE_DEFAULTS = {
     hintSize: "2.2mm",
     showQr: false,
   },
-  small: {
-    w: "48mm",
+  large: {
+    w: "40mm",
     h: "30mm",
     brandH: "8mm",
     artSize: "8mm",
     hintSize: "3.5mm",
-    showQr: true,
-  },
-  medium: {
-    w: "60mm",
-    h: "36mm",
-    brandH: "10mm",
-    artSize: "10mm",
-    hintSize: "4mm",
-    showQr: true,
-  },
-  large: {
-    w: "80mm",
-    h: "48mm",
-    brandH: "14mm",
-    artSize: "14mm",
-    hintSize: "5mm",
     showQr: true,
   },
 };

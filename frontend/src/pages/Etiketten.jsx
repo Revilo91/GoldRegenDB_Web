@@ -21,7 +21,7 @@ export default function Etiketten({ showHeader = true }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rowQty, setRowQty] = useState({});
   const [adding, setAdding] = useState({});
-  const [labelSize, setLabelSize] = useState("extra-small");
+  const [labelSize, setLabelSize] = useState("small");
   const addingRef = useRef({});
   const csvInputRef = useRef(null);
   const totalSelected = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
@@ -425,33 +425,11 @@ export default function Etiketten({ showHeader = true }) {
                   <input
                     type="radio"
                     name="labelSize"
-                    value="extra-small"
-                    checked={labelSize === "extra-small"}
-                    onChange={(e) => setLabelSize(e.target.value)}
-                  />
-                  <span>Extra Klein (30 × 20 mm)</span>
-                </label>
-                <label
-                  className="flex-row-center">
-                  <input
-                    type="radio"
-                    name="labelSize"
                     value="small"
                     checked={labelSize === "small"}
                     onChange={(e) => setLabelSize(e.target.value)}
                   />
-                  <span>Klein (48 × 30 mm)</span>
-                </label>
-                <label
-                  className="flex-row-center">
-                  <input
-                    type="radio"
-                    name="labelSize"
-                    value="medium"
-                    checked={labelSize === "medium"}
-                    onChange={(e) => setLabelSize(e.target.value)}
-                  />
-                  <span>Mittel (60 × 36 mm)</span>
+                  <span>Klein (30 × 20 mm)</span>
                 </label>
                 <label
                   className="flex-row-center">
@@ -462,7 +440,7 @@ export default function Etiketten({ showHeader = true }) {
                     checked={labelSize === "large"}
                     onChange={(e) => setLabelSize(e.target.value)}
                   />
-                  <span>Groß (80 × 48 mm)</span>
+                  <span>Groß (40 × 30 mm)</span>
                 </label>
               </div>
             </div>

@@ -111,14 +111,14 @@ body.etiketten-body {
   }
 
   /* 30x20: Kein 90°-Rotate, damit das Etikett selbst im Querformat bleibt */
-  .label--extra-small .rot {
+  .label--small .rot {
     transform: none;
     width: 100%;
     height: 100%;
   }
 
-  .label--extra-small .brand-logo,
-  .label--extra-small .brand-text {
+  .label--small .brand-logo,
+  .label--small .brand-text {
     transform: none;
   }
 }
@@ -225,7 +225,7 @@ body.etiketten-body {
   margin-top: auto;
 }
 
-/* Kein QR-Code (z.B. extra-small): Warnsymbol rechtsbündig */
+/* Kein QR-Code (z.B. small/30x20): Warnsymbol rechtsbündig */
 .bottom-row--no-qr {
   justify-content: flex-end;
 }
@@ -239,8 +239,8 @@ body.etiketten-body {
 }
 
 .qr-img {
-  width: calc(var(--qr-size) * 1.2);
-  height: calc(var(--qr-size) * 1.2);
+  width: calc(var(--qr-size) * 1);
+  height: calc(var(--qr-size) * 1);
   object-fit: contain;
   flex-shrink: 0;
   box-sizing: border-box;
