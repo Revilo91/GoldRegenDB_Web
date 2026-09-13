@@ -257,7 +257,7 @@ function AppLayout() {
       <header className="mobile-header">
         <div className="mobile-brand">
           <img
-            src="/Schriftzug_Goldregen_dicker_kleiner.svg"
+            src="/Logo transparent.png"
             alt="GoldRegen"
             className="mobile-logo"
           />
@@ -287,7 +287,7 @@ function AppLayout() {
       >
         <div className="sidebar-brand">
           <img
-            src="/Schriftzug_Goldregen_dicker_kleiner.svg"
+            src="/Logo transparent.png"
             alt="GoldRegen Logo"
             className="sidebar-logo"
           />

@@ -74,15 +74,15 @@ body {
 
 .sidebar-brand .sidebar-logo {
   display: block;
-  width: 100%;
+  width: auto;
   height: auto;
-  max-height: 84px;
+  max-width: 100%;
   background: white;
   object-fit: contain;
   /* SVG ist bereits eng beschnitten – nur ein schmaler Rahmen zum weißen Kasten */
   padding: 6px 10px;
   transition:
-    max-height 0.2s ease,
+    height 0.2s ease,
     padding 0.2s ease;
   border-radius: 10px;
 }
@@ -215,7 +215,7 @@ body {
 }
 
 .sidebar.collapsed .sidebar-logo {
-  max-height: 34px;
+  height: 34px;
   padding: 2px 2px;
   border-radius: 5px;
 }
@@ -1293,7 +1293,7 @@ select.form-control {
     justify-content: center;
   }
   .sidebar .sidebar-logo {
-    max-height: 34px;
+    height: 34px;
     padding: 2px 2px;
     border-radius: 5px;
   }
