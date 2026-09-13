@@ -441,15 +441,22 @@ export const api = {
     const qs = params ? new URLSearchParams(params).toString() : '';
     return request(`/etiketten/options${qs ? `?${qs}` : ''}`);
   },
-  getEtikettenPreview: async (payload) => {
-    const token = getToken();
+  getEtikettenPreview: async (payload, frischesCsrfToken = null) => {
+    const csrfToken = frischesCsrfToken || (await ensureCsrfToken());
     const res = await fetch(`${API_URL}/etiketten/preview`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}) },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      if (res.status === 403 && err.code === 'CSRF_TOKEN_INVALID' && !frischesCsrfToken) {
+        const neuesToken = await ensureCsrfToken(true);
+        if (neuesToken) {
+          return api.getEtikettenPreview(payload, neuesToken);
+        }
+      }
       const message = err.error || err.message || res.statusText || 'Request failed';
       const e = new Error(message);
       e.status = res.status;

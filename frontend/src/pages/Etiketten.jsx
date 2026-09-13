@@ -23,6 +23,7 @@ export default function Etiketten({ showHeader = true }) {
   const [adding, setAdding] = useState({});
   const [labelSize, setLabelSize] = useState("extra-small");
   const addingRef = useRef({});
+  const csvInputRef = useRef(null);
   const totalSelected = items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   useEffect(() => {
@@ -123,6 +124,52 @@ export default function Etiketten({ showHeader = true }) {
 
   function removeIndex(idx) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function exportCsv() {
+    if (items.length === 0) return alert("Keine Artikel ausgewählt");
+    const lines = [
+      "Anzahl;Artikelnummer",
+      ...items.map((it) => `${it.qty};${it.artikelnummer}`),
+    ];
+    const blob = new Blob([lines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "etiketten.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function importCsvFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result || "")
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      let imported = 0;
+      for (const line of lines) {
+        const [rawQty, rawArtikelnummer] = line.split(";").map((p) => p.trim());
+        if (/^anzahl$/i.test(rawQty) && /^artikelnummer$/i.test(rawArtikelnummer)) {
+          continue; // Kopfzeile überspringen
+        }
+        if (!rawArtikelnummer) continue;
+        addItemFromList(rawArtikelnummer, parseInt(rawQty, 10) || 1);
+        imported++;
+      }
+      if (imported === 0) {
+        alert(
+          "Keine gültigen Zeilen gefunden. Erwartetes Format: Anzahl;Artikelnummer",
+        );
+      }
+    };
+    reader.readAsText(file, "utf-8");
   }
 
   async function preview({ autoPrint = false } = {}) {
@@ -296,6 +343,32 @@ export default function Etiketten({ showHeader = true }) {
           <div className="card">
             <div className="card-header">
               <h3>Ausgewählte Etiketten</h3>
+              <div style={{ display: "flex", gap: 8 }}>
+                <label
+                  htmlFor="etiketten-csv-import"
+                  className="btn btn-secondary btn-sm"
+                  style={{ cursor: "pointer" }}>
+                  CSV importieren
+                </label>
+                <input
+                  id="etiketten-csv-import"
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    importCsvFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={exportCsv}
+                  disabled={items.length === 0}>
+                  CSV exportieren
+                </button>
+              </div>
             </div>
             <div className="card-body">
               {items.length === 0 ? (
