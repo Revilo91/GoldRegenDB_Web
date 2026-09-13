@@ -1,8 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { validate } = require("../middleware/validate");
+const { lagerinventurSchema } = require("../schemas");
 
-// Alle Entwürfe des aktuellen Users abrufen (status=entwurf)
+/**
+ * @swagger
+ * /lagerinventur/drafts:
+ *   get:
+ *     summary: Eigene Lager-Inventur-Entwürfe abrufen (status=entwurf)
+ *     description: 'Nur Entwürfe des angemeldeten Benutzers. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lager-Inventur]
+ *     responses:
+ *       200:
+ *         description: Entwürfe
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { $ref: '#/components/schemas/LagerinventurEntwurf' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get("/drafts", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -21,7 +38,23 @@ router.get("/drafts", async (req, res) => {
   }
 });
 
-// Einzelnen Entwurf abrufen
+/**
+ * @swagger
+ * /lagerinventur/drafts/{id}:
+ *   get:
+ *     summary: Einzelnen Lager-Inventur-Entwurf abrufen
+ *     description: 'Nur der eigene Entwurf des angemeldeten Benutzers. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lager-Inventur]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Entwurf
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/LagerinventurEntwurf' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get("/drafts/:id", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -43,8 +76,40 @@ router.get("/drafts/:id", async (req, res) => {
   }
 });
 
-// Neuen Entwurf anlegen
-router.post("/drafts", async (req, res) => {
+/**
+ * @swagger
+ * /lagerinventur/drafts:
+ *   post:
+ *     summary: Neuen Lager-Inventur-Entwurf anlegen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lager-Inventur]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [data]
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 description: Gezählte Menge je Artikelnummer
+ *                 additionalProperties: { type: integer, minimum: 1 }
+ *                 example: { MHO123_1: 3 }
+ *               kommentar: { type: string, nullable: true, maxLength: 1000 }
+ *     responses:
+ *       201:
+ *         description: Entwurf erstellt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/LagerinventurEntwurf' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
+router.post("/drafts", validate(lagerinventurSchema), async (req, res) => {
   try {
     const userId = req.user.id;
     const { data, kommentar } = req.body;
@@ -63,8 +128,44 @@ router.post("/drafts", async (req, res) => {
   }
 });
 
-// Entwurf aktualisieren (nur solange status=entwurf)
-router.put("/drafts/:id", async (req, res) => {
+/**
+ * @swagger
+ * /lagerinventur/drafts/{id}:
+ *   put:
+ *     summary: Lager-Inventur-Entwurf aktualisieren
+ *     description: 'Nur solange status=entwurf, und nur der eigene Entwurf. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lager-Inventur]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [data]
+ *             properties:
+ *               data:
+ *                 type: object
+ *                 additionalProperties: { type: integer, minimum: 1 }
+ *                 example: { MHO123_1: 3 }
+ *               kommentar: { type: string, nullable: true, maxLength: 1000 }
+ *     responses:
+ *       200:
+ *         description: Entwurf aktualisiert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/LagerinventurEntwurf' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404:
+ *         description: Entwurf nicht gefunden oder nicht mehr bearbeitbar (bereits abgeschlossen)
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
+router.put("/drafts/:id", validate(lagerinventurSchema), async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
@@ -88,7 +189,39 @@ router.put("/drafts/:id", async (req, res) => {
   }
 });
 
-// Inventur-Diff: Soll vs. Ist vergleichen
+/**
+ * @swagger
+ * /lagerinventur/drafts/{id}/diff:
+ *   get:
+ *     summary: Soll/Ist-Vergleich des Entwurfs mit dem aktuellen Lagerbestand
+ *     description: 'Soll = aktuell im Lager (Ausgelagert=0, Verkauft=0, Ausschuss=0), gruppiert nach
+ *       Basis-Artikelnummer (ohne Suffix). Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lager-Inventur]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Differenz nach Basis-Artikelnummer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 fehlend: { type: array, items: { type: object } }
+ *                 gefunden: { type: array, items: { type: object } }
+ *                 unbekannt: { type: array, items: { type: object } }
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     soll: { type: integer }
+ *                     gescannt: { type: integer }
+ *                     fehlend: { type: integer }
+ *                     gefunden: { type: integer }
+ *                     unbekannt: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get("/drafts/:id/diff", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -227,7 +360,29 @@ router.get("/drafts/:id/diff", async (req, res) => {
   }
 });
 
-// Entwurf abschließen
+/**
+ * @swagger
+ * /lagerinventur/drafts/{id}/complete:
+ *   post:
+ *     summary: Entwurf abschließen (status → abgeschlossen)
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lager-Inventur]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Entwurf abgeschlossen
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/LagerinventurEntwurf' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404:
+ *         description: Entwurf nicht gefunden oder bereits abgeschlossen
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.post("/drafts/:id/complete", async (req, res) => {
   try {
     const userId = req.user.id;

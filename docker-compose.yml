@@ -22,33 +22,60 @@ services:
       timeout: 5s
       retries: 5
       start_period: 1m
-  backend:
+  app:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      NODE_ENV: production
-      PORT: ${PORT}
-      JWT_SECRET: ${JWT_SECRET}
-    ports:
-      - "${PORT}:${PORT}"
-
-  frontend:
-    build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api
     restart: always
     depends_on:
-      - backend
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      NODE_ENV: production
+      PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      # Während einer JWT-Secret-Rotation zusätzlich das alte Secret setzen,
+      # damit noch gültige Alt-Tokens akzeptiert werden (siehe README "Secrets rotieren").
+      JWT_SECRET_OLD: ${JWT_SECRET_OLD:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-15552000}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION}
+      BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
+      BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
     ports:
-      - "3000:80"
+      - "3000:${PORT}"
+
+# ── Datei-basierte Secrets statt Klartext in .env (Issue #140) ──────────────
+# `external: true`-Secrets funktionieren nur im Swarm-Modus; für ein einzelnes
+# `docker compose up` auf z.B. einer Synology sind dateibasierte Secrets der
+# realistische Weg – Compose mountet sie auch ohne Swarm nach /run/secrets/.
+# Zum Aktivieren: Dateien unter ./secrets/ anlegen (siehe .gitignore – niemals
+# committen), unten einkommentieren, und in der `app`-Umgebung oben
+# DATABASE_URL/JWT_SECRET/BESTELLUNG_ENCRYPTION_KEY durch die *_FILE-Variante
+# ersetzen (z.B. JWT_SECRET_FILE: /run/secrets/jwt_secret), siehe
+# backend/src/config/secrets.js. Details: README.md "Secrets rotieren".
+#
+# secrets:
+#   jwt_secret:
+#     file: ./secrets/jwt_secret.txt
+#   db_password:
+#     file: ./secrets/db_password.txt
+#   bestellung_encryption_key:
+#     file: ./secrets/bestellung_encryption_key.txt
+#
+# app:
+#   secrets: [jwt_secret, db_password, bestellung_encryption_key]
+# db:
+#   secrets: [db_password]
+#   environment:
+#     POSTGRES_PASSWORD_FILE: /run/secrets/db_password  # vom offiziellen postgres-Image nativ unterstützt
 
 volumes:
   pgdata:

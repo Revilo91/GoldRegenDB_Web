@@ -10,17 +10,34 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [resetHinweis, setResetHinweis] = useState(null);
+
+  async function handleForgotPassword() {
+    setError(null);
+    setResetHinweis(null);
+    if (!username.trim()) {
+      setError("Bitte zuerst den Benutzernamen eingeben.");
+      return;
+    }
+    try {
+      const { message } = await authApi.forgotPassword(username);
+      setResetHinweis(message);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const { token, user, mustChangePassword } = await authApi.login(
+      // Das JWT setzt das Backend als httpOnly-Cookie – hier wird es nicht angefasst
+      const { user, mustChangePassword } = await authApi.login(
         username,
         password,
       );
-      login(token, user, mustChangePassword);
+      login(user, mustChangePassword);
       navigate("/");
     } catch (err) {
       const status = err.status || err.response?.status || "Unbekannt";
@@ -70,6 +87,7 @@ export default function Login() {
             />
           </div>
           {error && <p className="login-error">{error}</p>}
+          {resetHinweis && <p className="login-success">{resetHinweis}</p>}
           <button
             type="submit"
             className="btn btn-primary login-btn"
@@ -77,6 +95,12 @@ export default function Login() {
             {loading ? "Wird angemeldet…" : "Anmelden"}
           </button>
         </form>
+        <button
+          type="button"
+          className="login-link"
+          onClick={handleForgotPassword}>
+          Passwort vergessen?
+        </button>
       </div>
     </div>
   );

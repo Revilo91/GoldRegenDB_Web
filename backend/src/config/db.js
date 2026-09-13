@@ -2,17 +2,45 @@ const { Pool } = require('pg');
 const { AsyncLocalStorage } = require('async_hooks');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
+const { getSecret } = require('./secrets');
 
-const connectionString = process.env.DATABASE_URL;
+// DATABASE_URL (bzw. DATABASE_URL_FILE) hat Vorrang, falls gesetzt – das ist
+// der bisherige Weg (Docker-Compose baut die URL aus DB_PASSWORD zusammen).
+// Ohne DATABASE_URL wird die URL aus den Einzelteilen zusammengesetzt, damit
+// auch ein reines DB_PASSWORD_FILE (Docker-Secret) ohne Compose-Interpolation
+// funktioniert (siehe Issue #140).
+function buildConnectionString() {
+  const explicit = getSecret('DATABASE_URL');
+  if (explicit) {
+    return explicit;
+  }
+  const user = process.env.POSTGRES_USER;
+  const password = getSecret('DB_PASSWORD');
+  const database = process.env.POSTGRES_DB;
+  if (!user || !password || !database) {
+    return undefined;
+  }
+  const host = process.env.DB_HOST || 'db';
+  const port = process.env.DB_PORT || '5432';
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
+const connectionString = buildConnectionString();
 
 // Log connection target (mask password)
 const maskedUrl = connectionString
   ? connectionString.replace(/:([^@:]+)@/, ':****@')
   : '(nicht gesetzt)';
-logger.info('DB', `Verbindung wird hergestellt zu: ${maskedUrl}`);
+logger.info('DB', 'Verbindung wird hergestellt', { database_url: maskedUrl });
 
+// Jeder Request belegt einen Client für seine gesamte Dauer (siehe
+// requestContextMiddleware). Mit dem pg-Standard von 10 Clients stauen sich
+// parallele Requests deshalb schon bei zwei aktiven Browser-Tabs.
 const pool = new Pool({
   connectionString,
+  max: parseInt(process.env.DB_POOL_MAX, 10) || 25,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 const requestContext = new AsyncLocalStorage();
@@ -346,6 +374,13 @@ async function ensureSchmuckstueckTable() {
       CREATE INDEX IF NOT EXISTS idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");
       CREATE INDEX IF NOT EXISTS idx_schmuck_lieferschein ON "Schmuckstück" ("Lieferschein_ID");
       CREATE INDEX IF NOT EXISTS idx_schmuck_rechnung ON "Schmuckstück" ("Rechnung_ID");
+      -- Sortierreihenfolge der Listenansicht; ohne diesen Index sortiert
+      -- Postgres bei jedem Seitenwechsel die komplette Tabelle neu.
+      CREATE INDEX IF NOT EXISTS idx_schmuck_artikelnummer_sort
+        ON "Schmuckstück" (length("Artikelnummer"), "Artikelnummer");
+      -- Statusfilter (verfügbar / verkauft / Ausschuss) aus dem whereClauseBuilder
+      CREATE INDEX IF NOT EXISTS idx_schmuck_status
+        ON "Schmuckstück" ("Verkauft", "Ausschuss", "Ausgelagert");
     `);
     logger.info('DB', '"Schmuckstück" Tabelle verifiziert');
   } catch (err) {
@@ -376,6 +411,133 @@ async function ensureAuditLogTable() {
   }
 }
 
+// ---- Tamper-Schutz audit_log (Issue #139): Hash-Kette + Immutabilität ----
+// Reihenfolge ist zwingend: Spalten/Funktionen anlegen → Alt-Einträge per
+// backfill_audit_chain() nachverketten → erst danach trg_audit_log_immutable
+// anlegen. Sonst würde der Immutable-Trigger das eigene Backfill-UPDATE blockieren.
+
+async function ensureAuditLogTamperProtection() {
+  try {
+    await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+    await pool.query(`
+      ALTER TABLE audit_log
+        ADD COLUMN IF NOT EXISTS previous_hash CHAR(64),
+        ADD COLUMN IF NOT EXISTS hash CHAR(64);
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION audit_log_hash_chain()
+      RETURNS TRIGGER AS $$
+      DECLARE
+          prev_hash CHAR(64);
+      BEGIN
+          PERFORM pg_advisory_xact_lock(hashtext('audit_log_chain'));
+          SELECT hash INTO prev_hash FROM audit_log ORDER BY id DESC LIMIT 1;
+          NEW.previous_hash := prev_hash;
+          NEW.hash := encode(digest(concat_ws('|',
+              NEW.id::text, NEW.table_name, COALESCE(NEW.artikelnummer_id, ''),
+              COALESCE(NEW.column_name, ''), COALESCE(NEW.old_value, ''),
+              COALESCE(NEW.new_value, ''), NEW.action_type, COALESCE(NEW.changed_by, ''),
+              NEW.change_timestamp::text, COALESCE(NEW.previous_hash, '')
+          ), 'sha256'), 'hex');
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION audit_log_prevent_tamper()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          RAISE EXCEPTION 'audit_log ist unveränderlich (Tamper-Schutz, Issue #139): % ist nicht erlaubt', TG_OP;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION backfill_audit_chain()
+      RETURNS VOID AS $$
+      DECLARE
+          rec RECORD;
+          prev_hash CHAR(64);
+          new_hash CHAR(64);
+      BEGIN
+          SELECT hash INTO prev_hash FROM audit_log WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1;
+          FOR rec IN SELECT * FROM audit_log WHERE hash IS NULL ORDER BY id LOOP
+              new_hash := encode(digest(concat_ws('|',
+                  rec.id::text, rec.table_name, COALESCE(rec.artikelnummer_id, ''),
+                  COALESCE(rec.column_name, ''), COALESCE(rec.old_value, ''),
+                  COALESCE(rec.new_value, ''), rec.action_type, COALESCE(rec.changed_by, ''),
+                  rec.change_timestamp::text, COALESCE(prev_hash, '')
+              ), 'sha256'), 'hex');
+              UPDATE audit_log SET previous_hash = prev_hash, hash = new_hash WHERE id = rec.id;
+              prev_hash := new_hash;
+          END LOOP;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION verify_audit_chain()
+      RETURNS TABLE(id INTEGER, problem TEXT) AS $$
+      BEGIN
+          RETURN QUERY
+          WITH chain AS (
+              SELECT a.id, a.hash, a.previous_hash,
+                     lag(a.hash) OVER (ORDER BY a.id) AS expected_previous_hash,
+                     encode(digest(concat_ws('|',
+                         a.id::text, a.table_name, COALESCE(a.artikelnummer_id, ''),
+                         COALESCE(a.column_name, ''), COALESCE(a.old_value, ''),
+                         COALESCE(a.new_value, ''), a.action_type, COALESCE(a.changed_by, ''),
+                         a.change_timestamp::text, COALESCE(a.previous_hash, '')
+                     ), 'sha256'), 'hex') AS recomputed_hash
+              FROM audit_log a
+          )
+          SELECT chain.id,
+                 CASE
+                     WHEN chain.hash IS DISTINCT FROM chain.recomputed_hash THEN 'hash_mismatch'
+                     ELSE 'chain_broken'
+                 END AS problem
+          FROM chain
+          WHERE chain.hash IS DISTINCT FROM chain.recomputed_hash
+             OR chain.previous_hash IS DISTINCT FROM chain.expected_previous_hash
+          ORDER BY chain.id;
+      END;
+      $$ LANGUAGE plpgsql STABLE;
+    `);
+
+    // Alt-Einträge ohne Hash nachverketten (No-Op, wenn bereits vollständig verkettet)
+    await pool.query('SELECT backfill_audit_chain()');
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_log_hash_chain'
+        ) THEN
+          CREATE TRIGGER trg_audit_log_hash_chain
+            BEFORE INSERT ON audit_log
+            FOR EACH ROW
+            EXECUTE FUNCTION audit_log_hash_chain();
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_audit_log_immutable'
+        ) THEN
+          CREATE TRIGGER trg_audit_log_immutable
+            BEFORE UPDATE OR DELETE ON audit_log
+            FOR EACH STATEMENT
+            EXECUTE FUNCTION audit_log_prevent_tamper();
+        END IF;
+      END
+      $$;
+    `);
+
+    logger.info('DB', 'audit_log Tamper-Schutz (Hash-Kette + Immutabilität) verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren des audit_log Tamper-Schutzes', { message: err.message });
+  }
+}
+
 // ---- Tabelle: app_users ----
 
 async function ensureAppUsersTable() {
@@ -391,6 +553,10 @@ async function ensureAppUsersTable() {
         must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_login TIMESTAMP DEFAULT NULL,
+        failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        locked_until TIMESTAMP DEFAULT NULL,
+        reset_token_hash TEXT DEFAULT NULL,
+        reset_token_expiry TIMESTAMP DEFAULT NULL,
         CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'bearbeiter', 'user'))
       )
     `);
@@ -406,6 +572,14 @@ async function ensureAppUsersTable() {
         END IF;
       END
       $$;
+    `);
+    // Migrate: Spalten für Account-Lockout und Passwort-Reset (Issue #137)
+    await pool.query(`
+      ALTER TABLE app_users
+        ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reset_token_hash TEXT DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP DEFAULT NULL;
     `);
     // Migrate role constraint in existing deployments to support 'bearbeiter'
     await pool.query(`
@@ -423,12 +597,10 @@ async function ensureAppUsersTable() {
       $$;
     `);
     // Seed default admin if table is empty
-    // Password: admin (SHA-256 hashed on frontend, then bcrypt-hashed on backend)
-    // Hash = bcrypt(SHA-256("admin")) – generated with 10 rounds
+    // Passwort: admin – muss nach dem ersten Login geändert werden
     const { rows } = await pool.query('SELECT COUNT(*) AS cnt FROM app_users');
     if (parseInt(rows[0].cnt, 10) === 0) {
-      const sha256ofAdmin = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
-      const adminHash = await bcrypt.hash(sha256ofAdmin, 10);
+      const adminHash = await bcrypt.hash('admin', 10);
       await pool.query(
         `INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
          VALUES ('admin', $1, 'admin@goldregen.local', 'admin', TRUE, TRUE)
@@ -462,6 +634,166 @@ async function ensureLagerinventurEntwurfTable() {
     logger.info('DB', 'lagerinventur Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der lagerinventur Tabelle', { message: err.message });
+  }
+}
+
+// ---- Bestellübersicht (DSGVO): bestellung_kunde, bestellung, bestellung_consent ----
+
+async function ensureBestelluebersichtSchema() {
+  try {
+    await pool.query(`
+      DO $$
+      BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'versandart_typ') THEN
+              CREATE TYPE versandart_typ AS ENUM ('lieferung', 'abholung');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bestellstatus_typ') THEN
+              CREATE TYPE bestellstatus_typ AS ENUM ('offen', 'in_bearbeitung', 'abgeschlossen', 'storniert');
+          END IF;
+      END
+      $$;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bestellung_kunde (
+          id SERIAL PRIMARY KEY,
+          kunde_pseudonym VARCHAR(20) NOT NULL UNIQUE,
+          name_enc          BYTEA DEFAULT NULL,
+          email_enc         BYTEA DEFAULT NULL,
+          telefonnummer_enc BYTEA DEFAULT NULL,
+          strasse_enc       BYTEA DEFAULT NULL,
+          hausnummer_enc    BYTEA DEFAULT NULL,
+          plz_enc           BYTEA DEFAULT NULL,
+          ort_enc           BYTEA DEFAULT NULL,
+          anonymisiert      BOOLEAN NOT NULL DEFAULT FALSE,
+          anonymisiert_am   TIMESTAMP DEFAULT NULL,
+          erstellt_am       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    // Migrate: name_enc darf NULL sein (Anonymisierungsfunktion muss den Wert löschen können)
+    await pool.query(`ALTER TABLE bestellung_kunde ALTER COLUMN name_enc DROP NOT NULL;`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bestellung (
+          id SERIAL PRIMARY KEY,
+          bestellnummer   VARCHAR(20) NOT NULL UNIQUE,
+          kunde_id        INTEGER NOT NULL REFERENCES bestellung_kunde(id),
+          versandart      versandart_typ NOT NULL,
+          erfassungsdatum TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          wunschdatum     DATE DEFAULT NULL,
+          beschreibung    TEXT NOT NULL,
+          status          bestellstatus_typ NOT NULL DEFAULT 'offen',
+          rechnung_nummer VARCHAR(20) DEFAULT NULL REFERENCES "Rechnung"("Nummer"),
+          erstellt_von    VARCHAR(100) NOT NULL,
+          erstellt_am     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          aktualisiert_am TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          foto_pfad       VARCHAR(255) DEFAULT NULL,
+          CONSTRAINT bestellung_wunschdatum_check
+              CHECK (wunschdatum IS NULL OR wunschdatum >= erfassungsdatum::date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_bestellung_kunde ON bestellung(kunde_id);
+      CREATE INDEX IF NOT EXISTS idx_bestellung_status ON bestellung(status);
+      CREATE INDEX IF NOT EXISTS idx_bestellung_erfassungsdatum ON bestellung(erfassungsdatum);
+      ALTER TABLE bestellung ADD COLUMN IF NOT EXISTS foto_pfad VARCHAR(255) DEFAULT NULL;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bestellung_consent (
+          id SERIAL PRIMARY KEY,
+          kunde_id            INTEGER NOT NULL REFERENCES bestellung_kunde(id),
+          consent_typ         VARCHAR(50) NOT NULL DEFAULT 'datenverarbeitung_bestellung',
+          consent_erteilt     BOOLEAN NOT NULL,
+          consent_zeitpunkt   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          datenschutz_version VARCHAR(20) NOT NULL,
+          ip_hash             TEXT DEFAULT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_bestellung_consent_kunde ON bestellung_consent(kunde_id);
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION check_datenminimierung_versandart()
+      RETURNS TRIGGER AS $$
+      DECLARE
+          hat_adresse BOOLEAN;
+          hat_telefon BOOLEAN;
+          ist_anonymisiert BOOLEAN;
+      BEGIN
+          SELECT (strasse_enc IS NOT NULL AND hausnummer_enc IS NOT NULL
+                  AND plz_enc IS NOT NULL AND ort_enc IS NOT NULL),
+                 (telefonnummer_enc IS NOT NULL),
+                 anonymisiert
+            INTO hat_adresse, hat_telefon, ist_anonymisiert
+            FROM bestellung_kunde WHERE id = NEW.kunde_id;
+
+          IF NOT ist_anonymisiert THEN
+              IF NOT hat_telefon THEN
+                  RAISE EXCEPTION 'Telefonnummer ist erforderlich';
+              END IF;
+              IF NEW.versandart = 'lieferung' AND NOT hat_adresse THEN
+                  RAISE EXCEPTION 'Versandart "lieferung" erfordert eine vollständige Adresse (Art. 5 Abs. 1 lit. c DSGVO)';
+              END IF;
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION update_bestellung_aktualisiert()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          NEW.erfassungsdatum = OLD.erfassungsdatum;
+          NEW.aktualisiert_am = CURRENT_TIMESTAMP;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION anonymisiere_bestellung_kunde(p_kunde_id INTEGER)
+      RETURNS VOID AS $$
+      BEGIN
+          UPDATE bestellung_kunde
+          SET name_enc = NULL,
+              email_enc = NULL,
+              telefonnummer_enc = NULL,
+              strasse_enc = NULL,
+              hausnummer_enc = NULL,
+              plz_enc = NULL,
+              ort_enc = NULL,
+              anonymisiert = TRUE,
+              anonymisiert_am = CURRENT_TIMESTAMP
+          WHERE id = p_kunde_id AND anonymisiert = FALSE;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_bestellung_datenminimierung'
+        ) THEN
+          CREATE TRIGGER trg_bestellung_datenminimierung
+            BEFORE INSERT OR UPDATE ON bestellung
+            FOR EACH ROW
+            EXECUTE FUNCTION check_datenminimierung_versandart();
+        END IF;
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger WHERE tgname = 'trg_bestellung_aktualisiert'
+        ) THEN
+          CREATE TRIGGER trg_bestellung_aktualisiert
+            BEFORE UPDATE ON bestellung
+            FOR EACH ROW
+            EXECUTE FUNCTION update_bestellung_aktualisiert();
+        END IF;
+      END
+      $$;
+    `);
+
+    logger.info('DB', 'Bestellübersicht-Schema verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren des Bestellübersicht-Schemas', { message: err.message });
   }
 }
 
@@ -546,20 +878,25 @@ async function ensureTriggers() {
 //   4. Rechnung
 //   5. Schmuckstück
 //   6. audit_log (wird von Audit-Trigger beschrieben)
-//   7. app_users (wird von lagerinventur referenziert)
-//   8. lagerinventur
-//   9. Constraints & Trigger (brauchen die Tabellen)
+//   7. audit_log Tamper-Schutz (Hash-Kette + Immutable-Trigger, Issue #139;
+//      muss nach audit_log, aber vor jedem weiteren Schritt, der dort einträgt)
+//   8. app_users (wird von lagerinventur referenziert)
+//   9. Bestellübersicht (bestellung_kunde/bestellung/bestellung_consent, braucht Rechnung)
+//   10. lagerinventur
+//   11. Constraints & Trigger (brauchen die Tabellen)
 
 pool.query('SELECT NOW() AS server_time')
   .then((res) => {
-    logger.info('DB', `Verbindung erfolgreich hergestellt. Server-Zeit: ${res.rows[0].server_time}`);
+    logger.info('DB', 'Verbindung erfolgreich hergestellt', { server_time: res.rows[0].server_time });
     return ensureTriggerFunctions()
       .then(() => ensureKundeTable())
       .then(() => ensureLieferscheinTable())
       .then(() => ensureRechnungTable())
       .then(() => ensureSchmuckstueckTable())
       .then(() => ensureAuditLogTable())
+      .then(() => ensureAuditLogTamperProtection())
       .then(() => ensureAppUsersTable())
+      .then(() => ensureBestelluebersichtSchema())
       .then(() => ensureLagerinventurEntwurfTable())
       .then(() => ensureAusschussGrundConstraint())
       .then(() => ensureTriggers());
@@ -574,4 +911,5 @@ module.exports = {
   setCurrentDbUsername,
   requestContextMiddleware,
   pool,
+  connectionString,
 };

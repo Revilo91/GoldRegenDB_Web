@@ -1,24 +1,39 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 const db = require("../config/db");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const {
+  userCreateSchema,
+  userUpdateSchema,
+  resetPasswordSchema,
+} = require("../schemas");
+const { hashPassword } = require("../utils/passwordService");
 
 const VALID_ROLES = ["admin", "bearbeiter", "user"];
 
-// A SHA-256 hash is always a 64-character lowercase hex string
-const SHA256_REGEX = /^[0-9a-f]{64}$/;
-function isValidSHA256(value) {
-  return typeof value === "string" && SHA256_REGEX.test(value);
-}
-
-// GET all users (without password_hash)
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Alle Benutzer abrufen
+ *     description: 'Ohne password_hash. Erfordert Rolle: admin.'
+ *     tags: [Benutzerverwaltung]
+ *     responses:
+ *       200:
+ *         description: Benutzerliste
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { $ref: '#/components/schemas/AppUser' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get("/", async (req, res) => {
   try {
     const { rows } = await db.query(
       "SELECT id, username, email, role, active, must_change_password, created_at, last_login FROM app_users ORDER BY username",
     );
-    logger.info("USERS", `${rows.length} Benutzer geladen`);
+    logger.info("USERS", "Benutzer geladen", { anzahl: rows.length });
     res.json(rows);
   } catch (err) {
     logger.error("USERS", "Fehler beim Laden der Benutzer", {
@@ -28,7 +43,23 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET single user
+/**
+ * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: Einzelnen Benutzer abrufen
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Benutzerverwaltung]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Benutzer
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get("/:id", async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -40,31 +71,56 @@ router.get("/:id", async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    logger.error(
-      "USERS",
-      `Fehler beim Laden des Benutzers ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Laden des Benutzers", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Laden des Benutzers" });
   }
 });
 
-// POST create user
-router.post("/", async (req, res) => {
+/**
+ * @swagger
+ * /users:
+ *   post:
+ *     summary: Benutzer anlegen
+ *     description: 'must_change_password wird immer auf true gesetzt. Erfordert Rolle: admin.'
+ *     tags: [Benutzerverwaltung]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password, role]
+ *             properties:
+ *               username: { type: string, maxLength: 100 }
+ *               password: { type: string, format: password, minLength: 8 }
+ *               email: { type: string, nullable: true }
+ *               role: { type: string, enum: [admin, bearbeiter, user] }
+ *               active: { type: boolean }
+ *     responses:
+ *       201:
+ *         description: Benutzer erstellt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       409:
+ *         description: Benutzername bereits vergeben
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
+router.post("/", validate(userCreateSchema), async (req, res) => {
   try {
     const { username, password, email, role, active } = req.body;
-    if (!username || !password) {
-      return res
-        .status(400)
-        .json({ error: "Benutzername und Passwort sind erforderlich" });
-    }
-    if (!isValidSHA256(password)) {
-      return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-    }
     if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: "Ungültige Rolle" });
     }
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await hashPassword(password);
     const { rows } = await db.query(
       `INSERT INTO app_users (username, password_hash, email, role, active, must_change_password)
        VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, username, email, role, active, must_change_password, created_at`,
@@ -76,14 +132,14 @@ router.post("/", async (req, res) => {
         active !== false,
       ],
     );
-    logger.info("USERS", `Benutzer erstellt: ${username} (Rolle: ${role})`);
+    logger.info("USERS", "Benutzer erstellt", { user: username, role });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === "23505") {
-      logger.warn(
-        "USERS",
-        `Benutzer-Erstellung fehlgeschlagen: ${req.body.username} – Name bereits vergeben`,
-      );
+      logger.warn("USERS", "Benutzer-Erstellung fehlgeschlagen – Name bereits vergeben", {
+        user: req.body.username,
+        reason: "username_taken",
+      });
       return res.status(409).json({ error: "Benutzername bereits vergeben" });
     }
     logger.error("USERS", "Fehler beim Erstellen des Benutzers", {
@@ -93,8 +149,44 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT update user (without password)
-router.put("/:id", async (req, res) => {
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Benutzer aktualisieren (ohne Passwort)
+ *     description: 'Für das Passwort siehe POST /users/{id}/reset-password. Erfordert Rolle: admin.'
+ *     tags: [Benutzerverwaltung]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, role]
+ *             properties:
+ *               username: { type: string, maxLength: 100 }
+ *               email: { type: string, nullable: true }
+ *               role: { type: string, enum: [admin, bearbeiter, user] }
+ *               active: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Benutzer aktualisiert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/AppUser' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409:
+ *         description: Benutzername bereits vergeben
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
+router.put("/:id", validate(userUpdateSchema), async (req, res) => {
   try {
     const { username, email, role, active } = req.body;
     if (!VALID_ROLES.includes(role)) {
@@ -108,59 +200,105 @@ router.put("/:id", async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
-    logger.info(
-      "USERS",
-      `Benutzer aktualisiert: ID=${req.params.id} (${username})`,
-    );
+    logger.info("USERS", "Benutzer aktualisiert", { id: req.params.id, user: username });
     res.json(rows[0]);
   } catch (err) {
     if (err.code === "23505") {
-      logger.warn(
-        "USERS",
-        `Benutzer-Update fehlgeschlagen: ID=${req.params.id} – Name bereits vergeben`,
-      );
+      logger.warn("USERS", "Benutzer-Update fehlgeschlagen – Name bereits vergeben", {
+        id: req.params.id,
+        reason: "username_taken",
+      });
       return res.status(409).json({ error: "Benutzername bereits vergeben" });
     }
-    logger.error(
-      "USERS",
-      `Fehler beim Aktualisieren des Benutzers ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Aktualisieren des Benutzers", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Aktualisieren des Benutzers" });
   }
 });
 
-// POST reset password
-router.post("/:id/reset-password", async (req, res) => {
+/**
+ * @swagger
+ * /users/{id}/reset-password:
+ *   post:
+ *     summary: Passwort eines Benutzers durch einen Admin zurücksetzen
+ *     description: 'Setzt must_change_password=true und hebt eine bestehende Konto-Sperre sowie offene
+ *       Self-Service-Reset-Token auf. Erfordert Rolle: admin.'
+ *     tags: [Benutzerverwaltung]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [newPassword]
+ *             properties:
+ *               newPassword: { type: string, format: password, minLength: 8 }
+ *     responses:
+ *       200:
+ *         description: Passwort zurückgesetzt
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.post("/:id/reset-password", validate(resetPasswordSchema), async (req, res) => {
   try {
     const { newPassword } = req.body;
-    if (!newPassword || !isValidSHA256(newPassword)) {
-      return res.status(400).json({ error: "Ungültiges Passwort-Format" });
-    }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await hashPassword(newPassword);
+    // Ein Admin-Reset hebt auch eine Sperre und offene Reset-Token auf
     const { rowCount } = await db.query(
-      "UPDATE app_users SET password_hash = $1, must_change_password = TRUE WHERE id = $2",
+      `UPDATE app_users
+          SET password_hash = $1,
+              must_change_password = TRUE,
+              failed_login_attempts = 0,
+              locked_until = NULL,
+              reset_token_hash = NULL,
+              reset_token_expiry = NULL
+        WHERE id = $2`,
       [hashedPassword, req.params.id],
     );
     if (rowCount === 0) {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
-    logger.info(
-      "USERS",
-      `Passwort zurückgesetzt für Benutzer ID=${req.params.id}`,
-    );
+    logger.info("USERS", "Passwort zurückgesetzt", { id: req.params.id });
     res.json({ message: "Passwort erfolgreich zurückgesetzt" });
   } catch (err) {
-    logger.error(
-      "USERS",
-      `Fehler beim Zurücksetzen des Passworts für ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Zurücksetzen des Passworts", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Zurücksetzen des Passworts" });
   }
 });
 
-// DELETE user
+/**
+ * @swagger
+ * /users/{id}:
+ *   delete:
+ *     summary: Benutzer löschen
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Benutzerverwaltung]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Benutzer gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.delete("/:id", async (req, res) => {
   try {
     const { rowCount } = await db.query("DELETE FROM app_users WHERE id = $1", [
@@ -169,14 +307,13 @@ router.delete("/:id", async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: "Benutzer nicht gefunden" });
     }
-    logger.info("USERS", `Benutzer gelöscht: ID=${req.params.id}`);
+    logger.info("USERS", "Benutzer gelöscht", { id: req.params.id });
     res.json({ message: "Benutzer gelöscht" });
   } catch (err) {
-    logger.error(
-      "USERS",
-      `Fehler beim Löschen des Benutzers ID=${req.params.id}`,
-      { message: err.message },
-    );
+    logger.error("USERS", "Fehler beim Löschen des Benutzers", {
+      id: req.params.id,
+      message: err.message,
+    });
     res.status(500).json({ error: "Fehler beim Löschen des Benutzers" });
   }
 });

@@ -1,0 +1,44 @@
+# Overlay für docker-compose.yml: TLS-Terminierung per Caddy (Issue #138).
+#
+# Für Self-Hoster ohne eigenen Reverse Proxy (Synology-Nutzer siehe stattdessen
+# README.md, Abschnitt "HTTPS auf Synology" – der DSM-eigene Reverse Proxy +
+# Certificate Manager ist dort meist die einfachere Wahl).
+#
+# Nutzung:
+#   DOMAIN=schmuck.example.com docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
+#
+# Voraussetzung: DOMAIN zeigt per DNS auf diesen Host, Port 80 und 443 sind frei.
+# Caddy holt automatisch ein Let's-Encrypt-Zertifikat und erneuert es selbstständig
+# (siehe proxy/Caddyfile für die Variante mit eigenen Zertifikaten).
+services:
+  app:
+    # Nicht mehr direkt vom Host erreichbar – nur noch über den Proxy (Port 80/443).
+    # !reset statt einer leeren Liste, da Compose Listen sonst zusammenführt statt ersetzt.
+    ports: !reset []
+    environment:
+      FORCE_HTTPS: "true"
+      COOKIE_SECURE: "true"
+      # Ein Hop: der Caddy-Container davor
+      TRUST_PROXY: "1"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: always
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Eigene Zertifikate hier mounten, falls proxy/Caddyfile auf die
+      # "tls /certs/..."-Variante umgestellt wird:
+      # - ./proxy/certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

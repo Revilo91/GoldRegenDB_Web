@@ -5,7 +5,37 @@ const { generateInventurExcel } = require('../utils/excelService');
 const { where } = require('../utils/whereClauseBuilder');
 const logger = require('../utils/logger');
 
-// GET inventory summary for all customers with items ausgelagert
+/**
+ * @swagger
+ * /inventur:
+ *   get:
+ *     summary: Inventurübersicht aller Kunden mit ausgelagerten Stücken
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Inventur]
+ *     responses:
+ *       200:
+ *         description: Ein Eintrag je Kunde mit ausgelagerten Artikeln
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   ID: { type: integer }
+ *                   Name: { type: string }
+ *                   Ort: { type: string }
+ *                   Provision: { type: integer }
+ *                   Aktiv: { type: boolean }
+ *                   gesamt: { type: integer }
+ *                   aktiv: { type: integer }
+ *                   verkauft: { type: integer }
+ *                   ausschuss: { type: integer }
+ *                   wert_aktiv: { type: number }
+ *                   wert_verkauft: { type: number }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -26,7 +56,7 @@ router.get('/', async (req, res) => {
        GROUP BY k."ID", k."Name", k."Ort", k."Provision", k."Aktiv"
        ORDER BY k."Name"`
     );
-    logger.info('INVENTUR', `Inventur-Übersicht geladen: ${rows.length} Kunden`);
+    logger.info('INVENTUR', 'Inventur-Übersicht geladen', { anzahl: rows.length });
     res.json(rows);
   } catch (err) {
     logger.error('INVENTUR', 'Fehler beim Laden der Inventur', { message: err.message });
@@ -34,7 +64,38 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET inventory detail for a single customer
+/**
+ * @swagger
+ * /inventur/{kundeId}:
+ *   get:
+ *     summary: Inventurdetail für einen Kunden
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Inventur]
+ *     parameters:
+ *       - { name: kundeId, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Kunde, ausgelagerte Artikel und Kennzahlen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 kunde: { $ref: '#/components/schemas/Kunde' }
+ *                 items: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     gesamt: { type: integer }
+ *                     aktiv: { type: integer }
+ *                     verkauft: { type: integer }
+ *                     ausschuss: { type: integer }
+ *                     wert_aktiv: { type: number }
+ *                     wert_verkauft: { type: number }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:kundeId', async (req, res) => {
   try {
     const { kundeId } = req.params;
@@ -78,12 +139,30 @@ router.get('/:kundeId', async (req, res) => {
 
     res.json({ kunde: kundeRes.rows[0], items, stats });
   } catch (err) {
-    logger.error('INVENTUR', `Fehler beim Laden der Inventur für Kunde ID=${req.params.kundeId}`, { message: err.message });
+    logger.error('INVENTUR', 'Fehler beim Laden der Inventur für Kunde', { id: req.params.kundeId, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Inventur' });
   }
 });
 
-// GET Excel export for a single customer
+/**
+ * @swagger
+ * /inventur/{kundeId}/excel:
+ *   get:
+ *     summary: Inventur eines Kunden als Excel-Datei herunterladen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Inventur]
+ *     parameters:
+ *       - { name: kundeId, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: XLSX-Datei
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema: { type: string, format: binary }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:kundeId/excel', async (req, res) => {
   try {
     const { kundeId } = req.params;
@@ -119,10 +198,10 @@ router.get('/:kundeId/excel', async (req, res) => {
     const safeName = String(kunde.Name || kundeId).replace(/[\\/:*?"<>|]+/g, '_');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="Inventur_${safeName}.xlsx"`);
-    logger.info('INVENTUR', `Excel-Export erstellt für Kunde: ${kunde.Name} (${items.length} Artikel)`);
+    logger.info('INVENTUR', 'Excel-Export erstellt', { id: kundeId, artikelAnzahl: items.length });
     res.send(buffer);
   } catch (err) {
-    logger.error('INVENTUR', `Fehler beim Excel-Export für Kunde ID=${req.params.kundeId}`, { message: err.message });
+    logger.error('INVENTUR', 'Fehler beim Excel-Export für Kunde', { id: req.params.kundeId, message: err.message });
     res.status(500).json({ error: 'Fehler beim Erstellen des Excel-Exports' });
   }
 });

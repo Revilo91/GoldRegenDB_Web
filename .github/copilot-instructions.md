@@ -93,6 +93,8 @@ erDiagram
         varchar10 action_type
         varchar255 changed_by
         timestamp change_timestamp
+        char64 previous_hash
+        char64 hash
     }
 
     app_users {
@@ -180,6 +182,7 @@ erDiagram
 - **Verkauft**: SMALLINT (0 = nicht verkauft, 1 = verkauft)
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
+- **audit_log Tamper-Schutz** (Issue #139): `trg_audit_log_immutable` blockiert jedes UPDATE/DELETE auf `audit_log`; `trg_audit_log_hash_chain` verkettet jede Zeile per SHA-256 mit dem Hash der Vorgängerzeile (`previous_hash`/`hash`). Kette prüfen: `SELECT * FROM verify_audit_chain();` oder `GET /api/audit-log/verify` (admin). Details siehe `db/README.md`
 - **lagerinventur**: speichert Inventur-Entwürfe pro Benutzer; `data` ist JSONB (`{ [artikelnummer]: anzahl }`); `status` ist `entwurf` oder `abgeschlossen`; FK auf `app_users.id`; Index auf `(user_id, status)`; wird via `db.js`-Startup-Migration angelegt
 ## WHERE Clause Builder (PFLICHT!)
 
@@ -239,13 +242,15 @@ const result = await db.query(query, builder.getParams());
 | **DB-Zugriff**    | `pg` (node-postgres) – kein ORM          |
 | **Authentifizierung** | JWT (`jsonwebtoken`) + `bcryptjs`    |
 | **Rate Limiting** | `express-rate-limit`                     |
+| **Security-Header** | `helmet`                               |
+| **Input-Validierung** | `zod`                                |
 | **Excel-Export**  | `exceljs`                                |
 | **Bild-Validierung** | `image-size`                          |
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
 | **Frontend**      | React 19 + Vite + React Router v7        |
 | **Container**     | Docker + Docker Compose                  |
-| **Dev-Umgebung**  | Docker Compose (dev) mit Hot-Reload      |
-| **Produktion**    | Docker Compose (prod) mit Nginx          |
+| **Dev-Umgebung**  | Nativ (npm Workspaces + `concurrently`) oder Docker Compose (dev) mit Hot-Reload |
+| **Produktion**    | Docker Compose (prod), ein Single-Image, kein Nginx |
 | **Backend-Tests** | Jest (`npm test` in `backend/`)          |
 | **Frontend-Tests** | Vitest (`npm test` in `frontend/`)      |
 | **CI**            | GitHub Actions (`.github/workflows/tests.yml`) |
@@ -266,14 +271,24 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ### Technische Details
 
-- Token-Format: `Bearer <JWT>` im `Authorization`-Header
-- Login: `POST /api/auth/login` → gibt JWT zurück
+- Token-Transport: **httpOnly-Cookie `jwt`** (Standard). `Bearer <JWT>` im
+  `Authorization`-Header bleibt als Fallback für Skripte und E2E-Tests
+- Login: `POST /api/auth/login` → setzt das `jwt`-Cookie (und gibt das Token für API-Clients zusätzlich im Body zurück)
+- Logout: `POST /api/auth/logout` → löscht das Cookie
 - Token-Validierung: `GET /api/auth/me`
 - Passwort ändern: `PUT /api/auth/change-password`
-- JWT_SECRET muss als Umgebungsvariable gesetzt sein (Pflicht)
-- Rate Limiting: Login max. 20 Versuche / 15 Min; allgemeine API max. 300 Req / Min
+- JWT_SECRET muss gesetzt sein (Pflicht) – via Env-Var oder `JWT_SECRET_FILE` (Docker-Secret), siehe `backend/src/config/secrets.js`. Graceful Rollover über `JWT_SECRET_OLD`: `authenticate()` akzeptiert beim Verifizieren zusätzlich das alte Secret, signiert wird immer mit dem neuen (siehe README „Secrets rotieren“)
+- Rate Limiting: nur noch für unauthentifizierte Endpunkte – Login/Passwort-Reset
+  max. 20 **fehlgeschlagene** Versuche / 15 Min pro IP, öffentliches Bestellformular
+  max. 10 / 15 Min. Die angemeldete Anwendung läuft ohne Limit: eine Tabellenseite
+  löst pro Zeile einen Foto-Request aus, jedes Limit schlug im Normalbetrieb zu
+- `TRUST_PROXY` setzen (z. B. `1`), wenn ein Reverse Proxy davor steht – sonst
+  teilen sich alle Benutzer die Login-Quote einer einzigen IP
 - Standard-Admin: Benutzer `admin`, Passwort `admin` (muss nach erstem Login geändert werden, `must_change_password = TRUE`)
-- Passwort-Hashing: Frontend berechnet SHA-256(Passwort) und sendet den 64-Zeichen-Hex-Hash; Backend speichert/vergleicht mit `bcryptjs` (10 Rounds)
+- Passwort-Hashing: Das Frontend sendet das Passwort im **Klartext** (über TLS); ausschließlich das Backend hasht und vergleicht mit `bcryptjs` (10 Rounds) – siehe `backend/src/utils/passwordService.js`
+- Mindestlänge für **neu gesetzte** Passwörter: 8 Zeichen. Beim Login gilt keine Mindestlänge, damit Altkonten sich weiterhin anmelden können
+- Account-Lockout: nach 5 aufeinanderfolgenden Fehlversuchen wird das Konto 30 Minuten gesperrt (`failed_login_attempts` / `locked_until`)
+- Passwort-Reset: `POST /api/auth/forgot-password` → `POST /api/auth/reset-password` mit Token
 
 ### Middleware
 
@@ -283,14 +298,116 @@ Die Anwendung nutzt **JWT-basierte Authentifizierung**.
 
 ---
 
+## Input-Validierung (PFLICHT bei schreibenden Routen!)
+
+Jede Route, die Daten entgegennimmt, validiert den Request-Body mit einem
+Zod-Schema. Ohne Schema gelangen unbekannte Felder und ungeprüfte Typen in die
+SQL-Statements.
+
+```javascript
+const { validate } = require('../middleware/validate');
+const { kundeSchema } = require('../schemas');
+
+router.post('/', validate(kundeSchema), async (req, res) => {
+  // req.body enthält jetzt ausschließlich geprüfte, typkorrekte Felder
+});
+```
+
+- Schemas liegen in `backend/src/schemas/index.js`, wiederverwendbare Bausteine
+  (`text`, `zahl`, `ganzzahl`, `bool`, `sha256`, `artikelnummer`) in `common.js`.
+- **Unbekannte Felder werden entfernt** – Zod-Objekte strippen sie standardmäßig.
+- Leere Formular-Strings werden zu `null`, Zahlen-Strings (`"49.90"`) zu Zahlen.
+  Das ist nötig, weil HTML-Formulare alles als String senden.
+- Bei Verstoß: `400` mit `{ error, details }`, wobei `error` das erste
+  fehlerhafte Feld benennt (`"Provision: darf nicht größer als 100 sein"`).
+- Verstöße landen als `logger.warn('VALIDATION', …)` im Log.
+
+**Neue schreibende Route anlegen:** Schema in `schemas/index.js` ergänzen,
+exportieren, per `validate(...)` vor den Handler hängen und einen Test in
+`backend/__tests__/validation.test.js` ergänzen – dort wird bewusst auch der
+Gutfall mit dem echten Frontend-Payload geprüft, damit die Schemas nicht zu
+streng werden.
+
+---
+
+## CORS (`backend/src/middleware/cors.js`)
+
+Die API ist nur für explizit erlaubte Origins geöffnet. Konfiguriert wird das
+über die kommaseparierte Umgebungsvariable `ALLOWED_ORIGINS`:
+
+```
+ALLOWED_ORIGINS=http://localhost:5173,https://schmuck.example.com
+```
+
+- Ohne gesetzte Variable gelten die lokalen Dev-Origins
+  (`localhost:5173` / `localhost:3000`, jeweils auch als `127.0.0.1`).
+- Requests **ohne** `Origin`-Header (same-origin, `curl`, Container-Healthcheck)
+  werden immer durchgelassen.
+- In Produktion liefert Express das Frontend selbst aus – diese Requests sind
+  same-origin und lösen gar keine CORS-Prüfung aus. `ALLOWED_ORIGINS` muss dort
+  nur gesetzt werden, wenn das Frontend von einer anderen Adresse geladen wird.
+- Abgelehnte Origins werden mit `logger.warn('CORS', …)` protokolliert.
+- `Content-Disposition` und `X-Upload-File-Count` sind als Response-Header
+  freigegeben, weil `api.js` sie bei Downloads ausliest.
+
+---
+
+## Security-Header (`backend/src/middleware/securityHeaders.js`)
+
+`helmet` wird als erste Middleware in `index.js` registriert und setzt u. a.
+`X-Content-Type-Options` und `X-Frame-Options`.
+
+Die Content-Security-Policy ist an das ausgelieferte Frontend angepasst:
+
+| Direktive     | Wert / Grund                                                                 |
+| ------------- | ---------------------------------------------------------------------------- |
+| `style-src`   | `'unsafe-inline'` + `fonts.googleapis.com` – React-`style`-Props, Font-Import |
+| `font-src`    | `data:` + `fonts.gstatic.com`                                                 |
+| `img-src`     | `data:` + `blob:` – Fotos werden als Data-URL geladen (`api.js`)             |
+| `frame-ancestors` | `'none'` – Clickjacking-Schutz                                            |
+| `upgrade-insecure-requests` | nur mit `FORCE_HTTPS=true` aktiv (Issue #138, siehe unten)      |
+
+`crossOriginResourcePolicy` steht auf `cross-origin`, damit der Vite-Dev-Server
+(Port 5173) Fotos und Excel-Downloads vom Backend (Port 3001) laden kann.
+
+Die CSP greift nur für Dokumente, die Express selbst ausliefert (Produktions-Image).
+Im nativen Dev-Modus liefert Vite das HTML aus – dort gilt sie nicht.
+
+### TLS / HTTPS (Issue #138)
+
+Express terminiert kein TLS selbst – das übernimmt ein vorgeschalteter Reverse
+Proxy (Synology Reverse Proxy, `docker-compose.proxy.yml` mit Caddy, o. Ä.). Drei
+Env-Variablen steuern, wie das Backend darauf reagiert (siehe `.env.example`):
+
+| Variable        | Wirkung                                                                  |
+| --------------- | ------------------------------------------------------------------------- |
+| `TRUST_PROXY`   | `app.set('trust proxy', …)` – Anzahl vertrauenswürdiger Hops davor. Nötig, damit Express `X-Forwarded-*`-Header nur vom echten Proxy akzeptiert, nicht von jedem Client |
+| `FORCE_HTTPS`   | Aktiviert `backend/src/middleware/httpsRedirect.js` (301 auf https, nur wenn der Proxy `X-Forwarded-Proto: http` meldet – fehlt der Header, z. B. beim Docker-Healthcheck direkt gegen den Container, wird nicht umgeleitet) sowie HSTS und `upgrade-insecure-requests` in `securityHeaders.js` |
+| `HSTS_MAX_AGE`  | Gültigkeitsdauer des HSTS-Headers in Sekunden (Standard 15552000 = 180 Tage), nur mit `FORCE_HTTPS=true` relevant |
+
+Alle drei sind standardmäßig aus/leer – native Entwicklung (`npm run dev`,
+`docker-compose.dev.yml`) hat keinen TLS-terminierenden Proxy davor und darf davon
+nicht betroffen sein. In `index.js` warnt eine Startmeldung (`logger.warn`), wenn
+`NODE_ENV=production` läuft, aber weder `FORCE_HTTPS` noch `COOKIE_SECURE` gesetzt
+ist – kein harter Fehler, damit bestehende Deployments nicht abstürzen.
+
+Deployment-Optionen: siehe README.md, Abschnitt "HTTPS auf Synology".
+
+---
+
 ## Projektstruktur
 
 ```
 GoldRegenDB_Web/
-├── docker-compose.yml              # Produktion
-├── docker-compose.dev.yml          # Entwicklung (Hot Reload)
-├── docker-compose.synology.yml     # Synology-NAS-spezifisch
-├── .env.example                    # Vorlage für Umgebungsvariablen
+├── Dockerfile                       # Produktions-Image (Multi-Stage: Frontend-Build → Express, kein Nginx)
+├── .dockerignore
+├── package.json                     # Root npm Workspace (backend, frontend) + `npm run dev` (concurrently)
+├── docker-compose.yml               # Produktion (ein `app`-Service)
+├── docker-compose.dev.yml           # Entwicklung, voll containerisiert (Alternative zu nativem `npm run dev`)
+├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── docker-compose.proxy.yml         # Overlay: Caddy-Reverse-Proxy mit TLS (Issue #138)
+├── proxy/Caddyfile                  # Caddy-Konfiguration für docker-compose.proxy.yml
+├── .env.example                     # Vorlage für Umgebungsvariablen
 ├── .github/
 │   ├── copilot-instructions.md     # Diese Datei
 │   └── workflows/
@@ -315,8 +432,7 @@ GoldRegenDB_Web/
 │   └── README.md                   # Backup/Restore-Dokumentation
 │
 ├── backend/
-│   ├── Dockerfile                  # Produktions-Image
-│   ├── Dockerfile.dev              # Entwicklungs-Image (watch mode)
+│   ├── Dockerfile.dev               # Entwicklungs-Image (watch mode, für docker-compose.dev.yml)
 │   ├── package.json
 │   ├── __tests__/                  # Jest-Tests
 │   │   ├── auth.middleware.test.js
@@ -358,9 +474,7 @@ GoldRegenDB_Web/
 │           └── logger.js           # Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix
 │
 ├── frontend/
-│   ├── Dockerfile                  # Multi-Stage-Build (Node → Nginx)
-│   ├── Dockerfile.dev              # Entwicklungs-Image (Vite Dev Server)
-│   ├── nginx.conf                  # Nginx-Konfiguration (Produktion)
+│   ├── Dockerfile.dev               # Entwicklungs-Image (Vite Dev Server, für docker-compose.dev.yml)
 │   ├── package.json
 │   ├── vite.config.js
 │   ├── index.html
@@ -376,10 +490,8 @@ GoldRegenDB_Web/
 │       │   ├── TableToolbar.jsx    # Toolbar-Komponente für Tabellen (Suche, Filter, Aktionen)
 │       │   ├── PhotoUpload.jsx     # Foto-Upload (Drag & Drop + Preview)
 │       │   └── ProtectedRoute.jsx  # Route-Schutz (adminOnly / bearbeiterOnly props)
-│       ├── utils/
-│       │   └── hashPassword.js     # SHA-256-Passwort-Hashing (Web Crypto API + Fallback)
 │       ├── __tests__/              # Vitest-Tests
-│       │   └── hashPassword.test.js
+│       │   └── authApi.test.js      # Passwort-Aufrufe von api.js (Klartext-Übertragung)
 │       └── pages/
 │           ├── Login.jsx           # Anmeldeseite
 │           ├── Dashboard.jsx       # Statistik-Übersicht
@@ -452,7 +564,11 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | ------- | ----------------- | ------------------------------- |
 | POST    | `/api/auth/login` | Login, gibt JWT zurück          |
 | GET     | `/api/auth/me`    | Eigene Benutzerdaten aus Token  |
+| POST    | `/api/auth/logout` | Auth-Cookie löschen             |
+| GET     | `/api/csrf-token`  | CSRF-Token ausstellen (öffentlich) |
 | PUT     | `/api/auth/change-password` | Eigenes Passwort ändern (authentifiziert) |
+| POST    | `/api/auth/forgot-password` | Reset-Token anfordern (Link geht ins Backend-Log) |
+| POST    | `/api/auth/reset-password`  | Passwort mit Reset-Token neu setzen |
 
 ### Allgemein (authentifiziert)
 
@@ -498,6 +614,7 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | POST    | `/api/backup/import`  | Backup-Daten importieren (2 Formate)      |
 | GET     | `/api/audit-log`  | Änderungsprotokoll anzeigen            |
 | GET     | `/api/audit-log/artikel/:artikelnummer` | Audit-Log für ein bestimmtes Schmuckstück |
+| GET     | `/api/audit-log/verify` | Hash-Ketten-Integrität prüfen (Issue #139) |
 | GET/POST/PUT/DELETE | `/api/users` | Benutzerverwaltung              |
 | GET     | `/api/debug/tables` | Alle Datenbanktabellen auflisten     |
 | GET     | `/api/debug/tables/:tableName` | Inhalt einer Tabelle anzeigen |
@@ -507,15 +624,20 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 
 ## Docker-Architektur
 
+Frontend und Backend laufen als **eine App**: ein Root-`Dockerfile` baut das Vite-Frontend
+(`frontend-builder`-Stage) und kopiert den `dist/`-Output als `public/`-Verzeichnis in das
+Express-Image. Express liefert API (`/api/*`) und statisches Frontend (alles andere) über
+denselben Prozess/Port aus — **kein Nginx** in Produktion.
+
 ### Ports
 
-| Service   | Entwicklung | Produktion |
-| --------- | ----------- | ---------- |
-| Frontend  | 5173        | 3000 (→ Nginx :80) |
-| Backend   | 3001        | 3001       |
-| Datenbank | 5432        | 5432       |
+| Service   | Nativer Dev (`npm run dev`) | Docker Dev (`docker-compose.dev.yml`) | Produktion |
+| --------- | ---------------------------- | -------------------------------------- | ---------- |
+| Frontend  | 5173 (Vite)                  | 3000 → 5173 (Vite)                     | 3000 (Express) |
+| Backend   | 3001                          | 3001                                    | 3000 (Express, same origin) |
+| Datenbank | 5432 (Host-Port)              | 5432                                    | 5432       |
 
-### Services (Produktion)
+### Services (Produktion, `docker-compose.yml`)
 
 ```yaml
 services:
@@ -534,32 +656,41 @@ services:
       interval: 5s
       retries: 5
 
-  backend:
-    build: ./backend
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
     restart: always
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "${PORT}:${PORT}"
-
-  frontend:
-    build: ./frontend         # Multi-Stage: Node build → Nginx
-    restart: always
-    ports:
-      - "3000:80"             # Nginx serviert den gebautem React-Build
+      - "3000:${PORT}"
 ```
 
-### Dev-Modus
+`DATABASE_URL` wird in allen `docker-compose*.yml`-Dateien inline mit dem Docker-Netzwerknamen
+`db` konstruiert (unabhängig vom `.env`-Wert). `.env`/`.env.example` nutzen für den nativen
+Dev-Prozess `localhost` statt `db`, da dieser außerhalb von Docker läuft und die DB nur über den
+auf `5432` gemappten Host-Port erreicht.
 
-- Hot-Reload für Frontend (Vite) und Backend (node --watch)
-- Source-Volumes gemounted
+### Nativer Dev-Modus (empfohlen)
+
+- `npm install` im Root (npm Workspace: `backend`, `frontend`)
+- `npm run dev` startet per `concurrently` gleichzeitig: DB (`docker compose -f docker-compose.dev.yml up -d db`), Backend (`node --watch`) und Frontend (`vite`)
+- Kein Container-Rebuild bei Codeänderungen nötig
+
+### Docker-Dev-Modus (Alternative, voll containerisiert)
+
+- Hot-Reload für Frontend (Vite) und Backend (node --watch), Source-Volumes gemounted
 - `docker compose -f docker-compose.dev.yml up --build`
+- Nutzt weiterhin separate `backend`/`frontend`-Container mit `Dockerfile.dev`
 
 ---
 
@@ -607,13 +738,101 @@ Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix.
 - Format: `YYYY-MM-DDTHH:mm:ss.sssZ [LEVEL] [COMPONENT] message | metadata`
 - Debug-Logging nur aktiv wenn `LOG_LEVEL=debug` gesetzt ist
 
-### Frontend: `frontend/src/utils/hashPassword.js`
+### Backend: `backend/src/middleware/csrf.js`
 
-SHA-256-Passwort-Hashing vor dem Senden ans Backend.
-- Nutzt primär die Web Crypto API (`crypto.subtle.digest`) in sicheren Kontexten (HTTPS/localhost)
-- Fällt auf reine JavaScript-Implementierung zurück (für HTTP-Umgebungen)
-- Gibt 64-Zeichen-Hex-String zurück
-- Alle passwortübertragenden API-Aufrufe (Login, Benutzer anlegen, Passwort zurücksetzen, Passwort ändern) verwenden `hashPassword()`
+CSRF-Schutz nach dem **Double-Submit-Cookie-Pattern**. Bewusst **nicht** `csurf`:
+das Paket ist seit 2022 deprecated und archiviert.
+
+1. `GET /api/csrf-token` stellt ein Zufallstoken aus und legt es im Cookie
+   `csrfToken` ab – **absichtlich nicht httpOnly**, das Frontend muss es lesen
+   können
+2. `api.js` spiegelt den Cookie-Wert bei POST/PUT/PATCH/DELETE in den Header
+   `X-CSRF-Token`
+3. Die Middleware vergleicht beide Werte in konstanter Zeit
+   (`crypto.timingSafeEqual`)
+
+Eine fremde Website kann den Cookie zwar mitsenden lassen, ihn aber wegen der
+Same-Origin-Policy nicht auslesen – und damit den Header nicht setzen.
+
+**Der Schutz greift nur, wenn der Request seine Berechtigung aus dem
+`jwt`-Cookie zieht.** Ohne Auth-Cookie gibt es keine Ambient Authority zu
+missbrauchen, deshalb bleiben ausgenommen:
+- Login, `forgot-password`, `reset-password` (noch keine Sitzung)
+- das öffentliche Bestellformular
+- Requests mit `Authorization: Bearer` (Skripte, E2E-Tests) – einen Header kann
+  eine fremde Seite ohnehin nicht setzen
+
+Bei ungültigem Token: `403` mit `{ error, code: 'CSRF_TOKEN_INVALID' }`. `api.js`
+holt daraufhin **einmal** ein neues Token und wiederholt den Request.
+
+### Backend: `backend/src/utils/authCookie.js`
+
+Setzt und löscht das JWT-Cookie. **Alle** Cookie-Attribute liegen hier – nie
+direkt `res.cookie('jwt', …)` in einer Route aufrufen, sonst driften Setzen und
+Löschen auseinander und `clearCookie` greift nicht mehr.
+
+| Attribut   | Wert | Grund |
+| ---------- | ---- | ----- |
+| `httpOnly` | true | JavaScript kommt nicht an das Token – ein XSS kann es nicht auslesen |
+| `sameSite` | `lax` | blockt site-fremde POSTs (CSRF-Grundschutz), erlaubt normale Navigation |
+| `secure`   | `COOKIE_SECURE === 'true'` | nur auf true stellen, wenn ein Reverse Proxy TLS terminiert (`FORCE_HTTPS`, siehe Abschnitt "TLS / HTTPS") – sonst verwirft der Browser das Cookie und niemand kommt mehr rein |
+| `maxAge`   | 8 h | passend zur JWT-Laufzeit in `routes/auth.js` |
+
+Das Frontend sendet bei jedem Request `credentials: 'include'` (`api.js`) und
+speichert **kein** Token mehr. Ob eine Sitzung besteht, ermittelt
+`AuthContext` beim Start ausschließlich über `GET /api/auth/me`.
+
+`authenticate` liest das Token zuerst aus dem Cookie und fällt dann auf den
+`Authorization`-Header zurück – nur deshalb funktionieren `curl` und die
+Playwright-Setup-Skripte weiterhin.
+
+### Backend: `backend/src/utils/accountSecurity.js`
+
+Account-Lockout und Passwort-Reset-Token.
+
+| Konstante | Wert | Bedeutung |
+| --------- | ---- | --------- |
+| `MAX_FEHLVERSUCHE` | 5 | danach wird gesperrt |
+| `SPERRDAUER_MINUTEN` | 30 | Dauer der Sperre |
+| `RESET_TOKEN_GUELTIGKEIT_MINUTEN` | 30 | Gültigkeit eines Reset-Tokens |
+
+**Lockout:** Der Login prüft die Sperre **vor** der Passwortprüfung und antwortet
+mit `403`. Fehlversuche werden nur für **existierende** Konten gezählt – sonst
+würde die Sperrmeldung verraten, welche Benutzernamen es gibt. Ein
+erfolgreicher Login, ein Admin-Reset und ein Token-Reset setzen den Zähler
+zurück. Das Rate-Limit allein genügt nicht: es greift pro IP.
+
+**Reset-Ablauf:**
+1. `POST /api/auth/forgot-password` `{ username }` – erzeugt ein Token,
+   speichert **nur dessen SHA-256-Hash** in `reset_token_hash`
+2. **Es ist kein Mailversand konfiguriert.** Der Link wird per
+   `logger.warn('AUTH', …)` ins Backend-Log geschrieben; ein Administrator gibt
+   ihn weiter. Für SMTP muss nur diese eine Stelle in `routes/auth.js` geändert
+   werden, der Rest des Ablaufs bleibt gleich.
+3. `POST /api/auth/reset-password` `{ token, newPassword }` – sucht über den
+   Token-Hash, setzt das Passwort und räumt Token, Zähler und Sperre auf
+4. Frontend: `/reset-password?token=…` (`pages/ResetPassword.jsx`, öffentlich)
+
+Die Antwort von `forgot-password` ist immer identisch, unabhängig davon, ob das
+Konto existiert – sonst wird der Endpunkt zum Benutzernamen-Orakel.
+
+Beide Endpunkte laufen unter dem strengen Login-Rate-Limiter.
+
+### Backend: `backend/src/utils/passwordService.js`
+
+Zentrale Stelle für Passwort-Hashing und -Prüfung. **Nur hier** wird gehasht –
+das Frontend überträgt Klartext über TLS.
+
+- `hashPassword(klartext)` – bcrypt, 10 Rounds
+- `verifyPassword(klartext, hash)` → `{ valid, needsRehash }`
+- `MIN_PASSWORT_LAENGE` (8) wird von den Zod-Schemas für neue Passwörter genutzt
+
+**Migration bestehender Konten:** Bis Issue #131 hashte das Frontend mit SHA-256
+vor, gespeichert wurde `bcrypt(sha256(passwort))`. `verifyPassword` prüft diesen
+Alt-Hash zusätzlich und meldet über `needsRehash`, dass der Eintrag veraltet ist.
+Die Login-Route stellt den Hash dann beim ersten erfolgreichen Login still auf
+`bcrypt(klartext)` um. Der Fallback darf erst entfernt werden, wenn sich alle
+Konten mindestens einmal angemeldet haben.
 
 ---
 
@@ -639,6 +858,10 @@ SHA-256-Passwort-Hashing vor dem Senden ans Backend.
 **`trg_update_letzte_aenderung`** – aktualisiert `Letzte_Änderung` bei jedem UPDATE auf `Schmuckstück`.
 
 **`trg_audit_schmuckstueck`** – schreibt Änderungen an Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID in `audit_log`.
+
+**`trg_audit_log_hash_chain`** (BEFORE INSERT, FOR EACH ROW) – verkettet jede neue `audit_log`-Zeile per SHA-256 mit dem Hash der Vorgängerzeile (Issue #139).
+
+**`trg_audit_log_immutable`** (BEFORE UPDATE OR DELETE, FOR EACH STATEMENT) – blockiert jedes UPDATE/DELETE auf `audit_log` mit einer Exception; siehe `db/README.md`.
 
 ---
 
@@ -699,6 +922,13 @@ DATABASE_URL=postgresql://goldregen:changeme@db:5432/goldregendb
 JWT_SECRET=change-this-to-a-long-random-secret
 VITE_API_URL=http://localhost:3001/api
 ```
+
+Secrets (`JWT_SECRET`, `JWT_SECRET_OLD`, `DB_PASSWORD`, `DATABASE_URL`,
+`BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext-Env-Var auch über
+`<NAME>_FILE` (Docker-Secret-Datei, z.B. `/run/secrets/...`) gesetzt werden –
+siehe `backend/src/config/secrets.js` (`getSecret()`) und README „Secrets
+rotieren“. Mit `NODE_ENV=production` bricht der Start ab, wenn noch ein
+Platzhalter aus `.env.example` oder ein zu kurzes Secret gesetzt ist.
 
 ---
 

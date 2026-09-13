@@ -5,52 +5,20 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const {
+  schmuckstueckCreateSchema,
+  schmuckstueckUpdateSchema,
+  schmuckstueckBulkSchema,
+} = require("../schemas");
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
 const { GRUNDMATERIAL } = require("../utils/constants");
-
-// Erstelle uploads-Verzeichnis falls nicht vorhanden
-const uploadsDir = path.join(__dirname, "../assets/uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Hilfsfunktion: Löst Artikelnummer oder Dateiname zu einer existierenden Fotodatei auf
-function resolvePhotoFile(identifier) {
-  const requestedFileName = path.basename(String(identifier || "").trim());
-
-  if (!requestedFileName) {
-    return { error: "Ungültiger Dateiname", requestedFileName };
-  }
-
-  // 1. Direkter Match falls vorhanden (z.B. "MXO002.jpg")
-  const directPath = path.join(uploadsDir, requestedFileName);
-  if (fs.existsSync(directPath)) {
-    return { filePath: directPath, resolvedFileName: requestedFileName, resolvedBy: "exact" };
-  }
-
-  // 2. Suche nach Basis-Artikelnummer (ohne Suffix _1, _2 oder Dateiendung)
-  const baseName = path.parse(requestedFileName.split("_")[0]).name;
-  const files = fs.readdirSync(uploadsDir);
-  const matchingFiles = files.filter((file) => path.parse(file).name === baseName);
-
-  if (matchingFiles.length >= 1) {
-    return {
-      filePath: path.join(uploadsDir, matchingFiles[0]),
-      resolvedFileName: matchingFiles[0],
-      resolvedBy: matchingFiles[0] === requestedFileName ? "exact" : "basename",
-    };
-  }
-
-  return {
-    error: "Foto nicht gefunden",
-    requestedFileName,
-    baseName,
-    matchingFiles,
-    availableFiles: files.length,
-  };
-}
-
+const {
+  uploadsDir,
+  resolvePhotoFile,
+  invalidate: invalidatePhotoIndex,
+} = require("../utils/photoIndex");
 
 // Multer-Konfiguration für Foto-Upload
 const storage = multer.diskStorage({
@@ -177,7 +145,50 @@ function parseBulkItemsFromPayload(payload) {
 
 // ========== SPECIAL ROUTES (MUST BE BEFORE /:artikelnummer) ==========
 
-// POST upload photo
+/**
+ * @swagger
+ * /schmuckstuecke/upload:
+ *   post:
+ *     summary: Foto hochladen
+ *     description: 'Max. 5 MB, nur jpg/png/gif (multer). Der Dateiname wird aus der Basis-Artikelnummer
+ *       (Query-Parameter artikelnummer, ohne _Suffix) gebildet. Erfordert eine gültige Anmeldung
+ *       (jede Rolle: user, bearbeiter oder admin).'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: artikelnummer
+ *         in: query
+ *         description: Basis-Artikelnummer, bestimmt den gespeicherten Dateinamen
+ *         schema: { type: string, example: MHO123 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [foto]
+ *             properties:
+ *               foto: { type: string, format: binary }
+ *     responses:
+ *       200:
+ *         description: Foto gespeichert
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 fileName: { type: string }
+ *                 path: { type: string }
+ *                 originalName: { type: string }
+ *       400:
+ *         description: Keine Datei hochgeladen, oder falscher Dateityp
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.post("/upload", upload.single("foto"), async (req, res) => {
   try {
     if (!req.file) {
@@ -185,6 +196,7 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
     }
 
     const fileName = req.file.filename;
+    invalidatePhotoIndex();
 
     res.json({
       success: true,
@@ -204,7 +216,29 @@ router.post("/upload", upload.single("foto"), async (req, res) => {
   }
 });
 
-// GET photo by filename
+/**
+ * @swagger
+ * /schmuckstuecke/foto/{fileName}:
+ *   get:
+ *     summary: Foto abrufen
+ *     description: 'Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: fileName, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Bilddatei
+ *         content:
+ *           image/*:
+ *             schema: { type: string, format: binary }
+ *       400:
+ *         description: Ungültiger Dateiname
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404:
+ *         description: Foto nicht gefunden
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.get("/foto/:fileName", (req, res) => {
   try {
     const lookup = resolvePhotoFile(req.params.fileName);
@@ -218,10 +252,16 @@ router.get("/foto/:fileName", (req, res) => {
       });
     }
 
-    res.sendFile(lookup.filePath, (err) => {
+    // Ohne Cache-Header lädt jede Tabellenseite dieselben Fotos erneut.
+    // max-age=60 hält die Anzeige nach einem Neu-Upload trotzdem aktuell,
+    // danach beantwortet der ETag-Abgleich die meisten Anfragen mit 304.
+    res.set("Cache-Control", "private, max-age=60");
+
+    res.sendFile(lookup.filePath, { lastModified: true }, (err) => {
       if (!err) return;
 
-      logger.error("SCHMUCK", `Fehler beim Abrufen des Fotos: ${req.params.fileName}`, {
+      logger.error("SCHMUCK", "Fehler beim Abrufen des Fotos", {
+        fileName: req.params.fileName,
         message: err.message,
         code: err.code,
         resolvedFileName: lookup.resolvedFileName,
@@ -241,8 +281,8 @@ router.get("/foto/:fileName", (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Abrufen des Fotos: ${req.params.fileName}`,
-      { message: err.message, stack: err.stack },
+      "Fehler beim Abrufen des Fotos",
+      { fileName: req.params.fileName, message: err.message, stack: err.stack },
     );
     res.status(500).json({
       error: "Fehler beim Abrufen des Fotos",
@@ -251,7 +291,28 @@ router.get("/foto/:fileName", (req, res) => {
   }
 });
 
-// DELETE photo endpoint
+/**
+ * @swagger
+ * /schmuckstuecke/foto/{fileName}:
+ *   delete:
+ *     summary: Foto löschen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: fileName, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Foto gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404:
+ *         description: Foto nicht gefunden
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
   try {
     const fileName = req.params.fileName;
@@ -264,6 +325,7 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
 
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+      invalidatePhotoIndex();
       res.json({ message: "Foto gelöscht" });
     } else {
       res.status(404).json({ error: "Foto nicht gefunden" });
@@ -271,8 +333,8 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Löschen des Fotos: ${req.params.fileName}`,
-      { message: err.message },
+      "Fehler beim Löschen des Fotos",
+      { fileName: req.params.fileName, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Fotos" });
   }
@@ -280,7 +342,35 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
 
 // ========== FILTER-OPTIONS ROUTES ==========
 
-// GET next artikelnummer preview by prefix (e.g. MBO -> MBO127)
+/**
+ * @swagger
+ * /schmuckstuecke/next-artikelnummer:
+ *   get:
+ *     summary: Nächste Artikelnummer für ein Präfix ermitteln
+ *     description: 'Präfix = Hersteller + Grundmaterial + Produktart (z. B. MHO -> MHO127).
+ *       Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - name: prefix
+ *         in: query
+ *         required: true
+ *         schema: { type: string, pattern: '^[A-Z]{3}$', example: MHO }
+ *     responses:
+ *       200:
+ *         description: Nächste Artikelnummer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 prefix: { type: string }
+ *                 nextNum: { type: integer }
+ *                 artikelnummer: { type: string, example: MHO127 }
+ *       400:
+ *         description: Ungültiger oder unbekannter Präfix
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/next-artikelnummer", async (req, res) => {
   try {
     const rawPrefix = String(req.query.prefix || "").toUpperCase().trim();
@@ -327,8 +417,65 @@ router.get("/next-artikelnummer", async (req, res) => {
   }
 });
 
-// POST bulk-create missing pieces by explicit article numbers
-router.post("/bulk", requireBearbeiter, async (req, res) => {
+/**
+ * @swagger
+ * /schmuckstuecke/bulk:
+ *   post:
+ *     summary: Mehrere Schmuckstücke per expliziten Artikelnummern anlegen
+ *     description: 'Zwei Eingabeformen: entweder eine items-Liste (je Eintrag eine vollständige
+ *       Artikelnummer inkl. Suffix, z. B. MHO123_1) oder template + artikelnummern (Vorlage wird auf
+ *       jede Artikelnummer angewendet). Maximal 200 Einträge, alle Artikelnummern müssen neu sein.
+ *       Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 maxItems: 200
+ *                 items:
+ *                   type: object
+ *                   required: [Artikelnummer]
+ *                   properties: { Artikelnummer: { type: string, example: MHO123_1 } }
+ *               template: { type: object, description: 'Freitext-/Zahlenfelder, auf alle artikelnummern angewendet' }
+ *               artikelnummern:
+ *                 description: Liste oder durch Zeilenumbruch/Komma/Semikolon getrennter Text
+ *                 oneOf: [{ type: array, items: { type: string }, maxItems: 200 }, { type: string, maxLength: 5000 }]
+ *     responses:
+ *       201:
+ *         description: Schmuckstücke erstellt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 createdCount: { type: integer }
+ *                 createdArtikelnummern: { type: array, items: { type: string } }
+ *                 items: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       400:
+ *         description: Validierungsfehler, ungültiges/dupliziertes Format
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       409:
+ *         description: Mindestens eine Artikelnummer existiert bereits
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 existingArtikelnummern: { type: array, items: { type: string } }
+ */
+router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async (req, res) => {
   let client;
   try {
     client = await db.connect();
@@ -493,7 +640,54 @@ router.post("/bulk", requireBearbeiter, async (req, res) => {
   }
 });
 
-// GET with pagination, search and filters
+/**
+ * @swagger
+ * /schmuckstuecke:
+ *   get:
+ *     summary: Schmuckstücke abrufen (paginiert, durchsuchbar, filterbar)
+ *     description: 'Filter kombinieren sich per AND, umgesetzt über den whereClauseBuilder (siehe
+ *       CLAUDE.md). Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: page, in: query, schema: { type: integer, default: 1 } }
+ *       - name: limit
+ *         in: query
+ *         description: '-1 lädt alle Treffer ohne Limit'
+ *         schema: { type: integer, default: 50 }
+ *       - name: search
+ *         in: query
+ *         description: Freitextsuche über alle Felder, oder ein Grundmaterial-Code/-Name (z. B. "Perle")
+ *         schema: { type: string }
+ *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
+ *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
+ *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
+ *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID', schema: { type: integer } }
+ *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
+ *     responses:
+ *       200:
+ *         description: Seite mit Schmuckstücken
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     allOf:
+ *                       - $ref: '#/components/schemas/Schmuckstueck'
+ *                       - type: object
+ *                         properties:
+ *                           Grundmaterial: { type: string, description: 'Klartext-Name, aus Artikelnummer[1]' }
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page: { type: integer }
+ *                     limit: { type: integer }
+ *                     total: { type: integer }
+ *                     totalPages: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -567,29 +761,30 @@ router.get("/", async (req, res) => {
     const params = builder.getParams();
     const nextParamIdx = builder.getNextParamIdx();
 
-    // Count total
-    const countResult = await db.query(
-      `SELECT COUNT(*) FROM "Schmuckstück" ${whereClause}`,
-      params,
-    );
-    const total = parseInt(countResult.rows[0].count);
+    // Gesamtzahl per Fensterfunktion statt separater COUNT-Abfrage: ein
+    // Tabellendurchlauf weniger pro Seitenaufruf. Alle Requests teilen sich
+    // denselben request-gebundenen DB-Client, laufen also ohnehin nacheinander.
+    const ORDER_BY = 'ORDER BY length("Artikelnummer"), "Artikelnummer"';
+    const sql =
+      limit === -1
+        ? `SELECT *, COUNT(*) OVER() AS "__total" FROM "Schmuckstück" ${whereClause} ${ORDER_BY}`
+        : `SELECT *, COUNT(*) OVER() AS "__total" FROM "Schmuckstück" ${whereClause} ${ORDER_BY} LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
+    const sqlParams = limit === -1 ? params : [...params, limit, offset];
 
-    let rows;
-    if (limit === -1) {
-      // Alle laden, kein LIMIT/OFFSET
-      const result = await db.query(
-        `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+    const { rows } = await db.query(sql, sqlParams);
+
+    let total = rows.length > 0 ? parseInt(rows[0].__total) : 0;
+    if (rows.length === 0 && offset > 0) {
+      // Leere Seite hinter dem Ende: Gesamtzahl separat ermitteln, damit die
+      // Blätter-Navigation im Frontend korrekt bleibt.
+      const countResult = await db.query(
+        `SELECT COUNT(*) FROM "Schmuckstück" ${whereClause}`,
         params,
       );
-      rows = result.rows;
-    } else {
-      const result = await db.query(
-        `SELECT * FROM "Schmuckstück" ${whereClause} ORDER BY length("Artikelnummer"), "Artikelnummer" LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`,
-        [...params, limit, offset],
-      );
-      rows = result.rows;
+      total = parseInt(countResult.rows[0].count);
     }
-    const processedRows = rows.map((row) => {
+
+    const processedRows = rows.map(({ __total, ...row }) => {
       // Wenn kein Foto in der DB gespeichert ist, prüfe ob eine Datei existiert
       if (!row.Foto || row.Foto.trim() === "") {
         const photoResult = resolvePhotoFile(row.Artikelnummer);
@@ -622,166 +817,106 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Sortierung wie zuvor die 27 ORDER-BY-Klauseln: Zahlen numerisch,
+// Text nach deutscher Kollation.
+function vergleicheFilterwerte(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), "de");
+}
+
 // GET filter-options (must come before /:artikelnummer!)
+// Früher: 27 einzelne SELECT DISTINCT – also 27 Full-Table-Scans pro Aufruf.
+// Jetzt ein einziger Scan, der alle Spalten gleichzeitig aggregiert.
+const FILTER_OPTION_FIELDS = [
+  "arten",
+  "farben",
+  "materialien",
+  "formen",
+  "anhaenger_fassungen",
+  "anhaenger_formen",
+  "anhaenger_farben",
+  "anhaenger_groessen",
+  "anhaenger_inhalt_materialien",
+  "anhaenger_inhalt_farben",
+  "anhaenger_inhalt_farbakzente",
+  "anhaenger_inhalt_zusatzmaterialien",
+  "inhalt_materialien",
+  "inhalt_farben",
+  "inhalt_farbakzente",
+  "inhalt_zusatzmaterialien",
+  "zwischenstuecke",
+  "fassungen",
+  "laengen",
+  "groessen",
+  "fotos",
+  "namen",
+  "verkaufspreise",
+  "herstellungskosten",
+  "ausschuesse",
+  "anhaenger",
+  "ausschussgruende",
+];
+
+/**
+ * @swagger
+ * /schmuckstuecke/filter-options:
+ *   get:
+ *     summary: Verfügbare Filter-Optionen (Art, Farbe, Material usw.)
+ *     description: 'Ein aggregierter Scan statt 27 einzelner SELECT DISTINCT. Erfordert eine gültige
+ *       Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     responses:
+ *       200:
+ *         description: Distinct-Werte je Feld, sortiert (Zahlen numerisch, Text nach deutscher Kollation)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               additionalProperties: { type: array, items: {} }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/filter-options", async (req, res) => {
   try {
-    const [
-      arten,
-      farben,
-      materialien,
-      formen,
-      anhaenger_fassungen,
-      anhaenger_formen,
-      anhaenger_farben,
-      anhaenger_groessen,
-      anhaenger_inhalt_materialien,
-      anhaenger_inhalt_farben,
-      anhaenger_inhalt_farbakzente,
-      anhaenger_inhalt_zusatzmaterialien,
-      inhalt_materialien,
-      inhalt_farben,
-      inhalt_farbakzente,
-      inhalt_zusatzmaterialien,
-      zwischenstuecke,
-      fassungen,
-      laengen,
-      groessen,
-      fotos,
-      namen,
-      verkaufspreise,
-      herstellungskosten,
-      ausschuesse,
-      anhaenger,
-      ausschussgruende,
-    ] = await Promise.all([
-      db.query(
-        'SELECT DISTINCT "Art" FROM "Schmuckstück" WHERE "Art" IS NOT NULL AND "Art" != \'\' ORDER BY "Art"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Farbe" FROM "Schmuckstück" WHERE "Farbe" IS NOT NULL AND "Farbe" != \'\' ORDER BY "Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Material" FROM "Schmuckstück" WHERE "Material" IS NOT NULL AND "Material" != \'\' ORDER BY "Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Form" FROM "Schmuckstück" WHERE "Form" IS NOT NULL AND "Form" != \'\' ORDER BY "Form"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Fassung" FROM "Schmuckstück" WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" != \'\' ORDER BY "Anhänger_Fassung"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Form" FROM "Schmuckstück" WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" != \'\' ORDER BY "Anhänger_Form"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" != \'\' ORDER BY "Anhänger_Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Grösse" FROM "Schmuckstück" WHERE "Anhänger_Grösse" IS NOT NULL ORDER BY "Anhänger_Grösse"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Material" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" != \'\' ORDER BY "Anhänger_Inhalt_Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Farbe" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" != \'\' ORDER BY "Anhänger_Inhalt_Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Farbakzente" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" != \'\' ORDER BY "Anhänger_Inhalt_Farbakzente"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger_Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" != \'\' ORDER BY "Anhänger_Inhalt_Zusatzmaterial"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Material" FROM "Schmuckstück" WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" != \'\' ORDER BY "Inhalt_Material"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Farbe" FROM "Schmuckstück" WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" != \'\' ORDER BY "Inhalt_Farbe"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Farbakzent" FROM "Schmuckstück" WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" != \'\' ORDER BY "Inhalt_Farbakzent"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Inhalt_Zusatzmaterial" FROM "Schmuckstück" WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" != \'\' ORDER BY "Inhalt_Zusatzmaterial"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Zwischenstück" FROM "Schmuckstück" WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" != \'\' ORDER BY "Zwischenstück"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Fassung" FROM "Schmuckstück" WHERE "Fassung" IS NOT NULL AND "Fassung" != \'\' ORDER BY "Fassung"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Länge" FROM "Schmuckstück" WHERE "Länge" IS NOT NULL ORDER BY "Länge"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Grösse" FROM "Schmuckstück" WHERE "Grösse" IS NOT NULL ORDER BY "Grösse"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Foto" FROM "Schmuckstück" WHERE "Foto" IS NOT NULL AND "Foto" != \'\' ORDER BY "Foto"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Name" FROM "Schmuckstück" WHERE "Name" IS NOT NULL AND "Name" != \'\' ORDER BY "Name"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Verkaufspreis" FROM "Schmuckstück" WHERE "Verkaufspreis" IS NOT NULL ORDER BY "Verkaufspreis"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Herstellungskosten" FROM "Schmuckstück" WHERE "Herstellungskosten" IS NOT NULL ORDER BY "Herstellungskosten"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Ausschuss" FROM "Schmuckstück" WHERE "Ausschuss" IS NOT NULL ORDER BY "Ausschuss"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Anhänger" FROM "Schmuckstück" WHERE "Anhänger" IS NOT NULL AND "Anhänger" != \'\' ORDER BY "Anhänger"',
-      ),
-      db.query(
-        'SELECT DISTINCT "Ausschuss_Grund" FROM "Schmuckstück" WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" != \'\' ORDER BY "Ausschuss_Grund"',
-      ),
-    ]);
-    res.json({
-      arten: arten.rows.map((r) => r.Art),
-      farben: farben.rows.map((r) => r.Farbe),
-      materialien: materialien.rows.map((r) => r.Material),
-      formen: formen.rows.map((r) => r.Form),
-      anhaenger_fassungen: anhaenger_fassungen.rows.map(
-        (r) => r.Anhänger_Fassung,
-      ),
-      anhaenger_formen: anhaenger_formen.rows.map((r) => r.Anhänger_Form),
-      anhaenger_farben: anhaenger_farben.rows.map((r) => r.Anhänger_Farbe),
-      anhaenger_groessen: anhaenger_groessen.rows.map((r) => r.Anhänger_Grösse),
-      anhaenger_inhalt_materialien: anhaenger_inhalt_materialien.rows.map(
-        (r) => r.Anhänger_Inhalt_Material,
-      ),
-      anhaenger_inhalt_farben: anhaenger_inhalt_farben.rows.map(
-        (r) => r.Anhänger_Inhalt_Farbe,
-      ),
-      anhaenger_inhalt_farbakzente: anhaenger_inhalt_farbakzente.rows.map(
-        (r) => r.Anhänger_Inhalt_Farbakzente,
-      ),
-      anhaenger_inhalt_zusatzmaterialien:
-        anhaenger_inhalt_zusatzmaterialien.rows.map(
-          (r) => r.Anhänger_Inhalt_Zusatzmaterial,
-        ),
-      inhalt_materialien: inhalt_materialien.rows.map((r) => r.Inhalt_Material),
-      inhalt_farben: inhalt_farben.rows.map((r) => r.Inhalt_Farbe),
-      inhalt_farbakzente: inhalt_farbakzente.rows.map(
-        (r) => r.Inhalt_Farbakzent,
-      ),
-      inhalt_zusatzmaterialien: inhalt_zusatzmaterialien.rows.map(
-        (r) => r.Inhalt_Zusatzmaterial,
-      ),
-      zwischenstuecke: zwischenstuecke.rows.map((r) => r.Zwischenstück),
-      fassungen: fassungen.rows.map((r) => r.Fassung),
-      laengen: laengen.rows.map((r) => r.Länge),
-      groessen: groessen.rows.map((r) => r.Grösse),
-      fotos: fotos.rows.map((r) => r.Foto),
-      namen: namen.rows.map((r) => r.Name),
-      verkaufspreise: verkaufspreise.rows.map((r) => r.Verkaufspreis),
-      herstellungskosten: herstellungskosten.rows.map(
-        (r) => r.Herstellungskosten,
-      ),
-      ausschuesse: ausschuesse.rows.map((r) => r.Ausschuss),
-      anhaenger: anhaenger.rows.map((r) => r.Anhänger),
-      ausschussgruende: ausschussgruende.rows.map((r) => r.Ausschuss_Grund),
-    });
+    const { rows } = await db.query(
+      `SELECT
+         array_agg(DISTINCT "Art") FILTER (WHERE "Art" IS NOT NULL AND "Art" <> '') AS arten,
+         array_agg(DISTINCT "Farbe") FILTER (WHERE "Farbe" IS NOT NULL AND "Farbe" <> '') AS farben,
+         array_agg(DISTINCT "Material") FILTER (WHERE "Material" IS NOT NULL AND "Material" <> '') AS materialien,
+         array_agg(DISTINCT "Form") FILTER (WHERE "Form" IS NOT NULL AND "Form" <> '') AS formen,
+         array_agg(DISTINCT "Anhänger_Fassung") FILTER (WHERE "Anhänger_Fassung" IS NOT NULL AND "Anhänger_Fassung" <> '') AS anhaenger_fassungen,
+         array_agg(DISTINCT "Anhänger_Form") FILTER (WHERE "Anhänger_Form" IS NOT NULL AND "Anhänger_Form" <> '') AS anhaenger_formen,
+         array_agg(DISTINCT "Anhänger_Farbe") FILTER (WHERE "Anhänger_Farbe" IS NOT NULL AND "Anhänger_Farbe" <> '') AS anhaenger_farben,
+         array_agg(DISTINCT "Anhänger_Grösse") FILTER (WHERE "Anhänger_Grösse" IS NOT NULL) AS anhaenger_groessen,
+         array_agg(DISTINCT "Anhänger_Inhalt_Material") FILTER (WHERE "Anhänger_Inhalt_Material" IS NOT NULL AND "Anhänger_Inhalt_Material" <> '') AS anhaenger_inhalt_materialien,
+         array_agg(DISTINCT "Anhänger_Inhalt_Farbe") FILTER (WHERE "Anhänger_Inhalt_Farbe" IS NOT NULL AND "Anhänger_Inhalt_Farbe" <> '') AS anhaenger_inhalt_farben,
+         array_agg(DISTINCT "Anhänger_Inhalt_Farbakzente") FILTER (WHERE "Anhänger_Inhalt_Farbakzente" IS NOT NULL AND "Anhänger_Inhalt_Farbakzente" <> '') AS anhaenger_inhalt_farbakzente,
+         array_agg(DISTINCT "Anhänger_Inhalt_Zusatzmaterial") FILTER (WHERE "Anhänger_Inhalt_Zusatzmaterial" IS NOT NULL AND "Anhänger_Inhalt_Zusatzmaterial" <> '') AS anhaenger_inhalt_zusatzmaterialien,
+         array_agg(DISTINCT "Inhalt_Material") FILTER (WHERE "Inhalt_Material" IS NOT NULL AND "Inhalt_Material" <> '') AS inhalt_materialien,
+         array_agg(DISTINCT "Inhalt_Farbe") FILTER (WHERE "Inhalt_Farbe" IS NOT NULL AND "Inhalt_Farbe" <> '') AS inhalt_farben,
+         array_agg(DISTINCT "Inhalt_Farbakzent") FILTER (WHERE "Inhalt_Farbakzent" IS NOT NULL AND "Inhalt_Farbakzent" <> '') AS inhalt_farbakzente,
+         array_agg(DISTINCT "Inhalt_Zusatzmaterial") FILTER (WHERE "Inhalt_Zusatzmaterial" IS NOT NULL AND "Inhalt_Zusatzmaterial" <> '') AS inhalt_zusatzmaterialien,
+         array_agg(DISTINCT "Zwischenstück") FILTER (WHERE "Zwischenstück" IS NOT NULL AND "Zwischenstück" <> '') AS zwischenstuecke,
+         array_agg(DISTINCT "Fassung") FILTER (WHERE "Fassung" IS NOT NULL AND "Fassung" <> '') AS fassungen,
+         array_agg(DISTINCT "Länge") FILTER (WHERE "Länge" IS NOT NULL) AS laengen,
+         array_agg(DISTINCT "Grösse") FILTER (WHERE "Grösse" IS NOT NULL) AS groessen,
+         array_agg(DISTINCT "Foto") FILTER (WHERE "Foto" IS NOT NULL AND "Foto" <> '') AS fotos,
+         array_agg(DISTINCT "Name") FILTER (WHERE "Name" IS NOT NULL AND "Name" <> '') AS namen,
+         array_agg(DISTINCT "Verkaufspreis") FILTER (WHERE "Verkaufspreis" IS NOT NULL) AS verkaufspreise,
+         array_agg(DISTINCT "Herstellungskosten") FILTER (WHERE "Herstellungskosten" IS NOT NULL) AS herstellungskosten,
+         array_agg(DISTINCT "Ausschuss") FILTER (WHERE "Ausschuss" IS NOT NULL) AS ausschuesse,
+         array_agg(DISTINCT "Anhänger") FILTER (WHERE "Anhänger" IS NOT NULL AND "Anhänger" <> '') AS anhaenger,
+         array_agg(DISTINCT "Ausschuss_Grund") FILTER (WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" <> '') AS ausschussgruende
+       FROM "Schmuckstück"`,
+    );
+
+    const row = rows[0] || {};
+    const options = {};
+    for (const key of FILTER_OPTION_FIELDS) {
+      // array_agg liefert NULL, wenn die Tabelle leer ist
+      options[key] = (row[key] || []).sort(vergleicheFilterwerte);
+    }
+
+    res.json(options);
   } catch (err) {
     logger.error("SCHMUCK", "Fehler beim Laden der Filter-Optionen", {
       message: err.message,
@@ -790,14 +925,35 @@ router.get("/filter-options", async (req, res) => {
   }
 });
 
-// GET unique base artikelnummern (without _suffix)
+/**
+ * @swagger
+ * /schmuckstuecke/unique-artikelnummern:
+ *   get:
+ *     summary: Eindeutige Basis-Artikelnummern (ohne Suffix)
+ *     description: 'Für die Lager-Inventur-Zählung. Unterstützt dieselben Filter wie GET /schmuckstuecke
+ *       (verkauft, ausgelagert, ausschuss, artikelnummer_art, grundmaterial). Erfordert eine gültige
+ *       Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
+ *       - { name: ausgelagert, in: query, schema: { type: integer } }
+ *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
+ *       - { name: artikelnummer_art, in: query, schema: { type: string } }
+ *       - { name: grundmaterial, in: query, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Basis-Artikelnummern
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { type: string, example: MHO123 } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
 router.get("/unique-artikelnummern", async (req, res) => {
   try {
     const verkauft = req.query.verkauft;
     const ausgelagert = req.query.ausgelagert;
     const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
-    console.log(req.query);
     // Initialisiere WHERE-Builder
     const builder = where();
 
@@ -821,8 +977,6 @@ router.get("/unique-artikelnummern", async (req, res) => {
     let whereClause = whereClauseBuilderResult;
 
     const params = builder.getParams();
-    console.log(whereClause);
-    console.log(params);
     const { rows } = await db.query(
       `SELECT base_nr FROM (
          SELECT DISTINCT split_part("Artikelnummer", '_', 1) as "base_nr"
@@ -845,7 +999,22 @@ router.get("/unique-artikelnummern", async (req, res) => {
   }
 });
 
-// GET single piece
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}:
+ *   get:
+ *     summary: Schmuckstück-Detail
+ *     description: 'Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: artikelnummer, in: path, required: true, schema: { type: string, example: MHO123_1 } }
+ *     responses:
+ *       200:
+ *         description: Schmuckstück
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Schmuckstueck' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get("/:artikelnummer", async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -869,15 +1038,65 @@ router.get("/:artikelnummer", async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Laden des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Laden des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Laden des Schmuckstücks" });
   }
 });
 
-// POST create piece
-router.post("/", async (req, res) => {
+/**
+ * @swagger
+ * /schmuckstuecke:
+ *   post:
+ *     summary: Schmuckstück(e) anlegen
+ *     description: 'Artikelnummer akzeptiert drei Kurzformen: nur Präfix (z. B. MHO -> nächste freie
+ *       Nummer wird vergeben), Präfix+Nummer ohne Suffix (z. B. MHO123 -> nächster freier Suffix), oder
+ *       eine vollständige Nummer mit Suffix. Bei Anzahl > 1 werden mehrere Exemplare mit fortlaufendem
+ *       Suffix angelegt und Attribute vom letzten existierenden Exemplar übernommen, sofern eines
+ *       existiert. Erfordert eine gültige Anmeldung (jede Rolle, auch user – siehe CLAUDE.md Rollen).'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Artikelnummer]
+ *             properties:
+ *               Artikelnummer:
+ *                 type: string
+ *                 example: MHO
+ *                 description: 'Präfix, Präfix+Nummer, oder vollständige Nummer'
+ *               Anzahl: { type: integer, minimum: 1, maximum: 200, default: 1 }
+ *               Name: { type: string, nullable: true }
+ *               Art: { type: string, nullable: true }
+ *               Form: { type: string, nullable: true }
+ *               Material: { type: string, nullable: true }
+ *               Farbe: { type: string, nullable: true }
+ *               Länge: { type: number, nullable: true }
+ *               Grösse: { type: number, nullable: true }
+ *               Herstellungskosten: { type: number, nullable: true }
+ *               Verkaufspreis: { type: number, nullable: true }
+ *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Ausschuss_Grund: { type: string, nullable: true }
+ *     responses:
+ *       201:
+ *         description: Erstelltes Schmuckstück (Anzahl=1) oder Liste (Anzahl>1)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - $ref: '#/components/schemas/Schmuckstueck'
+ *                 - { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
   let client;
   try {
     client = await db.connect();
@@ -1046,8 +1265,53 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT update piece
-router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}:
+ *   put:
+ *     summary: Schmuckstück aktualisieren
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: artikelnummer, in: path, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               Name: { type: string, nullable: true }
+ *               Art: { type: string, nullable: true }
+ *               Form: { type: string, nullable: true }
+ *               Material: { type: string, nullable: true }
+ *               Farbe: { type: string, nullable: true }
+ *               Länge: { type: number, nullable: true }
+ *               Grösse: { type: number, nullable: true }
+ *               Herstellungskosten: { type: number, nullable: true }
+ *               Verkaufspreis: { type: number, nullable: true }
+ *               Ausgelagert: { type: integer, description: '0 oder Kunde.ID' }
+ *               Verkauft: { type: integer, enum: [0, 1] }
+ *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Ausschuss_Grund: { type: string, nullable: true }
+ *               Lieferschein_ID: { type: integer }
+ *               Rechnung_ID: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Aktualisiertes Schmuckstück
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Schmuckstueck' } } }
+ *       400:
+ *         description: Validierungsfehler, oder Ausschuss=1 ohne Ausschuss_Grund
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSchema), async (req, res) => {
   try {
     const b = req.body;
     const ausschussGrundValue = resolveAusschussGrund(
@@ -1126,8 +1390,8 @@ router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
     }
     logger.error(
       "SCHMUCK",
-      `Fehler beim Aktualisieren des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Aktualisieren des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res
       .status(500)
@@ -1135,7 +1399,26 @@ router.put("/:artikelnummer", requireBearbeiter, async (req, res) => {
   }
 });
 
-// DELETE piece
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}:
+ *   delete:
+ *     summary: Schmuckstück löschen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: artikelnummer, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Schmuckstück gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
   try {
     const { rowCount } = await db.query(
@@ -1149,8 +1432,8 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
   } catch (err) {
     logger.error(
       "SCHMUCK",
-      `Fehler beim Löschen des Schmuckstücks: ${req.params.artikelnummer}`,
-      { message: err.message },
+      "Fehler beim Löschen des Schmuckstücks",
+      { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
   }

@@ -1,23 +1,69 @@
-import { hashPassword } from './utils/hashPassword';
-
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-function getToken() {
-  return localStorage.getItem('token');
+// Das JWT liegt seit Issue #132 in einem httpOnly-Cookie. Der Browser sendet es
+// automatisch mit, sofern credentials: 'include' gesetzt ist – im Code gibt es
+// deshalb kein Token mehr, das gelesen oder gespeichert werden müsste.
+
+// ── CSRF (Issue #135) ────────────────────────────────────────────────────────
+// Das Backend legt ein lesbares Cookie ab; wir spiegeln dessen Wert im Header
+// zurück. Fremde Seiten können den Cookie zwar mitsenden lassen, ihn aber
+// wegen der Same-Origin-Policy nicht auslesen und damit den Header nicht setzen.
+
+const CSRF_COOKIE_NAME = 'csrfToken';
+const AENDERNDE_METHODEN = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function csrfTokenAusCookie() {
+  return document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`))
+    ?.slice(CSRF_COOKIE_NAME.length + 1);
 }
 
-async function request(url, options = {}) {
-  const token = getToken();
+// Mehrere parallele Requests sollen nur eine Anforderung auslösen
+let csrfAnforderung = null;
+
+async function ensureCsrfToken(erzwingen = false) {
+  if (!erzwingen) {
+    const vorhanden = csrfTokenAusCookie();
+    if (vorhanden) return vorhanden;
+  }
+  if (!csrfAnforderung) {
+    csrfAnforderung = fetch(`${API_URL}/csrf-token`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : { csrfToken: null }))
+      .then(({ csrfToken }) => csrfToken)
+      .catch(() => null)
+      .finally(() => {
+        csrfAnforderung = null;
+      });
+  }
+  return csrfAnforderung;
+}
+
+// frischesCsrfToken wird nur beim Wiederholungsversuch gesetzt: das Cookie
+// trägt zu dem Zeitpunkt womöglich noch den alten Wert.
+async function request(url, options = {}, frischesCsrfToken = null) {
   const isFormData = options.body instanceof FormData;
   const headers = isFormData ? { ...options.headers } : { 'Content-Type': 'application/json', ...options.headers };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (AENDERNDE_METHODEN.has(method)) {
+    const csrfToken = frischesCsrfToken || (await ensureCsrfToken());
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
   }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers, ...options });
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', headers, ...options });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      // Abgelaufenes oder fehlendes CSRF-Token: einmal neu holen und wiederholen
+      if (res.status === 403 && err.code === 'CSRF_TOKEN_INVALID' && !frischesCsrfToken) {
+        const neuesToken = await ensureCsrfToken(true);
+        if (neuesToken) {
+          return request(url, options, neuesToken);
+        }
+      }
       const errorMessage = err.error || err.message || res.statusText || 'Request failed';
       const requestError = new Error(errorMessage);
       requestError.status = res.status;
@@ -34,15 +80,10 @@ async function request(url, options = {}) {
 }
 
 async function downloadBlob(url, options = {}) {
-  const token = getToken();
-  const headers = {};
   const { signal, onProgress, returnMetadata = false } = options;
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { headers, signal });
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', signal });
     if (!res.ok) {
       const contentType = res.headers.get('content-type') || '';
       let err = {};
@@ -131,17 +172,83 @@ async function downloadBlob(url, options = {}) {
   }
 }
 
+// ── Foto-Cache ───────────────────────────────────────────────────────────────
+// Jede Tabellenzeile lädt ihr Foto einzeln. Ohne Cache erzeugt jeder
+// Seitenwechsel erneut so viele Requests, wie die Seite Zeilen hat.
+
+const FOTO_CACHE_MAX = 400;
+const fotoCache = new Map();
+const fotoRequests = new Map();
+
+function merkeFoto(fileName, dataUrl) {
+  if (fotoCache.size >= FOTO_CACHE_MAX) {
+    fotoCache.delete(fotoCache.keys().next().value);
+  }
+  fotoCache.set(fileName, dataUrl);
+}
+
+function vergissFoto(artikelnummer) {
+  const basis = String(artikelnummer || '').split('_')[0];
+  if (!basis) return;
+  const gehoertDazu = (key) => key.split('.')[0].split('_')[0] === basis;
+  for (const key of [...fotoCache.keys()]) {
+    if (gehoertDazu(key)) fotoCache.delete(key);
+  }
+  for (const key of [...fotoRequests.keys()]) {
+    if (gehoertDazu(key)) fotoRequests.delete(key);
+  }
+}
+
+// Kein AbortSignal: Der Request wird geteilt, ein abbrechender Aufrufer würde
+// ihn sonst auch für alle anderen Wartenden beenden.
+async function ladeFotoAlsDataUrl(cleanFileName) {
+  const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(reader.error || new Error('Foto konnte nicht gelesen werden'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+const bestellungFotoCache = new Map();
+
+async function ladeBestellungFotoAlsDataUrl(fileName) {
+  if (!fileName) return null;
+  const zwischengespeichert = bestellungFotoCache.get(fileName);
+  if (zwischengespeichert) return zwischengespeichert;
+
+  const blob = await downloadBlob(`/bestelluebersicht/foto/${fileName}`);
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(reader.error || new Error('Foto konnte nicht gelesen werden'));
+    reader.readAsDataURL(blob);
+  });
+  bestellungFotoCache.set(fileName, dataUrl);
+  return dataUrl;
+}
+
+// Passwörter werden im Klartext über TLS gesendet und erst im Backend mit
+// bcrypt gehasht (siehe backend/src/utils/passwordService.js).
 export const authApi = {
-  login: async (username, password) => {
-    const hashedPassword = await hashPassword(password);
-    return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password: hashedPassword }) });
-  },
+  login: (username, password) =>
+    request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
-  changePassword: async (currentPassword, newPassword) => {
-    const hashedCurrentPassword = await hashPassword(currentPassword);
-    const hashedNewPassword = await hashPassword(newPassword);
-    return request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword: hashedCurrentPassword, newPassword: hashedNewPassword }) });
-  },
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  changePassword: (currentPassword, newPassword) =>
+    request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
+  // Erzeugt ein Reset-Token. Solange kein Mailversand konfiguriert ist, gibt das
+  // Backend den Link nur ins Log aus – siehe backend/src/routes/auth.js.
+  forgotPassword: (username) =>
+    request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username }) }),
+  resetPassword: (token, newPassword) =>
+    request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+};
+
+export const publicApi = {
+  // Öffentliches Bestellformular (ohne Login) – siehe backend/src/routes/bestellungPublic.js
+  createBestellung: (data) => request('/public/bestellung', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const api = {
@@ -178,24 +285,37 @@ export const api = {
     const formData = new FormData();
     formData.append('foto', file);
     const qs = new URLSearchParams({ artikelnummer }).toString();
+    // Das Backend legt die Datei unter der Basis-Artikelnummer ab, überschreibt
+    // also den bisherigen Dateinamen – der Cache-Eintrag muss deshalb weg.
+    vergissFoto(artikelnummer);
     return request(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
   getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
   loadPhotoAsDataUrl: async (fileName, options = {}) => {
     if (!fileName) return null;
-    const { signal } = options;
+    const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
+
+    const zwischengespeichert = fotoCache.get(cleanFileName);
+    if (zwischengespeichert) return zwischengespeichert;
+
+    // Beim Blättern und beim Wechsel zwischen Tabelle und Detailansicht werden
+    // dieselben Fotos immer wieder angefragt. Laufende Requests werden geteilt,
+    // fertige Data-URLs bleiben für die Sitzung im Speicher.
+    let laufend = fotoRequests.get(cleanFileName);
+    if (!laufend) {
+      laufend = ladeFotoAlsDataUrl(cleanFileName)
+        .then((dataUrl) => {
+          if (dataUrl) merkeFoto(cleanFileName, dataUrl);
+          return dataUrl;
+        })
+        .finally(() => fotoRequests.delete(cleanFileName));
+      fotoRequests.set(cleanFileName, laufend);
+    }
+
     try {
-      const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
-      const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`, { signal });
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.readAsDataURL(blob);
-      });
+      return await laufend;
     } catch (err) {
-      if (err?.name === 'AbortError') {
-        return null;
-      }
+      if (err?.name === 'AbortError' || options.signal?.aborted) return null;
       const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
       console.error('❌ Fehler beim Laden des Fotos:', fileName, {
         message,
@@ -208,6 +328,10 @@ export const api = {
       throw photoError;
     }
   },
+  clearPhotoCache: () => {
+    fotoCache.clear();
+    fotoRequests.clear();
+  },
 
   // Lieferscheine
   getLieferscheine: () => request('/lieferscheine'),
@@ -216,6 +340,15 @@ export const api = {
   createLieferschein: (data) => request('/lieferscheine', { method: 'POST', body: JSON.stringify(data) }),
   updateLieferschein: (id, data) => request(`/lieferscheine/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteLieferschein: (id) => request(`/lieferscheine/${id}`, { method: 'DELETE' }),
+
+  // Bestellübersicht (DSGVO)
+  getBestellungen: () => request('/bestelluebersicht'),
+  getBestellung: (id) => request(`/bestelluebersicht/${id}`),
+  getNextBestellnummer: () => request('/bestelluebersicht/next-number'),
+  createBestellung: (data) => request('/bestelluebersicht', { method: 'POST', body: JSON.stringify(data) }),
+  updateBestellung: (id, data) => request(`/bestelluebersicht/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  anonymisiereBestellungKunde: (id) => request(`/bestelluebersicht/${id}/anonymisieren`, { method: 'POST', body: JSON.stringify({}) }),
+  loadBestellungFotoAsDataUrl: (fileName) => ladeBestellungFotoAlsDataUrl(fileName),
 
   // Rechnungen
   getRechnungen: () => request('/rechnungen'),
@@ -256,19 +389,11 @@ export const api = {
   // Benutzerverwaltung
   getUsers: () => request('/users'),
   getUser: (id) => request(`/users/${id}`),
-  createUser: async (data) => {
-    const payload = { ...data };
-    if (payload.password) {
-      payload.password = await hashPassword(payload.password);
-    }
-    return request('/users', { method: 'POST', body: JSON.stringify(payload) });
-  },
+  createUser: (data) => request('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
-  resetUserPassword: async (id, newPassword) => {
-    const hashedPassword = await hashPassword(newPassword);
-    return request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: hashedPassword }) });
-  },
+  resetUserPassword: (id, newPassword) =>
+    request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
   exportBackup: (tables) => {
@@ -294,7 +419,8 @@ export const api = {
   importBackupUploadsZip: (file) => {
     const formData = new FormData();
     formData.append('uploadsZip', file);
-    return requestFormData('/backup/import-uploads-zip', { method: 'POST', body: formData });
+    // request() erkennt FormData selbst und setzt dann keinen Content-Type
+    return request('/backup/import-uploads-zip', { method: 'POST', body: formData });
   },
 
   // Inventur

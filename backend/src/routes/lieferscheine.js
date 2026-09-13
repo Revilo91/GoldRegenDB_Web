@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { validate } = require('../middleware/validate');
+const { lieferscheinSchema } = require('../schemas');
 
 function formatJahresNummer(jahr, laufnummer) {
   return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
@@ -19,7 +21,30 @@ async function getNextLieferscheinnummer(queryable) {
   return formatJahresNummer(aktuellesJahr, Number(nummerRows[0].max_num) + 1);
 }
 
-// GET all delivery notes
+/**
+ * @swagger
+ * /lieferscheine:
+ *   get:
+ *     summary: Lieferscheine abrufen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     parameters:
+ *       - { name: status, in: query, description: Optionaler Filter, schema: { type: string, enum: [entwurf, final] } }
+ *     responses:
+ *       200:
+ *         description: Lieferscheinliste (inkl. KundenName)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 allOf:
+ *                   - $ref: '#/components/schemas/Lieferschein'
+ *                   - type: object
+ *                     properties: { KundenName: { type: string, nullable: true } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/', async (req, res) => {
   try {
     const { status } = req.query; // Optional filter: ?status=entwurf or ?status=final
@@ -36,7 +61,7 @@ router.get('/', async (req, res) => {
     query += ` ORDER BY l."Datum" DESC`;
 
     const { rows } = await db.query(query, params);
-    logger.info('LIEFERSCHEINE', `${rows.length} Lieferscheine geladen${status ? ` (status=${status})` : ''}`);
+    logger.info('LIEFERSCHEINE', 'Lieferscheine geladen', { anzahl: rows.length, status: status || undefined });
     res.json(rows);
   } catch (err) {
     logger.error('LIEFERSCHEINE', 'Fehler beim Laden der Lieferscheine', { message: err.message });
@@ -44,7 +69,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single
+/**
+ * @swagger
+ * /lieferscheine/next-number:
+ *   get:
+ *     summary: Nächste Lieferscheinnummer ermitteln
+ *     description: 'Format JJJJ-NNN. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     responses:
+ *       200:
+ *         description: Nächste Nummer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties: { Nummer: { type: string, example: '2026-001' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/next-number', async (_req, res) => {
   try {
     const nextNummer = await getNextLieferscheinnummer(db);
@@ -55,6 +97,32 @@ router.get('/next-number', async (_req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /lieferscheine/{id}:
+ *   get:
+ *     summary: Lieferschein-Detail inkl. zugeordneter Schmuckstücke
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Lieferschein mit Artikeln
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/Lieferschein'
+ *                 - type: object
+ *                   properties:
+ *                     KundenName: { type: string, nullable: true }
+ *                     Provision: { type: integer, nullable: true }
+ *                     schmuckstuecke: { type: array, items: { $ref: '#/components/schemas/Schmuckstueck' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -76,12 +144,30 @@ router.get('/:id', async (req, res) => {
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows });
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Fehler beim Laden des Lieferscheins ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Fehler beim Laden des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Lieferscheins' });
   }
 });
 
-// GET excel
+/**
+ * @swagger
+ * /lieferscheine/{id}/excel:
+ *   get:
+ *     summary: Lieferschein als Excel-Datei herunterladen
+ *     description: 'Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: XLSX-Datei
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema: { type: string, format: binary }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 const { generateExcel } = require('../utils/excelService');
 router.get('/:id/excel', async (req, res) => {
   try {
@@ -110,13 +196,51 @@ router.get('/:id/excel', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=Lieferschein_${rows[0].Nummer}.xlsx`);
     res.send(buffer);
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Excel-Generierung fehlgeschlagen für ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Excel-Generierung fehlgeschlagen', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
   }
 });
 
-// POST create
-router.post('/', async (req, res) => {
+/**
+ * @swagger
+ * /lieferscheine:
+ *   post:
+ *     summary: Lieferschein anlegen
+ *     description: 'Ohne Nummer wird automatisch die nächste JJJJ-NNN-Nummer vergeben. Bei status=final
+ *       werden die enthaltenen Artikel als beim Kunden ausgelagert markiert (Ausgelagert=Kundennummer),
+ *       bei status=entwurf nur mit Lieferschein_ID verknüpft. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Kundennummer]
+ *             properties:
+ *               Nummer: { type: string, maxLength: 20, description: 'Optional, wird sonst automatisch vergeben' }
+ *               Kundennummer: { type: integer, minimum: 1 }
+ *               Artikelnummern:
+ *                 type: array
+ *                 items: { type: string, example: MHO123_1 }
+ *                 maxItems: 1000
+ *               status: { type: string, enum: [entwurf, final], default: entwurf }
+ *     responses:
+ *       201:
+ *         description: Lieferschein erstellt
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Lieferschein' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       409:
+ *         description: Lieferscheinnummer existiert bereits
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
+router.post('/', validate(lieferscheinSchema), async (req, res) => {
   let client;
   try {
     const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf' } = req.body;
@@ -156,7 +280,12 @@ router.post('/', async (req, res) => {
 
     await client.query('COMMIT');
 
-    logger.info('LIEFERSCHEINE', `Lieferschein erstellt: ${rows[0].Nummer} (ID=${lieferscheinId}, status=${status})`, { artikelAnzahl: Artikelnummern?.length || 0 });
+    logger.info('LIEFERSCHEINE', 'Lieferschein erstellt', {
+      id: lieferscheinId,
+      nummer: rows[0].Nummer,
+      status,
+      artikelAnzahl: Artikelnummern?.length || 0,
+    });
     res.status(201).json(rows[0]);
   } catch (err) {
     if (client) {
@@ -178,8 +307,42 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT update
-router.put('/:id', async (req, res) => {
+/**
+ * @swagger
+ * /lieferscheine/{id}:
+ *   put:
+ *     summary: Lieferschein aktualisieren
+ *     description: 'Setzt zuerst alle bisherigen Artikel-Zuordnungen zurück und danach neu (siehe
+ *       POST /lieferscheine für die Ausgelagert-Logik nach status). Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [Kundennummer]
+ *             properties:
+ *               Nummer: { type: string, maxLength: 20 }
+ *               Kundennummer: { type: integer, minimum: 1 }
+ *               Artikelnummern: { type: array, items: { type: string } }
+ *               status: { type: string, enum: [entwurf, final] }
+ *     responses:
+ *       200:
+ *         description: Lieferschein aktualisiert
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Lieferschein' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.put('/:id', validate(lieferscheinSchema), async (req, res) => {
   try {
     const { Nummer, Artikelnummern, Kundennummer, status } = req.body;
 
@@ -222,15 +385,35 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    logger.info('LIEFERSCHEINE', `Lieferschein aktualisiert: ID=${req.params.id}, status=${currentStatus}`);
+    logger.info('LIEFERSCHEINE', 'Lieferschein aktualisiert', { id: req.params.id, status: currentStatus });
     res.json(rows[0]);
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Fehler beim Aktualisieren des Lieferscheins ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Fehler beim Aktualisieren des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Lieferscheins' });
   }
 });
 
-// DELETE
+/**
+ * @swagger
+ * /lieferscheine/{id}:
+ *   delete:
+ *     summary: Lieferschein löschen
+ *     description: 'Setzt Lieferschein_ID und Ausgelagert der zugeordneten Artikel vor dem Löschen zurück.
+ *       Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Lieferscheine]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: Lieferschein gelöscht
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.delete('/:id', async (req, res) => {
   try {
     // Reset associations before deleting
@@ -245,10 +428,10 @@ router.delete('/:id', async (req, res) => {
     if (rowCount === 0) {
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
     }
-    logger.info('LIEFERSCHEINE', `Lieferschein gelöscht: ID=${req.params.id}`);
+    logger.info('LIEFERSCHEINE', 'Lieferschein gelöscht', { id: req.params.id });
     res.json({ message: 'Lieferschein gelöscht' });
   } catch (err) {
-    logger.error('LIEFERSCHEINE', `Fehler beim Löschen des Lieferscheins ID=${req.params.id}`, { message: err.message });
+    logger.error('LIEFERSCHEINE', 'Fehler beim Löschen des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen des Lieferscheins' });
   }
 });

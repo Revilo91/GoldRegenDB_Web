@@ -33,9 +33,20 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
+    // Auth-Setup: Token holen und storageState für die anderen Projekte speichern
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      testIgnore: /auth\.setup\.ts/,
     },
 
     // {

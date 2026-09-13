@@ -2,6 +2,26 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## Graphify Knowledge Graph
+
+**Graphify data is stored in this project** (`graphify-out/` directory). When you ask ANY question about this project (codebase, architecture, files, relationships, features, business logic, or context), **immediately invoke `/graphify` before answering**, even if you think you know the answer already. This ensures:
+
+- Complete, up-to-date context from the knowledge graph
+- Accurate file references and relationships
+- Comprehensive architecture understanding
+- Consistent answers across sessions
+
+**Trigger conditions for automatic graphify use:**
+- "Where is..." / "What does..." / "How does..." (code/architecture questions)
+- Feature requests or modifications (understand dependencies first)
+- Bug reports or investigations
+- API/schema questions
+- Any file or cross-file logic question
+
+---
+
 ## Project Overview
 
 **GoldRegenDB** is a web-based inventory management system for handcrafted jewelry. It runs on PostgreSQL, Node.js/Express backend, and React 19 frontend, all containerized with Docker.
@@ -13,18 +33,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Start
 
 ```bash
-# Development (hot reload on code changes)
+# Development (native, hot reload) — recommended
 cp .env.example .env
-docker compose -f docker-compose.dev.yml up --build
+npm install                # installs root + backend + frontend workspaces
+npm run dev                # starts db (Docker) + backend (node --watch) + frontend (vite) concurrently
 
 # Services available at:
-# Frontend: http://localhost:3000 (mapped to Vite :5173)
+# Frontend: http://localhost:5173
 # Backend API: http://localhost:3001/api
 # Database: localhost:5432
 
-# Production
+# Development (fully containerized alternative — 2 containers: db + app)
+docker compose -f docker-compose.dev.yml up --build
+# Frontend: http://localhost:3000 (Vite :5173) / Backend: http://localhost:3001
+# Backend & Frontend run together in one container with hot-reload via concurrently
+
+# Production — single image, Express serves API + built frontend on one port
 docker compose up --build -d
-# Frontend: http://localhost:3000 (Nginx)
+# Frontend + API: http://localhost:3000 (no Nginx)
 ```
 
 ---
@@ -69,7 +95,7 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 - Consolidated GRUNDMATERIAL & PRODUKTART constants → `utils/constants.js`
 - Merged duplicate request() + requestFormData() in api.js (90% code duplication)
 - Removed inline debug logging (console.log emoji-comments in api.js)
-- Set real rate limits (5 login, 100 api/min) in index.js
+- Set real rate limits in index.js (später auf unauthentifizierte Endpunkte beschränkt, siehe unten)
 - Deleted boilerplate JSDoc in DocumentManager.jsx
 
 **Code Conventions (to prevent future slop):**
@@ -77,7 +103,10 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 - **No verbose docstrings:** Method names are self-documenting; one-liner comments only if WHY is non-obvious
 - **Merge duplicates:** If constants/logic exists in 2+ files, move to shared utils/
 - **Delete dead logging:** console.log/error only for errors; remove debug traces after use
-- **Rate limiters:** Must have real limits; no "10000 = practically unlimited" boilerplate
+- **Rate limiters:** Nur für unauthentifizierte Endpunkte (Login, Passwort-Reset,
+  öffentliches Bestellformular) – dort mit echten Limits, kein "10000 = praktisch
+  unbegrenzt". Die angemeldete Anwendung bleibt bewusst ungedrosselt: die
+  Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
 - **No JSDoc boilerplate:** Describe props via code comments inline, not at-the-top blocks
 
 ---
@@ -140,7 +169,7 @@ backend/src/
 ├── routes/                # 10+ REST endpoints (auth, kunden, schmuckstuecke, etc.)
 ├── middleware/auth.js     # JWT validation, role checks (authenticate, requireAdmin)
 ├── config/db.js           # PostgreSQL pool + request-scoped client + startup migrations
-└── utils/                 # whereClauseBuilder, excelService, logger, hashPassword
+└── utils/                 # whereClauseBuilder, excelService, logger, passwordService
 
 db/
 ├── init.sql               # Schema: 7 tables + audit triggers
@@ -165,11 +194,27 @@ db/
 - Startup migrations in `db.js` ensure schema consistency (lagerinventur table auto-created if missing)
 
 ### Authentication Flow
-1. Frontend hashes password with SHA-256 (Web Crypto API + fallback JS impl)
-2. Backend checks with `bcryptjs` (10 rounds)
-3. JWT issued, stored in localStorage, sent as `Authorization: Bearer <token>` header
+1. Frontend sends the password in plaintext over TLS — no client-side hashing
+2. Backend hashes/verifies with `bcryptjs` (10 rounds) via `utils/passwordService.js`;
+   legacy `bcrypt(sha256(pw))` hashes are accepted once and transparently upgraded on login
+3. JWT issued and set as an **httpOnly cookie** (`jwt`); the browser sends it
+   automatically because `api.js` uses `credentials: 'include'`. No token is
+   kept in localStorage. `Authorization: Bearer <token>` still works as a
+   fallback for scripts and E2E tests
 4. Middleware validates JWT, sets `req.user = { username, role, ... }`
 5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
+
+**CSRF** (`backend/src/middleware/csrf.js`): double-submit cookie pattern (not
+`csurf`, which is deprecated). `GET /api/csrf-token` issues a readable
+`csrfToken` cookie; `api.js` mirrors it into the `X-CSRF-Token` header on
+POST/PUT/PATCH/DELETE. Only enforced for cookie-authenticated requests —
+Bearer-token clients and public endpoints are exempt.
+
+**Account lockout & password reset** (`backend/src/utils/accountSecurity.js`):
+5 consecutive failed logins lock the account for 30 minutes. Self-service reset
+runs via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`;
+only the token's SHA-256 hash is stored. No SMTP is configured — the reset link
+is written to the backend log for an admin to hand over.
 
 ### Roles & Permissions
 | Role | Access |
@@ -189,7 +234,7 @@ db/
 | **WHERE builder docs** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel export** | `backend/src/utils/excelService.js` (generateExcel, generateInventurExcel) |
 | **Logging** | `backend/src/utils/logger.js` (structured logs with timestamp & component prefix) |
-| **Password hashing** | `frontend/src/utils/hashPassword.js` (SHA-256, used by all auth endpoints) |
+| **Password hashing** | `backend/src/utils/passwordService.js` (bcrypt; legacy-hash migration) |
 | **Comprehensive docs** | `.github/copilot-instructions.md` (schema, API endpoints, docker details, migrations) |
 
 ---

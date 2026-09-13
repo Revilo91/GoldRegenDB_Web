@@ -120,7 +120,7 @@ describe('GRUNDMATERIAL', () => {
 describe('PRODUKTART', () => {
   it('maps each defined code to a non-empty string', () => {
     expect(Object.keys(PRODUKTART).length).toBeGreaterThan(0);
-    for (const [code, name] of Object.entries(PRODUKTART)) {
+    for (const [, name] of Object.entries(PRODUKTART)) {
       expect(typeof name).toBe('string');
       expect(name.length).toBeGreaterThan(0);
     }

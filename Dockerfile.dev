@@ -1,0 +1,17 @@
+FROM node:22-alpine
+WORKDIR /app
+RUN apk add --no-cache curl
+
+COPY package*.json ./
+COPY backend/package*.json ./backend/
+COPY frontend/package*.json ./frontend/
+
+RUN npm install
+
+COPY scripts ./scripts
+COPY backend ./backend
+COPY frontend ./frontend
+
+EXPOSE 3001 5173
+
+CMD ["sh", "scripts/dev-docker-start.sh"]

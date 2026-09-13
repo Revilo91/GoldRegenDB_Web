@@ -131,7 +131,6 @@ export default function PhotoUpload({
           accept="image/jpeg,image/png,image/gif"
           onChange={handleFileInput}
           disabled={uploading || disabled}
-          style={{ display: "none" }}
         />
         <label htmlFor={inputId} className="upload-label">
           <div className="upload-content">

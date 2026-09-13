@@ -1,8 +1,17 @@
 {
   "name": "goldregendb_web",
   "version": "1.0.0",
+  "private": true,
   "description": "[![Release für Synology](https://github.com/Revilo91/GoldRegenDB_Web/actions/workflows/release.yml/badge.svg)](https://github.com/Revilo91/GoldRegenDB_Web/actions/workflows/release.yml)",
   "main": "index.js",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "directories": {
     "test": "tests"
   },
@@ -13,10 +22,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@types/node": "^25.9.3",
+    "@types/node": "^22.19.2",
+    "concurrently": "^9.1.0",
     "dotenv": "^17.4.2"
   },
-  "scripts": {},
+  "scripts": {
+    "db:up": "docker compose -f docker-compose.dev.yml up -d db",
+    "db:down": "docker compose -f docker-compose.dev.yml stop db",
+    "dev": "concurrently -n \"db,backend,frontend\" -c \"cyan,green,magenta\" \"npm run db:up\" \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "test:e2e": "playwright test"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Revilo91/GoldRegenDB_Web.git"

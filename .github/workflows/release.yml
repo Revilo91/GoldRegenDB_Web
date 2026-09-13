@@ -18,8 +18,7 @@ jobs:
       packages: write
 
     outputs:
-      backend_image: ${{ steps.meta-backend.outputs.tags }}
-      frontend_image: ${{ steps.meta-frontend.outputs.tags }}
+      image: ${{ steps.meta.outputs.tags }}
       version: ${{ steps.get_version.outputs.version }}
 
     steps:
@@ -40,49 +39,29 @@ jobs:
       - name: Docker Buildx einrichten
         uses: docker/setup-buildx-action@v3
 
-      - name: Metadaten für Backend-Image ermitteln
-        id: meta-backend
+      - name: Metadaten für Image ermitteln
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/goldregendb-backend
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/goldregendb
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Metadaten für Frontend-Image ermitteln
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/goldregendb-frontend
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
-
-      - name: Backend-Image bauen und veröffentlichen
+      - name: Image bauen und veröffentlichen
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Frontend-Image bauen und veröffentlichen
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             VITE_API_URL=/api
+            APP_VERSION=${{ github.ref_name }}
 
   create-release:
     name: GitHub Release erstellen
@@ -138,31 +117,25 @@ jobs:
               networks:
                 - goldregendb_net
 
-            backend:
-              image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb-backend:${VERSION}
+            app:
+              image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb:${VERSION}
               restart: always
               depends_on:
                 db:
                   condition: service_healthy
               environment:
-                DATABASE_URL: \${DATABASE_URL}
+                DATABASE_URL: postgresql://\${POSTGRES_USER}:\${DB_PASSWORD}@db:5432/\${POSTGRES_DB}
                 NODE_ENV: production
                 PORT: \${PORT}
                 JWT_SECRET: \${JWT_SECRET}
+                BESTELLUNG_ENCRYPTION_KEY: \${BESTELLUNG_ENCRYPTION_KEY}
+                PRIVACY_POLICY_VERSION: \${PRIVACY_POLICY_VERSION}
+                BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: \${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
+                BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: \${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
               volumes:
                 - /volume1/docker/goldregendb/uploads:/app/src/assets/uploads
               ports:
-                - "\${PORT}:\${PORT}"
-              networks:
-                - goldregendb_net
-
-            frontend:
-              image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb-frontend:${VERSION}
-              restart: always
-              depends_on:
-                - backend
-              ports:
-                - "3000:80"
+                - "3000:\${PORT}"
               networks:
                 - goldregendb_net
 
@@ -190,6 +163,13 @@ jobs:
           PORT=3001
           DATABASE_URL=postgresql://goldregen:changeme@db:5432/goldregendb
           JWT_SECRET=change-this-to-a-long-random-secret
+
+          # Bestellübersicht (DSGVO) – AES-256-GCM-Schlüssel für Kundendaten-Verschlüsselung.
+          # Erzeugen mit: openssl rand -hex 32
+          BESTELLUNG_ENCRYPTION_KEY=change-this-to-a-64-char-hex-key
+          PRIVACY_POLICY_VERSION=2026-01-v1
+          BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG=90
+          BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG=10
           ENVEOF
 
           # README für Synology-Deployment erstellen
@@ -238,7 +218,8 @@ jobs:
 
           ## Hinweise
           - VITE_API_URL muss **nicht** gesetzt werden – ist bereits ins Image eingebettet.
-          - Die Images werden automatisch aus GitHub Container Registry (ghcr.io) gezogen.
+          - Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
+          - Das Image wird automatisch aus GitHub Container Registry (ghcr.io) gezogen.
           - Datenbankdaten liegen unter `/volume1/docker/goldregendb/data/`.
           - Backups liegen unter `/volume1/docker/goldregendb/backups/`.
           - Hochgeladene Fotos liegen unter `/volume1/docker/goldregendb/uploads/`.
@@ -253,10 +234,9 @@ jobs:
           body: |
             ## GoldRegenDB ${{ steps.get_version.outputs.version }}
 
-            ### Docker Images
-            Die fertigen Images sind im GitHub Container Registry verfügbar:
-            - **Backend:** `${{ env.REGISTRY }}/${{ steps.get_version.outputs.owner_lower }}/goldregendb-backend:${{ steps.get_version.outputs.version }}`
-            - **Frontend:** `${{ env.REGISTRY }}/${{ steps.get_version.outputs.owner_lower }}/goldregendb-frontend:${{ steps.get_version.outputs.version }}`
+            ### Docker Image
+            Das fertige Image ist im GitHub Container Registry verfügbar:
+            - **Image:** `${{ env.REGISTRY }}/${{ steps.get_version.outputs.owner_lower }}/goldregendb:${{ steps.get_version.outputs.version }}`
 
             ### Synology Deployment
             Das Deployment-Paket (`goldregendb-synology-*.zip`) enthält alle benötigten Dateien.

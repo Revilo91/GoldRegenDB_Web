@@ -7,6 +7,8 @@ const multer = require("multer");
 const AdmZip = require("adm-zip");
 const db = require("../config/db");
 const logger = require("../utils/logger");
+const { validate } = require("../middleware/validate");
+const { backupImportSchema } = require("../schemas");
 
 const UPLOADS_DIR = process.env.BACKUP_UPLOADS_DIR
   ? path.resolve(process.env.BACKUP_UPLOADS_DIR)
@@ -273,8 +275,32 @@ const ALL_TABLES = [
 // Alias für Export (alle Tabellen)
 const EXPORT_TABLES = ALL_TABLES;
 
-// GET /api/backup/export – Export selected (or all) tables as a JSON file
-// Optional query param: ?tables=Kunde,Lieferschein,... (comma-separated)
+/**
+ * @swagger
+ * /backup/export:
+ *   get:
+ *     summary: Alle (oder ausgewählte) Tabellen als JSON exportieren
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     parameters:
+ *       - name: tables
+ *         in: query
+ *         description: Kommaseparierte Liste zu exportierender Tabellen, Standard sind alle
+ *         schema: { type: string, example: 'Kunde,Lieferschein' }
+ *     responses:
+ *       200:
+ *         description: Backup-JSON-Datei
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 version: { type: string }
+ *                 timestamp: { type: string, format: date-time }
+ *                 tables: { type: object, additionalProperties: { type: array, items: { type: object } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get("/export", async (req, res) => {
   try {
     // Determine which tables to export
@@ -318,7 +344,23 @@ router.get("/export", async (req, res) => {
   }
 });
 
-// GET /api/backup/export-uploads – Export backend/src/assets/uploads as ZIP
+/**
+ * @swagger
+ * /backup/export-uploads:
+ *   get:
+ *     summary: Foto-Uploads (backend/src/assets/uploads) synchron als ZIP herunterladen
+ *     description: 'Für kleine Upload-Verzeichnisse; bei vielen Dateien siehe den asynchronen Job-Flow
+ *       über POST /backup/export-uploads-jobs. Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     responses:
+ *       200:
+ *         description: ZIP-Datei
+ *         content:
+ *           application/zip:
+ *             schema: { type: string, format: binary }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get("/export-uploads", async (_req, res) => {
   try {
     const { zipBuffer, fileCount } = await exportUploadsZipBuffer();
@@ -350,11 +392,55 @@ router.get("/export-uploads", async (_req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /backup/export-uploads-jobs:
+ *   post:
+ *     summary: Asynchronen Export-Job für die Foto-Uploads starten
+ *     description: 'Fortschritt über GET /backup/export-uploads-jobs/{jobId}, Download nach Abschluss über
+ *       GET /backup/export-uploads-jobs/{jobId}/download. Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     responses:
+ *       202:
+ *         description: Job gestartet
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties: { job: { $ref: '#/components/schemas/ExportUploadsJob' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.post("/export-uploads-jobs", async (_req, res) => {
   const job = createExportUploadsJob();
   res.status(202).json({ job: serializeExportJob(job) });
 });
 
+/**
+ * @swagger
+ * /backup/export-uploads-jobs/{jobId}:
+ *   get:
+ *     summary: Status eines Upload-Export-Jobs abfragen
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     parameters:
+ *       - { name: jobId, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Job-Status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties: { job: { $ref: '#/components/schemas/ExportUploadsJob' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
 router.get("/export-uploads-jobs/:jobId", async (req, res) => {
   const job = exportUploadJobs.get(req.params.jobId);
 
@@ -365,6 +451,34 @@ router.get("/export-uploads-jobs/:jobId", async (req, res) => {
   res.json({ job: serializeExportJob(job) });
 });
 
+/**
+ * @swagger
+ * /backup/export-uploads-jobs/{jobId}/download:
+ *   get:
+ *     summary: Fertiges ZIP eines Upload-Export-Jobs herunterladen
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     parameters:
+ *       - { name: jobId, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: ZIP-Datei
+ *         content:
+ *           application/zip:
+ *             schema: { type: string, format: binary }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409:
+ *         description: Job noch nicht abgeschlossen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 job: { $ref: '#/components/schemas/ExportUploadsJob' }
+ */
 router.get("/export-uploads-jobs/:jobId/download", async (req, res) => {
   const job = exportUploadJobs.get(req.params.jobId);
 
@@ -388,7 +502,42 @@ router.get("/export-uploads-jobs/:jobId/download", async (req, res) => {
   setTimeout(() => cleanupExportJob(job.id), 60 * 1000).unref();
 });
 
-// POST /api/backup/import-uploads-zip – Import upload images from ZIP file
+/**
+ * @swagger
+ * /backup/import-uploads-zip:
+ *   post:
+ *     summary: Foto-Uploads aus einer ZIP-Datei importieren
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [uploadsZip]
+ *             properties:
+ *               uploadsZip: { type: string, format: binary }
+ *     responses:
+ *       200:
+ *         description: Import abgeschlossen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 uploads: { type: object }
+ *       400:
+ *         description: Keine ZIP-Datei hochgeladen
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.post(
   "/import-uploads-zip",
   uploadZip.single("uploadsZip"),
@@ -451,9 +600,54 @@ function normalizeBackupData(data) {
   return null;
 }
 
-// POST /api/backup/import – Import data from a previously exported JSON backup
-// Optional body param: selectedTables (array) – if provided, only those tables are truncated and reimported
-router.post("/import", async (req, res) => {
+/**
+ * @swagger
+ * /backup/import:
+ *   post:
+ *     summary: Datenbank aus einem zuvor exportierten JSON-Backup importieren
+ *     description: 'Unterstützt zwei Formate automatisch (Standard-Backup-Format und SQL-Export-Array).
+ *       Ignoriert Spalten, die nicht im aktuellen Schema existieren. Truncatet die betroffenen
+ *       Tabellen (RESTART IDENTITY CASCADE) vor dem Neuladen – transaktional, bei Fehler Rollback.
+ *       Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               backupData:
+ *                 description: Backup-JSON (String oder Objekt) im Standard- oder SQL-Export-Format
+ *                 oneOf: [{ type: string }, { type: object }]
+ *               selectedTables:
+ *                 type: array
+ *                 nullable: true
+ *                 items: { type: string }
+ *                 description: Ohne Angabe werden alle im Backup enthaltenen Tabellen importiert
+ *     responses:
+ *       200:
+ *         description: Import abgeschlossen
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 counts: { type: object, additionalProperties: { type: integer } }
+ *                 uploads: { type: object, nullable: true }
+ *       400:
+ *         description: Ungültiges Backup-Format
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
+router.post("/import", validate(backupImportSchema), async (req, res) => {
   let rawData;
   let selectedTables;
   let restoreUploads = false;

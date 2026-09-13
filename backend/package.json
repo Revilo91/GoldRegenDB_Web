@@ -3,12 +3,21 @@
   "version": "1.0.0",
   "description": "GoldRegenDB REST API",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "sync:fotos": "node scripts/sync-photo-column.js",
     "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run",
-    "test": "jest --forceExit"
+    "dsgvo:retention": "node scripts/dsgvo-retention.js",
+    "dsgvo:retention:dry": "node scripts/dsgvo-retention.js --dry-run",
+    "test": "jest --forceExit",
+    "lint": "eslint src/ scripts/ __tests__/",
+    "lint:fix": "eslint src/ scripts/ __tests__/ --fix",
+    "typecheck": "tsc --noEmit"
   },
   "jest": {
     "testEnvironment": "node",
@@ -22,19 +31,35 @@
   "dependencies": {
     "adm-zip": "^0.5.17",
     "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "exceljs": "^4.4.0",
     "express": "^4.22.1",
     "express-rate-limit": "^8.2.1",
+    "helmet": "^8.3.0",
     "image-size": "^1.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.0",
     "pg": "^8.19.0",
-    "qrcode": "^1.5.1"
+    "qrcode": "^1.5.1",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.19.2",
+    "@types/pg": "^8.23.1",
+    "eslint": "^9.39.3",
+    "globals": "^16.5.0",
     "jest": "^30.2.0",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "typescript": "^5.9.3"
   }
 }

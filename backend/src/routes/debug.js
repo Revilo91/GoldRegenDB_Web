@@ -2,8 +2,25 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { validate } = require('../middleware/validate');
+const { debugUpdateSchema } = require('../schemas');
 
-// Get all table names in the public schema
+/**
+ * @swagger
+ * /debug/tables:
+ *   get:
+ *     summary: Alle Datenbanktabellen auflisten
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Debug]
+ *     responses:
+ *       200:
+ *         description: Tabellennamen
+ *         content:
+ *           application/json:
+ *             schema: { type: array, items: { type: string } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
 router.get('/tables', async (req, res) => {
   try {
     const result = await db.query(
@@ -20,7 +37,35 @@ router.get('/tables', async (req, res) => {
   }
 });
 
-// Get all rows for a specific table
+/**
+ * @swagger
+ * /debug/tables/{tableName}:
+ *   get:
+ *     summary: Inhalt einer Tabelle anzeigen (inkl. Spalten- und Primärschlüssel-Info)
+ *     description: 'Erfordert Rolle: admin.'
+ *     tags: [Debug]
+ *     parameters:
+ *       - { name: tableName, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200:
+ *         description: Tabelleninhalt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data: { type: array, items: { type: object } }
+ *                 columns: { type: array, items: { type: object } }
+ *                 primaryKeys: { type: array, items: { type: string } }
+ *       400:
+ *         description: Ungültiger Tabellenname
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404:
+ *         description: Tabelle nicht gefunden
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
 router.get('/tables/:tableName', async (req, res) => {
   const { tableName } = req.params;
   try {
@@ -73,13 +118,53 @@ router.get('/tables/:tableName', async (req, res) => {
         primaryKeys: primaryKeys
     });
   } catch (err) {
-    logger.error('DEBUG', `Fehler beim Laden der Daten für Tabelle ${tableName}`, { message: err.message });
+    logger.error('DEBUG', 'Fehler beim Laden der Daten für Tabelle', { tabelle: tableName, message: err.message });
     res.status(500).json({ error: `Failed to fetch data for ${tableName}` });
   }
 });
 
-// Update a specific row in a table
-router.put('/tables/:tableName', async (req, res) => {
+/**
+ * @swagger
+ * /debug/tables/{tableName}:
+ *   put:
+ *     summary: Einzelnen Datensatz direkt bearbeiten
+ *     description: 'Roher Direktzugriff auf die Datenbank ohne Business-Validierung (WHERE Clause Builder,
+ *       Zod-Schemas etc.) – nur zum Debuggen. Erfordert Rolle: admin.'
+ *     tags: [Debug]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: tableName, in: path, required: true, schema: { type: string } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [primaryKey, id, field]
+ *             properties:
+ *               primaryKey: { type: string, description: 'Name der Primärschlüssel-Spalte' }
+ *               id:
+ *                 description: Wert des Primärschlüssels der zu ändernden Zeile
+ *                 oneOf: [{ type: string }, { type: number }]
+ *               field: { type: string, description: 'Name der zu ändernden Spalte' }
+ *               value:
+ *                 nullable: true
+ *                 oneOf: [{ type: string }, { type: number }, { type: boolean }]
+ *     responses:
+ *       200:
+ *         description: Aktualisierte Zeile
+ *         content: { application/json: { schema: { type: object } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404:
+ *         description: Zeile nicht gefunden
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
+router.put('/tables/:tableName', validate(debugUpdateSchema), async (req, res) => {
   const { tableName } = req.params;
   const { primaryKey, id, field, value } = req.body;
 
@@ -102,7 +187,7 @@ router.put('/tables/:tableName', async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    logger.error('DEBUG', `Fehler beim Aktualisieren der Daten für Tabelle ${tableName}`, { message: err.message, field });
+    logger.error('DEBUG', 'Fehler beim Aktualisieren der Daten für Tabelle', { tabelle: tableName, field, message: err.message });
     res.status(500).json({ error: `Failed to update data for ${tableName}` });
   }
 });

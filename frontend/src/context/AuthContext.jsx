@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { authApi } from "../api";
+import { api, authApi } from "../api";
 
 const AuthContext = createContext(null);
 
@@ -16,43 +16,35 @@ function logWarn(msg) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  // Loading is true only when a token exists in storage and needs to be validated
-  const [loading, setLoading] = useState(() => !!localStorage.getItem("token"));
+  // Das JWT liegt in einem httpOnly-Cookie und ist für JavaScript unsichtbar.
+  // Ob eine Sitzung besteht, lässt sich deshalb nur über /auth/me feststellen –
+  // der Aufruf erfolgt bei jedem Start, nicht mehr nur bei vorhandenem Token.
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      logInfo("Kein Token gespeichert – Benutzer nicht angemeldet");
-      return;
-    }
-    logInfo("Token gefunden – Validierung wird gestartet...");
+    logInfo("Sitzung wird geprüft...");
     authApi
       .me()
       .then(({ user: u }) => {
-        logInfo(`Token gültig – Benutzer: ${u.username} (Rolle: ${u.role})`);
+        logInfo(`Sitzung gültig – Benutzer: ${u.username} (Rolle: ${u.role})`);
         setUser(u);
-        // Restore mustChangePassword from sessionStorage (survives page reload within session)
-        const storedFlag = sessionStorage.getItem("mustChangePassword");
-        if (storedFlag === "true") {
+        // mustChangePassword aus sessionStorage wiederherstellen (übersteht Reload)
+        if (sessionStorage.getItem("mustChangePassword") === "true") {
           setMustChangePassword(true);
         }
       })
-      .catch((err) => {
-        logWarn(
-          `Token-Validierung fehlgeschlagen: ${err.message} – Benutzer wird abgemeldet`,
-        );
-        localStorage.removeItem("token");
+      .catch(() => {
+        logInfo("Keine gültige Sitzung – Benutzer nicht angemeldet");
         sessionStorage.removeItem("mustChangePassword");
         setUser(null);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  function login(token, userData, mustChange = false) {
+  function login(userData, mustChange = false) {
     logInfo(
       `Login erfolgreich: ${userData.username} (Rolle: ${userData.role}), Passwort ändern: ${mustChange}`,
     );
-    localStorage.setItem("token", token);
     if (mustChange) {
       sessionStorage.setItem("mustChangePassword", "true");
     }
@@ -66,10 +58,17 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem("mustChangePassword");
   }
 
-  function logout() {
+  async function logout() {
     logInfo(`Logout: ${user?.username || "unbekannt"}`);
-    localStorage.removeItem("token");
+    try {
+      // Nur das Backend kann das httpOnly-Cookie löschen
+      await authApi.logout();
+    } catch (err) {
+      logWarn(`Logout am Backend fehlgeschlagen: ${err.message}`);
+    }
     sessionStorage.removeItem("mustChangePassword");
+    // Fotos des abgemeldeten Benutzers nicht im Speicher liegen lassen
+    api.clearPhotoCache();
     setUser(null);
     setMustChangePassword(false);
   }

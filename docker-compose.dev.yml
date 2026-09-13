@@ -23,26 +23,38 @@ services:
       retries: 5
       start_period: 1m
 
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile.dev
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: development
       PORT: ${PORT}
+      VITE_API_URL: ${VITE_API_URL}
       JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET_OLD: ${JWT_SECRET_OLD:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION}
+      BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
+      BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
     volumes:
-      - ./backend/src:/app/src
-      - ./backend/package.json:/app/package.json
-      - ./backend/scripts:/app/scripts
-      - backend_node_modules:/app/node_modules
-    command: ["sh", "/app/scripts/dev-start.sh"]
+      - ./backend/src:/app/backend/src
+      - ./backend/scripts:/app/backend/scripts
+      - ./backend/package.json:/app/backend/package.json
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/public:/app/frontend/public
+      - ./frontend/index.html:/app/frontend/index.html
+      - app_node_modules:/app/node_modules
     ports:
-      - "${PORT}:${PORT}"
+      - "3000:5173"
+      - "3001:${PORT}"
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:3001/api/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -50,25 +62,7 @@ services:
       retries: 5
       start_period: 30s
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    restart: always
-    depends_on:
-      - backend
-    environment:
-      VITE_API_URL: ${VITE_API_URL}
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - ./frontend/index.html:/app/index.html
-      - frontend_node_modules:/app/node_modules
-    ports:
-      - "3000:5173"
-
 volumes:
   pgdata_dev:
-  backend_node_modules:
-  frontend_node_modules:
   pgbackups_dev:
+  app_node_modules:

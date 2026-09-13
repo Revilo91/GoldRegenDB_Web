@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.git
+.github
+e2e
+*.md
+.env
+.env.*
+!.env.example
+GoldRegenDB*.sql
+.serena
+graphify-out
+playwright-report
+test-results

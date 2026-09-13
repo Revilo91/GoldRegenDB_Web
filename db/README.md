@@ -118,6 +118,53 @@ docker compose exec db /restore.sh /backups/weekly/goldregendb_weekly_20231231_0
 
 ---
 
+## Tamper-Schutz für audit_log (Issue #139)
+
+`audit_log` protokolliert sicherheitsrelevante Änderungen an Schmuckstücken
+(Verkauft, Ausgelagert, Ausschuss, …). Damit niemand mit DB-Zugriff Einträge
+nachträglich löschen oder ändern kann, ohne Spuren zu hinterlassen:
+
+- **Immutable-Trigger** (`trg_audit_log_immutable`): blockiert jedes UPDATE
+  und DELETE auf `audit_log` mit einer Exception – unabhängig davon, welche
+  Rolle den Befehl ausführt (auch der App-User selbst). Nur INSERT ist
+  erlaubt.
+- **Hash-Kette** (`trg_audit_log_hash_chain`): jede Zeile bekommt beim INSERT
+  einen SHA-256-Hash über ihren Inhalt + den Hash der Vorgängerzeile
+  (`previous_hash`). Wird die Immutabilität doch umgangen (z.B. weil ein
+  Superuser den Trigger per `ALTER TABLE ... DISABLE TRIGGER` deaktiviert),
+  bricht die Kette – das lässt sich erkennen, auch wenn der Trigger selbst
+  ausgehebelt wurde.
+
+**Kette prüfen** (als Admin, meldet leere Liste = intakt):
+
+```sql
+SELECT * FROM verify_audit_chain();
+```
+
+oder über die Admin-API: `GET /api/audit-log/verify` →
+`{ "valid": true, "brokenEntries": [] }`. Ein Eintrag mit `problem:
+"hash_mismatch"` bedeutet, die Zeile wurde nachträglich verändert; `problem:
+"chain_broken"` bedeutet, eine Zeile fehlt (gelöscht) oder die Kette wurde an
+dieser Stelle neu begonnen.
+
+**Backup/Restore bleibt unverändert funktionsfähig:** `pg_dump` legt Trigger
+im „post-data“-Abschnitt an, also erst *nachdem* alle Zeilen per `COPY`
+geladen wurden – der Immutable-Trigger existiert während des Datenimports
+schlicht noch nicht und blockiert nichts. `restore.sh` löscht davor zusätzlich
+die gesamte Datenbank samt aller Trigger. Dieses Verhalten wurde gegen einen
+echten PostgreSQL-16-Dump/Restore-Zyklus verifiziert.
+
+**Bekannte Grenze:** Da Backend und Restore-Skripte denselben DB-User
+(`POSTGRES_USER`, faktisch Owner/Superuser der DB) verwenden, kann dieser
+User den Trigger theoretisch deaktivieren und wieder aktivieren – das ist
+architektonisch bedingt (ein einzelner DB-User für alles) und nicht
+vollständig verhinderbar, ohne einen dedizierten, rechte-eingeschränkten
+App-User samt eigener Anbindung einzuführen (nicht Teil dieses Issues). Die
+Hash-Kette macht einen solchen Eingriff aber nachträglich sichtbar statt ihn
+spurlos zuzulassen.
+
+---
+
 ## Backup-Strategie im Überblick
 
 ```
