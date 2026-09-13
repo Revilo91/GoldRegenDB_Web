@@ -541,6 +541,25 @@ p.lead {
   padding-right: 8px;
 }
 
+.table-photo-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.table-photo-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
 /* Etiketten / Label Vorschau (genutzt von /api/etiketten/preview) */
 @page {
   /* Physical page size for the label roll: 30mm (width) x 40mm (height) in portrait */
