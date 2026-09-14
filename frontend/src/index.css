@@ -46,19 +46,6 @@
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   --transition: all 0.2s ease;
   --border-hair: rgba(255, 255, 255, 0.06);
-
-  /* Label sizes for etiketten preview (used by backend /api/etiketten/preview) */
-  --label-small-w: 30mm;
-  --label-small-h: 20mm;
-  --label-small-brandH: 5mm;
-  --label-small-artSize: 5mm;
-  --label-small-hintSize: 2.2mm;
-
-  --label-large-w: 40mm;
-  --label-large-h: 30mm;
-  --label-large-brandH: 8mm;
-  --label-large-artSize: 8mm;
-  --label-large-hintSize: 3.5mm;
 }
 
 * {
@@ -400,7 +387,6 @@ p.lead {
 /* ============ TABLE ============ */
 .card,
 .alert-card,
-.active-hints-panel,
 .login-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -683,146 +669,383 @@ p.lead {
   font-weight: 600;
 }
 
-/* ===== Etiketten styles (moved from Etiketten.css) ===== */
+/* ===== Etiketten ===== */
 
-/* Layout utilities for form controls and labels */
-.flex-row-center {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.etiketten-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  align-items: start;
 }
 
-.flex-row-gap-12 {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.flex-wrap-gap-12 {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.flex-col-gap-10 {
+.etiketten-workflow {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.etiketten-preview {
+  position: sticky;
+  top: 16px;
+}
+
+.etiketten-page .card-header h3 {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.flex-col-gap-6 {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.mt-12 {
-  margin-top: 12px;
-}
-
-.hint-chip {
+.etikett-step {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: #f1f1f1;
-  color: #222;
-  border-radius: 16px;
-  margin: 4px;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
   font-size: 13px;
+  font-weight: 700;
 }
-.chip-remove {
+
+.etikett-search {
+  margin-bottom: 10px;
+}
+
+.etikett-options {
+  max-height: 340px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+}
+
+.etikett-hint-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 8px 4px;
+}
+
+.etikett-col-qty {
+  width: 96px;
+}
+
+.etikett-col-action {
+  width: 190px;
+  text-align: right;
+}
+
+.etikett-row-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.etikett-qty {
+  flex: 0 0 80px;
+  width: 80px;
+  padding: 6px 10px;
+}
+
+.etikett-row-active td {
+  background: var(--accent-glow);
+}
+
+.etikett-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.etikett-link:hover {
+  color: var(--accent-hover);
+}
+
+.etikett-file-input {
+  display: none;
+}
+
+/* ===== Gestaltung ===== */
+
+.etikett-design {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.etikett-fieldset {
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+.etikett-fieldset legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.etikett-size-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.etikett-size-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "radio name"
+    "radio dim"
+    "radio meta";
+  column-gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.etikett-size-option:hover {
+  border-color: var(--accent-hover);
+}
+
+.etikett-size-option.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.etikett-size-option input {
+  grid-area: radio;
+  align-self: center;
+  accent-color: var(--accent);
+}
+
+.etikett-size-name {
+  grid-area: name;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.etikett-size-dim {
+  grid-area: dim;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.etikett-size-meta {
+  grid-area: meta;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.etikett-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.etikett-chip:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--text-primary);
+}
+
+.etikett-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.etikett-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.etikett-custom-hint {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== Druckvorschau ===== */
+/* Die Bühne zeigt genau ein Etikett in physischer Form – der iframe rendert
+   dasselbe Dokument, das auch an den Drucker geht. */
+
+.etikett-stage {
+  position: relative;
+  height: 260px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.02) 0 8px,
+      transparent 8px 16px
+    ),
+    var(--bg-primary);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.etikett-stage-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+}
+
+.etikett-stage-busy {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-stage-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.etikett-scale {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.etikett-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.etikett-nav-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.etikett-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.etikett-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.etikett-alert-close {
   border: none;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  padding: 2px 4px;
-}
-.hint-label {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.custom-hint-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 8px;
+  font-size: 14px;
+  padding: 2px 6px;
 }
 
-/* Card specific adjustments */
-.hints-card-body {
-  padding: 14px;
+/* Deaktivierte Buttons sollen auch deaktiviert aussehen */
+.etiketten-page .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
 }
-.hints-card-body .preset-hints {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
+
+.etiketten-page .btn:disabled:hover {
+  background: inherit;
+  border-color: var(--border);
+  box-shadow: none;
 }
-.hints-card-body .custom-hint-row input {
-  height: 40px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid #d0d0d0;
+
+.etikett-custom-hint .btn {
+  white-space: nowrap;
 }
-.hints-card-body .custom-hint-row .btn {
-  height: 40px;
-  padding: 8px 12px;
+
+/* Unsichtbares iframe, über das der Druckauftrag läuft */
+.etikett-print-frame {
+  position: fixed;
+  width: 0;
+  height: 0;
+  border: 0;
+  visibility: hidden;
 }
-.hints-card-body .hint-chip {
-  background: #ffffff;
-  border: 1px solid #e6e6e6;
-  color: #222;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
-}
-.hints-card-body .hint-chip span {
-  color: inherit;
+
+@media (max-width: 1100px) {
+  .etiketten-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .etiketten-preview {
+    position: static;
+    order: -1;
+  }
 }
 
 @media (max-width: 640px) {
-  .custom-hint-row {
+  .etikett-col-action {
+    width: auto;
+  }
+  /* Schmale Ansicht: Anzahl und Button untereinander, damit die Tabelle
+     nicht breiter wird als die Karte */
+  .etikett-row-action {
     flex-direction: column;
     align-items: stretch;
+    gap: 6px;
   }
-  .hint-chip {
-    font-size: 12px;
-  }
-  .hints-card-body .custom-hint-row .btn {
+  .etikett-qty {
+    flex: 0 0 auto;
     width: 100%;
   }
-}
-
-/* Hints wrapper: card + active hints panel side-by-side */
-.hints-wrapper {
-  margin: 10px 0;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-.active-hints-panel {
-  min-width: 200px;
-  padding: 12px;
-  overflow: hidden;
-}
-.active-hints-panel h4 {
-  margin: 0 0 6px 0;
-}
-.active-hints-panel .muted {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-@media (max-width: 900px) {
-  .hints-wrapper {
+  .etiketten-page .data-table th,
+  .etiketten-page .data-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .etikett-custom-hint {
     flex-direction: column;
   }
-  .active-hints-panel {
-    min-width: 0;
-  }
 }
 
-/* ===== end Etiketten styles ===== */
+/* ===== end Etiketten ===== */
 
 .badge.success {
   background: var(--success-bg);

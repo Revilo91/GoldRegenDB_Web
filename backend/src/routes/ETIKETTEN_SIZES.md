@@ -1,120 +1,79 @@
-# Etikett-Größen Dokumentation
+# Etikett-Größen
 
-## Übersicht
+## Einzige Quelle
 
-Die Etikett-Größen sind zentral in `etiketten.js` unter `LABEL_SIZE_DEFAULTS` definiert. Jede Größe skaliert proportional.
-
-## Größendefinitionen
+Alle Etikettengrößen stehen in `backend/src/routes/etiketten.js` unter `LABEL_SIZES`.
+Das Frontend lädt sie über `GET /api/etiketten/sizes` – eine neue Größe muss also
+**nur an dieser einen Stelle** eingetragen werden.
 
 ```javascript
-const LABEL_SIZE_DEFAULTS = {
-  "extra-small": { w: "30mm", h: "20mm", brandH: "5mm", artSize: "5mm", hintSize: "2.2mm" },
-  "small":       { w: "48mm", h: "30mm", brandH: "8mm", artSize: "8mm", hintSize: "3.5mm" },
-  "medium":      { w: "60mm", h: "36mm", brandH: "10mm", artSize: "10mm", hintSize: "4mm" },
-  "large":       { w: "80mm", h: "48mm", brandH: "14mm", artSize: "14mm", hintSize: "5mm" },
+const LABEL_SIZES = {
+  small: { id: "small", name: "Klein", w: 30, h: 20,
+           rotate: false, showQr: false, brandH: 4, artSize: 5,   hintSize: 2.2 },
+  large: { id: "large", name: "Groß",  w: 40, h: 30,
+           rotate: true,  showQr: true,  brandH: 8, artSize: 8,   hintSize: 3.5 },
 };
 ```
 
-### Parameter-Erklärung
+| Feld | Bedeutung |
+|------|-----------|
+| `id` | Schlüssel, den das Frontend als `labelSize` sendet |
+| `name` | Anzeigename in der Größenauswahl |
+| `w`, `h` | Physische Maße in mm (Querformat, wie im Drucker eingelegt) |
+| `rotate` | `true` = Inhalt wird 90° gedreht gesetzt (Hängeetikett) |
+| `showQr` | `false` = kein QR-Code, wenn das Etikett zum Scannen zu klein ist |
+| `brandH` | Höhe des Logobereichs in mm |
+| `artSize` | Basis-Schriftgröße der Artikelnummer in mm |
+| `hintSize` | Basis-Schriftgröße der Materialhinweise in mm |
 
-| Parameter | Beschreibung |
-|-----------|-------------|
-| `w` | Breite des Etiketts |
-| `h` | Höhe des Etiketts |
-| `brandH` | Höhe des Logo/Brand-Bereichs |
-| `artSize` | Schriftgröße der Artikelnummer |
-| `hintSize` | Schriftgröße der Material-Hinweise |
+Alle Werte sind Zahlen ohne Einheit – die Route hängt `mm` an.
 
-## Neue Größe Hinzufügen
+## Neue Größe hinzufügen
 
-### Schritt 1: Backend (`backend/src/routes/etiketten.js`)
+Einen Eintrag in `LABEL_SIZES` ergänzen. Fertig. Größenauswahl, Vorschau,
+`@page`-Format und Druck ziehen die Werte automatisch nach.
 
-Neue Größe zu `LABEL_SIZE_DEFAULTS` hinzufügen:
+Faustregeln für die Proportionen:
 
-```javascript
-const LABEL_SIZE_DEFAULTS = {
-  // ... existing sizes ...
-  "custom": {
-    w: "XXmm",
-    h: "YYmm",
-    brandH: "Zmm",
-    artSize: "Amm",
-    hintSize: "Bmm",
-  },
-};
-```
+- `artSize` ≈ 25 % der kurzen Etikettkante
+- `hintSize` ≈ 70 % von `artSize`
+- `brandH` ≈ 20 % der langen Etikettkante
 
-### Schritt 2: Frontend (`frontend/src/pages/Etiketten.jsx`)
+## Layout
 
-Radio-Button für neue Größe hinzufügen:
+`backend/src/assets/etiketten-print.css` ist ein Template mit Platzhaltern,
+die `buildPrintCss()` ersetzt: `{{LABEL_W}}`, `{{LABEL_H}}`, `{{CONTENT_W}}`,
+`{{CONTENT_H}}`, `{{BRAND_H}}`, `{{ART_SIZE}}`, `{{HINT_SIZE}}`.
 
-```jsx
-<label className="flex-row-center">
-  <input
-    type="radio"
-    name="labelSize"
-    value="custom"
-    checked={labelSize === "custom"}
-    onChange={(e) => setLabelSize(e.target.value)}
-  />
-  <span>Name (XX × YY mm)</span>
-</label>
-```
+Aufbau des Etiketts von oben nach unten:
 
-### Schritt 3: CSS-Variablen (`frontend/src/index.css`)
+1. Logo (`brandH` hoch)
+2. Gepunktete Trennlinie
+3. Artikelnummer (zentriert, Basisnummer ohne `_`-Suffix)
+4. Materialhinweise (2 Spalten × 3 Zeilen, max. 6)
+5. Fußzeile mit Warnsymbol und – falls `showQr` – QR-Code
 
-CSS-Variablen für die neue Größe dokumentieren (optional, für Preview):
+Abstände (`--gap`) und Symbolgröße (`--icon-size`) sind proportional zur
+Inhaltsbox definiert, damit jede Größe mit demselben Aufbau auskommt, ohne
+dass Inhalte abgeschnitten werden.
 
-```css
---label-custom-w: XXmm;
---label-custom-h: YYmm;
---label-custom-brandH: Zmm;
---label-custom-artSize: Amm;
---label-custom-hintSize: Bmm;
-```
+**Bei `rotate: true`** wird der Inhalt in einer um 90° getauschten Box
+(`CONTENT_W` = `h`, `CONTENT_H` = `w`) gesetzt und gedreht.
 
-## Proportionale Skalierung
+## Vorschau und Druck sind identisch
 
-Die Größen folgen einer proportionalen Skalierung:
+`POST /api/etiketten/preview` kennt zwei Modi:
 
-- **extra-small**: 30×20 mm (kleinste Größe, kompakt)
-- **small**: 48×30 mm (Standard klein)
-- **medium**: 60×36 mm (Standard mittel)
-- **large**: 80×48 mm (größte Größe, für mehr Details)
+| `mode` | Ergebnis |
+|--------|----------|
+| `print` (Standard) | Alle Etiketten, je eines pro Druckseite (`@page`) |
+| `single` | Genau ein Etikett, skaliert sich im iframe der Druckvorschau |
 
-Bei der Skalierung sollten folgende Verhältnisse beachtet werden:
-- `artSize` sollte 10-15% der Etiketthöhe sein
-- `hintSize` sollte etwa 70% von `artSize` sein
-- `brandH` sollte etwa 20-25% der Etiketthöhe sein
+Beide Modi rendern dasselbe Markup mit demselben CSS – die Bildschirmvorschau
+zeigt also das physische Etikett inklusive Drehung, nicht eine Bildschirmvariante
+davon. Im Modus `single` ohne Artikel wird ein Musteretikett erzeugt, damit sich
+Größe und Hinweise vorab beurteilen lassen.
 
-## Layout-Struktur
-
-Das Etikett wird **90° gedreht** gedruckt und enthält folgende Elemente (von oben nach unten):
-
-1. **Logo-Bereich** (`brandH` hoch)
-2. **Gepunktete Linie** (Trennlinie)
-3. **Artikelnummer** (zentriert)
-4. **Material-Hinweise** (2-spaltig, max. 6 Zeilen)
-5. **Unten-Bereich** (Warnsymbol + QR-Code)
-
-Siehe `etiketten-print.css` für Details der CSS-Struktur.
-
-## Hilfsfunktionen
-
-### Größe auflösen
-```javascript
-const sizeConfig = resolveLabelSize("small", cssContent);
-// Gibt: { w: "48mm", h: "30mm", brandH: "8mm", artSize: "8mm", hintSize: "3.5mm" }
-```
-
-### CSS-Variable lesen
-```javascript
-const value = getCssVar(cssContent, "--label-small-w", "48mm");
-```
-
-## Tests
-
-Alle Größen sollten im Frontend überprüft werden:
-1. Öffne `POST /api/etiketten/preview`
-2. Wähle verschiedene Größen
-3. Prüfe, dass Text, Logo und QR-Code proportional skalieren
+Die Vorschau meldet ihren berechneten Maßstab per `postMessage` an die App und
+nimmt umgekehrt `{ type: "etikett-size-mode", mode: "fit" | "actual" }` entgegen,
+um zwischen „Einpassen“ und „Originalgröße“ (1:1) umzuschalten.

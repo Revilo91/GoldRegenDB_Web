@@ -7,52 +7,52 @@ const QRCode = require("qrcode");
 const fs = require("fs").promises;
 const path = require("path");
 
-const FRONTEND_CSS_PATH = path.resolve(
-  __dirname,
-  "../../../frontend/src/index.css",
-);
 const WARN_SVG_PATH = path.resolve(__dirname, "../assets/warn_0-3.svg");
 const BRAND_SVG_PATH = path.resolve(__dirname, "../assets/goldregen.svg");
-const PRINT_CSS_TEMPLATE_PATH = path.resolve(
-  __dirname,
-  "../assets/etiketten-print.css",
-);
+const PRINT_CSS_PATH = path.resolve(__dirname, "../assets/etiketten-print.css");
 const QR_TARGET_URL = "https://goldregenschmuckdesign.de";
 const MAX_MATERIAL_HINTS = 6;
-let printCssTemplateCache = null;
+const SAMPLE_ARTIKELNUMMER = "GR12345";
 
 /**
- * Etikett-Größen mit proportionalen Skalierungen
- * Jede Größe definiert:
- * - w, h: Breite und Höhe des Etiketts
- * - brandH: Höhe des Logo/Brand-Bereichs
- * - artSize: Schriftgröße für Artikelnummer
- * - hintSize: Schriftgröße für Material-Hinweise
+ * Einzige Quelle für Etikettengrößen – das Frontend lädt sie über GET /sizes,
+ * damit eine neue Größe nur hier eingetragen werden muss.
+ *
+ * w/h      physische Etikettmaße in mm (Querformat, wie im Drucker eingelegt)
+ * rotate   Inhalt wird 90° gedreht gedruckt (Hängeetikett an der Schmuckkarte)
+ * showQr   QR-Code nur, wenn das Etikett groß genug zum Scannen ist
+ * brandH   Höhe des Logobereichs, artSize/hintSize Schriftgrößen – alles in mm
  */
-/**
- * Etikett-Größen mit proportionalen Skalierungen.
- * showQr: false = kein QR-Code (zu kleines Etikett zum Scannen)
- */
-const LABEL_SIZE_DEFAULTS = {
+const LABEL_SIZES = {
   small: {
-    w: "30mm",
-    h: "20mm",
-    brandH: "5mm",
-    artSize: "5mm",
-    hintSize: "2.2mm",
+    id: "small",
+    name: "Klein",
+    w: 30,
+    h: 20,
+    rotate: false,
     showQr: false,
+    brandH: 4,
+    artSize: 5,
+    hintSize: 2.2,
   },
   large: {
-    w: "40mm",
-    h: "30mm",
-    brandH: "8mm",
-    artSize: "8mm",
-    hintSize: "3.5mm",
+    id: "large",
+    name: "Groß",
+    w: 40,
+    h: 30,
+    rotate: true,
     showQr: true,
+    brandH: 8,
+    artSize: 8,
+    hintSize: 3.5,
   },
 };
+const DEFAULT_LABEL_SIZE = "small";
 
-// Hilfsfunktion: HTML Escaping
+// Logo, Warnsymbol, QR-Code und CSS-Template ändern sich zur Laufzeit nicht
+let printCssTemplateCache = null;
+let previewAssetsCache = null;
+
 const escapeHtml = (str) => {
   if (str == null) return "";
   return String(str)
@@ -63,54 +63,35 @@ const escapeHtml = (str) => {
     .replace(/'/g, "&#039;");
 };
 
-// Hilfsfunktion: Lese CSS Variablen aus der index.css
-const getCssVar = (cssContent, name, fallback) => {
-  if (!cssContent) return fallback;
-  const re = new RegExp(
-    name.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + "\\s*:\\s*([^;]+);",
-    "i",
-  );
-  const m = cssContent.match(re);
-  return m ? m[1].trim() : fallback;
-};
-
 const readTextFileIfExists = async (filePath) => {
   try {
     return await fs.readFile(filePath, "utf8");
   } catch (err) {
-    if (err.code === "ENOENT") {
-      return null;
-    }
+    if (err.code === "ENOENT") return null;
     throw err;
   }
 };
 
-const toSvgDataUrl = (svgContent) => {
-  return `data:image/svg+xml;base64,${Buffer.from(svgContent).toString("base64")}`;
-};
+const toSvgDataUrl = (svgContent) =>
+  `data:image/svg+xml;base64,${Buffer.from(svgContent).toString("base64")}`;
+
+const resolveLabelSize = (labelSize) =>
+  LABEL_SIZES[String(labelSize || "").trim()] || LABEL_SIZES[DEFAULT_LABEL_SIZE];
 
 const normalizeRequestedItems = (items) => {
-  if (!Array.isArray(items)) {
-    return [];
-  }
-
+  if (!Array.isArray(items)) return [];
   return items
     .map((item) => ({
       artikelnummer: String(item?.artikelnummer || "").trim(),
-      qty: parseInt(item?.qty, 10) || 1,
+      qty: Math.max(1, parseInt(item?.qty, 10) || 1),
     }))
     .filter((item) => item.artikelnummer);
 };
 
 const normalizeMaterialHints = (materialHints) => {
-  if (!Array.isArray(materialHints)) {
-    return [];
-  }
-
+  if (!Array.isArray(materialHints)) return [];
   return [
-    ...new Set(
-      materialHints.map((hint) => String(hint).trim()).filter(Boolean),
-    ),
+    ...new Set(materialHints.map((hint) => String(hint).trim()).filter(Boolean)),
   ].slice(0, MAX_MATERIAL_HINTS);
 };
 
@@ -119,12 +100,7 @@ const fetchLabelDetail = async ({ artikelnummer, qty }) => {
     `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 OR "Artikelnummer" LIKE $2 ORDER BY "Artikelnummer" LIMIT 1`,
     [artikelnummer, `${artikelnummer}\\_%`],
   );
-
-  if (rows.length === 0) {
-    return null;
-  }
-
-  return { row: rows[0], qty };
+  return rows.length === 0 ? null : { row: rows[0], qty };
 };
 
 const fetchLabelDetails = async (items) => {
@@ -138,15 +114,10 @@ const loadQrDataUrl = async () => {
       errorCorrectionLevel: "Q",
       margin: 4,
       width: 1200,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF",
-      },
+      color: { dark: "#000000", light: "#FFFFFF" },
     });
   } catch (err) {
-    logger.warn("ETIKETTEN", "QR-Code Fehler", {
-      message: err.message,
-    });
+    logger.warn("ETIKETTEN", "QR-Code Fehler", { message: err.message });
     return "";
   }
 };
@@ -157,74 +128,32 @@ const loadSvgDataUrl = async (filePath, logMessage) => {
     return svgContent ? toSvgDataUrl(svgContent) : "";
   } catch (err) {
     if (logMessage) {
-      logger.warn("ETIKETTEN", logMessage, {
-        message: err.message,
-      });
+      logger.warn("ETIKETTEN", logMessage, { message: err.message });
     }
     return "";
   }
 };
 
 const loadPreviewAssets = async () => {
-  const [qrDataUrl, warnDataUrl, brandDataUrl, cssContent] = await Promise.all([
+  if (previewAssetsCache) return previewAssetsCache;
+
+  const [qrDataUrl, warnDataUrl, brandDataUrl] = await Promise.all([
     loadQrDataUrl(),
     loadSvgDataUrl(WARN_SVG_PATH),
     loadSvgDataUrl(BRAND_SVG_PATH, "Brand-Logo konnte nicht gelesen werden"),
-    readTextFileIfExists(FRONTEND_CSS_PATH),
   ]);
 
-  return {
-    qrDataUrl,
-    warnDataUrl,
-    brandDataUrl,
-    cssContent: cssContent || "",
-  };
+  previewAssetsCache = { qrDataUrl, warnDataUrl, brandDataUrl };
+  return previewAssetsCache;
 };
 
-const getLabelSizes = (cssContent) => {
-  return Object.fromEntries(
-    Object.entries(LABEL_SIZE_DEFAULTS).map(([size, defaults]) => [
-      size,
-      {
-        w: getCssVar(cssContent, `--label-${size}-w`, defaults.w),
-        h: getCssVar(cssContent, `--label-${size}-h`, defaults.h),
-        brandH: getCssVar(
-          cssContent,
-          `--label-${size}-brandH`,
-          defaults.brandH,
-        ),
-        artSize: getCssVar(
-          cssContent,
-          `--label-${size}-artSize`,
-          defaults.artSize,
-        ),
-        hintSize: getCssVar(
-          cssContent,
-          `--label-${size}-hintSize`,
-          defaults.hintSize,
-        ),
-        // showQr ist ein Boolean – kein CSS-Variable, kommt immer aus LABEL_SIZE_DEFAULTS
-        showQr: defaults.showQr,
-      },
-    ]),
-  );
-};
-
-const resolveLabelSize = (labelSize, cssContent) => {
-  const sizes = getLabelSizes(cssContent);
-  return sizes[String(labelSize || "small")] || sizes.small;
-};
-
-const buildBrandHtml = (brandDataUrl) => {
-  return brandDataUrl
+const buildBrandHtml = (brandDataUrl) =>
+  brandDataUrl
     ? `<img src="${brandDataUrl}" class="brand-logo" alt="GoldRegen" />`
     : '<div class="brand-text">GoldRegen Schmuckdesign</div>';
-};
 
 const buildHintsHtml = (materialHints) => {
-  if (materialHints.length === 0) {
-    return '<div class="empty-space"></div>';
-  }
+  if (materialHints.length === 0) return '<div class="empty-space"></div>';
 
   const rows = [];
   for (let index = 0; index < 3; index++) {
@@ -237,138 +166,146 @@ const buildHintsHtml = (materialHints) => {
     rows.push(`<tr>${left}${right}</tr>`);
   }
 
-  return `
-    <div class="hints-container">
+  return `<div class="hints-container">
       <p class="hints-title">Material Hinweise</p>
-      <table class="hints-table">
-        <tbody>
-          ${rows.join("\n")}
-        </tbody>
-      </table>
-    </div>
-  `;
+      <table class="hints-table"><tbody>${rows.join("")}</tbody></table>
+    </div>`;
 };
 
-const buildWarnImgHtml = (warnDataUrl) => {
-  return warnDataUrl
+const buildWarnImgHtml = (warnDataUrl) =>
+  warnDataUrl
     ? `<img src="${warnDataUrl}" class="warn-symbol" alt="Warnung" />`
     : '<img src="/api/etiketten/warn.svg" class="warn-symbol" alt="Warnung" />';
-};
 
-const buildQrImgHtml = (qrDataUrl) => {
-  return qrDataUrl ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" />` : "";
-};
+const buildQrImgHtml = (qrDataUrl) =>
+  qrDataUrl ? `<img src="${qrDataUrl}" alt="QR" class="qr-img" />` : "";
 
-const buildLabelMarkup = ({ row, qty }, templateData) => {
-  const articleNumber = String(row.Artikelnummer || "").split("_")[0];
-  const artNrClass = articleNumber.length > 7 ? "artnr compact" : "artnr";
-  const labelClass = templateData.labelSize
-    ? `label label--${templateData.labelSize}`
-    : "label";
-  const bottomRowClass = templateData.qrImgHtml
+const buildLabelMarkup = (artikelnummer, sizeConfig, parts) => {
+  const artNrClass = artikelnummer.length > 7 ? "artnr compact" : "artnr";
+  const labelClass = sizeConfig.rotate ? "label label--rotated" : "label";
+  const bottomRowClass = parts.qrImgHtml
     ? "bottom-row"
     : "bottom-row bottom-row--no-qr";
-  const labels = [];
 
-  for (let index = 0; index < qty; index++) {
-    labels.push(`
-      <div class="${labelClass}">
-        <div class="rot">
-          <div class="logo-container">${templateData.brandHtml}</div>
-          <div class="dotted-line"></div>
-          <div class="${artNrClass}">${escapeHtml(articleNumber)}</div>
-          ${templateData.hintsHtml}
-          <div class="${bottomRowClass}">
-            ${templateData.warnImgHtml}
-            ${templateData.qrImgHtml}
-          </div>
-        </div>
+  return `<div class="${labelClass}">
+      <div class="label-content">
+        <div class="logo-container">${parts.brandHtml}</div>
+        <div class="dotted-line"></div>
+        <div class="${artNrClass}">${escapeHtml(artikelnummer)}</div>
+        ${parts.hintsHtml}
+        <div class="${bottomRowClass}">${parts.warnImgHtml}${parts.qrImgHtml}</div>
       </div>
-    `);
-  }
-
-  return labels.join("\n");
+    </div>`;
 };
 
-const buildLabelsMarkup = (details, templateData) => {
-  return details
-    .map((detail) => buildLabelMarkup(detail, templateData))
-    .join("\n");
-};
+// Basis-Artikelnummer: "GR12345_3" -> "GR12345"
+const baseArtikelnummer = (value) => String(value || "").split("_")[0];
+
+const buildLabelsMarkup = (details, sizeConfig, parts) =>
+  details
+    .flatMap(({ row, qty }) =>
+      Array.from({ length: qty }, () =>
+        buildLabelMarkup(baseArtikelnummer(row.Artikelnummer), sizeConfig, parts),
+      ),
+    )
+    .join("");
 
 const getPrintCssTemplate = async () => {
-  if (printCssTemplateCache != null) {
-    return printCssTemplateCache;
-  }
+  if (printCssTemplateCache != null) return printCssTemplateCache;
 
-  const template = await readTextFileIfExists(PRINT_CSS_TEMPLATE_PATH);
-  if (!template) {
-    throw new Error("Etiketten CSS-Template nicht gefunden");
-  }
+  const template = await readTextFileIfExists(PRINT_CSS_PATH);
+  if (!template) throw new Error("Etiketten CSS-Template nicht gefunden");
 
   printCssTemplateCache = template;
   return printCssTemplateCache;
 };
 
-const replaceTemplateVars = (template, replacements) => {
-  let css = template;
-  for (const [key, value] of Object.entries(replacements)) {
-    css = css.replaceAll(`{{${key}}}`, value);
-  }
-  return css;
-};
-
 const buildPrintCss = async (sizeConfig) => {
   const template = await getPrintCssTemplate();
-  return replaceTemplateVars(template, {
+  // Gedrehte Etiketten werden in einer um 90° getauschten Inhaltsbox gesetzt
+  const replacements = {
     LABEL_W: sizeConfig.w,
     LABEL_H: sizeConfig.h,
+    CONTENT_W: sizeConfig.rotate ? sizeConfig.h : sizeConfig.w,
+    CONTENT_H: sizeConfig.rotate ? sizeConfig.w : sizeConfig.h,
     BRAND_H: sizeConfig.brandH,
     ART_SIZE: sizeConfig.artSize,
     HINT_SIZE: sizeConfig.hintSize,
-  });
+  };
+
+  return Object.entries(replacements).reduce(
+    (css, [key, value]) => css.replaceAll(`{{${key}}}`, value),
+    template,
+  );
 };
 
-const buildPreviewHtml = async ({ sizeConfig, labelsMarkup }) => {
-  const printCss = await buildPrintCss(sizeConfig);
-  return `<!doctype html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Etiketten Vorschau</title>
-      <style>${printCss}</style>
-    </head>
-    <body class="etiketten-body">
-      <div class="sheet">
-        ${labelsMarkup}
-      </div>
-      <script>window.onload = function(){ window.focus(); };</script>
-    </body>
-    </html>`;
-};
-
-const normalizeLabelSizeKey = (labelSize) => {
-  const value = String(labelSize || "small").trim();
-  return Object.prototype.hasOwnProperty.call(LABEL_SIZE_DEFAULTS, value)
-    ? value
-    : "small";
-};
-
-const sendTextFile = async (res, filePath, contentType, notFoundResponse) => {
-  try {
-    const content = await readTextFileIfExists(filePath);
-    if (content == null) {
-      return res.status(404).send(notFoundResponse);
+// Skaliert das Etikett in der Vorschau auf die Fläche des iframes und schaltet
+// per postMessage auf Originalgröße (1:1) um.
+const PREVIEW_SCRIPT = `
+(function () {
+  var label = document.querySelector('.label');
+  if (!label) return;
+  var actualSize = false;
+  function apply() {
+    var scale = 1;
+    if (!actualSize) {
+      var available = Math.min(
+        (window.innerWidth - 24) / label.offsetWidth,
+        (window.innerHeight - 24) / label.offsetHeight,
+      );
+      scale = Math.max(0.4, Math.min(available, 8));
     }
-    res.set("Content-Type", contentType);
-    return res.send(content);
-  } catch (err) {
-    return res.status(500).send(notFoundResponse === "" ? "" : "/* error */");
+    document.documentElement.style.setProperty('--preview-scale', scale);
+    parent.postMessage({ type: 'etikett-scale', scale: scale }, '*');
   }
+  window.addEventListener('resize', apply);
+  window.addEventListener('message', function (event) {
+    if (event.data && event.data.type === 'etikett-size-mode') {
+      actualSize = event.data.mode === 'actual';
+      apply();
+    }
+  });
+  apply();
+})();`;
+
+const buildDocument = ({ printCss, labelsMarkup, mode }) => {
+  const bodyScript =
+    mode === "single"
+      ? `<script>${PREVIEW_SCRIPT}</script>`
+      : "<script>window.onload = function(){ window.focus(); };</script>";
+
+  return `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Etiketten</title>
+<style>${printCss}</style>
+</head>
+<body class="etiketten-body mode-${mode}">
+${labelsMarkup}
+${bodyScript}
+</body>
+</html>`;
 };
+
+// --- GET SIZES ---
+// Etikettengrößen für die Auswahl im Frontend
+router.get("/sizes", (req, res) => {
+  res.json({
+    defaultSize: DEFAULT_LABEL_SIZE,
+    sizes: Object.values(LABEL_SIZES).map(({ id, name, w, h, rotate, showQr }) => ({
+      id,
+      name,
+      w,
+      h,
+      rotate,
+      showQr,
+    })),
+  });
+});
 
 // --- GET OPTIONS ---
-// Liefert Liste eindeutiger Basis-Artikelnummern für Dropdowns
+// Liefert Liste eindeutiger Basis-Artikelnummern für die Artikelauswahl
 router.get("/options", async (req, res) => {
   try {
     const q = String(req.query.q || "")
@@ -402,9 +339,7 @@ router.get("/options", async (req, res) => {
     `;
 
     const { rows } = await db.query(query, [...builder.getParams(), limit]);
-    res.json(
-      rows.map((r) => ({ artikelnummer: r.artikel_base, name: r.name })),
-    );
+    res.json(rows.map((r) => ({ artikelnummer: r.artikel_base, name: r.name })));
   } catch (err) {
     logger.error("ETIKETTEN", "Fehler beim Laden der Etiketten-Optionen", {
       message: err.message,
@@ -414,53 +349,72 @@ router.get("/options", async (req, res) => {
 });
 
 // --- POST PREVIEW ---
-// Generiert die HTML-Vorschau und das Drucklayout der Etiketten
+// mode "print"  -> alle Etiketten, je eines pro Druckseite
+// mode "single" -> genau ein Etikett für die maßstabsgetreue Vorschau im iframe
 router.post("/preview", async (req, res) => {
   try {
-    const items = normalizeRequestedItems(req.body.items);
-    if (items.length === 0) {
+    const mode = req.body.mode === "single" ? "single" : "print";
+    const requested = normalizeRequestedItems(req.body.items);
+
+    if (mode === "print" && requested.length === 0) {
       return res.status(400).json({ error: "Keine Artikel übergeben" });
     }
 
+    // Die Vorschau zeigt genau ein Etikett, unabhängig von der Stückzahl
+    const items =
+      mode === "single"
+        ? requested.slice(0, 1).map((item) => ({ ...item, qty: 1 }))
+        : requested;
     const materialHints = normalizeMaterialHints(req.body.materialHints);
-    const details = await fetchLabelDetails(items);
+    const sizeConfig = resolveLabelSize(req.body.labelSize);
     const assets = await loadPreviewAssets();
-    const labelSizeKey = normalizeLabelSizeKey(req.body.labelSize);
-    const sizeConfig = resolveLabelSize(labelSizeKey, assets.cssContent);
-    const labelsMarkup = buildLabelsMarkup(details, {
+    const parts = {
       brandHtml: buildBrandHtml(assets.brandDataUrl),
       hintsHtml: buildHintsHtml(materialHints),
       warnImgHtml: buildWarnImgHtml(assets.warnDataUrl),
       qrImgHtml: sizeConfig.showQr ? buildQrImgHtml(assets.qrDataUrl) : "",
-      labelSize: labelSizeKey,
-    });
-    const html = await buildPreviewHtml({ sizeConfig, labelsMarkup });
+    };
+
+    const details = await fetchLabelDetails(items);
+    let labelsMarkup = buildLabelsMarkup(details, sizeConfig, parts);
+
+    // Ohne Auswahl zeigt die Vorschau ein Musteretikett, damit Größe und
+    // Materialhinweise vorab beurteilt werden können.
+    if (!labelsMarkup && mode === "single") {
+      labelsMarkup = buildLabelMarkup(SAMPLE_ARTIKELNUMMER, sizeConfig, parts);
+    }
+
+    if (!labelsMarkup) {
+      return res
+        .status(404)
+        .json({ error: "Keine der angegebenen Artikelnummern gefunden" });
+    }
+
+    const printCss = await buildPrintCss(sizeConfig);
 
     res.set("Content-Type", "text/html; charset=utf-8");
-    res.send(html);
+    res.send(buildDocument({ printCss, labelsMarkup, mode }));
   } catch (err) {
     logger.error("ETIKETTEN", "Fehler beim Erzeugen der Vorschau", {
       message: err.message,
     });
-    res
-      .status(500)
-      .json({ error: "Fehler beim Erzeugen der Etiketten-Vorschau" });
+    res.status(500).json({ error: "Fehler beim Erzeugen der Etiketten-Vorschau" });
   }
-});
-
-// --- GET CSS FOREGROUND (für Vorschau) ---
-router.get("/styles.css", async (req, res) => {
-  return sendTextFile(
-    res,
-    FRONTEND_CSS_PATH,
-    "text/css; charset=utf-8",
-    "/* not found */",
-  );
 });
 
 // --- GET WARN SVG ---
 router.get("/warn.svg", async (req, res) => {
-  return sendTextFile(res, WARN_SVG_PATH, "image/svg+xml; charset=utf-8", "");
+  try {
+    const content = await readTextFileIfExists(WARN_SVG_PATH);
+    if (content == null) return res.status(404).send("");
+    res.set("Content-Type", "image/svg+xml; charset=utf-8");
+    return res.send(content);
+  } catch (err) {
+    logger.error("ETIKETTEN", "Warnsymbol konnte nicht gelesen werden", {
+      message: err.message,
+    });
+    return res.status(500).send("");
+  }
 });
 
 module.exports = router;

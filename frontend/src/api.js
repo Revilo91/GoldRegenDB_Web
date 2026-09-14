@@ -437,6 +437,7 @@ export const api = {
   getInventurDiff: (id) => request(`/lagerinventur/drafts/${id}/diff`),
 
   // Etiketten
+  getEtikettenSizes: () => request('/etiketten/sizes'),
   getEtikettenOptions: (params) => {
     const qs = params ? new URLSearchParams(params).toString() : '';
     return request(`/etiketten/options${qs ? `?${qs}` : ''}`);

@@ -1,135 +1,84 @@
 /*
- * Etikett-Layout Strategie:
- * - Screen-Vorschau: Hochformat (LABEL_H breit, LABEL_W hoch), kein Rotate → Text normal lesbar
- * - Druck (@media print): Querformat (LABEL_W breit, LABEL_H hoch) mit 90°-Rotation der
- *   Inhalte, damit das physische Etikett nach dem Drehen korrekt lesbar ist.
+ * Etikett-Layout – Bildschirmvorschau und Druck rendern identisch.
+ *
+ * Das Etikett ist immer so groß wie das physische Medium ({{LABEL_W}}mm × {{LABEL_H}}mm,
+ * Querformat wie im Drucker eingelegt). Bei .label--rotated wird der Inhalt in einer
+ * um 90° getauschten Box gesetzt und gedreht – das ist keine Druck-Sonderbehandlung
+ * mehr, sondern gilt auch in der Vorschau. Was man sieht, kommt so aus dem Drucker.
+ *
+ * Platzhalter werden in backend/src/routes/etiketten.js aus LABEL_SIZES ersetzt.
  */
 
 @page {
-  /* Physisches Etikett im Querformat (z.B. 30mm × 20mm) */
-  size: {{LABEL_W}} {{LABEL_H}};
-  margin: 0mm;
+  size: {{LABEL_W}}mm {{LABEL_H}}mm;
+  margin: 0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --label-w: {{LABEL_W}}mm;
+  --label-h: {{LABEL_H}}mm;
+  --content-w: {{CONTENT_W}}mm;
+  --content-h: {{CONTENT_H}}mm;
+  --brand-h: {{BRAND_H}}mm;
+  --art-size: {{ART_SIZE}}mm;
+  --hint-size: {{HINT_SIZE}}mm;
+  /* Abstände und Symbolgröße proportional zur Inhaltsbox, damit jede
+     Etikettengröße mit demselben Aufbau auskommt */
+  --gap: calc(var(--content-h) * 0.015);
+  --icon-size: min(calc(var(--content-w) * 0.3), calc(var(--content-h) * 0.2));
+  --preview-scale: 1;
 }
 
 html,
 body {
-  /* Screen: Hochformat-Breite = physische Etiketthöhe */
-  width: {{LABEL_H}};
-  margin: 0;
-  padding: 0;
   background: #fff;
-  overflow: hidden;
-}
-
-body.etiketten-body {
   font-family: Arial, Helvetica, sans-serif;
-  width: {{LABEL_H}};
+  color: #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
-:root {
-  --label-w: {{LABEL_W}};
-  --label-h: {{LABEL_H}};
-  --brand-h: {{BRAND_H}};
-  --art-size: {{ART_SIZE}};
-  --hint-size: {{HINT_SIZE}};
-  /* Visuelle Dimensionen im Screen-Hochformat: visual-w = label-h, visual-h = label-w */
-  --visual-w: {{LABEL_H}};
-  --visual-h: {{LABEL_W}};
-  --qr-size: min(calc(var(--visual-w) * 0.44), calc(var(--visual-h) * 0.44));
-}
-
-.sheet {
-  /* Screen: Hochformat-Breite */
-  width: {{LABEL_H}};
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-  margin: 0;
-}
+/* ===== Etikett ===== */
 
 .label {
-  box-sizing: border-box;
-  /* Screen: Hochformat (LABEL_H breit, LABEL_W hoch) */
-  width: {{LABEL_H}};
-  height: {{LABEL_W}};
+  width: var(--label-w);
+  height: var(--label-h);
+  background: #fff;
   display: flex;
-  justify-content: center;
   align-items: center;
-  border: none;
-  box-shadow: none;
-  margin: 0;
-  page-break-after: always;
-  break-after: page;
+  justify-content: center;
   overflow: hidden;
 }
 
-.label:last-child {
-  page-break-after: auto;
-  break-after: auto;
-}
-
-/* Screen: Inhalt füllt das Hochformat-Label ohne Rotation */
-.label .rot {
-  width: 100%;
-  height: 100%;
+.label-content {
+  flex: 0 0 auto;
+  width: var(--content-w);
+  height: var(--content-h);
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   align-items: center;
-  padding: 0.8mm 1.1mm;
-  box-sizing: border-box;
+  padding: calc(var(--content-h) * 0.03) calc(var(--content-w) * 0.035);
   overflow: hidden;
 }
 
-/* Druck: Label-Container auf Querformat umschalten und Inhalt 90° drehen */
-@media print {
-  html,
-  body {
-    width: {{LABEL_W}};
-  }
-
-  body.etiketten-body {
-    width: {{LABEL_W}};
-  }
-
-  .sheet {
-    width: {{LABEL_W}};
-  }
-
-  .label {
-    width: {{LABEL_W}};
-    height: {{LABEL_H}};
-  }
-
-  .label .rot {
-    transform: rotate(90deg);
-    transform-origin: center center;
-    width: {{LABEL_H}};
-    height: {{LABEL_W}};
-  }
-
-  /* 30x20: Kein 90°-Rotate, damit das Etikett selbst im Querformat bleibt */
-  .label--small .rot {
-    transform: none;
-    width: 100%;
-    height: 100%;
-  }
-
-  .label--small .brand-logo,
-  .label--small .brand-text {
-    transform: none;
-  }
+/* Hängeetikett: Inhalt läuft quer zur Vorschubrichtung */
+.label--rotated .label-content {
+  transform: rotate(90deg);
 }
 
 .logo-container {
   width: 100%;
-  margin: 0.5em 0;
-  flex: 0 0 calc(var(--brand-h) * 1);
+  margin-bottom: var(--gap);
+  flex: 0 0 var(--brand-h);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
@@ -137,80 +86,67 @@ body.etiketten-body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: center;
   display: block;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
 }
 
 .brand-text {
+  width: 100%;
   text-align: center;
   font-weight: bold;
   font-size: calc(var(--brand-h) * 0.95);
-  width: 100%;
   line-height: 1;
 }
 
 .dotted-line {
   width: 100%;
   border-bottom: 1px dotted #000;
-  margin: 1mm;
-  flex-shrink: 0;
+  margin-bottom: var(--gap);
+  flex: 0 0 auto;
 }
 
 .artnr {
   text-align: center;
   font-weight: bold;
-  /* Nutze visual-h (= physische Label-Breite = lange Seite) für korrekte Skalierung */
-  font-size: min(calc(var(--art-size) * 0.74), calc(var(--visual-h) * 0.2));
+  font-size: min(calc(var(--art-size) * 0.74), calc(var(--content-h) * 0.2));
   line-height: 1;
   letter-spacing: 0.1mm;
 }
 
-/* Kleiner "Art.Nr." Prefix inline vor der Artikelnummer */
-.artnr-prefix {
-  font-size: 0.38em;
-  font-weight: bold;
-  vertical-align: middle;
-  letter-spacing: 0;
-  margin-right: 0.3mm;
-}
-
 .artnr.compact {
-  font-size: min(calc(var(--art-size) * 0.64), calc(var(--visual-h) * 0.17));
+  font-size: min(calc(var(--art-size) * 0.64), calc(var(--content-h) * 0.17));
   letter-spacing: 0.02mm;
 }
 
 .hints-container {
   width: 100%;
   flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
   text-align: center;
-  font-size: calc(var(--hint-size) * 0.68);
+  overflow: hidden;
 }
 
 .hints-title {
-  margin: 0.5mm 0 0.3mm;
+  margin: var(--gap) 0 calc(var(--gap) * 0.5);
   font-weight: 600;
-  font-size: calc(var(--hint-size) * 0.68);
+  font-size: calc(var(--hint-size) * 0.62);
   line-height: 1;
 }
 
 .hints-table {
-  margin: 0.4mm 0.2em 0.3mm;
+  width: 100%;
+  margin: 0;
   border-collapse: collapse;
 }
 
 .hints-table td {
   width: 50%;
   text-align: left;
-  font-size: calc(var(--hint-size) * 0.68);
+  font-size: calc(var(--hint-size) * 0.62);
   line-height: 1.1;
-  font-weight: 400;
   vertical-align: top;
-  padding: 0.2mm 0;
+  padding: 0;
 }
 
 .empty-space {
@@ -219,39 +155,69 @@ body.etiketten-body {
 
 .bottom-row {
   width: 100%;
+  flex: 0 0 var(--icon-size);
+  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
 }
 
-/* Kein QR-Code (z.B. small/30x20): Warnsymbol rechtsbündig */
+/* Ohne QR-Code (kleine Etiketten): Warnsymbol rechtsbündig */
 .bottom-row--no-qr {
   justify-content: flex-end;
 }
 
 .warn-symbol {
-  height: auto;
-  max-height: calc(var(--qr-size) * 1);
+  height: var(--icon-size);
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
 }
 
 .qr-img {
-  width: calc(var(--qr-size) * 1);
-  height: calc(var(--qr-size) * 1);
+  width: var(--icon-size);
+  height: var(--icon-size);
   object-fit: contain;
   flex-shrink: 0;
-  box-sizing: border-box;
-  image-rendering: auto;
   image-rendering: crisp-edges;
 }
 
+/* ===== Modus: Druck (ein Etikett pro Seite) ===== */
+
+.mode-print .label {
+  page-break-after: always;
+  break-after: page;
+}
+
+.mode-print .label:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+/* ===== Modus: Einzelvorschau im iframe ===== */
+/* Transparenter Hintergrund, damit die App-Fläche als "Druckerauflage" sichtbar
+   bleibt; --preview-scale wird vom Vorschau-Skript gesetzt. */
+
+.mode-single {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+html:has(.mode-single),
+.mode-single {
+  background: transparent;
+}
+
+.mode-single .label {
+  transform: scale(var(--preview-scale));
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+
 @media print {
-  html,
-  body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .mode-single .label {
+    transform: none;
+    box-shadow: none;
   }
 }
