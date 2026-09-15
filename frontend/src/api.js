@@ -86,38 +86,84 @@ async function downloadBlob(url, options = {}) {
     const res = await fetch(`${API_URL}${url}`, { credentials: 'include', signal });
     if (!res.ok) {
       const contentType = res.headers.get('content-type') || '';
-      let err = contentType.includes('application/json')
-        ? await res.json().catch(() => ({ error: res.statusText }))
-        : { error: res.statusText };
+      let err = {};
+
+      if (contentType.includes('application/json')) {
+        err = await res.json().catch(() => ({}));
+      } else {
+        const text = await res.text().catch(() => '');
+        err = text ? { error: text } : {};
+      }
+
       const errorMessage = err.error || err.message || res.statusText || 'Download fehlgeschlagen';
-      const requestError = new Error(errorMessage);
+      const detailedMessage = [
+        errorMessage,
+        `HTTP ${res.status}`,
+        err.requestedFileName ? `Datei: ${err.requestedFileName}` : null,
+        err.resolvedFileName ? `Auflösung: ${err.resolvedBy || 'unbekannt'} (${err.resolvedFileName})` : null,
+        err.details ? `Details: ${err.details}` : null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      const requestError = new Error(detailedMessage);
       requestError.status = res.status;
       requestError.payload = err;
       throw requestError;
     }
+    const totalBytesHeader = res.headers.get('content-length');
+    const totalBytes = totalBytesHeader ? Number(totalBytesHeader) : null;
+    const uploadFileCountHeader = res.headers.get('x-upload-file-count');
+    const uploadFileCount = uploadFileCountHeader ? Number(uploadFileCountHeader) : null;
 
-    const totalBytes = Number(res.headers.get('content-length')) || null;
-    const uploadFileCount = Number(res.headers.get('x-upload-file-count')) || null;
     let blob;
-
     if (res.body && typeof res.body.getReader === 'function') {
       const reader = res.body.getReader();
       const chunks = [];
       let loadedBytes = 0;
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        chunks.push(value);
-        loadedBytes += value.length;
-        if (onProgress) onProgress({ loadedBytes, totalBytes, progressPercent: totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : null, uploadFileCount });
+        if (value) {
+          chunks.push(value);
+          loadedBytes += value.length;
+          if (onProgress) {
+            onProgress({
+              loadedBytes,
+              totalBytes,
+              progressPercent: totalBytes ? Math.round((loadedBytes / totalBytes) * 100) : null,
+              uploadFileCount,
+            });
+          }
+        }
       }
+
       blob = new Blob(chunks, { type: res.headers.get('content-type') || 'application/octet-stream' });
     } else {
       blob = await res.blob();
-      if (onProgress) onProgress({ loadedBytes: blob.size, totalBytes: blob.size, progressPercent: 100, uploadFileCount });
+      if (onProgress) {
+        onProgress({
+          loadedBytes: blob.size,
+          totalBytes: blob.size,
+          progressPercent: 100,
+          uploadFileCount,
+        });
+      }
     }
 
-    return returnMetadata ? { blob, metadata: { totalBytes, uploadFileCount, contentType: res.headers.get('content-type') } } : blob;
+    if (returnMetadata) {
+      return {
+        blob,
+        metadata: {
+          totalBytes,
+          uploadFileCount,
+          contentType: res.headers.get('content-type'),
+        },
+      };
+    }
+
+    return blob;
   } catch (err) {
     if (!err.message || err.message === 'Failed to fetch') {
       throw new Error('Backend nicht erreichbar – bitte prüfen Sie, ob der Server läuft.');
@@ -271,6 +317,11 @@ export const api = {
     } catch (err) {
       if (err?.name === 'AbortError' || options.signal?.aborted) return null;
       const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
+      console.error('❌ Fehler beim Laden des Fotos:', fileName, {
+        message,
+        status: err.status,
+        payload: err.payload,
+      });
       const photoError = new Error(message);
       photoError.status = err.status;
       photoError.payload = err.payload;
@@ -384,4 +435,35 @@ export const api = {
   updateInventurDraft: (id, data) => request(`/lagerinventur/drafts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   completeInventurDraft: (id) => request(`/lagerinventur/drafts/${id}/complete`, { method: 'POST', body: JSON.stringify({}) }),
   getInventurDiff: (id) => request(`/lagerinventur/drafts/${id}/diff`),
+
+  // Etiketten
+  getEtikettenSizes: () => request('/etiketten/sizes'),
+  getEtikettenOptions: (params) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return request(`/etiketten/options${qs ? `?${qs}` : ''}`);
+  },
+  getEtikettenPreview: async (payload, frischesCsrfToken = null) => {
+    const csrfToken = frischesCsrfToken || (await ensureCsrfToken());
+    const res = await fetch(`${API_URL}/etiketten/preview`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}) },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      if (res.status === 403 && err.code === 'CSRF_TOKEN_INVALID' && !frischesCsrfToken) {
+        const neuesToken = await ensureCsrfToken(true);
+        if (neuesToken) {
+          return api.getEtikettenPreview(payload, neuesToken);
+        }
+      }
+      const message = err.error || err.message || res.statusText || 'Request failed';
+      const e = new Error(message);
+      e.status = res.status;
+      e.payload = err;
+      throw e;
+    }
+    return res.text();
+  },
 };

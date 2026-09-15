@@ -20,6 +20,7 @@ import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { useAuth } from "../context/AuthContext";
+import Etiketten from "./Etiketten";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -96,6 +97,7 @@ export default function Schmuckstuecke() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
+  const [activeTab, setActiveTab] = useState("schmuckstuecke");
   const [sortConfig, setSortConfig] = useState({
     key: "Artikelnummer",
     direction: "asc",
@@ -489,6 +491,15 @@ export default function Schmuckstuecke() {
     return kunde ? kunde.Name : `Kundennummer ${id}`;
   };
 
+  const getLengthUnit = ({ Artikelnummer } = {}) => {
+    console.log("🔍 Bestimme Längeneinheit für Artikelnummer:", Artikelnummer);
+    const produktartCode = String(Artikelnummer || "").charAt(2).toUpperCase();
+    if (produktartCode === "O") return "mm";
+    if (produktartCode === "H") return "cm";
+
+    return "cm";
+  };
+
   const p = data.pagination;
   const isForegroundModalOpen = selected !== null || editing !== null;
 
@@ -602,20 +613,41 @@ export default function Schmuckstuecke() {
       <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
-          <p>{p.total || 0} Stücke insgesamt</p>
+          <p>
+            {activeTab === "schmuckstuecke"
+              ? `${p.total || 0} Stücke insgesamt`
+              : "Etiketten erstellen"}
+          </p>
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
+        {activeTab === "schmuckstuecke" && (
+          <div style={{ display: "flex", gap: "10px" }}>
           {canEdit && (
             <button className="btn btn-secondary" onClick={openBulkCreate}>
               + Schmuckstücke nachtragen
             </button>
           )}
-          <button className="btn btn-primary" onClick={openNew}>
-            + Neues Schmuckstück
-          </button>
-        </div>
+            <button className="btn btn-primary" onClick={openNew}>
+              + Neues Schmuckstück
+            </button>
+          </div>
+        )}
       </div>
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button
+          className={`btn btn-sm ${activeTab === "schmuckstuecke" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("schmuckstuecke")}>
+          Schmuckstücke
+        </button>
+        <button
+          className={`btn btn-sm ${activeTab === "etiketten" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("etiketten")}>
+          Etiketten
+        </button>
+      </div>
+
+      {activeTab === "schmuckstuecke" ? (
+        <>
       <TableToolbar
         search={search}
         onSearchChange={(value) => {
@@ -1420,7 +1452,7 @@ export default function Schmuckstuecke() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Länge (cm)</label>
+                    <label>Länge ({getLengthUnit(form)})</label>
                     <input
                       className="form-control"
                       type="number"
@@ -1868,6 +1900,11 @@ export default function Schmuckstuecke() {
             </div>
           </div>
         </div>
+      )}
+
+        </>
+      ) : (
+        <Etiketten showHeader={false} />
       )}
     </div>
   );

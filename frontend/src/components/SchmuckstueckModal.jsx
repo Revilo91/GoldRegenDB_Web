@@ -56,6 +56,7 @@ export default function SchmuckstueckModal({
         .catch((err) => {
           setPhoto(null);
           setPhotoError(err.message);
+          console.error(err);
         })
         .finally(() => setPhotoLoading(false));
     } else {

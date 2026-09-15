@@ -499,13 +499,10 @@ async function generateExcel(type, data, logoPath) {
 
     const menge = articleCounts[artikelnummerBasis] || 1;
     const einzelpreisOriginal = Number(s.Verkaufspreis) || 0;
-    const itemRabattPercent = Number(
-      data.rabatt_positionen?.[artikelnummerBasis] || 0,
-    );
-    const einzelpreis =
-      itemRabattPercent > 0
-        ? einzelpreisOriginal * (1 - itemRabattPercent / 100)
-        : einzelpreisOriginal;
+    const itemRabattPercent = Number(data.rabatt_positionen?.[artikelnummerBasis] || 0);
+    const einzelpreis = itemRabattPercent > 0
+      ? einzelpreisOriginal * (1 - itemRabattPercent / 100)
+      : einzelpreisOriginal;
 
     if (itemRabattPercent > 0) {
       row.getCell(3).value = `${bezeichnung} (Rabatt: ${itemRabattPercent}%)`;

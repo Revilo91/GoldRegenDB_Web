@@ -16,6 +16,7 @@ import {
   faFileInvoice,
   faCreditCard,
   faClipboardList,
+  faTag,
   faWrench,
   faUserLock,
   faDatabase,
@@ -43,6 +44,7 @@ import Bestelluebersicht from "./pages/Bestelluebersicht";
 import BestellungPublic from "./pages/BestellungPublic";
 import Rechnungen from "./pages/Rechnungen";
 import Sumup from "./pages/Sumup";
+import Etiketten from "./pages/Etiketten";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
@@ -617,6 +619,14 @@ function AppLayout() {
             element={
               <ProtectedRoute bearbeiterOnly>
                 <Sumup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/etiketten"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <Etiketten />
               </ProtectedRoute>
             }
           />
