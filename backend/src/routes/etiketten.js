@@ -21,6 +21,7 @@ const SAMPLE_ARTIKELNUMMER = "GR12345";
  * w/h      physische Etikettmaße in mm (Querformat, wie im Drucker eingelegt)
  * rotate   Inhalt wird 90° gedreht gedruckt (Hängeetikett an der Schmuckkarte)
  * showQr   QR-Code nur, wenn das Etikett groß genug zum Scannen ist
+ * iconH    Kantenlänge von Warnsymbol und QR-Code – bestimmt die Scanbarkeit
  * brandH   Höhe des Logobereichs, artSize/hintSize Schriftgrößen – alles in mm
  */
 const LABEL_SIZES = {
@@ -31,9 +32,10 @@ const LABEL_SIZES = {
     h: 20,
     rotate: false,
     showQr: false,
-    brandH: 4,
-    artSize: 5,
-    hintSize: 2.2,
+    iconH: 6,
+    brandH: 3.5,
+    artSize: 4.6,
+    hintSize: 2.1,
   },
   large: {
     id: "large",
@@ -42,6 +44,7 @@ const LABEL_SIZES = {
     h: 30,
     rotate: true,
     showQr: true,
+    iconH: 12,
     brandH: 8,
     artSize: 8,
     hintSize: 3.5,
@@ -111,8 +114,10 @@ const fetchLabelDetails = async (items) => {
 const loadQrDataUrl = async () => {
   try {
     return await QRCode.toDataURL(QR_TARGET_URL, {
-      errorCorrectionLevel: "Q",
-      margin: 4,
+      // Level M und schmale Ruhezone: weniger Module => größere Module auf dem
+      // Thermodruck, der Rand des Etiketts dient als zusätzliche Ruhezone
+      errorCorrectionLevel: "M",
+      margin: 2,
       width: 1200,
       color: { dark: "#000000", light: "#FFFFFF" },
     });
@@ -155,13 +160,15 @@ const buildBrandHtml = (brandDataUrl) =>
 const buildHintsHtml = (materialHints) => {
   if (materialHints.length === 0) return '<div class="empty-space"></div>';
 
+  // Nur so viele Zeilen wie nötig – jede leere Zeile kostet auf 30×20 mm Platz
+  const rowCount = Math.ceil(materialHints.length / 2);
   const rows = [];
-  for (let index = 0; index < 3; index++) {
+  for (let index = 0; index < rowCount; index++) {
     const left = materialHints[index]
       ? `<td>${escapeHtml(materialHints[index])}</td>`
       : "<td></td>";
-    const right = materialHints[index + 3]
-      ? `<td>${escapeHtml(materialHints[index + 3])}</td>`
+    const right = materialHints[index + rowCount]
+      ? `<td>${escapeHtml(materialHints[index + rowCount])}</td>`
       : "<td></td>";
     rows.push(`<tr>${left}${right}</tr>`);
   }
@@ -192,8 +199,10 @@ const buildLabelMarkup = (artikelnummer, sizeConfig, parts) => {
         <div class="logo-container">${parts.brandHtml}</div>
         <div class="dotted-line"></div>
         <div class="${artNrClass}">${escapeHtml(artikelnummer)}</div>
-        ${parts.hintsHtml}
-        <div class="${bottomRowClass}">${parts.warnImgHtml}${parts.qrImgHtml}</div>
+        <div class="label-lower">
+          ${parts.hintsHtml}
+          <div class="${bottomRowClass}">${parts.warnImgHtml}${parts.qrImgHtml}</div>
+        </div>
       </div>
     </div>`;
 };
@@ -228,6 +237,7 @@ const buildPrintCss = async (sizeConfig) => {
     LABEL_H: sizeConfig.h,
     CONTENT_W: sizeConfig.rotate ? sizeConfig.h : sizeConfig.w,
     CONTENT_H: sizeConfig.rotate ? sizeConfig.w : sizeConfig.h,
+    ICON_SIZE: sizeConfig.iconH,
     BRAND_H: sizeConfig.brandH,
     ART_SIZE: sizeConfig.artSize,
     HINT_SIZE: sizeConfig.hintSize,

@@ -28,10 +28,12 @@
   --brand-h: {{BRAND_H}}mm;
   --art-size: {{ART_SIZE}}mm;
   --hint-size: {{HINT_SIZE}}mm;
-  /* Abstände und Symbolgröße proportional zur Inhaltsbox, damit jede
-     Etikettengröße mit demselben Aufbau auskommt */
+  /* Warnsymbol und QR-Code werden je Größe fest vorgegeben (LABEL_SIZES.iconH),
+     damit der QR-Code auf dem Thermodruck sicher lesbar bleibt */
+  --icon-size: {{ICON_SIZE}}mm;
+  /* Abstände proportional zur Inhaltsbox, damit jede Etikettengröße mit
+     demselben Aufbau auskommt */
   --gap: calc(var(--content-h) * 0.015);
-  --icon-size: min(calc(var(--content-w) * 0.3), calc(var(--content-h) * 0.2));
   --preview-scale: 1;
 }
 
@@ -107,14 +109,40 @@ body {
 .artnr {
   text-align: center;
   font-weight: bold;
+  flex: 0 0 auto;
   font-size: min(calc(var(--art-size) * 0.74), calc(var(--content-h) * 0.2));
-  line-height: 1;
+  /* Etwas Luft, damit Ober-/Unterlängen nicht in die Hinweise ragen */
+  line-height: 1.15;
   letter-spacing: 0.1mm;
 }
 
 .artnr.compact {
   font-size: min(calc(var(--art-size) * 0.64), calc(var(--content-h) * 0.17));
   letter-spacing: 0.02mm;
+}
+
+/* Unterer Bereich: Hinweise plus Symbolzeile */
+.label-lower {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ohne QR-Code (kleine Etiketten) steht das Warnsymbol neben den Hinweisen,
+   statt eine eigene Zeile zu belegen – das schafft Platz für sechs Hinweise */
+.label-lower:has(.bottom-row--no-qr) {
+  flex-direction: row;
+  /* flex-end statt stretch: die Hinweisbox behält ihre Inhaltshöhe und wird
+     nicht gestaucht (gestaucht schneidet Chrome die Überschrift oben ab) */
+  align-items: flex-end;
+  gap: var(--gap);
+}
+
+.label-lower:has(.bottom-row--no-qr) .bottom-row {
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .hints-container {
@@ -128,13 +156,15 @@ body {
 }
 
 .hints-title {
-  margin: var(--gap) 0 calc(var(--gap) * 0.5);
+  flex: 0 0 auto;
+  margin: calc(var(--gap) * 0.5) 0 calc(var(--gap) * 0.25);
   font-weight: 600;
   font-size: calc(var(--hint-size) * 0.62);
   line-height: 1;
 }
 
 .hints-table {
+  flex: 0 0 auto;
   width: 100%;
   margin: 0;
   border-collapse: collapse;
@@ -144,7 +174,7 @@ body {
   width: 50%;
   text-align: left;
   font-size: calc(var(--hint-size) * 0.62);
-  line-height: 1.1;
+  line-height: 1.05;
   vertical-align: top;
   padding: 0;
 }

@@ -65,6 +65,19 @@ describe('Etiketten', () => {
     ).toBeEnabled();
   });
 
+  it('zeigt Gesamtzahl und Anzahl der Artikeltypen an', async () => {
+    render(<Etiketten />);
+
+    const addButton = await screen.findByRole('button', { name: 'Übernehmen' });
+    const qtyInput = screen.getByLabelText('Anzahl für ART001');
+    fireEvent.change(qtyInput, { target: { value: '4' } });
+    fireEvent.click(addButton);
+
+    expect(await screen.findByText('4 Etiketten · 1 Typen')).toBeInTheDocument();
+    expect(screen.getByText('Artikeltyp')).toBeInTheDocument();
+    expect(screen.getByText('Etiketten im Druck')).toBeInTheDocument();
+  });
+
   it('fordert die Vorschau als einzelnes Etikett an', async () => {
     render(<Etiketten />);
 

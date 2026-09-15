@@ -104,6 +104,37 @@ describe('Etiketten API', () => {
       expect(res.text).toContain('label label--rotated');
     });
 
+    it('setzt die Symbolgröße der gewählten Größe', async () => {
+      db.query.mockResolvedValueOnce(schmuckstueckRow('MBH001_1'));
+
+      const gross = await request(app)
+        .post('/api/etiketten/preview')
+        .send({ items: [{ artikelnummer: 'MBH001', qty: 1 }], labelSize: 'large' });
+
+      db.query.mockResolvedValueOnce(schmuckstueckRow('MBH001_1'));
+      const klein = await request(app)
+        .post('/api/etiketten/preview')
+        .send({ items: [{ artikelnummer: 'MBH001', qty: 1 }], labelSize: 'small' });
+
+      expect(gross.text).toContain('--icon-size: 12mm');
+      expect(klein.text).toContain('--icon-size: 6mm');
+    });
+
+    it('erzeugt nur so viele Hinweiszeilen wie nötig', async () => {
+      db.query.mockResolvedValueOnce(schmuckstueckRow('MBH001_1'));
+
+      const res = await request(app)
+        .post('/api/etiketten/preview')
+        .send({
+          items: [{ artikelnummer: 'MBH001', qty: 1 }],
+          materialHints: ['A', 'B'],
+          labelSize: 'small',
+        });
+
+      expect(res.text.match(/<tr>/g)).toHaveLength(1);
+      expect(res.text).toContain('<td>A</td><td>B</td>');
+    });
+
     it('nutzt bei unbekannter Größe die Standardgröße', async () => {
       db.query.mockResolvedValueOnce(schmuckstueckRow('MBH001_1'));
 

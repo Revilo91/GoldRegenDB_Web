@@ -962,6 +962,42 @@ p.lead {
   margin-top: 14px;
 }
 
+.etikett-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Druckumfang: Anzahl Etiketten und Anzahl unterschiedlicher Artikel */
+.etikett-summary {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.etikett-summary-item {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  text-align: center;
+}
+
+.etikett-summary-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.etikett-summary-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .etikett-alert {
   display: flex;
   align-items: center;

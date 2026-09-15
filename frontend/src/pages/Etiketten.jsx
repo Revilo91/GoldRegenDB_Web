@@ -34,6 +34,7 @@ export default function Etiketten({ showHeader = true }) {
   const previewFrameRef = useRef(null);
 
   const totalLabels = items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
+  const totalTypes = items.length;
   const activeSize = sizes.find((s) => s.id === labelSize) || null;
   const hintsKey = selectedHints.join("|");
   const hintLimitReached = selectedHints.length >= MAX_HINTS;
@@ -369,9 +370,14 @@ export default function Etiketten({ showHeader = true }) {
 
           <section className="card">
             <div className="card-header">
-              <h3>
-                <span className="etikett-step">2</span> Druckliste
-              </h3>
+              <div className="etikett-card-title">
+                <h3>
+                  <span className="etikett-step">2</span> Druckliste
+                </h3>
+                <span className="badge info">
+                  {totalLabels} Etiketten · {totalTypes} Typen
+                </span>
+              </div>
               <div className="btn-group">
                 <label htmlFor="etiketten-csv-import" className="btn btn-secondary btn-sm">
                   CSV importieren
@@ -452,7 +458,7 @@ export default function Etiketten({ showHeader = true }) {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td>{items.length} Artikel</td>
+                      <td>{totalTypes} Typen</td>
                       <td colSpan={2}>{totalLabels} Etiketten gesamt</td>
                     </tr>
                   </tfoot>
@@ -620,7 +626,7 @@ export default function Etiketten({ showHeader = true }) {
                     ◀
                   </button>
                   <span className="etikett-nav-label">
-                    {previewArtikelnummer} · {activeIdx + 1} von {items.length}
+                    {previewArtikelnummer} · {activeIdx + 1} von {totalTypes}
                   </span>
                   <button
                     type="button"
@@ -640,6 +646,21 @@ export default function Etiketten({ showHeader = true }) {
                   Musteretikett – Größe und Hinweise lassen sich vorab prüfen.
                 </p>
               )}
+
+              <div className="etikett-summary">
+                <span className="etikett-summary-item">
+                  <span className="etikett-summary-value">{totalLabels}</span>
+                  <span className="etikett-summary-label">
+                    Etikett{totalLabels === 1 ? "" : "en"} im Druck
+                  </span>
+                </span>
+                <span className="etikett-summary-item">
+                  <span className="etikett-summary-value">{totalTypes}</span>
+                  <span className="etikett-summary-label">
+                    {totalTypes === 1 ? "Artikeltyp" : "Artikeltypen"}
+                  </span>
+                </span>
+              </div>
 
               <div className="etikett-actions">
                 <button
