@@ -1,7 +1,7 @@
 const ExcelJS = require("exceljs");
 const fs = require("fs");
 const path = require("path");
-const sizeOf = require("image-size");
+const { imageSize: sizeOf } = require("image-size");
 const { GRUNDMATERIAL } = require("./constants");
 
 const DEFAULT_LOGO_PATH = path.join(
@@ -286,7 +286,7 @@ async function generateExcel(type, data, logoPath) {
 
   if (resolvedLogoPath && fs.existsSync(resolvedLogoPath)) {
     try {
-      const dimensions = sizeOf(resolvedLogoPath);
+      const dimensions = sizeOf(fs.readFileSync(resolvedLogoPath));
       const scaleFactor = 0.1;
 
       const imageId = workbook.addImage({
