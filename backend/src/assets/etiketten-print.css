@@ -1,0 +1,253 @@
+/*
+ * Etikett-Layout – Bildschirmvorschau und Druck rendern identisch.
+ *
+ * Das Etikett ist immer so groß wie das physische Medium ({{LABEL_W}}mm × {{LABEL_H}}mm,
+ * Querformat wie im Drucker eingelegt). Bei .label--rotated wird der Inhalt in einer
+ * um 90° getauschten Box gesetzt und gedreht – das ist keine Druck-Sonderbehandlung
+ * mehr, sondern gilt auch in der Vorschau. Was man sieht, kommt so aus dem Drucker.
+ *
+ * Platzhalter werden in backend/src/routes/etiketten.js aus LABEL_SIZES ersetzt.
+ */
+
+@page {
+  size: {{LABEL_W}}mm {{LABEL_H}}mm;
+  margin: 0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --label-w: {{LABEL_W}}mm;
+  --label-h: {{LABEL_H}}mm;
+  --content-w: {{CONTENT_W}}mm;
+  --content-h: {{CONTENT_H}}mm;
+  --brand-h: {{BRAND_H}}mm;
+  --art-size: {{ART_SIZE}}mm;
+  --hint-size: {{HINT_SIZE}}mm;
+  /* Warnsymbol und QR-Code werden je Größe fest vorgegeben (LABEL_SIZES.iconH),
+     damit der QR-Code auf dem Thermodruck sicher lesbar bleibt */
+  --icon-size: {{ICON_SIZE}}mm;
+  /* Abstände proportional zur Inhaltsbox, damit jede Etikettengröße mit
+     demselben Aufbau auskommt */
+  --gap: calc(var(--content-h) * 0.015);
+  --preview-scale: 1;
+}
+
+html,
+body {
+  background: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ===== Etikett ===== */
+
+.label {
+  width: var(--label-w);
+  height: var(--label-h);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.label-content {
+  flex: 0 0 auto;
+  width: var(--content-w);
+  height: var(--content-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--content-h) * 0.03) calc(var(--content-w) * 0.035);
+  overflow: hidden;
+}
+
+/* Hängeetikett: Inhalt läuft quer zur Vorschubrichtung */
+.label--rotated .label-content {
+  transform: rotate(90deg);
+}
+
+.logo-container {
+  width: 100%;
+  margin-bottom: var(--gap);
+  flex: 0 0 var(--brand-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.brand-text {
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  font-size: calc(var(--brand-h) * 0.95);
+  line-height: 1;
+}
+
+.dotted-line {
+  width: 100%;
+  border-bottom: 1px dotted #000;
+  margin-bottom: var(--gap);
+  flex: 0 0 auto;
+}
+
+.artnr {
+  text-align: center;
+  font-weight: bold;
+  flex: 0 0 auto;
+  font-size: min(calc(var(--art-size) * 0.74), calc(var(--content-h) * 0.2));
+  /* Etwas Luft, damit Ober-/Unterlängen nicht in die Hinweise ragen */
+  line-height: 1.15;
+  letter-spacing: 0.1mm;
+}
+
+.artnr.compact {
+  font-size: min(calc(var(--art-size) * 0.64), calc(var(--content-h) * 0.17));
+  letter-spacing: 0.02mm;
+}
+
+/* Unterer Bereich: Hinweise plus Symbolzeile */
+.label-lower {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ohne QR-Code (kleine Etiketten) steht das Warnsymbol neben den Hinweisen,
+   statt eine eigene Zeile zu belegen – das schafft Platz für sechs Hinweise */
+.label-lower:has(.bottom-row--no-qr) {
+  flex-direction: row;
+  /* flex-end statt stretch: die Hinweisbox behält ihre Inhaltshöhe und wird
+     nicht gestaucht (gestaucht schneidet Chrome die Überschrift oben ab) */
+  align-items: flex-end;
+  gap: var(--gap);
+}
+
+.label-lower:has(.bottom-row--no-qr) .bottom-row {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.hints-container {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  overflow: hidden;
+}
+
+.hints-title {
+  flex: 0 0 auto;
+  margin: calc(var(--gap) * 0.5) 0 calc(var(--gap) * 0.25);
+  font-weight: 600;
+  font-size: calc(var(--hint-size) * 0.62);
+  line-height: 1;
+}
+
+.hints-table {
+  flex: 0 0 auto;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.hints-table td {
+  width: 50%;
+  text-align: left;
+  font-size: calc(var(--hint-size) * 0.62);
+  line-height: 1.05;
+  vertical-align: top;
+  padding: 0;
+}
+
+.empty-space {
+  flex: 1 1 auto;
+}
+
+.bottom-row {
+  width: 100%;
+  flex: 0 0 var(--icon-size);
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Ohne QR-Code (kleine Etiketten): Warnsymbol rechtsbündig */
+.bottom-row--no-qr {
+  justify-content: flex-end;
+}
+
+.warn-symbol {
+  height: var(--icon-size);
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.qr-img {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  object-fit: contain;
+  flex-shrink: 0;
+  image-rendering: crisp-edges;
+}
+
+/* ===== Modus: Druck (ein Etikett pro Seite) ===== */
+
+.mode-print .label {
+  page-break-after: always;
+  break-after: page;
+}
+
+.mode-print .label:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+/* ===== Modus: Einzelvorschau im iframe ===== */
+/* Transparenter Hintergrund, damit die App-Fläche als "Druckerauflage" sichtbar
+   bleibt; --preview-scale wird vom Vorschau-Skript gesetzt. */
+
+.mode-single {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+html:has(.mode-single),
+.mode-single {
+  background: transparent;
+}
+
+.mode-single .label {
+  transform: scale(var(--preview-scale));
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+
+@media print {
+  .mode-single .label {
+    transform: none;
+    box-shadow: none;
+  }
+}

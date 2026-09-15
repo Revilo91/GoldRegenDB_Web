@@ -16,5 +16,6 @@ secrets/
 /e2e/test-results/
 .serena
 graphify-out
+.vscode
 # Temporäre Worktrees der Claude-Code-Agents
 .claude/worktrees/

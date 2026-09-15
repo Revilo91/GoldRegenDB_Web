@@ -98,22 +98,22 @@ export default function Sumup() {
             Datei kann direkt in das SumUp-Kassensystem importiert werden.
           </p>
           <ul style={{ marginBottom: "20px", lineHeight: "1.8" }}>
-            <li>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> Gruppierung nach
               Basis-Artikelnummer (z.B. MBH028 mit Varianten _1 bis _5)
-            </li>
-            <li>
+            </div>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> Produktspezifische
               Beschreibungen (Ohrring, Halskette, Armband, Schlüsselanhänger)
-            </li>
-            <li>
+            </div>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> Vollständiges SumUp CSV-Format
               (35 Spalten)
-            </li>
-            <li>
+            </div>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> SKU und Barcode für
               Inventar-Tracking
-            </li>
+            </div>
           </ul>
           <button
             className="btn btn-primary"
@@ -148,18 +148,18 @@ export default function Sumup() {
             erstellt automatisch:
           </p>
           <ul style={{ marginBottom: "20px", lineHeight: "1.8" }}>
-            <li>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> Einen Lieferschein für alle
               verkauften Artikel (zu SumUp ausgelagert)
-            </li>
-            <li>
+            </div>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> Separate Rechnungen für Marina-
               und Saskia-Artikel
-            </li>
-            <li>
+            </div>
+            <div>
               <FontAwesomeIcon icon={faCheck} /> Markierung der Artikel als
               "verkauft"
-            </li>
+            </div>
           </ul>
 
           {sumupResult && (

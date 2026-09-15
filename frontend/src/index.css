@@ -1,5 +1,21 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
+/* Option 3: Premium Style */
+.option-premium {
+  padding: 16px 18px;
+  font-size: 15px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1.5px 4px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.18s cubic-bezier(0.4, 0.2, 0.2, 1), background 0.18s;
+  border: none;
+  appearance: none;
+  outline: none;
+  font-weight: 500;
+  color: #232323;
+  /* Glatteres Aussehen */
+}
+
 :root {
   --bg-primary: #0f1117;
   --bg-secondary: #1a1d27;
@@ -50,6 +66,26 @@ body {
   min-height: 100vh;
 }
 
+/* ============ PARAGRAPHS ============ */
+p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+p.lead {
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 900px) {
+  p {
+    font-size: 14px;
+    max-width: 100%;
+  }
+}
+
 #root {
   display: flex;
   min-height: 100vh;
@@ -74,15 +110,15 @@ body {
 
 .sidebar-brand .sidebar-logo {
   display: block;
-  width: 100%;
+  width: auto;
   height: auto;
-  max-height: 84px;
+  max-width: 100%;
   background: white;
   object-fit: contain;
   /* SVG ist bereits eng beschnitten – nur ein schmaler Rahmen zum weißen Kasten */
   padding: 6px 10px;
   transition:
-    max-height 0.2s ease,
+    height 0.2s ease,
     padding 0.2s ease;
   border-radius: 10px;
 }
@@ -130,7 +166,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 12px 16px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
@@ -215,7 +251,7 @@ body {
 }
 
 .sidebar.collapsed .sidebar-logo {
-  max-height: 34px;
+  height: 34px;
   padding: 2px 2px;
   border-radius: 5px;
 }
@@ -270,7 +306,7 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 32px;
 }
 
@@ -349,21 +385,26 @@ body {
 }
 
 /* ============ TABLE ============ */
-.card {
+.card,
+.alert-card,
+.login-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.card {
   overflow: hidden;
 }
 
 .card-header {
-  padding: 20px 24px;
+  padding: 20px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
 }
 
 .card-header h3 {
@@ -372,14 +413,11 @@ body {
 }
 
 .card-body {
-  padding: 0;
+  padding: 10px;
 }
 
 /* ============ ALERT CARDS ============ */
 .alert-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   overflow: hidden;
   margin-bottom: 32px;
 }
@@ -477,27 +515,147 @@ body {
   padding-right: 8px;
 }
 
-.table-photo-thumb,
+.table-photo-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
 .table-photo-placeholder {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
-.table-photo-thumb {
-  object-fit: cover;
-  border: 1px solid var(--border);
-  background: var(--bg-input);
+/* Etiketten / Label Vorschau (genutzt von /api/etiketten/preview) */
+@page {
+  /* Physical page size for the label roll: 30mm (width) x 40mm (height) in portrait */
+  size: 30mm 40mm portrait;
+  margin: 0mm;
+}
+.etiketten-body {
+  margin: 0;
+  padding: 0mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #111; /* Labels are printed on white background — use dark text */
+}
+.sheet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm;
+}
+.label {
+  /* target physical label size: portrait 30mm x 40mm */
+  width: 30mm;
+  height: 40mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+}
+.brand {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+}
+.dotted {
+  width: 100%;
+  color: #666;
+  text-align: center;
+  font-size: 9px;
+  margin: 2px 0 4px 0;
+}
+.artnr {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  text-align: center;
+  align-items: baseline;
+  font-size: 18px;
+  font-style: bold;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.label-key {
+  font-size: 10px;
+  color: #444;
 }
 
-.table-photo-placeholder {
-  color: var(--text-muted);
-  border: 1px dashed var(--border);
-  background: var(--bg-input);
-  font-size: 13px;
+.material-title {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 10px;
+}
+.hints {
+  margin: 4px 0 0 14px;
+  padding: 0;
+  list-style: disc;
+  font-size: 10px;
+}
+.hints li {
+  margin-bottom: 2px;
+}
+.qr {
+  margin-top: 6px;
+}
+.qr-img {
+  width: auto;
+  height: auto;
+  max-width: 16mm;
+  max-height: 16mm;
+  object-fit: contain;
+}
+@media print {
+  .label {
+    border: none;
+  }
+}
+
+/* Etiketten layout helpers */
+.meta-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+.left-meta {
+  flex: 1;
+  min-width: 0;
+}
+.right-block {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.warn-symbol {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10mm;
+  height: 10mm;
+}
+.warn-symbol img,
+.warn-symbol svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.warn-symbol[title] {
+  cursor: help;
+}
+.qr-img {
+  width: 48px;
+  height: 48px;
 }
 
 /* ============ BADGES ============ */
@@ -510,6 +668,420 @@ body {
   font-size: 12px;
   font-weight: 600;
 }
+
+/* ===== Etiketten ===== */
+
+.etiketten-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  align-items: start;
+}
+
+.etiketten-workflow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.etiketten-preview {
+  position: sticky;
+  top: 16px;
+}
+
+.etiketten-page .card-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.etikett-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.etikett-search {
+  margin-bottom: 10px;
+}
+
+.etikett-options {
+  max-height: 340px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+}
+
+.etikett-hint-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 8px 4px;
+}
+
+.etikett-col-qty {
+  width: 96px;
+}
+
+.etikett-col-action {
+  width: 190px;
+  text-align: right;
+}
+
+.etikett-row-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.etikett-qty {
+  flex: 0 0 80px;
+  width: 80px;
+  padding: 6px 10px;
+}
+
+.etikett-row-active td {
+  background: var(--accent-glow);
+}
+
+.etikett-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.etikett-link:hover {
+  color: var(--accent-hover);
+}
+
+.etikett-file-input {
+  display: none;
+}
+
+/* ===== Gestaltung ===== */
+
+.etikett-design {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.etikett-fieldset {
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+.etikett-fieldset legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.etikett-size-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.etikett-size-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "radio name"
+    "radio dim"
+    "radio meta";
+  column-gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.etikett-size-option:hover {
+  border-color: var(--accent-hover);
+}
+
+.etikett-size-option.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.etikett-size-option input {
+  grid-area: radio;
+  align-self: center;
+  accent-color: var(--accent);
+}
+
+.etikett-size-name {
+  grid-area: name;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.etikett-size-dim {
+  grid-area: dim;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.etikett-size-meta {
+  grid-area: meta;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.etikett-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.etikett-chip:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--text-primary);
+}
+
+.etikett-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.etikett-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.etikett-custom-hint {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== Druckvorschau ===== */
+/* Die Bühne zeigt genau ein Etikett in physischer Form – der iframe rendert
+   dasselbe Dokument, das auch an den Drucker geht. */
+
+.etikett-stage {
+  position: relative;
+  height: 260px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.02) 0 8px,
+      transparent 8px 16px
+    ),
+    var(--bg-primary);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.etikett-stage-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+}
+
+.etikett-stage-busy {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-stage-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.etikett-scale {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.etikett-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.etikett-nav-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.etikett-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.etikett-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Druckumfang: Anzahl Etiketten und Anzahl unterschiedlicher Artikel */
+.etikett-summary {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.etikett-summary-item {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  text-align: center;
+}
+
+.etikett-summary-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.etikett-summary-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.etikett-alert-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+
+/* Deaktivierte Buttons sollen auch deaktiviert aussehen */
+.etiketten-page .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.etiketten-page .btn:disabled:hover {
+  background: inherit;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.etikett-custom-hint .btn {
+  white-space: nowrap;
+}
+
+/* Unsichtbares iframe, über das der Druckauftrag läuft */
+.etikett-print-frame {
+  position: fixed;
+  width: 0;
+  height: 0;
+  border: 0;
+  visibility: hidden;
+}
+
+@media (max-width: 1100px) {
+  .etiketten-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .etiketten-preview {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .etikett-col-action {
+    width: auto;
+  }
+  /* Schmale Ansicht: Anzahl und Button untereinander, damit die Tabelle
+     nicht breiter wird als die Karte */
+  .etikett-row-action {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .etikett-qty {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  .etiketten-page .data-table th,
+  .etiketten-page .data-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .etikett-custom-hint {
+    flex-direction: column;
+  }
+}
+
+/* ===== end Etiketten ===== */
 
 .badge.success {
   background: var(--success-bg);
@@ -530,6 +1102,30 @@ body {
 .badge.gold {
   background: var(--gold-bg);
   color: var(--gold);
+}
+
+/* clickable badges used in Etiketten */
+.badge.clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition);
+}
+.badge.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+/* small adjustments for Etikett component */
+.etikett-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.card-body h4 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 /* ============ BUTTONS ============ */
@@ -630,7 +1226,7 @@ select.form-control {
 .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 16px;
+  gap: 10px;
 }
 
 .checkbox-field {
@@ -731,10 +1327,10 @@ select.form-control {
 /* ============ TOOLBAR ============ */
 .toolbar {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
 }
 
 .search-input {
@@ -744,7 +1340,7 @@ select.form-control {
 
 .filter-group {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex: 2;
   min-width: 320px;
 }
@@ -1004,12 +1600,20 @@ select.form-control {
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border);
+  --spinner-size: 16px;
+  --spinner-border: 2px;
+  display: inline-block;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  border: var(--spinner-border) solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.loading .spinner {
+  --spinner-size: 40px;
+  --spinner-border: 3px;
   margin-right: 16px;
 }
 
@@ -1031,14 +1635,14 @@ select.form-control {
 .chart-bars {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   padding: 24px;
 }
 
 .chart-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .chart-bar .bar-label {
@@ -1293,7 +1897,7 @@ select.form-control {
     justify-content: center;
   }
   .sidebar .sidebar-logo {
-    max-height: 34px;
+    height: 34px;
     padding: 2px 2px;
     border-radius: 5px;
   }
@@ -1637,7 +2241,17 @@ select.form-control {
 
 /* Admin-Einträge sind gedämpft, aber teilen sich die Gold-Akzentfarbe */
 .nav-link-admin {
+  border-radius: 6px;
   color: var(--text-muted);
+}
+
+.nav-link-admin:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.nav-link-admin.active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
 }
 
 .dblUnderlined {
@@ -1655,9 +2269,6 @@ select.form-control {
 }
 
 .login-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   padding: 40px;
   width: 100%;
   max-width: 400px;
@@ -1720,7 +2331,7 @@ select.form-control {
 }
 
 .login-link:hover {
-  color: var(--text);
+  color: var(--text-primary);
 }
 
 .login-hint {
@@ -1891,18 +2502,6 @@ select.form-control {
   justify-content: center;
 }
 
-@media (max-width: 1024px) {
-  .sidebar-footer {
-    align-items: center;
-  }
-  .user-menu-btn {
-    justify-content: center;
-  }
-  .user-menu-btn .sidebar-username,
-  .user-menu-btn .role-badge {
-    display: none;
-  }
-}
 /* ============ GROUP HEADER ROW ============ */
 .group-header-row {
   user-select: none;
@@ -2007,9 +2606,8 @@ select.form-control {
 .alert-danger {
   background: var(--danger-bg);
   color: var(--danger);
-  border: 1px solid rsga(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
-
 .spinner {
   display: inline-block;
   width: 16px;
@@ -2025,7 +2623,6 @@ select.form-control {
     transform: rotate(360deg);
   }
 }
-
 /* ============ DOCUMENTMANAGER STYLES ============ */
 
 /* Filter Dropdowns */

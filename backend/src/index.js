@@ -42,6 +42,7 @@ const usersRoutes = require('./routes/users');
 const sumupRoutes = require('./routes/sumup');
 const inventurRoutes = require('./routes/inventur');
 const lagerinventurRoutes = require('./routes/lagerinventur');
+const etikettenRoutes = require('./routes/etiketten');
 const bestelluebersichtRoutes = require('./routes/bestelluebersicht');
 const bestellungPublicRoutes = require('./routes/bestellungPublic');
 
@@ -211,6 +212,9 @@ if (swaggerSpec.shouldEnableApiDocs()) {
 } else {
   logger.info('SERVER', 'API-Dokumentation deaktiviert (ENABLE_API_DOCS=false)');
 }
+
+// Etiketten (Bearbeiter)
+app.use('/api/etiketten', authenticate, requireBearbeiter, etikettenRoutes);
 
 logger.info('SERVER', 'Alle Routen registriert');
 

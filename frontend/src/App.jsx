@@ -17,6 +17,7 @@ import {
   faFileInvoice,
   faCreditCard,
   faClipboardList,
+  faTag,
   faWrench,
   faUserLock,
   faDatabase,
@@ -45,6 +46,7 @@ import Bestelluebersicht from "./pages/Bestelluebersicht";
 import BestellungPublic from "./pages/BestellungPublic";
 import Rechnungen from "./pages/Rechnungen";
 import Sumup from "./pages/Sumup";
+import Etiketten from "./pages/Etiketten";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
@@ -260,7 +262,7 @@ function AppLayout() {
       <header className="mobile-header">
         <div className="mobile-brand">
           <img
-            src="/Schriftzug_Goldregen_dicker_kleiner.svg"
+            src="/Logo transparent.svg"
             alt="GoldRegen"
             className="mobile-logo"
           />
@@ -290,7 +292,7 @@ function AppLayout() {
       >
         <div className="sidebar-brand">
           <img
-            src="/Schriftzug_Goldregen_dicker_kleiner.svg"
+            src="/Logo transparent.svg"
             alt="GoldRegen Logo"
             className="sidebar-logo"
           />
@@ -628,6 +630,14 @@ function AppLayout() {
             element={
               <ProtectedRoute bearbeiterOnly>
                 <Sumup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/etiketten"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <Etiketten />
               </ProtectedRoute>
             }
           />
