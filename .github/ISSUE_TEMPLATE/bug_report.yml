@@ -1,0 +1,57 @@
+name: "🐛 Bug Report"
+description: Melde einen Fehler in GoldRegenDB
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Fehlerbeschreibung
+      description: Was ist passiert? Was hast du erwartet?
+      placeholder: z. B. "Beim Speichern eines Schmuckstücks mit Foto erscheint eine 500-Fehlermeldung..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zur Reproduktion
+      description: Wie kann der Fehler nachgestellt werden?
+      placeholder: |
+        1. Gehe zu ...
+        2. Klicke auf ...
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Betroffener Bereich
+      multiple: true
+      options:
+        - Frontend (React)
+        - Backend (Node.js/Express)
+        - Datenbank (PostgreSQL)
+        - Dokumente (Lieferscheine/Rechnungen)
+        - Authentifizierung/Rollen
+        - Sonstiges
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Umgebung
+      placeholder: z. B. Docker (Production), Browser Chrome 128, Rolle "admin"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Zusätzlicher Kontext
+      description: Screenshots, Logs, Links oder weitere Informationen
+    validations:
+      required: false
