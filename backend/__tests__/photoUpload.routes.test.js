@@ -43,8 +43,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use('/api/schmuckstuecke', schmuckstueckeRoutes);
-// Multer-Fehler wie "Datei zu groß" landen ungefangen beim nächsten error-handler
-// (genau wie in src/index.js), sonst gäbe es hier statt JSON eine HTML-Fehlerseite.
+// Unerwartete Fehler landen weiterhin hier, genau wie in src/index.js.
 app.use((err, req, res, _next) => {
   res.status(500).json({ error: 'Interner Serverfehler' });
 });
@@ -92,7 +91,7 @@ describe('POST /api/schmuckstuecke/upload – Grenzwertanalyse 5-MB-Limit', () =
     expect(res.body.success).toBe(true);
   });
 
-  it('lehnt eine Datei knapp über dem 5-MB-Limit ab (5 MB + 1 Byte)', async () => {
+  it('lehnt eine Datei knapp über dem 5-MB-Limit mit 400 ab', async () => {
     const res = await request(app)
       .post('/api/schmuckstuecke/upload?artikelnummer=MPO003')
       .attach('foto', bufferMitGroesse(5 * ONE_MB + 1), {
@@ -100,11 +99,7 @@ describe('POST /api/schmuckstuecke/upload – Grenzwertanalyse 5-MB-Limit', () =
         contentType: 'image/jpeg',
       });
 
-    expect(res.statusCode).toBe(500);
-    // Multer wirft LIMIT_FILE_SIZE als eigenen Fehler, der die catch-Klausel der
-    // Route nicht abfängt (fehlt vor upload.single()) und beim globalen
-    // error-handler landet statt bei der 400-Behandlung für falsche Dateitypen.
-    expect(res.body.error).toBe('Interner Serverfehler');
+    expect(res.statusCode).toBe(400);
     expect(fs.readdirSync(mockUploadsDir)).toHaveLength(0);
   });
 });
@@ -126,14 +121,8 @@ describe('POST /api/schmuckstuecke/upload – MIME-Typ-Entscheidungstabelle', ()
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
     } else {
-      // Tatsächliches Verhalten (Bug, siehe Testbericht): der fileFilter-Fehler
-      // entsteht in der multer-Middleware VOR dem Route-Handler und erreicht
-      // dessen try/catch (der auf "Nur"/"erlaubt" prüft und 400 liefern würde)
-      // nie – er landet stattdessen ungefangen im globalen error-handler mit 500.
-      // Dokumentierte/erwünschte Antwort wäre 400 + "Nur JPG, PNG und GIF Dateien
-      // sind erlaubt".
-      expect(res.statusCode).toBe(500);
-      expect(res.body.error).toBe('Interner Serverfehler');
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toBe('Nur JPG, PNG und GIF Dateien sind erlaubt');
     }
   });
 
