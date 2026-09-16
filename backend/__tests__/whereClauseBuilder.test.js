@@ -306,6 +306,66 @@ describe('WhereClauseBuilder', () => {
     });
   });
 
+  describe('Grenzfälle / Äquivalenzklassen', () => {
+    test('equals() mit null als Wert übernimmt null unverändert in die Parameter', () => {
+      const builder = where();
+      builder.equals('Farbe', null);
+
+      expect(builder.build()).toBe('WHERE "Farbe" = $1');
+      expect(builder.getParams()).toEqual([null]);
+    });
+
+    test('equals() mit undefined als Wert übernimmt undefined unverändert in die Parameter', () => {
+      const builder = where();
+      builder.equals('Farbe', undefined);
+
+      expect(builder.build()).toBe('WHERE "Farbe" = $1');
+      expect(builder.getParams()).toEqual([undefined]);
+    });
+
+    test('equals() mit leerem String als Wert erzeugt Parameter mit leerem String (kein NULL-Vergleich)', () => {
+      const builder = where();
+      builder.equals('Farbe', '');
+
+      expect(builder.build()).toBe('WHERE "Farbe" = $1');
+      expect(builder.getParams()).toEqual(['']);
+    });
+
+    test('like() mit % im Muster übernimmt das Zeichen ungeprüft in den Parameter', () => {
+      const builder = where();
+      builder.like('Name', '%');
+
+      expect(builder.build()).toBe('WHERE "Name" LIKE $1');
+      expect(builder.getParams()).toEqual(['%']);
+    });
+
+    test('like() mit _ im Muster übernimmt das Zeichen ungeprüft in den Parameter', () => {
+      const builder = where();
+      builder.like('Name', 'M_H%');
+
+      expect(builder.build()).toBe('WHERE "Name" LIKE $1');
+      expect(builder.getParams()).toEqual(['M_H%']);
+    });
+
+    test('like() escaped Wildcards nicht – Muster wird 1:1 als Parameter durchgereicht', () => {
+      // Dokumentiert das tatsächliche Verhalten: keine Escaping-Logik im Builder,
+      // die Verantwortung liegt beim Aufrufer (kein SQL-Injection-Risiko, da parametrisiert)
+      const builder = where();
+      builder.like('Artikelnummer', "MBH'); DROP TABLE Schmuckstück;--%");
+
+      expect(builder.build()).toBe('WHERE "Artikelnummer" LIKE $1');
+      expect(builder.getParams()).toEqual(["MBH'); DROP TABLE Schmuckstück;--%"]);
+    });
+
+    test('artikelnummerIn([]) mit leerem Array erzeugt gültige Klausel ohne Absturz', () => {
+      const builder = where();
+      builder.artikelnummerIn([]);
+
+      expect(builder.build()).toBe('WHERE "Artikelnummer" = ANY($1)');
+      expect(builder.getParams()).toEqual([[]]);
+    });
+  });
+
   describe('Lieferschein/Rechnung-Filter', () => {
     test('mitLieferschein() ohne Parameter', () => {
       const builder = where();
