@@ -26,7 +26,18 @@
     ],
     "clearMocks": true,
     "restoreMocks": true,
-    "testTimeout": 10000
+    "testTimeout": 10000,
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 31,
+        "functions": 42,
+        "lines": 36,
+        "statements": 36
+      }
+    }
   },
   "dependencies": {
     "adm-zip": "^0.6.1",

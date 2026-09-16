@@ -31,5 +31,16 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setupTests.js',
     testTimeout: 10000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/__tests__/**', 'src/test/**'],
+      thresholds: {
+        statements: 5,
+        branches: 5,
+        functions: 5,
+        lines: 5,
+      },
+    },
   },
 })

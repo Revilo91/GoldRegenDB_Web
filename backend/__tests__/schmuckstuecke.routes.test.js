@@ -7,14 +7,10 @@
 process.env.JWT_SECRET = 'test-secret-do-not-use-in-prod';
 
 const request = require('supertest');
-const express = require('express');
 
-jest.mock('../src/config/db', () => ({
-  query: jest.fn(),
-  connect: jest.fn(),
-  setCurrentDbUsername: jest.fn(),
-  requestContextMiddleware: (req, res, next) => next(),
-}));
+const { buildTestApp } = require('./helpers/buildTestApp');
+
+jest.mock('../src/config/db', () => require('./helpers/dbMock').createDbMock());
 
 jest.mock('../src/utils/logger', () => ({
   info: jest.fn(),
@@ -26,13 +22,11 @@ jest.mock('../src/utils/logger', () => ({
 const db = require('../src/config/db');
 const schmuckstueckeRoutes = require('../src/routes/schmuckstuecke');
 
-const app = express();
-app.use(express.json());
-app.use((req, res, next) => {
-  req.user = { id: 1, username: 'testuser', role: 'bearbeiter' };
-  next();
+const app = buildTestApp({
+  router: schmuckstueckeRoutes,
+  mountPath: '/api/schmuckstuecke',
+  user: { id: 1, username: 'testuser', role: 'bearbeiter' },
 });
-app.use('/api/schmuckstuecke', schmuckstueckeRoutes);
 
 beforeEach(() => jest.clearAllMocks());
 
