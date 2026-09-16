@@ -1,0 +1,37 @@
+name: Issue-Analyse durch Claude
+
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+
+jobs:
+  analyse:
+    name: Issue automatisch analysieren
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Issue mit Claude analysieren
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          trigger_phrase: ""
+          direct_prompt: |
+            Analysiere das GitHub-Issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") in diesem Repository.
+
+            Gehe wie folgt vor:
+            1. Lies den Issue-Text und ordne ihn ein: Handelt es sich um einen Bug-Report oder einen Verbesserungsvorschlag?
+            2. Prüfe anhand von CLAUDE.md und der Codebasis (Backend: Express/PostgreSQL, Frontend: React), welche Dateien/Komponenten voraussichtlich betroffen sind.
+            3. Schätze die Komplexität grob ein (klein / mittel / groß) und nenne mögliche Risiken (z. B. Auswirkungen auf whereClauseBuilder, Auth, DocumentManager).
+            4. Prüfe kurz, ob es bereits ähnliche offene Issues oder PRs gibt.
+            5. Poste einen strukturierten Kommentar auf Deutsch mit den Abschnitten: "Einordnung", "Betroffene Bereiche", "Einschätzung", "Offene Fragen" (falls Angaben fehlen).
+
+            Nimm KEINE Code-Änderungen vor und erstelle KEINE Pull Requests. Poste ausschließlich einen Analyse-Kommentar auf dem Issue.
+          allowed_tools: "Read,Grep,Glob"

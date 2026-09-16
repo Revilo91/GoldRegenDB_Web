@@ -1,0 +1,53 @@
+name: "💡 Verbesserungsvorschlag"
+description: Schlage eine neue Funktion oder Verbesserung für GoldRegenDB vor
+title: "[Vorschlag]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: Welches Problem soll gelöst werden? Warum ist die aktuelle Lösung unzureichend?
+      placeholder: z. B. "Beim Filtern nach mehreren Grundmaterialien gleichzeitig gibt es aktuell keine Möglichkeit..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Vorgeschlagene Lösung
+      description: Wie stellst du dir die Umsetzung vor?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Betroffener Bereich
+      multiple: true
+      options:
+        - Frontend (React)
+        - Backend (Node.js/Express)
+        - Datenbank (PostgreSQL)
+        - Dokumente (Lieferscheine/Rechnungen)
+        - Authentifizierung/Rollen
+        - Sonstiges
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativen
+      description: Welche Alternativen hast du in Betracht gezogen?
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Zusätzlicher Kontext
+      description: Screenshots, Links oder weitere Informationen
+    validations:
+      required: false
