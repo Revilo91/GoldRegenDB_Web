@@ -189,31 +189,37 @@ function parseBulkItemsFromPayload(payload) {
  *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
-router.post("/upload", upload.single("foto"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "Keine Datei hochgeladen" });
+router.post("/upload", (req, res, next) => {
+  upload.single("foto")(req, res, (err) => {
+    if (!err) {
+      return next();
     }
-
-    const fileName = req.file.filename;
-    invalidatePhotoIndex();
-
-    res.json({
-      success: true,
-      fileName: fileName,
-      path: fileName,
-      originalName: req.file.originalname,
-    });
-  } catch (err) {
     logger.error("SCHMUCK", "Fehler beim Upload des Fotos", {
       message: err.message,
     });
-    if (err.message.includes("Nur") || err.message.includes("erlaubt")) {
-      res.status(400).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: "Fehler beim Upload des Fotos" });
+    if (
+      err.code === "LIMIT_FILE_SIZE" ||
+      err.message.includes("Nur") ||
+      err.message.includes("erlaubt")
+    ) {
+      return res.status(400).json({ error: err.message });
     }
+    res.status(500).json({ error: "Fehler beim Upload des Fotos" });
+  });
+}, async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "Keine Datei hochgeladen" });
   }
+
+  const fileName = req.file.filename;
+  invalidatePhotoIndex();
+
+  res.json({
+    success: true,
+    fileName: fileName,
+    path: fileName,
+    originalName: req.file.originalname,
+  });
 });
 
 /**
