@@ -12,12 +12,7 @@ process.env.JWT_SECRET = 'test-secret-do-not-use-in-prod';
 
 // ── Mock external dependencies ────────────────────────────────────────────────
 
-const mockQuery = jest.fn();
-jest.mock('../src/config/db', () => ({
-  query: mockQuery,
-  setCurrentDbUsername: jest.fn(),
-  requestContextMiddleware: (req, res, next) => next(),
-}));
+jest.mock('../src/config/db', () => require('./helpers/dbMock').createDbMock());
 
 jest.mock('../src/utils/logger', () => ({
   info: jest.fn(),
@@ -27,24 +22,17 @@ jest.mock('../src/utils/logger', () => ({
 }));
 
 const request = require('supertest');
-const express = require('express');
-const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
+const { buildTestApp } = require('./helpers/buildTestApp');
+
+const mockQuery = require('../src/config/db').query;
+
 // Build a minimal Express app that wires the auth router
 function buildApp() {
-  const app = express();
-  app.use(express.json());
-  app.use(cookieParser());
-  // auth middleware needs requestContextMiddleware already applied
-  app.use((req, res, next) => {
-    // Minimal stub so authenticate can call setCurrentDbUsername
-    next();
-  });
   const authRouter = require('../src/routes/auth');
-  app.use('/api/auth', authRouter);
-  return app;
+  return buildTestApp({ router: authRouter, mountPath: '/api/auth', withCookies: true });
 }
 
 // Passwörter werden seit Issue #131 im Klartext übertragen und im Backend gehasht
