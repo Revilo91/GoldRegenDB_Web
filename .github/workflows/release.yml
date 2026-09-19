@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Version ermitteln
         id: get_version
@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Version und Owner ermitteln
         id: get_version
