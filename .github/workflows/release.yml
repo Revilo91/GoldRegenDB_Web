@@ -228,7 +228,7 @@ jobs:
           zip -r "${PACKAGE_DIR}.zip" "${PACKAGE_DIR}/"
 
       - name: GitHub Release erstellen
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: GoldRegenDB ${{ steps.get_version.outputs.version }}
           body: |
