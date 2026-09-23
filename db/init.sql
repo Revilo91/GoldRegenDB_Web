@@ -167,7 +167,9 @@ CREATE TABLE "Kunde" (
     "Email" TEXT DEFAULT NULL,
     "Telefonnummer" TEXT DEFAULT NULL,
     "Provision" INTEGER NOT NULL DEFAULT 0,
-    "Aktiv" BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Befund B6: Default war FALSE, ein neu angelegter Kunde also inaktiv.
+    -- Das war nicht beabsichtigt.
+    "Aktiv" BOOLEAN NOT NULL DEFAULT TRUE,
     PRIMARY KEY ("Name"),
     UNIQUE ("ID")
 );
@@ -183,6 +185,12 @@ CREATE TABLE "Lieferschein" (
     CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
 
+-- Ohne diese Indizes muss jedes DELETE auf "Kunde" die ganze Tabelle scannen,
+-- um den Fremdschlüssel zu prüfen, und die Default-Sortierung der Dokumentliste
+-- (ORDER BY "Datum" DESC) sortiert bei jedem Aufruf neu (Befund B11).
+CREATE INDEX idx_lieferschein_kundennummer ON "Lieferschein" ("Kundennummer");
+CREATE INDEX idx_lieferschein_datum ON "Lieferschein" ("Datum" DESC);
+
 CREATE TABLE "Rechnung" (
     "ID" SERIAL,
     "Nummer" VARCHAR(20) NOT NULL,
@@ -190,11 +198,17 @@ CREATE TABLE "Rechnung" (
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'final',
     PRIMARY KEY ("Nummer"),
+    -- "Schmuckstück"."Rechnung_ID" zeigt auf diese Spalte. Ohne Eindeutigkeit
+    -- könnten zwei Rechnungen dieselbe "ID" tragen und jeder JOIN darüber die
+    -- Positionen beider mischen (Befund B4). "Lieferschein" hatte das UNIQUE
+    -- von Anfang an, "Rechnung" nicht – die Asymmetrie kam aus MySQL.
+    CONSTRAINT rechnung_id_key UNIQUE ("ID"),
     CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
 
-CREATE INDEX idx_rechnung_id ON "Rechnung" ("ID");
+-- Kein separater Index auf "ID": der UNIQUE-Constraint bringt ihn mit.
 CREATE INDEX idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
+CREATE INDEX idx_rechnung_datum ON "Rechnung" ("Datum" DESC);
 
 CREATE TABLE "Schmuckstück" (
     "Artikelnummer" VARCHAR(20) NOT NULL,
@@ -256,6 +270,15 @@ CREATE TABLE audit_log (
     previous_hash CHAR(64) DEFAULT NULL,
     hash CHAR(64) DEFAULT NULL
 );
+
+-- Die Tabelle wächst unbegrenzt und wird durchweg nach Zeitstempel abgefragt:
+--   dashboard.js:139  ORDER BY change_timestamp DESC LIMIT 10 (jeder Aufruf)
+--   auditLog.js:62    ORDER BY change_timestamp DESC LIMIT/OFFSET
+--   auditLog.js:139   WHERE artikelnummer_id = $1 ORDER BY ts DESC
+-- Ohne Index war jede dieser Abfragen ein Seq Scan mit vollständigem Sort
+-- (Befund B11).
+CREATE INDEX idx_audit_ts ON audit_log (change_timestamp DESC);
+CREATE INDEX idx_audit_artikel ON audit_log (artikelnummer_id, change_timestamp DESC);
 
 -- ============================================================
 -- User Management

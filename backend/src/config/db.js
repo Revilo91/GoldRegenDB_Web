@@ -235,6 +235,10 @@ async function ensureKundeTable() {
           UNIQUE ("ID")
       );
     `);
+    // Migrate: Default fuer "Aktiv" auf TRUE (Befund B6). Ein neu angelegter
+    // Kunde war bisher standardmaessig inaktiv; das war nicht beabsichtigt.
+    // Bestandsdaten bleiben unberuehrt, ein DEFAULT wirkt nur auf neue Zeilen.
+    await pool.query(`ALTER TABLE "Kunde" ALTER COLUMN "Aktiv" SET DEFAULT TRUE;`);
     logger.info('DB', '"Kunde" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Kunde Tabelle', { message: err.message });
@@ -270,6 +274,17 @@ async function ensureLieferscheinTable() {
       END
       $$;
     `);
+    // Befund B11: "Lieferschein" hatte keinen einzigen Index, obwohl "Rechnung"
+    // einen auf "Kundennummer" hat und MySQL ihn fuer beide Tabellen hatte.
+    // Ohne den Index muss jedes DELETE auf "Kunde" die ganze Tabelle scannen,
+    // um den Fremdschluessel zu pruefen, und der LEFT JOIN in
+    // routes/lieferscheine.js:53 kann nicht indexgestuetzt joinen.
+    // "Datum" ist die Default-Sortierung beider Dokumentlisten
+    // (lieferscheine.js:61, rechnungen.js:61).
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_lieferschein_kundennummer ON "Lieferschein" ("Kundennummer");
+      CREATE INDEX IF NOT EXISTS idx_lieferschein_datum ON "Lieferschein" ("Datum" DESC);
+    `);
     logger.info('DB', '"Lieferschein" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Lieferschein Tabelle', { message: err.message });
@@ -290,8 +305,8 @@ async function ensureRechnungTable() {
           PRIMARY KEY ("Nummer"),
           CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
       );
-      CREATE INDEX IF NOT EXISTS idx_rechnung_id ON "Rechnung" ("ID");
       CREATE INDEX IF NOT EXISTS idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
+      CREATE INDEX IF NOT EXISTS idx_rechnung_datum ON "Rechnung" ("Datum" DESC);
     `);
     // Migrate: add status column if missing
     await pool.query(`
@@ -328,6 +343,30 @@ async function ensureRechnungTable() {
           WHERE table_name = 'Rechnung' AND column_name = 'rabatt_positionen'
         ) THEN
           ALTER TABLE "Rechnung" ADD COLUMN rabatt_positionen JSONB NOT NULL DEFAULT '{}';
+        END IF;
+      END
+      $$;
+    `);
+    // Migrate: UNIQUE auf "ID" nachziehen (Befund B4).
+    // "Lieferschein" hat sein UNIQUE ("ID"), "Rechnung" nie bekommen – die
+    // Asymmetrie kam 1:1 aus MySQL mit (ADD UNIQUE KEY vs. ADD KEY). Ohne
+    // Eindeutigkeit koennen zwei Rechnungen dieselbe "ID" tragen; jeder JOIN
+    // ueber Schmuckstueck."Rechnung_ID" mischt dann die Positionen beider, und
+    // ein Fremdschluessel darauf ist ohnehin unmoeglich.
+    // Der bisherige Index idx_rechnung_id wird dadurch redundant: der
+    // UNIQUE-Constraint bringt seinen eigenen Index mit.
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          JOIN pg_namespace n ON n.oid = t.relnamespace
+          WHERE n.nspname = 'public' AND t.relname = 'Rechnung'
+            AND c.conname = 'rechnung_id_key'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD CONSTRAINT rechnung_id_key UNIQUE ("ID");
+          DROP INDEX IF EXISTS idx_rechnung_id;
         END IF;
       END
       $$;
@@ -415,6 +454,17 @@ async function ensureAuditLogTable() {
           changed_by VARCHAR(255) DEFAULT NULL,
           change_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      -- Befund B11: audit_log hatte ausser dem Primaerschluessel keinen Index,
+      -- waechst aber unbegrenzt. Abgefragt wird sie durchweg nach Zeitstempel:
+      --   dashboard.js:139  ORDER BY change_timestamp DESC LIMIT 10  (jeder
+      --                     Dashboard-Aufruf, also Seq Scan + kompletter Sort)
+      --   auditLog.js:62    ORDER BY change_timestamp DESC LIMIT/OFFSET
+      --   auditLog.js:139   WHERE artikelnummer_id = $1 ORDER BY ts DESC
+      --                     (Artikelhistorie im Detaildialog)
+      CREATE INDEX IF NOT EXISTS idx_audit_ts
+        ON audit_log (change_timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_audit_artikel
+        ON audit_log (artikelnummer_id, change_timestamp DESC);
     `);
     logger.info('DB', 'audit_log Tabelle verifiziert');
   } catch (err) {
