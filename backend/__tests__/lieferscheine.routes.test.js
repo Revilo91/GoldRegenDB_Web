@@ -26,6 +26,7 @@ jest.mock('../src/utils/excelService', () => ({
 const db = require('../src/config/db');
 const { requireBearbeiter } = require('../src/middleware/auth');
 const lieferscheineRoutes = require('../src/routes/lieferscheine');
+const { createTxClientMock, sqlVerlauf } = require('./helpers/txClientMock');
 
 function buildApp(role = 'bearbeiter') {
   const app = express();
@@ -179,54 +180,107 @@ describe('POST /api/lieferscheine', () => {
 });
 
 describe('PUT /api/lieferscheine/:id', () => {
-  it('aktualisiert einen bestehenden Lieferschein', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] })
-      .mockResolvedValueOnce({ rowCount: 0 });
+  it('aktualisiert einen bestehenden Lieferschein und committet', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'UPDATE "Lieferschein"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp())
       .put('/api/lieferscheine/1')
       .send({ Nummer: '2026-001', Kundennummer: 1 });
 
     expect(res.statusCode).toBe(200);
+    expect(sqlVerlauf(client)).toContain('COMMIT');
+    expect(client.release).toHaveBeenCalled();
   });
 
-  it('meldet 404 bei unbekannter ID', async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
+  it('meldet 404 bei unbekannter ID und rollt zurück', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'UPDATE "Lieferschein"': { rows: [] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp())
       .put('/api/lieferscheine/999')
       .send({ Nummer: '2026-001', Kundennummer: 1 });
 
     expect(res.statusCode).toBe(404);
+    expect(sqlVerlauf(client)).toContain('ROLLBACK');
+    expect(sqlVerlauf(client)).not.toContain('COMMIT');
+  });
+
+  // Befund C1: ohne Transaktion blieben nach diesem Fehler alle Positionen auf
+  // Ausgelagert = 0 stehen, obwohl die Ware beim Kunden liegt.
+  it('rollt den Kopf-Update zurück, wenn das Neusetzen der Positionen scheitert', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'UPDATE "Lieferschein"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'final' }] } },
+      fehlerBei: '"Ausgelagert" = $2',
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .put('/api/lieferscheine/1')
+      .send({ Nummer: '2026-001', Kundennummer: 1, Artikelnummern: ['MHO001'], status: 'final' });
+
+    expect(res.statusCode).toBe(500);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf).toContain('BEGIN');
+    expect(verlauf).toContain('ROLLBACK');
+    expect(verlauf).not.toContain('COMMIT');
+    expect(client.release).toHaveBeenCalled();
   });
 });
 
 describe('DELETE /api/lieferscheine/:id', () => {
-  it('löscht einen bestehenden Lieferschein', async () => {
-    db.query
-      .mockResolvedValueOnce({ rowCount: 0 })
-      .mockResolvedValueOnce({ rowCount: 1 });
+  it('löscht einen bestehenden Lieferschein und committet', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'SELECT "ID" FROM "Lieferschein"': { rows: [{ ID: 1 }], rowCount: 1 } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp()).delete('/api/lieferscheine/1');
 
     expect(res.statusCode).toBe(200);
+    expect(sqlVerlauf(client)).toContain('COMMIT');
   });
 
-  it('meldet 404 bei unbekannter ID', async () => {
-    db.query
-      .mockResolvedValueOnce({ rowCount: 0 })
-      .mockResolvedValueOnce({ rowCount: 0 });
+  // Befund C3: vorher wurden die Positionen zurückgesetzt und danach 404
+  // geliefert – der Reset blieb bestehen.
+  it('setzt bei unbekannter ID keine Positionen zurück (404)', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'SELECT "ID" FROM "Lieferschein"': { rows: [], rowCount: 0 } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp()).delete('/api/lieferscheine/999');
 
     expect(res.statusCode).toBe(404);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((sql) => sql.includes('UPDATE "Schmuckstück"'))).toBe(false);
+    expect(verlauf).toContain('ROLLBACK');
+  });
+
+  it('rollt den Positions-Reset zurück, wenn das DELETE scheitert', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'SELECT "ID" FROM "Lieferschein"': { rows: [{ ID: 1 }], rowCount: 1 } },
+      fehlerBei: 'DELETE FROM "Lieferschein"',
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp()).delete('/api/lieferscheine/1');
+
+    expect(res.statusCode).toBe(500);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((sql) => sql.includes('UPDATE "Schmuckstück"'))).toBe(true);
+    expect(verlauf).toContain('ROLLBACK');
+    expect(verlauf).not.toContain('COMMIT');
   });
 
   it('lehnt den Zugriff mit Rolle user ab (403)', async () => {
     const res = await request(buildApp('user')).delete('/api/lieferscheine/1');
 
     expect(res.statusCode).toBe(403);
-    expect(db.query).not.toHaveBeenCalled();
+    expect(db.connect).not.toHaveBeenCalled();
   });
 });

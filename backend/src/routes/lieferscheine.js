@@ -342,7 +342,11 @@ router.post('/', validate(lieferscheinSchema), async (req, res) => {
  *       403: { $ref: '#/components/responses/Forbidden' }
  *       404: { $ref: '#/components/responses/NotFound' }
  */
+// Zurücksetzen und Neusetzen der Positionen sind ein Vorgang: scheitert der
+// zweite Schritt ohne Transaktion, stehen alle Stücke auf Ausgelagert = 0,
+// obwohl sie beim Kunden liegen (Befund C1).
 router.put('/:id', validate(lieferscheinSchema), async (req, res) => {
+  let client;
   try {
     const { Nummer, Artikelnummern, Kundennummer, status } = req.body;
 
@@ -358,38 +362,65 @@ router.put('/:id', validate(lieferscheinSchema), async (req, res) => {
     updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;
     params.push(req.params.id);
 
-    const { rows } = await db.query(updateQuery, params);
+    client = await db.connect();
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(updateQuery, params);
     if (rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
     }
 
     const currentStatus = rows[0].status;
 
     // Always reset old associations first (both Lieferschein_ID and Ausgelagert)
-    await db.query(`UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`, [req.params.id]);
+    await client.query(
+      `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`,
+      [req.params.id]
+    );
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (currentStatus === 'final') {
         // Final: set both Lieferschein_ID and Ausgelagert
-        await db.query(
+        await client.query(
           `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
           [req.params.id, parseInt(Kundennummer), Artikelnummern]
         );
       } else {
         // Draft: only set Lieferschein_ID, don't change Ausgelagert
-        await db.query(
+        await client.query(
           `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
           [req.params.id, Artikelnummern]
         );
       }
     }
 
+    await client.query('COMMIT');
+
     logger.info('LIEFERSCHEINE', 'Lieferschein aktualisiert', { id: req.params.id, status: currentStatus });
     res.json(rows[0]);
   } catch (err) {
+    if (client) {
+      // Eigenes try: scheitert das ROLLBACK (typisch bei Verbindungsverlust,
+      // also genau im Fehlerfall), ginge die eigentliche Meldung sonst
+      // verloren (Befund C29).
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('LIEFERSCHEINE', 'Rollback fehlgeschlagen beim Aktualisieren des Lieferscheins',
+          { id: req.params.id, message: rollbackErr.message });
+      }
+    }
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Lieferscheinnummer existiert bereits' });
+    }
     logger.error('LIEFERSCHEINE', 'Fehler beim Aktualisieren des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren des Lieferscheins' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
@@ -415,24 +446,55 @@ router.put('/:id', validate(lieferscheinSchema), async (req, res) => {
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.delete('/:id', async (req, res) => {
+  let client;
   try {
+    client = await db.connect();
+    await client.query('BEGIN');
+
+    // Existenz zuerst prüfen (Befund C3): vorher wurden die Positionen auch
+    // dann zurückgesetzt, wenn danach 404 geliefert wurde. FOR UPDATE sperrt
+    // die Zeile gegen ein parallel laufendes DELETE.
+    const { rowCount: vorhanden } = await client.query(
+      'SELECT "ID" FROM "Lieferschein" WHERE "ID" = $1 FOR UPDATE',
+      [req.params.id]
+    );
+    if (vorhanden === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
+    }
+
     // Reset associations before deleting
-    await db.query(
+    await client.query(
       `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`,
       [req.params.id]
     );
-    const { rowCount } = await db.query(
+    await client.query(
       'DELETE FROM "Lieferschein" WHERE "ID" = $1',
       [req.params.id]
     );
-    if (rowCount === 0) {
-      return res.status(404).json({ error: 'Lieferschein nicht gefunden' });
-    }
+
+    await client.query('COMMIT');
+
     logger.info('LIEFERSCHEINE', 'Lieferschein gelöscht', { id: req.params.id });
     res.json({ message: 'Lieferschein gelöscht' });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('LIEFERSCHEINE', 'Rollback fehlgeschlagen beim Löschen des Lieferscheins',
+          { id: req.params.id, message: rollbackErr.message });
+      }
+    }
+    if (err.code === '23503') {
+      return res.status(409).json({ error: 'Lieferschein ist noch verknüpft und kann nicht gelöscht werden' });
+    }
     logger.error('LIEFERSCHEINE', 'Fehler beim Löschen des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen des Lieferscheins' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
