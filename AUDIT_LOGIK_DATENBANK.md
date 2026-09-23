@@ -62,7 +62,8 @@ Umsetzungs-/Prozessfehler.
 # A. Startup, Seed & Migrationen
 
 ### A0 [S0] Frische Installation schlägt fehl: `seed.sql` kennt eine Spalte `"Online"`, die nicht existiert — *verifiziert*
-`db/seed.sql` enthält in **653** INSERT-Statements die Spalte `"Online"`:
+`db/seed.sql` nennt die Spalte `"Online"` in der Spaltenliste von **16**
+mehrzeiligen `INSERT INTO "Schmuckstück"`-Statements:
 ```sql
 INSERT INTO "Schmuckstück" (…, "Herstellungskosten", "Verkaufspreis", "Online",
                             "Ausgelagert", "Verkauft", …)
@@ -72,8 +73,25 @@ vor (`grep -c` = 0/0). Die Spalte stammt aus MySQL
 (`GoldRegenDB_structure.sql:107`: `` `Online` tinyint(1) DEFAULT 0 ``) und wurde
 bei der Postgres-Migration gestrichen — im Seed aber nicht.
 
-`seed.sql` legt sie auch nicht selbst an; die einzigen `ALTER TABLE` darin sind
-`DISABLE/ENABLE TRIGGER ALL` (Zeile 11 und 12464).
+> Zur Einordnung der Zahl: `grep -c '"Online"' db/seed.sql` liefert 653, das
+> sind aber überwiegend `audit_log`-Zeilen, deren `new_value` einen
+> JSON-Schnappschuss der ganzen Schmuckstück-Zeile enthält — dort ist
+> `"Online"` nur ein Schlüssel **innerhalb eines Textwerts** und völlig
+> harmlos. Problematisch sind ausschließlich die 16 Spaltenlisten.
+
+`seed.sql` legt die Spalte auch nicht selbst an; die einzigen `ALTER TABLE`
+darin sind `DISABLE/ENABLE TRIGGER ALL` (Zeile 11 und 12464).
+
+Die Spalte wird im Anwendungscode **nirgends** gelesen oder geschrieben
+(geprüft über `backend/src` und `frontend/src`). Die einzigen `Online`-Treffer
+sind unbeteiligt: SumUp-CSV-Spaltenköpfe (`sumup.js:454-475`) und der String
+`'Online-Formular'` (`bestellungPublic.js:132`).
+
+Bemerkenswert dabei: der SumUp-Export schreibt „Display item in Online Store?"
+fest auf `"Yes"` (`sumup.js:515`, `:554`) — genau das, was das alte
+`Online`-Flag einmal gesteuert haben dürfte. In den Daten stehen **188** Stücke
+mit `Online = 1` und 7402 mit `0`; die Spalte ist also nicht leer, sondern
+trägt echte Information.
 
 *Fehlerszenario:* `docker compose up` auf leerem Volume. Der offizielle
 `postgres`-Entrypoint führt `/docker-entrypoint-initdb.d/*.sql` mit
@@ -82,11 +100,16 @@ bei der Postgres-Migration gestrichen — im Seed aber nicht.
 `seed.sql:5` ein `BEGIN;` öffnet, rollt der **gesamte** Seed zurück. Ergebnis:
 leeres Schema, fehlgeschlagene Container-Initialisierung.
 
-*Lösung:* Entweder `"Online" BOOLEAN NOT NULL DEFAULT FALSE` in `init.sql` +
-`db.js` nachziehen, oder `seed.sql` neu generieren. Dauerhaft: die Generatoren
-(`db/json_to_sql.py`, `db/convert_mysql_to_pg.py`) gegen
-`information_schema.columns` abgleichen, statt die Spaltenliste blind aus der
-Quelle zu übernehmen.
+*Lösung:* Zwei Wege wären möglich — `"Online" BOOLEAN NOT NULL DEFAULT FALSE`
+in `init.sql` + `db.js` nachziehen, oder die Spalte aus `seed.sql` entfernen.
+**Entschieden wurde das Entfernen**, weil der Anwendungscode die Spalte nicht
+nutzt; die 188 Artikelnummern mit `Online = 1` werden vorher nach
+`db/online_flag_2026-09.csv` gesichert, damit die Information nicht
+unwiederbringlich verloren geht.
+
+Dauerhaft: die Generatoren (`db/json_to_sql.py`,
+`db/convert_mysql_to_pg.py`) gegen `information_schema.columns` abgleichen,
+statt die Spaltenliste blind aus der Quelle zu übernehmen.
 
 ### A1 [S1] Migrationen laufen als „floating promise", der Server wartet nicht — *verifiziert*
 `backend/src/config/db.js:888` startet die Migrationskette beim Modul-Load,
