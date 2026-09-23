@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { parseZahlOderNull, formatEur } from "../utils/zahlen";
+import { statusBadge, statusVon, STATUS, istWahr } from "../utils/status";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
@@ -197,8 +198,8 @@ export default function Schmuckstuecke() {
       Verkaufspreis: 0,
       Herstellungskosten: 0,
       Ausgelagert: 0,
-      Verkauft: 0,
-      Ausschuss: 0,
+      Verkauft: false,
+      Ausschuss: false,
       Ausschuss_Grund: "",
     });
     setEditing("new");
@@ -410,8 +411,8 @@ export default function Schmuckstuecke() {
       Anzahl: 1,
       Foto: "",
       Ausgelagert: 0,
-      Verkauft: 0,
-      Ausschuss: 0,
+      Verkauft: false,
+      Ausschuss: false,
       Ausschuss_Grund: "",
     });
     setEditing("new");
@@ -735,16 +736,13 @@ export default function Schmuckstuecke() {
                   // Klick auf den Header tat also sichtbar nichts (Befund G13).
                   // Serverseitiges Sortieren müsste das Feld mitliefern.
                   sortable: false,
-                  render: (r) =>
-                    r.Verkauft === 1 ? (
-                      <span className="badge success">Verkauft</span>
-                    ) : r.Ausschuss === 1 ? (
-                      <span className="badge danger">Ausschuss</span>
-                    ) : r.Verkauft === 0 &&
-                      r.Ausschuss === 0 &&
-                      r.Ausgelagert === 0 ? (
-                      <span className="badge gold">Lager</span>
-                    ) : null,
+                  render: (r) => {
+                    // Ausgelagerte Stuecke haben in dieser Liste eine eigene
+                    // Spalte, hier bleibt die Zelle dafuer leer.
+                    if (statusVon(r) === STATUS.AUSGELAGERT) return null;
+                    const badge = statusBadge(r);
+                    return <span className={badge.klasse}>{badge.label}</span>;
+                  },
                 },
                 {
                   key: "Ausgelagert",
@@ -1756,12 +1754,12 @@ export default function Schmuckstuecke() {
                           type="checkbox"
                           id="form-ausschuss"
                           className="form-checkbox"
-                          checked={form.Ausschuss === 1}
+                          checked={istWahr(form.Ausschuss)}
                           disabled={editing === "new"}
                           onChange={(e) =>
                             setForm({
                               ...form,
-                              Ausschuss: e.target.checked ? 1 : 0,
+                              Ausschuss: e.target.checked,
                               Ausschuss_Grund: e.target.checked
                                 ? form.Ausschuss_Grund || "Defekt"
                                 : "",
@@ -1770,7 +1768,7 @@ export default function Schmuckstuecke() {
                         />
                       </div>
 
-                      {form.Ausschuss === 1 && (
+                      {istWahr(form.Ausschuss) && (
                         <div className="form-row" style={{ marginTop: "12px" }}>
                           <div className="form-group" style={{ flex: 1 }}>
                             <label>Ausschuss Grund</label>

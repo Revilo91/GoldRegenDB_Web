@@ -299,7 +299,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       if (marinaArtikelnummernArray.length > 0) {
         await client.query(
           `UPDATE "Schmuckstück"
-           SET "Verkauft" = 1, "Rechnung_ID" = $1
+           SET "Verkauft" = TRUE, "Rechnung_ID" = $1
            WHERE "Artikelnummer" = ANY($2)`,
           [rechnungMarina.ID, marinaArtikelnummernArray],
         );
@@ -327,7 +327,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       if (saskiaArtikelnummernArray.length > 0) {
         await client.query(
           `UPDATE "Schmuckstück"
-           SET "Verkauft" = 1, "Rechnung_ID" = $1
+           SET "Verkauft" = TRUE, "Rechnung_ID" = $1
            WHERE "Artikelnummer" = ANY($2)`,
           [rechnungSaskia.ID, saskiaArtikelnummernArray],
         );

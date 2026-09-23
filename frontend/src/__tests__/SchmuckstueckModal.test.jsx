@@ -14,8 +14,8 @@ vi.mock('../api', () => ({
 const artikel = {
   Artikelnummer: 'MHO001',
   Name: 'Goldkette',
-  Verkauft: 0,
-  Ausschuss: 0,
+  Verkauft: false,
+  Ausschuss: false,
   Ausgelagert: 0,
   Foto: null,
   Grundmaterial: 'Gold',
@@ -58,7 +58,7 @@ describe('SchmuckstueckModal', () => {
   });
 
   it('zeigt den Verkauft-Status mit Kundennamen', async () => {
-    api.getSchmuckstueck.mockResolvedValue({ ...artikel, Verkauft: 1, Ausgelagert: 1 });
+    api.getSchmuckstueck.mockResolvedValue({ ...artikel, Verkauft: true, Ausgelagert: 1 });
 
     render(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
 

@@ -8,6 +8,7 @@ import {
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import { statusBadge, statusVon, STATUS } from "../utils/status";
 
 /**
  * Zeigt ein Schmuckstück-Detail-Modal über einem bestehenden Modal.
@@ -83,22 +84,23 @@ export default function SchmuckstueckModal({
             </h3>
             {item && (
               <div className="modal-header-badge">
-                {item.Verkauft === 1 ? (
-                  <div style={{ display: "flex", gap: "4px" }}>
-                    <span className="badge success">Verkauft</span>
-                    <span className="badge gold">
-                      {getKundenName(item.Ausgelagert)}
-                    </span>
-                  </div>
-                ) : item.Ausschuss === 1 ? (
-                  <span className="badge danger">Ausschuss</span>
-                ) : item.Ausgelagert > 0 ? (
-                  <span className="badge gold">
-                    {getKundenName(item.Ausgelagert)}
-                  </span>
-                ) : (
-                  <span className="badge warning">Lager</span>
-                )}
+                {(() => {
+                  // Der Status kommt aus utils/status.js; hier wird zusätzlich
+                  // der Kunde gezeigt, wenn ein verkauftes Stück bei ihm liegt.
+                  const badge = statusBadge(item, getKundenName);
+                  const status = statusVon(item);
+                  if (status === STATUS.VERKAUFT && Number(item.Ausgelagert) > 0) {
+                    return (
+                      <div className="badge-gruppe">
+                        <span className={badge.klasse}>{badge.label}</span>
+                        <span className="badge gold">
+                          {getKundenName(item.Ausgelagert)}
+                        </span>
+                      </div>
+                    );
+                  }
+                  return <span className={badge.klasse}>{badge.label}</span>;
+                })()}
               </div>
             )}
           </div>

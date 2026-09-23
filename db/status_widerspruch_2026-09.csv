@@ -1,0 +1,46 @@
+# Schmuckstücke, die im Bestand gleichzeitig Verkauft=1 UND Ausschuss=1 hatten.
+#
+# Dieser Zustand ist fachlich unmöglich und war in keinem Status-Mapping
+# vorgesehen (Befund B6/C19): "Verkauft" ist definiert als
+# Verkauft=1 AND Ausschuss=0, "Ausschuss" als Ausschuss=1 -- die Zeilen zählten
+# deshalb in der Inventur doppelt und im Dashboard nur als Ausschuss.
+#
+# Entscheidung: Ausschuss ist richtig, das Verkauft-Kennzeichen war die
+# Altlast. Die Migration ensureStatusBooleans() in backend/src/config/db.js
+# setzt für diese Zeilen Verkauft = FALSE, bevor der CHECK
+# schmuck_status_chk (NOT ("Verkauft" AND "Ausschuss")) validiert greift.
+#
+# Folge: die 24 Zeilen mit Rechnung_ID > 0 tragen nicht mehr zum Umsatz bei.
+# Die Änderung steht auch im audit_log (Spalte Verkauft, '1' -> '0').
+#
+# Stand: 2026-09, alle 28 Zeilen waren bei einem Kunden ausgelagert
+# (Ausgelagert > 0) und keine hatte einen Ausschuss_Grund.
+Artikelnummer,Verkaufspreis,Ausgelagert,Lieferschein_ID,Rechnung_ID
+MLO068_6,10,9,38,189
+MLO082_5,8,1,17,9
+MLO118_1,15,1,0,9
+MPA011_1,10,1,16,5
+MPA142_1,10,1,16,5
+MPA144_1,10,1,0,8
+MPA164_2,15,4,1,0
+MPA215_1,12,4,19,0
+MPA226_1,10,9,18,189
+MPA261_1,12,9,38,189
+MPA263_1,12,9,38,189
+MPA267_1,15,9,38,189
+MPA278_2,12,8,58,0
+MPA345_1,15,9,73,189
+MPO064_7,12,9,107,189
+MPO066_3,12,9,107,189
+MPO068_5,12,8,0,0
+MPO071_1,12,9,38,189
+MPO077_4,12,9,161,189
+MPO082_1,12,9,38,189
+MPO090_1,10,9,0,189
+MPO091_1,10,9,0,189
+MPO131_1,16,21,76,62
+SPA213_1,10,1,16,5
+SPA219_1,10,1,16,5
+SPA223_1,10,1,16,5
+SPA324_2,10,10,40,11
+SPA376_1,15,9,73,189

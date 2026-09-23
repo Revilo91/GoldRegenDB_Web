@@ -1,5 +1,8 @@
 // @ts-check
-// Schmuckstück query filters: Verkauft (1,¬Ausschuss), Ausschuss (1), Verfügbar (0,0,0)
+// Schmuckstück query filters: Verkauft (true,¬Ausschuss), Ausschuss (true),
+// Verfügbar (false,false,Ausgelagert=0).
+// "Verkauft"/"Ausschuss" sind boolean, deshalb IS TRUE / IS FALSE -- "= 1" wäre
+// "operator does not exist: boolean = integer" (Befund B6).
 
 /** @typedef {string|number|string[]} SqlParam */
 
@@ -31,32 +34,33 @@ class WhereClauseBuilder {
 
   /** @returns {this} */
   verkauft() {
-    this.conditions.push(`${this._col('Verkauft')} = 1 AND ${this._col('Ausschuss')} = 0`);
+    this.conditions.push(`${this._col('Verkauft')} IS TRUE AND ${this._col('Ausschuss')} IS FALSE`);
     return this;
   }
 
   /** @returns {this} */
   nichtVerkauft() {
-    this.conditions.push(`${this._col('Verkauft')} = 0`);
+    this.conditions.push(`${this._col('Verkauft')} IS FALSE`);
     return this;
   }
 
   /** @returns {this} */
   ausschuss() {
-    this.conditions.push(`${this._col('Ausschuss')} = 1`);
+    this.conditions.push(`${this._col('Ausschuss')} IS TRUE`);
     return this;
   }
 
   /** @returns {this} */
   keinAusschuss() {
-    this.conditions.push(`${this._col('Ausschuss')} = 0`);
+    this.conditions.push(`${this._col('Ausschuss')} IS FALSE`);
     return this;
   }
 
   /** @returns {this} */
   verfuegbar() {
     this.conditions.push(
-      `${this._col('Verkauft')} = 0 AND ${this._col('Ausschuss')} = 0 AND ${this._col('Ausgelagert')} = 0`,
+      `${this._col('Verkauft')} IS FALSE AND ${this._col('Ausschuss')} IS FALSE`
+        + ` AND ${this._col('Ausgelagert')} = 0`,
     );
     return this;
   }
@@ -84,13 +88,14 @@ class WhereClauseBuilder {
     if (kundeId !== null) {
       this.conditions.push(
         `${this._col('Ausgelagert')} = $${this.paramIdx}` +
-          ` AND ${this._col('Verkauft')} = 0 AND ${this._col('Ausschuss')} = 0`,
+          ` AND ${this._col('Verkauft')} IS FALSE AND ${this._col('Ausschuss')} IS FALSE`,
       );
       this.params.push(kundeId);
       this.paramIdx++;
     } else {
       this.conditions.push(
-        `${this._col('Ausgelagert')} > 0 AND ${this._col('Verkauft')} = 0 AND ${this._col('Ausschuss')} = 0`,
+        `${this._col('Ausgelagert')} > 0 AND ${this._col('Verkauft')} IS FALSE`
+          + ` AND ${this._col('Ausschuss')} IS FALSE`,
       );
     }
     return this;

@@ -216,7 +216,7 @@ describe('PUT /api/rechnungen/:id', () => {
   it('rollt den Kopf-Update zurück, wenn das Neusetzen der Positionen scheitert', async () => {
     const client = createTxClientMock({
       ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'final' }] } },
-      fehlerBei: '"Verkauft" = 1',
+      fehlerBei: '"Verkauft" = TRUE',
     });
     db.connect.mockResolvedValueOnce(client);
 

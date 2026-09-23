@@ -72,9 +72,9 @@ describe('GET /api/inventur', () => {
 
     const sql = String(db.query.mock.calls[0][0]);
     // Die verkauft-Spalte muss den Ausschuss ausschliessen ...
-    expect(sql).toContain('s."Verkauft" = 1 AND s."Ausschuss" = 0');
-    // ... und darf das nackte `s."Verkauft" = 1 THEN` nicht mehr enthalten.
-    expect(sql).not.toMatch(/s\."Verkauft" = 1\s+THEN/);
+    expect(sql).toContain('s."Verkauft" IS TRUE AND s."Ausschuss" IS FALSE');
+    // ... und darf das nackte `s."Verkauft" IS TRUE THEN` nicht mehr enthalten.
+    expect(sql).not.toMatch(/s\."Verkauft" IS TRUE\s+THEN/);
   });
 
   it('nutzt für alle Statusspalten Bedingungen mit Tabellenalias (F5)', async () => {
@@ -83,8 +83,8 @@ describe('GET /api/inventur', () => {
     await request(buildApp()).get('/api/inventur');
 
     const sql = String(db.query.mock.calls[0][0]);
-    expect(sql).toContain('s."Verkauft" = 0 AND s."Ausschuss" = 0');
-    expect(sql).toContain('s."Ausschuss" = 1');
+    expect(sql).toContain('s."Verkauft" IS FALSE AND s."Ausschuss" IS FALSE');
+    expect(sql).toContain('s."Ausschuss" IS TRUE');
   });
 
   it('lehnt den Zugriff mit Rolle user ab (403)', async () => {
@@ -99,7 +99,7 @@ describe('GET /api/inventur/:kundeId', () => {
   it('bildet die Kennzahlen in SQL, nicht in JavaScript', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 4, Name: 'Bea' }] }) // Kunde
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001', Verkauft: 1, Ausschuss: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001', Verkauft: true, Ausschuss: true }] })
       .mockResolvedValueOnce({
         rows: [{
           gesamt: 1,
@@ -114,7 +114,7 @@ describe('GET /api/inventur/:kundeId', () => {
     const res = await request(buildApp()).get('/api/inventur/4');
 
     expect(res.statusCode).toBe(200);
-    // Das Stück hat Verkauft=1 UND Ausschuss=1: vorher zählte JavaScript es als
+    // Das Stück hat Verkauft UND Ausschuss: vorher zählte JavaScript es als
     // verkauft UND als ausschuss. Jetzt entscheidet SQL, und zwar nur einmal.
     expect(res.body.stats).toEqual({
       gesamt: 1,
@@ -126,7 +126,7 @@ describe('GET /api/inventur/:kundeId', () => {
     });
     // Drei Abfragen: Kunde, Positionen, Kennzahlen
     expect(db.query).toHaveBeenCalledTimes(3);
-    expect(String(db.query.mock.calls[2][0])).toContain('s."Verkauft" = 1 AND s."Ausschuss" = 0');
+    expect(String(db.query.mock.calls[2][0])).toContain('s."Verkauft" IS TRUE AND s."Ausschuss" IS FALSE');
   });
 
   it('meldet 404 bei unbekanntem Kunden', async () => {

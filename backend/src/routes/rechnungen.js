@@ -299,7 +299,7 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (status === 'final') {
         await client.query(
-          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = TRUE WHERE "Artikelnummer" = ANY($2::text[])`,
           [rechnungId, Artikelnummern]
         );
       } else {
@@ -420,7 +420,7 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
 
     // Always reset old associations first (both Rechnung_ID and Verkauft)
     await client.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`,
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
       [req.params.id]
     );
 
@@ -429,7 +429,7 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
       if (currentStatus === 'final') {
         // Final: set both Rechnung_ID and Verkauft
         await client.query(
-          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = TRUE WHERE "Artikelnummer" = ANY($2::text[])`,
           [req.params.id, Artikelnummern]
         );
       } else {
@@ -506,7 +506,7 @@ router.delete('/:id', async (req, res) => {
 
     // Reset associations before deleting
     await client.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`,
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
       [req.params.id]
     );
     await client.query(

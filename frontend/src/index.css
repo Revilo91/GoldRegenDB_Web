@@ -669,6 +669,14 @@ p.lead {
   font-weight: 600;
 }
 
+/* Zwei Badges nebeneinander, z.B. "Verkauft" + Kundenname im
+   Schmuckstück-Modal. Ersetzt ein style={{display:"flex",gap:"4px"}}
+   (CLAUDE.md verbietet Inline-Styles). */
+.badge-gruppe {
+  display: flex;
+  gap: 4px;
+}
+
 /* ===== Etiketten ===== */
 
 .etiketten-grid {

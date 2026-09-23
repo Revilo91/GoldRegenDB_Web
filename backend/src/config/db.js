@@ -411,8 +411,8 @@ async function ensureSchmuckstueckTable() {
           "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
           "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
           "Ausgelagert" INTEGER DEFAULT 0,
-          "Verkauft" SMALLINT DEFAULT 0,
-          "Ausschuss" SMALLINT DEFAULT 0,
+          "Verkauft" BOOLEAN NOT NULL DEFAULT FALSE,
+          "Ausschuss" BOOLEAN NOT NULL DEFAULT FALSE,
           "Ausschuss_Grund" TEXT DEFAULT NULL,
           "Lieferschein_ID" INTEGER DEFAULT 0,
           "Rechnung_ID" INTEGER DEFAULT 0,
@@ -863,6 +863,94 @@ async function ensureBestelluebersichtSchema() {
   }
 }
 
+// ---- Statusfelder: SMALLINT -> boolean ----
+
+// Befund B6: "Verkauft" und "Ausschuss" waren nullable SMALLINT ohne CHECK.
+// Verkauft = 2 oder NULL war erlaubt, und so eine Zeile war in KEINEM Filter
+// enthalten -- nicht "verkauft" (= 1) und nicht "verfügbar" (= 0, denn
+// NULL = 0 ist UNKNOWN). Der Artikel verschwand lautlos aus allen Listen,
+// zählte aber weiter in totalPieces.
+//
+// Die Umstellung läuft in drei Schritten, deren Reihenfolge zwingend ist:
+// 1. Die Ausschuss_Grund-Constraint löschen. Zwei Gründe: sie prüft
+//    COALESCE("Ausschuss", 0) = 0, und Postgres parst CHECK-Ausdrücke bei
+//    ALTER COLUMN TYPE neu -- COALESCE(boolean, integer) ist ein Fehler. Und
+//    sie steht als NOT VALID im Schema: das heißt nur, dass der BESTAND beim
+//    Anlegen ungeprüft blieb; jedes spätere UPDATE einer Zeile wird sehr wohl
+//    geprüft. Die 28 Zeilen aus Schritt 2 haben Ausschuss=1 ohne Grund
+//    (Befund D7 -- das gilt für alle 240 Ausschuss-Stücke), ihr UPDATE wäre
+//    also daran gescheitert. ensureAusschussGrundConstraint() legt sie danach
+//    in der boolean-Form wieder an.
+// 2. Die widersprüchlichen Zeilen bereinigen, NOCH als SMALLINT -- so schreibt
+//    der Audit-Trigger '1' -> '0' im alten Wertformat und die Korrektur ist im
+//    Revisionsprotokoll nachvollziehbar.
+// 3. Typ ändern, NOT NULL und DEFAULT setzen, dann den Widerspruchs-CHECK --
+//    validiert, nicht NOT VALID, weil Schritt 2 ihn erfüllbar gemacht hat.
+async function ensureStatusBooleans() {
+  try {
+    const { rows: typRows } = await pool.query(`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'Schmuckstück' AND column_name = 'Verkauft'
+    `);
+
+    if (typRows.length > 0 && typRows[0].data_type !== 'boolean') {
+      // Schritt 1
+      await pool.query(`
+        ALTER TABLE "Schmuckstück"
+          DROP CONSTRAINT IF EXISTS schmuckstueck_ausschuss_grund_required_chk
+      `);
+
+      // Schritt 2: Verkauft=1 UND Ausschuss=1 ist fachlich unmöglich. Im
+      // Bestand gab es 28 solche Zeilen, alle bei einem Kunden ausgelagert.
+      // Entschieden wurde: Ausschuss ist richtig, Verkauft ist der Fehler.
+      // Die betroffenen Artikelnummern stehen in db/status_widerspruch_2026-09.csv.
+      const bereinigt = await pool.query(`
+        UPDATE "Schmuckstück" SET "Verkauft" = 0
+        WHERE "Verkauft" = 1 AND "Ausschuss" = 1
+      `);
+      if (bereinigt.rowCount > 0) {
+        logger.info('DB', 'Widersprüchlicher Status bereinigt: Verkauft=0 gesetzt, weil Ausschuss=1',
+          { zeilen: bereinigt.rowCount });
+      }
+
+      // Schritt 3
+      await pool.query(`
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkauft"  DROP DEFAULT,
+          ALTER COLUMN "Ausschuss" DROP DEFAULT;
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkauft"  TYPE boolean USING (COALESCE("Verkauft", 0)  <> 0),
+          ALTER COLUMN "Ausschuss" TYPE boolean USING (COALESCE("Ausschuss", 0) <> 0);
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkauft"  SET NOT NULL,
+          ALTER COLUMN "Verkauft"  SET DEFAULT false,
+          ALTER COLUMN "Ausschuss" SET NOT NULL,
+          ALTER COLUMN "Ausschuss" SET DEFAULT false;
+      `);
+      logger.info('DB', 'Statusfelder auf boolean NOT NULL umgestellt');
+    }
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück' AND c.conname = 'schmuck_status_chk'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+            ADD CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss"));
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Statusfelder und Widerspruchs-Constraint verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Umstellen der Statusfelder', { message: err.message });
+    throw err;
+  }
+}
+
 // ---- Constraint: Ausschuss_Grund ----
 
 async function ensureAusschussGrundConstraint() {
@@ -881,7 +969,7 @@ async function ensureAusschussGrundConstraint() {
           ALTER TABLE "Schmuckstück"
           ADD CONSTRAINT ${constraintName}
           CHECK (
-            COALESCE("Ausschuss", 0) = 0
+            "Ausschuss" IS NOT TRUE
             OR LENGTH(BTRIM(COALESCE("Ausschuss_Grund", ''))) > 0
           ) NOT VALID;
         END IF;
@@ -976,6 +1064,7 @@ async function initializeDatabase() {
   await ensureAppUsersTable();
   await ensureBestelluebersichtSchema();
   await ensureLagerinventurEntwurfTable();
+  await ensureStatusBooleans();
   await ensureAusschussGrundConstraint();
   await ensureTriggers();
 

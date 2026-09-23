@@ -60,13 +60,16 @@ export interface RechnungRow {
 //
 // Status-Logik (siehe CLAUDE.md / WHERE_BUILDER.md) – KEIN eigenes
 // "verfuegbar"-Feld in der DB, die drei Flags unten bestimmen den Status:
-//   Verfügbar:        Verkauft=0 AND Ausschuss=0 AND Ausgelagert=0
-//   Verkauft:         Verkauft=1 AND Ausschuss=0
-//   Ausschuss:        Ausschuss=1
-//   Aktiv ausgelagert: Ausgelagert>0 AND Verkauft=0 AND Ausschuss=0
+//   Verfügbar:        Verkauft IS FALSE AND Ausschuss IS FALSE AND Ausgelagert=0
+//   Verkauft:         Verkauft IS TRUE  AND Ausschuss IS FALSE
+//   Ausschuss:        Ausschuss IS TRUE
+//   Aktiv ausgelagert: Ausgelagert>0 AND Verkauft IS FALSE AND Ausschuss IS FALSE
 //
-// "Verkauft"/"Ausschuss" sind SMALLINT (0/1), keine echten Booleans in der DB
-// – die Zod-Schemas (schmuckZahlenfelder) validieren sie entsprechend als Ganzzahl 0..1.
+// "Verkauft"/"Ausschuss" sind boolean NOT NULL (Befund B6) – bis Gruppe 2 waren
+// es nullable SMALLINT, in denen 2 oder NULL speicherbar war; so eine Zeile war
+// in KEINEM Filter enthalten. Die Zod-Schemas nutzen bool(), das 0/1 und
+// "1"/"0" weiterhin annimmt. Ein CHECK schmuck_status_chk verbietet
+// Verkauft UND Ausschuss gleichzeitig.
 // "Ausgelagert" ist eine Kundennummer (>0) oder 0, kein Boolean.
 export interface SchmuckstueckRow {
   Artikelnummer: string;
@@ -97,10 +100,8 @@ export interface SchmuckstueckRow {
   Verkaufspreis: number;
   /** 0 = nicht ausgelagert, sonst Kundennummer ("Kunde"."ID"), an die ausgelagert wurde. */
   Ausgelagert: number;
-  /** 0 | 1 */
-  Verkauft: number;
-  /** 0 | 1 */
-  Ausschuss: number;
+  Verkauft: boolean;
+  Ausschuss: boolean;
   Ausschuss_Grund: string | null;
   /** 0 = keinem Lieferschein zugeordnet, sonst "Lieferschein"."ID". */
   Lieferschein_ID: number;

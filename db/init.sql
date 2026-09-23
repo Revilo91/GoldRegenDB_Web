@@ -238,14 +238,25 @@ CREATE TABLE "Schmuckstück" (
     "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
     "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
     "Ausgelagert" INTEGER DEFAULT 0,
-    "Verkauft" SMALLINT DEFAULT 0,
-    "Ausschuss" SMALLINT DEFAULT 0,
+    -- Booleans, nicht SMALLINT (Befund B6): als nullable SMALLINT waren
+    -- Verkauft = 2 und NULL erlaubt, und so eine Zeile war in KEINEM Filter
+    -- enthalten -- weder "verkauft" (= 1) noch "verfügbar" (= 0, denn NULL = 0
+    -- ist UNKNOWN). Der Artikel verschwand lautlos aus allen Listen, zählte
+    -- aber weiter in totalPieces.
+    "Verkauft" BOOLEAN NOT NULL DEFAULT FALSE,
+    "Ausschuss" BOOLEAN NOT NULL DEFAULT FALSE,
     "Ausschuss_Grund" TEXT DEFAULT NULL,
     "Lieferschein_ID" INTEGER DEFAULT 0,
     "Rechnung_ID" INTEGER DEFAULT 0,
     "Erstelldatum" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "Letzte_Änderung" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY ("Artikelnummer")
+    PRIMARY KEY ("Artikelnummer"),
+    -- Verkauft UND Ausschuss gleichzeitig ist in keinem Status-Mapping
+    -- vorgesehen: die Zeile zählt in der Inventur doppelt und im Dashboard nur
+    -- als Ausschuss. Im Bestand gab es 28 solche Zeilen, siehe
+    -- db/status_widerspruch_2026-09.csv und ensureStatusBooleans() in
+    -- backend/src/config/db.js.
+    CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss"))
 );
 
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");

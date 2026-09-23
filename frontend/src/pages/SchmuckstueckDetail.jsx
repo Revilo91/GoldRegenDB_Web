@@ -10,6 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { statusBadge } from "../utils/status";
 
 export default function SchmuckstueckDetail() {
   const { artikelnummer } = useParams();
@@ -108,17 +109,10 @@ export default function SchmuckstueckDetail() {
               <FontAwesomeIcon icon={faGem} /> {item.Artikelnummer}
             </h2>
             <p>
-              {item.Verkauft === 1 ? (
-                <span className="badge success">Verkauft</span>
-              ) : item.Ausschuss === 1 ? (
-                <span className="badge danger">Ausschuss</span>
-              ) : item.Ausgelagert > 0 ? (
-                <span className="badge gold">
-                  Ausgelagert: {getKundenName(item.Ausgelagert)}
-                </span>
-              ) : (
-                <span className="badge warning">Lager</span>
-              )}
+              {(() => {
+                const badge = statusBadge(item, getKundenName);
+                return <span className={badge.klasse}>{badge.label}</span>;
+              })()}
             </p>
           </div>
         </div>

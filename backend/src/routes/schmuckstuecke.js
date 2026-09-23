@@ -133,12 +133,14 @@ function statusFilterAnwenden(builder, query) {
   return null;
 }
 
+// ausschuss kommt aus zod als boolean (Befund B6); aeltere Aufrufer und Tests
+// schicken 0/1 oder "1" -- beides bleibt gueltig.
 function resolveAusschussGrund(ausschuss, ausschussGrund) {
-  const ausschussValue = Number(ausschuss) === 1 ? 1 : 0;
+  const istAusschuss = ausschuss === true || ausschuss === 1 || ausschuss === "1";
   const normalizedGrund =
     typeof ausschussGrund === "string" ? ausschussGrund.trim() : "";
 
-  if (ausschussValue === 1) {
+  if (istAusschuss) {
     return normalizedGrund || "Defekt";
   }
   return normalizedGrund || null;
@@ -640,9 +642,9 @@ router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async
           item.Zwischenstück || "",
           item.Herstellungskosten || 0,
           item.Verkaufspreis || 0,
-          0,
-          0,
-          0,
+          0,      // Ausgelagert
+          false,  // Verkauft
+          false,  // Ausschuss (item.Ausschuss wird verworfen, Befund C12)
           ausschussGrundValue,
         ],
       );
@@ -932,7 +934,9 @@ router.get("/filter-options", async (req, res) => {
          array_agg(DISTINCT "Name") FILTER (WHERE "Name" IS NOT NULL AND "Name" <> '') AS namen,
          array_agg(DISTINCT "Verkaufspreis") FILTER (WHERE "Verkaufspreis" IS NOT NULL) AS verkaufspreise,
          array_agg(DISTINCT "Herstellungskosten") FILTER (WHERE "Herstellungskosten" IS NOT NULL) AS herstellungskosten,
-         array_agg(DISTINCT "Ausschuss") FILTER (WHERE "Ausschuss" IS NOT NULL) AS ausschuesse,
+         -- ::int, damit die Filter-Optionen weiter 0/1 liefern und das
+         -- Dropdown im Frontend unberuehrt bleibt
+         array_agg(DISTINCT "Ausschuss"::int) FILTER (WHERE "Ausschuss" IS NOT NULL) AS ausschuesse,
          array_agg(DISTINCT "Anhänger") FILTER (WHERE "Anhänger" IS NOT NULL AND "Anhänger" <> '') AS anhaenger,
          array_agg(DISTINCT "Ausschuss_Grund") FILTER (WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" <> '') AS ausschussgruende
        FROM "Schmuckstück"`,
@@ -1111,7 +1115,7 @@ router.get("/:artikelnummer", async (req, res) => {
  *               Grösse: { type: number, nullable: true }
  *               Herstellungskosten: { type: number, nullable: true }
  *               Verkaufspreis: { type: number, nullable: true }
- *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Ausschuss: { type: boolean }
  *               Ausschuss_Grund: { type: string, nullable: true }
  *     responses:
  *       201:
@@ -1193,8 +1197,8 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
         b.Verkaufspreis = rows[0].Verkaufspreis;
         b.Herstellungskosten = rows[0].Herstellungskosten;
         b.Ausgelagert = 0;
-        b.Verkauft = 0;
-        b.Ausschuss = 0;
+        b.Verkauft = false;
+        b.Ausschuss = false;
         b.Ausschuss_Grund = rows[0].Ausschuss_Grund;
         b.Länge = rows[0].Länge;
         b.Fassung = rows[0].Fassung;
@@ -1260,8 +1264,8 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
           b.Herstellungskosten || 0,
           b.Verkaufspreis || 0,
           b.Ausgelagert || 0,
-          b.Verkauft || 0,
-          b.Ausschuss || 0,
+          b.Verkauft ?? false,
+          b.Ausschuss ?? false,
           ausschussGrundValue,
         ],
       );
@@ -1324,8 +1328,8 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
  *               Herstellungskosten: { type: number, nullable: true }
  *               Verkaufspreis: { type: number, nullable: true }
  *               Ausgelagert: { type: integer, description: '0 oder Kunde.ID' }
- *               Verkauft: { type: integer, enum: [0, 1] }
- *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Verkauft: { type: boolean }
+ *               Ausschuss: { type: boolean }
  *               Ausschuss_Grund: { type: string, nullable: true }
  *               Lieferschein_ID: { type: integer }
  *               Rechnung_ID: { type: integer }
@@ -1368,8 +1372,18 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
         "Anhänger_Inhalt_Farbe" = $17, "Anhänger_Inhalt_Farbakzente" = $18,
         "Anhänger_Inhalt_Zusatzmaterial" = $19, "Material" = $20, "Grösse" = $21,
         "Anhänger" = $22, "Zwischenstück" = $23, "Herstellungskosten" = $24,
-        "Verkaufspreis" = $25, "Ausgelagert" = $26,
-        "Verkauft" = $27, "Ausschuss" = $28, "Ausschuss_Grund" = $29, "Lieferschein_ID" = $30, "Rechnung_ID" = $31
+        "Verkaufspreis" = $25,
+        -- COALESCE fuer die fuenf Statusfelder (Befund C8): sie stehen im
+        -- Schema als .nullish(), ein PUT ohne diese Felder schrieb also NULL.
+        -- Danach passte das Stueck auf keine Statusbedingung mehr -- weder
+        -- verfuegbar (= 0) noch aktivAusgelagert (> 0) -- und fiel aus Liste,
+        -- Dashboard, Inventur und SumUp-Export heraus.
+        "Ausgelagert" = COALESCE($26, "Ausgelagert"),
+        "Verkauft" = COALESCE($27, "Verkauft"),
+        "Ausschuss" = COALESCE($28, "Ausschuss"),
+        "Ausschuss_Grund" = $29,
+        "Lieferschein_ID" = COALESCE($30, "Lieferschein_ID"),
+        "Rechnung_ID" = COALESCE($31, "Rechnung_ID")
              WHERE "Artikelnummer" = $32 RETURNING *`,
       [
         b.Name,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { formatEur } from "../utils/zahlen";
+import { istWahr } from "../utils/status";
 import TablePhoto from "../components/TablePhoto";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -268,12 +269,12 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
     const { items } = data;
     if (tab === "aktiv")
       return items.filter(
-        (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+        (i) => !istWahr(i.Verkauft) && !istWahr(i.Ausschuss),
       );
     if (tab === "verkauft")
-      return items.filter((i) => Number(i.Verkauft) === 1);
+      return items.filter((i) => istWahr(i.Verkauft));
     if (tab === "ausschuss")
-      return items.filter((i) => Number(i.Ausschuss) === 1);
+      return items.filter((i) => istWahr(i.Ausschuss));
     return items;
   }, [data, tab]);
 
@@ -1784,10 +1785,10 @@ function InlineItems({ kundeId }) {
   if (!data) return null;
 
   const aktiv = data.items.filter(
-    (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+    (i) => !istWahr(i.Verkauft) && !istWahr(i.Ausschuss),
   );
-  const verkauft = data.items.filter((i) => Number(i.Verkauft) === 1);
-  const ausschuss = data.items.filter((i) => Number(i.Ausschuss) === 1);
+  const verkauft = data.items.filter((i) => istWahr(i.Verkauft));
+  const ausschuss = data.items.filter((i) => istWahr(i.Ausschuss));
 
   return (
     <div style={{ padding: "8px 0", fontSize: 13 }}>

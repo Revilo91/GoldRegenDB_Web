@@ -136,3 +136,48 @@ describe('GET /api/schmuckstuecke/filter-options', () => {
     );
   });
 });
+
+describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
+  // Befund C8: "Ausgelagert", "Verkauft", "Ausschuss", "Lieferschein_ID" und
+  // "Rechnung_ID" standen ohne COALESCE im SET. Weil sie im Schema .nullish()
+  // sind, schrieb ein PUT ohne diese Felder NULL -- danach passte das Stück auf
+  // keine Statusbedingung mehr und fiel aus Liste, Dashboard, Inventur und
+  // SumUp-Export heraus.
+  it('lässt Statusfelder unangetastet, wenn der Request sie nicht schickt', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001' }] });
+
+    const res = await request(app)
+      .put('/api/schmuckstuecke/MPO001')
+      .send({ Artikelnummer: 'MPO001', Name: 'Neuer Name' });
+
+    expect(res.statusCode).toBe(200);
+    const sql = String(db.query.mock.calls[0][0]);
+    for (const spalte of ['Ausgelagert', 'Verkauft', 'Ausschuss', 'Lieferschein_ID', 'Rechnung_ID']) {
+      expect(sql).toMatch(new RegExp(`"${spalte}" = COALESCE\\(\\$\\d+, "${spalte}"\\)`));
+    }
+  });
+
+  it('schreibt Verkauft/Ausschuss als boolean, nicht als 0/1', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001' }] });
+
+    await request(app)
+      .put('/api/schmuckstuecke/MPO001')
+      .send({ Artikelnummer: 'MPO001', Verkauft: 1, Ausschuss: 0 });
+
+    // bool() in schemas/common.js nimmt 0/1 entgegen und macht daraus
+    // true/false -- die Spalten sind boolean (Befund B6).
+    const params = db.query.mock.calls[0][1];
+    expect(params[26]).toBe(true);   // $27 Verkauft
+    expect(params[27]).toBe(false);  // $28 Ausschuss
+  });
+
+  it('meldet 404 bei unbekannter Artikelnummer', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .put('/api/schmuckstuecke/MPO999')
+      .send({ Artikelnummer: 'MPO999', Name: 'x' });
+
+    expect(res.statusCode).toBe(404);
+  });
+});

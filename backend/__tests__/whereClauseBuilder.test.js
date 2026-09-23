@@ -6,7 +6,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.verkauft();
 
-      expect(builder.build()).toBe('WHERE "Verkauft" = 1 AND "Ausschuss" = 0');
+      expect(builder.build()).toBe('WHERE "Verkauft" IS TRUE AND "Ausschuss" IS FALSE');
       expect(builder.getParams()).toEqual([]);
     });
 
@@ -14,7 +14,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.ausschuss();
 
-      expect(builder.build()).toBe('WHERE "Ausschuss" = 1');
+      expect(builder.build()).toBe('WHERE "Ausschuss" IS TRUE');
       expect(builder.getParams()).toEqual([]);
     });
 
@@ -22,7 +22,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.verfuegbar();
 
-      expect(builder.build()).toBe('WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0');
+      expect(builder.build()).toBe('WHERE "Verkauft" IS FALSE AND "Ausschuss" IS FALSE AND "Ausgelagert" = 0');
       expect(builder.getParams()).toEqual([]);
     });
 
@@ -30,7 +30,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.nichtVerkauft();
 
-      expect(builder.build()).toBe('WHERE "Verkauft" = 0');
+      expect(builder.build()).toBe('WHERE "Verkauft" IS FALSE');
       expect(builder.getParams()).toEqual([]);
     });
 
@@ -38,7 +38,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.keinAusschuss();
 
-      expect(builder.build()).toBe('WHERE "Ausschuss" = 0');
+      expect(builder.build()).toBe('WHERE "Ausschuss" IS FALSE');
       expect(builder.getParams()).toEqual([]);
     });
   });
@@ -64,7 +64,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.aktivAusgelagert();
 
-      expect(builder.build()).toBe('WHERE "Ausgelagert" > 0 AND "Verkauft" = 0 AND "Ausschuss" = 0');
+      expect(builder.build()).toBe('WHERE "Ausgelagert" > 0 AND "Verkauft" IS FALSE AND "Ausschuss" IS FALSE');
       expect(builder.getParams()).toEqual([]);
     });
 
@@ -72,7 +72,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.aktivAusgelagert(3);
 
-      expect(builder.build()).toBe('WHERE "Ausgelagert" = $1 AND "Verkauft" = 0 AND "Ausschuss" = 0');
+      expect(builder.build()).toBe('WHERE "Ausgelagert" = $1 AND "Verkauft" IS FALSE AND "Ausschuss" IS FALSE');
       expect(builder.getParams()).toEqual([3]);
     });
 
@@ -179,7 +179,7 @@ describe('WhereClauseBuilder', () => {
       builder.produktart('A');
 
       expect(builder.build()).toBe(
-        'WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0 ' +
+        'WHERE "Verkauft" IS FALSE AND "Ausschuss" IS FALSE AND "Ausgelagert" = 0 ' +
         'AND SUBSTRING("Artikelnummer", 2, 1) = $1 ' +
         'AND SUBSTRING("Artikelnummer", 3, 1) = $2'
       );
@@ -191,7 +191,7 @@ describe('WhereClauseBuilder', () => {
       builder.verkauft();
       builder.mitRechnung(123);
 
-      expect(builder.build()).toBe('WHERE "Verkauft" = 1 AND "Ausschuss" = 0 AND "Rechnung_ID" = $1');
+      expect(builder.build()).toBe('WHERE "Verkauft" IS TRUE AND "Ausschuss" IS FALSE AND "Rechnung_ID" = $1');
       expect(builder.getParams()).toEqual([123]);
     });
 
@@ -201,7 +201,7 @@ describe('WhereClauseBuilder', () => {
       builder.ohneRechnung();
 
       expect(builder.build()).toBe(
-        'WHERE "Ausgelagert" = $1 AND "Verkauft" = 0 AND "Ausschuss" = 0 ' +
+        'WHERE "Ausgelagert" = $1 AND "Verkauft" IS FALSE AND "Ausschuss" IS FALSE ' +
         'AND "Rechnung_ID" = 0'
       );
       expect(builder.getParams()).toEqual([5]);
@@ -247,7 +247,7 @@ describe('WhereClauseBuilder', () => {
       builder.verkauft();
       builder.ausgelagert(5);
 
-      expect(builder.buildConditions()).toBe('"Verkauft" = 1 AND "Ausschuss" = 0 AND "Ausgelagert" = $1');
+      expect(builder.buildConditions()).toBe('"Verkauft" IS TRUE AND "Ausschuss" IS FALSE AND "Ausgelagert" = $1');
       expect(builder.getParams()).toEqual([5]);
     });
 
@@ -265,7 +265,7 @@ describe('WhereClauseBuilder', () => {
       builder.raw('("Name" ILIKE $2 OR "Material" ILIKE $2)', '%Perle%');
 
       expect(builder.build()).toBe(
-        'WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0 ' +
+        'WHERE "Verkauft" IS FALSE AND "Ausschuss" IS FALSE AND "Ausgelagert" = 0 ' +
         'AND ("Name" ILIKE $2 OR "Material" ILIKE $2)'
       );
       expect(builder.getParams()).toEqual(['%Perle%']);
@@ -293,9 +293,9 @@ describe('WhereClauseBuilder', () => {
       const builder = where();
       builder.verkauft();
 
-      expect(builder.buildConditions()).toBe('"Verkauft" = 1 AND "Ausschuss" = 0');
-      expect(builder.build()).toBe('WHERE "Verkauft" = 1 AND "Ausschuss" = 0');
-      expect(builder.buildConditions()).toBe('"Verkauft" = 1 AND "Ausschuss" = 0');
+      expect(builder.buildConditions()).toBe('"Verkauft" IS TRUE AND "Ausschuss" IS FALSE');
+      expect(builder.build()).toBe('WHERE "Verkauft" IS TRUE AND "Ausschuss" IS FALSE');
+      expect(builder.buildConditions()).toBe('"Verkauft" IS TRUE AND "Ausschuss" IS FALSE');
       expect(builder.getParams()).toEqual([]);
     });
   });
@@ -307,12 +307,12 @@ describe('WhereClauseBuilder', () => {
   describe('Tabellenalias', () => {
     test('alias qualifiziert alle Spalten', () => {
       expect(where(1, { alias: 's' }).verfuegbar().build())
-        .toBe('WHERE s."Verkauft" = 0 AND s."Ausschuss" = 0 AND s."Ausgelagert" = 0');
+        .toBe('WHERE s."Verkauft" IS FALSE AND s."Ausschuss" IS FALSE AND s."Ausgelagert" = 0');
     });
 
     test('ohne alias bleibt die Ausgabe unverändert', () => {
       expect(where().verfuegbar().build())
-        .toBe('WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0');
+        .toBe('WHERE "Verkauft" IS FALSE AND "Ausschuss" IS FALSE AND "Ausgelagert" = 0');
     });
 
     test('alias gilt auch für Bedingungen mit Parameter', () => {
@@ -333,7 +333,7 @@ describe('WhereClauseBuilder', () => {
       const builder = where(1, { alias: 's' }).verkauft().clone();
 
       expect(builder.artikelnummer('MHO001').build())
-        .toBe('WHERE s."Verkauft" = 1 AND s."Ausschuss" = 0 AND s."Artikelnummer" = $1');
+        .toBe('WHERE s."Verkauft" IS TRUE AND s."Ausschuss" IS FALSE AND s."Artikelnummer" = $1');
     });
   });
 
@@ -345,9 +345,9 @@ describe('WhereClauseBuilder', () => {
       const builder2 = builder1.clone();
       builder2.grundmaterial('P');
 
-      expect(builder1.build()).toBe('WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0');
+      expect(builder1.build()).toBe('WHERE "Verkauft" IS FALSE AND "Ausschuss" IS FALSE AND "Ausgelagert" = 0');
       expect(builder2.build()).toBe(
-        'WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0 ' +
+        'WHERE "Verkauft" IS FALSE AND "Ausschuss" IS FALSE AND "Ausgelagert" = 0 ' +
         'AND SUBSTRING("Artikelnummer", 2, 1) = $1'
       );
     });

@@ -70,8 +70,11 @@ const schmuckZahlenfelder = {
   Herstellungskosten: zahl({ min: 0, max: 1000000 }),
   Verkaufspreis: zahl({ min: 0, max: 1000000 }),
   Ausgelagert: ganzzahl({ min: 0 }),
-  Verkauft: ganzzahl({ min: 0, max: 1 }),
-  Ausschuss: ganzzahl({ min: 0, max: 1 }),
+  // boolean in der Datenbank (Befund B6). bool() aus common.js nimmt
+  // true/false, "true"/"false", 0/1 und "1"/"0" -- die bisherigen
+  // Frontend-Payloads und der Filter-Dropdown mit value="1" bleiben gültig.
+  Verkauft: bool(),
+  Ausschuss: bool(),
   Lieferschein_ID: ganzzahl({ min: 0 }),
   Rechnung_ID: ganzzahl({ min: 0 }),
 };
