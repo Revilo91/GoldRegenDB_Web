@@ -261,7 +261,14 @@ CREATE TABLE "Schmuckstück" (
     -- backend/src/config/db.js.
     CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss")),
     CONSTRAINT schmuck_preis_nicht_negativ
-      CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0)
+      CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0),
+    -- Normalisiert wird im zod-Schema (backend/src/schemas/common.js), die
+    -- Datenbank sichert es ab (Befund D4): 'mho123' waere ueber
+    -- SUBSTRING(...,1,1) = 'm' in keinem Hersteller-, Grundmaterial- oder
+    -- Produktartfilter gelandet -- und als Primaerschluessel eine zweite Zeile
+    -- fuer dasselbe physische Schmuckstueck.
+    CONSTRAINT schmuck_artikelnummer_gross_chk
+      CHECK ("Artikelnummer" = UPPER("Artikelnummer"))
 );
 
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");

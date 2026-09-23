@@ -1019,6 +1019,51 @@ async function ensureGeldNumeric() {
   }
 }
 
+// ---- Constraint: Artikelnummer in Grossbuchstaben ----
+
+// Befund D4: normalisiert wird im zod-Schema, und die Datenbank sichert es ab.
+// Landete ein Stueck ueber einen nicht normalisierenden Pfad als 'mho123' in der
+// Tabelle, war SUBSTRING('mho123',1,1) = 'm' <> 'M' -- das Stueck erschien in
+// KEINEM Hersteller-, Grundmaterial- oder Produktartfilter. Und weil
+// "Artikelnummer" der Primaerschluessel ist, existierten MHO123 und mho123 als
+// zwei Zeilen fuer ein physisches Schmuckstueck.
+async function ensureArtikelnummerGrossschreibung() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT count(*)::int AS abweichend
+      FROM "Schmuckstück"
+      WHERE "Artikelnummer" <> UPPER("Artikelnummer")
+    `);
+    if (rows[0].abweichend > 0) {
+      // Nicht automatisch korrigieren: eine Umbenennung des Primaerschluessels
+      // kann zwei Zeilen fuer dasselbe Stueck zusammenfuehren muessen, das ist
+      // eine fachliche Entscheidung. Der Constraint kommt dann NOT VALID.
+      logger.warn('DB', 'Artikelnummern mit Kleinbuchstaben im Bestand – '
+        + 'Constraint wird nur für neue Zeilen gesetzt', { anzahl: rows[0].abweichend });
+    }
+    const validitaet = rows[0].abweichend > 0 ? 'NOT VALID' : '';
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück' AND c.conname = 'schmuck_artikelnummer_gross_chk'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+            ADD CONSTRAINT schmuck_artikelnummer_gross_chk
+            CHECK ("Artikelnummer" = UPPER("Artikelnummer")) ${validitaet};
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Constraint für Artikelnummer-Großschreibung verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren der Artikelnummer-Constraint', { message: err.message });
+    throw err;
+  }
+}
+
 // ---- Constraint: Ausschuss_Grund ----
 
 async function ensureAusschussGrundConstraint() {
@@ -1134,6 +1179,7 @@ async function initializeDatabase() {
   await ensureLagerinventurEntwurfTable();
   await ensureStatusBooleans();
   await ensureGeldNumeric();
+  await ensureArtikelnummerGrossschreibung();
   await ensureAusschussGrundConstraint();
   await ensureTriggers();
 

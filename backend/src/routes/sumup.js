@@ -113,6 +113,8 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
         const extracted = extractArtikelnummer(value);
         if (extracted) {
           logger.debug('SUMUP', 'Artikelnummer gefunden', { idx, extracted, beschreibung: value });
+          // Aus einer fremden CSV, nicht aus dem zod-Schema -- hier muss die
+          // Normalisierung bleiben (Befund D4).
           artikelnummern.add(extracted.toUpperCase());
         }
       }
@@ -168,11 +170,12 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
     const existingItems = [];
 
     for (const requestedNum of artikelnummernArray) {
-      const normalizedRequested = requestedNum.toUpperCase();
+      // Beide Seiten sind großgeschrieben: die CSV-Werte oben, die
+      // Datenbankwerte per CHECK ("Artikelnummer" = UPPER(...)), Befund D4.
       const match = matchingItems.find(
         (item) =>
           !usedArtikelnummern.has(item.Artikelnummer) &&
-          item.Artikelnummer.toUpperCase().startsWith(normalizedRequested),
+          item.Artikelnummer.startsWith(requestedNum),
       );
 
       if (match) {

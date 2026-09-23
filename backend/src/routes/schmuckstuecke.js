@@ -146,6 +146,9 @@ function resolveAusschussGrund(ausschuss, ausschussGrund) {
   return normalizedGrund || null;
 }
 
+// Normalisiert wird im zod-Schema (Befund D4). Hier wird nur noch getrennt und
+// getrimmt -- die String-Variante ("MHO123, MHO124") kommt als ein Feld an und
+// kann von zod nicht einzeln normalisiert werden.
 function normalizeBulkArtikelnummern(input) {
   if (Array.isArray(input)) {
     return input.map((value) => String(value || "").trim().toUpperCase());
@@ -166,12 +169,8 @@ function parseBulkItemsFromPayload(payload) {
     return payload.items
       .map((item) => ({ ...(item || {}) }))
       .filter((item) => Object.keys(item).length > 0)
-      .map((item) => ({
-        ...item,
-        Artikelnummer: String(item.Artikelnummer || "")
-          .trim()
-          .toUpperCase(),
-      }));
+      // Artikelnummer ist hier bereits normalisiert (zod, Befund D4)
+      .map((item) => ({ ...item }));
   }
 
   const template = payload?.template || {};
@@ -826,7 +825,9 @@ router.get("/", async (req, res) => {
       return {
         ...row,
         Grundmaterial: row.Artikelnummer
-          ? GRUNDMATERIAL[row.Artikelnummer[1]?.toUpperCase()] || "Unbekannt"
+          // Kein toUpperCase: der CHECK in der Datenbank garantiert
+          // Großbuchstaben (Befund D4).
+          ? GRUNDMATERIAL[row.Artikelnummer[1]] || "Unbekannt"
           : "Keine Nummer",
       };
     });
@@ -1153,9 +1154,11 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
 
     await client.query("BEGIN");
 
+    // baseArtikelnummer ist bereits normalisiert (zod, Befund D4) -- die
+    // toUpperCase-Aufrufe in diesem Block sind deshalb entfallen.
     // Case 1: Prefix only (3 chars, e.g. "MHO")
     if (baseArtikelnummer.length === 3) {
-      const prefix = baseArtikelnummer.toUpperCase();
+      const prefix = baseArtikelnummer;
       const { rows } = await client.query(
         `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 4, 3) AS INTEGER)) as max_num
          FROM "Schmuckstück"
@@ -1166,8 +1169,7 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
       baseArtikelnummer = prefix + nextNum.toString().padStart(3, "0");
     }
     // Case 2: Base Artikelnummer (e.g. "MHO112")
-    else if (/^[A-Z]{3}\d{3}$/.test(baseArtikelnummer.toUpperCase())) {
-      baseArtikelnummer = baseArtikelnummer.toUpperCase();
+    else if (/^[A-Z]{3}\d{3}$/.test(baseArtikelnummer)) {
       const { rows } = await client.query(
         `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 8) AS INTEGER)) as max_suffix
          FROM "Schmuckstück"
@@ -1178,7 +1180,7 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
     } else if (baseArtikelnummer.includes("_")) {
       // If they provided a full number with suffix, just use it as is (quantity will still work but might collide)
       const parts = baseArtikelnummer.split("_");
-      baseArtikelnummer = parts[0].toUpperCase();
+      baseArtikelnummer = parts[0];
       startSuffix = parseInt(parts[1]) || 1;
     }
 

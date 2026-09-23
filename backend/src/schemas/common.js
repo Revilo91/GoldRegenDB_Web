@@ -59,16 +59,32 @@ const idParam = z
 
 // Artikelnummern: Präfix (3 Buchstaben) + 3 Ziffern, optional mit Suffix.
 // Beim Anlegen sind auch verkürzte Formen erlaubt (siehe routes/schmuckstuecke.js).
-const ARTIKELNUMMER_REGEX = /^[A-Za-zÄÖÜäöü]{3}\d{3}(_\d+)?$/;
+//
+// Nur ASCII-Großbuchstaben (Befund D3): der Regex erlaubte vorher
+// [A-Za-zÄÖÜäöü], also Kleinbuchstaben und Umlaute. Eine Nummer mit 'Ä' kam
+// damit durch die Validierung, fiel in der Suffix-Generierung aber in einen
+// anderen Zweig (schmuckstuecke.js prüfte /^[A-Z]{3}\d{3}$/) -- zwei Wahrheiten
+// über das Format desselben Primärschlüssels. Und GRUNDMATERIAL/PRODUKTART in
+// utils/constants.js kennen ohnehin nur ASCII. Im Bestand ist keine einzige der
+// 7590 Nummern betroffen, geprüft vor der Umstellung.
+const ARTIKELNUMMER_REGEX = /^[A-Z]{3}\d{3}(_\d+)?$/;
 
+// Befund D4: normalisiert wird an genau EINER Stelle, nämlich hier. Vorher
+// stand .toUpperCase() an elf Stellen in vier Dateien -- und trotzdem gab es
+// Pfade, die es nicht taten. Landete ein Stück als 'mho123' in der Datenbank,
+// war SUBSTRING('mho123',1,1) = 'm' <> 'M' und das Stück erschien in KEINEM
+// Hersteller-, Grundmaterial- oder Produktartfilter. Weil "Artikelnummer" der
+// Primärschlüssel ist, existierten MHO123 und mho123 zudem als zwei Zeilen für
+// ein physisches Schmuckstück.
 const artikelnummer = z
   .string({ error: 'ist erforderlich' })
   .trim()
   .min(1, 'darf nicht leer sein')
-  .max(20, 'darf maximal 20 Zeichen lang sein');
+  .max(20, 'darf maximal 20 Zeichen lang sein')
+  .transform((wert) => wert.toUpperCase());
 
-const vollstaendigeArtikelnummer = artikelnummer.regex(
-  ARTIKELNUMMER_REGEX,
+const vollstaendigeArtikelnummer = artikelnummer.refine(
+  (wert) => ARTIKELNUMMER_REGEX.test(wert),
   'hat ein ungültiges Format (erwartet z. B. MHO123 oder MHO123_1)',
 );
 
