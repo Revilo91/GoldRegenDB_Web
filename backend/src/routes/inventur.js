@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { generateInventurExcel } = require('../utils/excelService');
 const { where } = require('../utils/whereClauseBuilder');
+const { preisNachAllenRabattenSql } = require('../utils/rabatt');
 const logger = require('../utils/logger');
 
 // Die Statusbedingungen kommen aus dem whereClauseBuilder, nicht von Hand
@@ -15,6 +16,12 @@ const mitAlias = () => where(1, { alias: 's' });
 const aktivBedingung = mitAlias().nichtVerkauft().keinAusschuss().buildConditions();
 const verkauftBedingung = mitAlias().verkauft().buildConditions();
 const ausschussBedingung = mitAlias().ausschuss().buildConditions();
+
+// Befund C18: wert_verkauft summierte rohe Preise, obwohl der Beleg Positions-
+// und Gesamtrabatt abzieht -- die Zahl war bei jedem Rabatt zu hoch, und damit
+// auch die Provisionsbasis des Kunden. Dieselbe Formel wie fuer Beleg und
+// Dashboard, aus utils/rabatt.js.
+const verkaufswert = preisNachAllenRabattenSql('s', 'r');
 
 /**
  * @swagger
@@ -42,8 +49,8 @@ const ausschussBedingung = mitAlias().ausschuss().buildConditions();
  *                   aktiv: { type: integer }
  *                   verkauft: { type: integer }
  *                   ausschuss: { type: integer }
- *                   wert_aktiv: { type: number }
- *                   wert_verkauft: { type: number }
+ *                   wert_aktiv: { type: string, description: 'NUMERIC, von pg als String geliefert' }
+ *                   wert_verkauft: { type: string, description: 'nach Positions- und Gesamtrabatt' }
  *       401: { $ref: '#/components/responses/Unauthorized' }
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
@@ -58,12 +65,13 @@ router.get('/', async (req, res) => {
          k."Aktiv",
          COUNT(s."Artikelnummer")::int AS "gesamt",
          SUM(CASE WHEN ${aktivBedingung}    THEN 1 ELSE 0 END)::int AS "aktiv",
-         SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "verkauft",
+         round(SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "verkauft",
          SUM(CASE WHEN ${ausschussBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss",
          SUM(CASE WHEN ${aktivBedingung}    THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END) AS "wert_aktiv",
-         SUM(CASE WHEN ${verkauftBedingung} THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END) AS "wert_verkauft"
+         round(SUM(CASE WHEN ${verkauftBedingung} THEN ${verkaufswert} ELSE 0 END), 2) AS "wert_verkauft"
        FROM "Kunde" k
        JOIN "Schmuckstück" s ON s."Ausgelagert" = k."ID"
+       LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
        GROUP BY k."ID", k."Name", k."Ort", k."Provision", k."Aktiv"
        ORDER BY k."Name"`
     );
@@ -101,8 +109,8 @@ router.get('/', async (req, res) => {
  *                     aktiv: { type: integer }
  *                     verkauft: { type: integer }
  *                     ausschuss: { type: integer }
- *                     wert_aktiv: { type: number }
- *                     wert_verkauft: { type: number }
+ *                     wert_aktiv: { type: string, description: 'NUMERIC, von pg als String geliefert' }
+ *                     wert_verkauft: { type: string, description: 'nach Positions- und Gesamtrabatt' }
  *       401: { $ref: '#/components/responses/Unauthorized' }
  *       403: { $ref: '#/components/responses/Forbidden' }
  *       404: { $ref: '#/components/responses/NotFound' }
@@ -145,13 +153,14 @@ router.get('/:kundeId', async (req, res) => {
       `SELECT
          COUNT(*)::int AS "gesamt",
          SUM(CASE WHEN ${aktivBedingung}    THEN 1 ELSE 0 END)::int AS "aktiv",
-         SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss_frei_verkauft",
+         round(SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss_frei_verkauft",
          SUM(CASE WHEN ${ausschussBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss",
          COALESCE(SUM(CASE WHEN ${aktivBedingung}
                     THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END), 0) AS "wert_aktiv",
-         COALESCE(SUM(CASE WHEN ${verkauftBedingung}
-                    THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END), 0) AS "wert_verkauft"
+         round(COALESCE(SUM(CASE WHEN ${verkauftBedingung}
+                    THEN ${verkaufswert} ELSE 0 END), 0), 2) AS "wert_verkauft"
        FROM "Schmuckstück" s
+       LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
        ${statsBuilder.build()}`,
       statsBuilder.getParams()
     );

@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../config/db");
 const logger = require("../utils/logger");
 const { where } = require("../utils/whereClauseBuilder");
+const { preisNachAllenRabattenSql } = require("../utils/rabatt");
 
 /**
  * @swagger
@@ -39,10 +40,20 @@ const { where } = require("../utils/whereClauseBuilder");
  */
 router.get("/", async (req, res) => {
   try {
-    const soldCondition = where().verkauft().buildConditions();
-    const outsourcedCondition = where().aktivAusgelagert().buildConditions();
-    const rejectCondition = where().ausschuss().buildConditions();
-    const inStockCondition = where().verfuegbar().buildConditions();
+    // Befund C18: der Umsatz ignorierte rabatt_gesamt und rabatt_positionen,
+    // obwohl der Beleg sie abzieht -- Dashboard- und Monatsumsatz waren bei
+    // jedem Rabatt zu hoch. Die Formel kommt aus utils/rabatt.js, derselben
+    // Quelle wie fuer den Beleg. Verkaufte Stuecke ohne Rechnung
+    // (Rechnung_ID = 0) bekommen ueber den LEFT JOIN keinen Rabatt.
+    //
+    // Die Umsatzabfragen brauchen dafuer einen Tabellenalias, also tragen auch
+    // ihre Statusbedingungen einen.
+    const umsatzAusdruck = preisNachAllenRabattenSql('s', 'r');
+    const mitAlias = () => where(1, { alias: 's' });
+    const soldConditionMitAlias = mitAlias().verkauft().buildConditions();
+    const outsourcedConditionMitAlias = mitAlias().aktivAusgelagert().buildConditions();
+    const rejectConditionMitAlias = mitAlias().ausschuss().buildConditions();
+    const inStockConditionMitAlias = mitAlias().verfuegbar().buildConditions();
 
     const piecesByArtBuilder = where();
     piecesByArtBuilder.notEmpty("Art");
@@ -82,17 +93,19 @@ router.get("/", async (req, res) => {
           FROM (
             SELECT
               COUNT(*)::INT AS "totalPieces",
-              COUNT(*) FILTER (WHERE ${soldCondition})::INT AS "soldPieces",
-              COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS "outsourcedPieces",
-              COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS "rejectPieces",
-              COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS "inStockPieces",
+              COUNT(*) FILTER (WHERE ${soldConditionMitAlias})::INT AS "soldPieces",
+              COUNT(*) FILTER (WHERE ${outsourcedConditionMitAlias})::INT AS "outsourcedPieces",
+              COUNT(*) FILTER (WHERE ${rejectConditionMitAlias})::INT AS "rejectPieces",
+              COUNT(*) FILTER (WHERE ${inStockConditionMitAlias})::INT AS "inStockPieces",
               -- Kein ::DOUBLE PRECISION mehr (Befund B1): die Spalte ist
               -- numeric(10,2), der Cast haette die Exaktheit wieder
               -- weggeworfen. pg liefert numeric als String, formatEur im
               -- Frontend wandelt erst an der Anzeigekante.
-              COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0) AS "totalRevenue",
-              COALESCE(SUM("Herstellungskosten"), 0) AS "totalCost"
-            FROM "Schmuckstück"
+              round(COALESCE(SUM(${umsatzAusdruck})
+                FILTER (WHERE ${soldConditionMitAlias}), 0), 2) AS "totalRevenue",
+              COALESCE(SUM(s."Herstellungskosten"), 0) AS "totalCost"
+            FROM "Schmuckstück" s
+            LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
           ) s
           CROSS JOIN (
             SELECT
@@ -137,14 +150,12 @@ router.get("/", async (req, res) => {
           `
           SELECT
             TO_CHAR(r."Datum", 'YYYY-MM') AS monat,
-            COALESCE(
-              SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'M'),
-              0
-            ) AS "marinaUmsatz",
-            COALESCE(
-              SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'S'),
-              0
-            ) AS "saskiaUmsatz"
+            round(COALESCE(
+              SUM(${umsatzAusdruck}) FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'M'),
+              0), 2) AS "marinaUmsatz",
+            round(COALESCE(
+              SUM(${umsatzAusdruck}) FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'S'),
+              0), 2) AS "saskiaUmsatz"
           FROM (
             SELECT "Rechnung_ID", "Verkaufspreis", "Artikelnummer"
             FROM "Schmuckstück"
@@ -161,16 +172,18 @@ router.get("/", async (req, res) => {
         db.query(
           `
           SELECT
-            LEFT("Artikelnummer", 1) AS hersteller,
+            LEFT(s."Artikelnummer", 1) AS hersteller,
             COUNT(*)::INT AS total,
-            COUNT(*) FILTER (WHERE ${soldCondition})::INT AS verkauft,
-            COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS ausgelagert,
-            COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS verfuegbar,
-            COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS ausschuss,
-            COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0) AS umsatz
-          FROM "Schmuckstück"
-          WHERE LEFT("Artikelnummer", 1) IN ('M', 'S')
-          GROUP BY LEFT("Artikelnummer", 1)
+            COUNT(*) FILTER (WHERE ${soldConditionMitAlias})::INT AS verkauft,
+            COUNT(*) FILTER (WHERE ${outsourcedConditionMitAlias})::INT AS ausgelagert,
+            COUNT(*) FILTER (WHERE ${inStockConditionMitAlias})::INT AS verfuegbar,
+            COUNT(*) FILTER (WHERE ${rejectConditionMitAlias})::INT AS ausschuss,
+            round(COALESCE(SUM(${umsatzAusdruck})
+              FILTER (WHERE ${soldConditionMitAlias}), 0), 2) AS umsatz
+          FROM "Schmuckstück" s
+          LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
+          WHERE LEFT(s."Artikelnummer", 1) IN ('M', 'S')
+          GROUP BY LEFT(s."Artikelnummer", 1)
           ORDER BY hersteller
         `
         ),

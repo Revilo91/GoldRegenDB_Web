@@ -1,4 +1,5 @@
 const ExcelJS = require("exceljs");
+const { preisNachPositionsrabatt } = require("./rabatt");
 const fs = require("fs");
 const path = require("path");
 const { imageSize: sizeOf } = require("image-size");
@@ -444,20 +445,32 @@ async function generateExcel(type, data, logoPath) {
   worksheet.pageSetup.printTitlesRow = `${tableHeaderStartRow}:${tableHeaderStartRow}`;
 
   // Article loop
+  //
+  // Befund C17: Positionen wurden allein nach der Basis-Artikelnummer
+  // zusammengefasst, der Einzelpreis stammte aber vom ERSTEN Stueck. Haben
+  // MHO123_1 (20 EUR) und MHO123_2 (25 EUR) unterschiedliche Preise, zeigte die
+  // Zeile "2 x 20 = 40", der Gesamtwert darunter aber 45 -- auf einem Beleg,
+  // der an Kunden geht. Jetzt wird nach (Basisnummer, Einzelpreis) gruppiert:
+  // gleiche Stuecke zum gleichen Preis bleiben eine Zeile mit Menge,
+  // abweichende Preise bekommen eine eigene Zeile. Im Normalfall aendert sich
+  // am Beleg nichts.
+  const gruppenSchluessel = (s) =>
+    `${(s.Artikelnummer || "").split("_")[0]}|${Number(s.Verkaufspreis) || 0}`;
+
   const articleCounts = {};
   data.schmuckstuecke.forEach((s) => {
-    const artikelnummerBasis = (s.Artikelnummer || "").split("_")[0];
-    articleCounts[artikelnummerBasis] =
-      (articleCounts[artikelnummerBasis] || 0) + 1;
+    const schluessel = gruppenSchluessel(s);
+    articleCounts[schluessel] = (articleCounts[schluessel] || 0) + 1;
   });
 
   const processedArticles = new Set();
   data.schmuckstuecke.forEach((s) => {
     const artikelnummerBasis = (s.Artikelnummer || "").split("_")[0];
-    if (processedArticles.has(artikelnummerBasis)) {
+    const schluessel = gruppenSchluessel(s);
+    if (processedArticles.has(schluessel)) {
       return;
     }
-    processedArticles.add(artikelnummerBasis);
+    processedArticles.add(schluessel);
 
     const row = worksheet.getRow(currentRow);
     row.getCell(1).value = artikelnummerBasis;
@@ -497,12 +510,9 @@ async function generateExcel(type, data, logoPath) {
 
     row.getCell(3).value = bezeichnung;
 
-    const menge = articleCounts[artikelnummerBasis] || 1;
-    const einzelpreisOriginal = Number(s.Verkaufspreis) || 0;
+    const menge = articleCounts[schluessel] || 1;
     const itemRabattPercent = Number(data.rabatt_positionen?.[artikelnummerBasis] || 0);
-    const einzelpreis = itemRabattPercent > 0
-      ? einzelpreisOriginal * (1 - itemRabattPercent / 100)
-      : einzelpreisOriginal;
+    const einzelpreis = preisNachPositionsrabatt(s.Verkaufspreis, itemRabattPercent);
 
     if (itemRabattPercent > 0) {
       row.getCell(3).value = `${bezeichnung} (Rabatt: ${itemRabattPercent}%)`;
@@ -524,12 +534,19 @@ async function generateExcel(type, data, logoPath) {
   // 5. Total Block (for Invoice)
   if (type === "Rechnung") {
     currentRow++;
-    // Gesamtwert = Summe aller (ggf. mit Einzelrabatt reduzierten) Preise
-    const total = data.schmuckstuecke.reduce((sum, s) => {
-      const basis = (s.Artikelnummer || "").split("_")[0];
-      const rabatt = Number(data.rabatt_positionen?.[basis] || 0);
-      return sum + (Number(s.Verkaufspreis) || 0) * (1 - rabatt / 100);
-    }, 0);
+    // Gesamtwert kommt aus SQL (data.summen), nicht aus einer JS-Reduktion:
+    // numeric rechnet exakt, Float summierte den Darstellungsfehler ueber die
+    // Positionen auf (Befund B1). Ohne data.summen -- etwa bei einem aelteren
+    // Aufrufer -- bleibt die bisherige Berechnung als Rueckfallebene.
+    const total = data.summen
+      ? Number(data.summen.gesamtwert)
+      : data.schmuckstuecke.reduce(
+        (sum, s) => sum + preisNachPositionsrabatt(
+          s.Verkaufspreis,
+          data.rabatt_positionen?.[(s.Artikelnummer || "").split("_")[0]],
+        ),
+        0,
+      );
 
     const totalLabelCell = worksheet.getCell(`G${currentRow}`);
     totalLabelCell.value = "Gesamtwert";
@@ -543,11 +560,20 @@ async function generateExcel(type, data, logoPath) {
 
     // Gesamtrabatt (optional)
     const gesamtRabattPercent = Number(data.rabatt_gesamt || 0);
-    let totalNachRabatt = total;
+    let totalNachRabatt = data.summen
+      ? Number(data.summen.summe_nach_rabatt)
+      : total;
     if (gesamtRabattPercent > 0) {
       currentRow++;
-      const gesamtRabattValue = total * (gesamtRabattPercent / 100);
-      totalNachRabatt = total - gesamtRabattValue;
+      // Aus SQL, nicht aus JS: total * (20/100) ergab in Float
+      // 11.700000000000001 -- der numFmt rundete das nur fuer die Anzeige, im
+      // Zellwert stand der Fehler (Befund B1).
+      const gesamtRabattValue = data.summen
+        ? Number(data.summen.gesamtrabatt_betrag)
+        : total * (gesamtRabattPercent / 100);
+      if (!data.summen) {
+        totalNachRabatt = total - gesamtRabattValue;
+      }
 
       const gesamtRabattLabelCell = worksheet.getCell(`G${currentRow}`);
       gesamtRabattLabelCell.value = "- Gesamtrabatt";
@@ -569,7 +595,9 @@ async function generateExcel(type, data, logoPath) {
     // Provision
     currentRow++;
     const provisionPercent = data.kunde.Provision || 0;
-    const provisionValue = totalNachRabatt * (provisionPercent / 100);
+    const provisionValue = data.summen
+      ? Number(data.summen.provision_betrag)
+      : totalNachRabatt * (provisionPercent / 100);
 
     const provLabelCell = worksheet.getCell(`G${currentRow}`);
     provLabelCell.value = "- Provision";
@@ -589,7 +617,9 @@ async function generateExcel(type, data, logoPath) {
 
     // Final Total
     currentRow++;
-    const finalTotal = totalNachRabatt - provisionValue;
+    const finalTotal = data.summen
+      ? Number(data.summen.ueberweisungsbetrag)
+      : totalNachRabatt - provisionValue;
 
     const finalLabelCell = worksheet.getCell(`G${currentRow}`);
     finalLabelCell.value = "Überweisungsbetrag";

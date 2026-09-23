@@ -81,15 +81,19 @@ describe('GET /api/rechnungen/next-number', () => {
 });
 
 describe('GET /api/rechnungen/:id', () => {
-  it('liefert Rechnung inkl. zugeordneter Schmuckstücke', async () => {
+  it('liefert Rechnung inkl. Schmuckstücke und Summen', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] })
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001' }] });
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001' }] })
+      // Befund G7: die Auszahlungsaufteilung kommt jetzt aus SQL statt aus
+      // roh summierten Preisen im Frontend.
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '40.00', marina_brutto: '40.00', saskia_brutto: '0.00' }] });
 
     const res = await request(buildApp()).get('/api/rechnungen/1');
 
     expect(res.statusCode).toBe(200);
     expect(res.body.schmuckstuecke).toHaveLength(1);
+    expect(res.body.summen).toMatchObject({ gesamtwert: '40.00', marina_brutto: '40.00' });
   });
 
   it('meldet 404 bei unbekannter ID', async () => {
@@ -105,7 +109,8 @@ describe('GET /api/rechnungen/:id/excel', () => {
   it('liefert eine XLSX-Datei', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '0.00' }] }); // rechnungsSummen
 
     const res = await request(buildApp()).get('/api/rechnungen/1/excel');
 

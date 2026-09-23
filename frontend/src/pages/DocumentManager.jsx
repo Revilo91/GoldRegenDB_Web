@@ -648,38 +648,22 @@ export default function DocumentManager({
                     Aufteilung (Netto nach Provision):
                   </label>
                   {(() => {
-                    const totalBrutto = detail.schmuckstuecke.reduce(
-                      (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-                      0,
-                    );
+                    // Befund G7: diese Zahlen wurden hier aus rohen Preisen
+                    // summiert -- ohne Positions- und Gesamtrabatt. Bei 20 %
+                    // Rabatt stand im Modal ein um 20 % zu hoher
+                    // Auszahlungsbetrag je Herstellerin, und genau danach wird
+                    // abgerechnet. Sie kommen jetzt aus SQL (utils/rabatt.js),
+                    // in derselben Reihenfolge wie auf dem Beleg.
+                    const summen = detail.summen || {};
                     const provisionPercent = Number(detail.Provision) || 0;
-                    const provisionValue =
-                      totalBrutto * (provisionPercent / 100);
-                    const totalNetto = totalBrutto - provisionValue;
-
-                    const marinaBrutto = detail.schmuckstuecke
-                      .filter((s) =>
-                        s.Artikelnummer?.toUpperCase().startsWith("M"),
-                      )
-                      .reduce(
-                        (sum, s) =>
-                          sum + (Number(s.Verkaufspreis) || 0),
-                        0,
-                      );
-                    const saskiaBrutto = detail.schmuckstuecke
-                      .filter((s) =>
-                        s.Artikelnummer?.toUpperCase().startsWith("S"),
-                      )
-                      .reduce(
-                        (sum, s) =>
-                          sum + (Number(s.Verkaufspreis) || 0),
-                        0,
-                      );
-
-                    const marinaNetto =
-                      marinaBrutto * (1 - provisionPercent / 100);
-                    const saskiaNetto =
-                      saskiaBrutto * (1 - provisionPercent / 100);
+                    const totalBrutto = Number(summen.summe_nach_rabatt) || 0;
+                    const provisionValue = Number(summen.provision_betrag) || 0;
+                    const totalNetto = Number(summen.ueberweisungsbetrag) || 0;
+                    const marinaBrutto = Number(summen.marina_brutto) || 0;
+                    const saskiaBrutto = Number(summen.saskia_brutto) || 0;
+                    const marinaNetto = Number(summen.marina_netto) || 0;
+                    const saskiaNetto = Number(summen.saskia_netto) || 0;
+                    const rabattGesamt = Number(summen.rabatt_gesamt) || 0;
 
                     return (
                       <div
@@ -699,7 +683,12 @@ export default function DocumentManager({
                               justifyContent: "space-between",
                               marginBottom: "4px",
                             }}>
-                            <span>Gesamtwert (brutto):</span>
+                            {/* Dieselbe Bezeichnung wie auf dem Beleg, damit
+                                Modal und Rechnung nicht zwei Namen fuer
+                                dieselbe Zahl fuehren (Befund G7). */}
+                            <span>
+                              {rabattGesamt > 0 ? "Summe nach Rabatt:" : "Gesamtwert:"}
+                            </span>
                             <strong>{formatEur(totalBrutto)}</strong>
                           </div>
                           {provisionPercent > 0 && (
@@ -720,7 +709,7 @@ export default function DocumentManager({
                                   justifyContent: "space-between",
                                   fontWeight: "600",
                                 }}>
-                                <span>Gesamtwert (netto):</span>
+                                <span>Überweisungsbetrag:</span>
                                 <strong>{formatEur(totalNetto)}</strong>
                               </div>
                             </>

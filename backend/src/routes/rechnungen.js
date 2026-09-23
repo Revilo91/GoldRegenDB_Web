@@ -4,6 +4,7 @@ const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validate');
 const { rechnungSchema } = require('../schemas');
+const { rechnungsSummen } = require('../utils/rabatt');
 
 function formatJahresNummer(jahr, laufnummer) {
   return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
@@ -141,7 +142,14 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
-    res.json({ ...rows[0], schmuckstuecke: pieces.rows });
+    // Befund G7: die Auszahlungsaufteilung je Herstellerin wurde im Frontend
+    // aus rohen Preisen summiert, ohne Positions- und Gesamtrabatt -- bei 20 %
+    // Rabatt zeigte das Modal einen um 20 % zu hohen Betrag. Das ist die Zahl,
+    // nach der abgerechnet wird, deshalb kommt sie jetzt aus SQL, in derselben
+    // Reihenfolge wie auf dem Beleg.
+    const summen = await rechnungsSummen(db, req.params.id);
+
+    res.json({ ...rows[0], schmuckstuecke: pieces.rows, summen });
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
@@ -209,10 +217,13 @@ router.get('/:id/excel', async (req, res) => {
       }
     }
 
+    const summen = await rechnungsSummen(db, req.params.id);
+
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],
       kunde: rows[0],
       rechungsZeitraum,
+      summen,
       schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     });
 
