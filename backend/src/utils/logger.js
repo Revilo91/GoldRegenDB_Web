@@ -40,12 +40,19 @@ function resolveFormat() {
 }
 
 function buildEntry(level, component, message, meta) {
+  // Der Meta-Spread stand früher NACH `message` – ein `{ message: err.message }`
+  // (96 Fundstellen im Projekt) überschrieb damit stillschweigend den
+  // beschreibenden Text. Im Log stand dann nur noch "syntax error at or near",
+  // ohne die Information, welcher Schritt überhaupt gescheitert ist.
+  // Jetzt gewinnt der Aufrufer-Text, und das Detail bleibt unter `detail`.
+  const { message: metaMessage, ...rest } = redactMeta(meta) || {};
   return {
     timestamp: new Date().toISOString(),
     level,
     component,
     message,
-    ...redactMeta(meta),
+    ...rest,
+    ...(metaMessage === undefined ? {} : { detail: metaMessage }),
     pid: process.pid,
     hostname: HOSTNAME,
   };

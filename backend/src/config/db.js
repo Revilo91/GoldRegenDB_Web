@@ -135,9 +135,15 @@ async function query(text, params) {
   return client.query(text, params);
 }
 
+// Ein Fehler auf einem *idle* Client ist kein Grund, den Prozess zu beenden:
+// ein DB-Neustart, ein Netzwerk-Blip oder ein Spin-Down der NAS-Platte riss
+// sonst alle laufenden Requests mit (Befund A6). pg entfernt den betroffenen
+// Client selbst aus dem Pool; der naechste Request holt sich einen neuen.
 pool.on('error', (err) => {
-  logger.error('DB', 'Unerwarteter Fehler auf Idle-Client', { message: err.message, code: err.code });
-  process.exit(-1);
+  logger.error('DB', 'Unerwarteter Fehler auf Idle-Client – Client wird verworfen', {
+    message: err.message,
+    code: err.code,
+  });
 });
 
 pool.on('connect', () => {
@@ -205,6 +211,7 @@ async function ensureTriggerFunctions() {
     logger.info('DB', 'Trigger-Funktionen verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Trigger-Funktionen', { message: err.message });
+    throw err;
   }
 }
 
@@ -231,6 +238,7 @@ async function ensureKundeTable() {
     logger.info('DB', '"Kunde" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Kunde Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -265,6 +273,7 @@ async function ensureLieferscheinTable() {
     logger.info('DB', '"Lieferschein" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Lieferschein Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -326,6 +335,7 @@ async function ensureRechnungTable() {
     logger.info('DB', '"Rechnung" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Rechnung Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -385,6 +395,7 @@ async function ensureSchmuckstueckTable() {
     logger.info('DB', '"Schmuckstück" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Schmuckstück Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -408,6 +419,7 @@ async function ensureAuditLogTable() {
     logger.info('DB', 'audit_log Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der audit_log Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -535,6 +547,7 @@ async function ensureAuditLogTamperProtection() {
     logger.info('DB', 'audit_log Tamper-Schutz (Hash-Kette + Immutabilität) verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren des audit_log Tamper-Schutzes', { message: err.message });
+    throw err;
   }
 }
 
@@ -612,6 +625,7 @@ async function ensureAppUsersTable() {
     logger.info('DB', 'app_users Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der app_users Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -634,6 +648,7 @@ async function ensureLagerinventurEntwurfTable() {
     logger.info('DB', 'lagerinventur Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der lagerinventur Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -794,6 +809,7 @@ async function ensureBestelluebersichtSchema() {
     logger.info('DB', 'Bestellübersicht-Schema verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren des Bestellübersicht-Schemas', { message: err.message });
+    throw err;
   }
 }
 
@@ -825,6 +841,7 @@ async function ensureAusschussGrundConstraint() {
     logger.info('DB', 'Constraint für Ausschuss_Grund verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Ausschuss_Grund-Constraint', { message: err.message });
+    throw err;
   }
 }
 
@@ -865,6 +882,7 @@ async function ensureTriggers() {
     logger.info('DB', 'Trigger auf "Schmuckstück" verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Trigger', { message: err.message });
+    throw err;
   }
 }
 
@@ -885,31 +903,43 @@ async function ensureTriggers() {
 //   10. lagerinventur
 //   11. Constraints & Trigger (brauchen die Tabellen)
 
-pool.query('SELECT NOW() AS server_time')
-  .then((res) => {
-    logger.info('DB', 'Verbindung erfolgreich hergestellt', { server_time: res.rows[0].server_time });
-    return ensureTriggerFunctions()
-      .then(() => ensureKundeTable())
-      .then(() => ensureLieferscheinTable())
-      .then(() => ensureRechnungTable())
-      .then(() => ensureSchmuckstueckTable())
-      .then(() => ensureAuditLogTable())
-      .then(() => ensureAuditLogTamperProtection())
-      .then(() => ensureAppUsersTable())
-      .then(() => ensureBestelluebersichtSchema())
-      .then(() => ensureLagerinventurEntwurfTable())
-      .then(() => ensureAusschussGrundConstraint())
-      .then(() => ensureTriggers());
-  })
-  .catch((err) => {
-    logger.error('DB', 'Verbindung zur Datenbank fehlgeschlagen', { message: err.message, code: err.code });
-  });
+// Bis die Kette durch ist, darf die Anwendung keine Requests beantworten: sonst
+// treffen die ersten Aufrufe ein Schema, dem noch Spalten fehlen (Befund A1).
+// index.js wartet darauf und bricht bei einem Fehler den Start ab.
+let schemaReady = false;
+
+function isSchemaReady() {
+  return schemaReady;
+}
+
+async function initializeDatabase() {
+  const res = await pool.query('SELECT NOW() AS server_time');
+  logger.info('DB', 'Verbindung erfolgreich hergestellt', { server_time: res.rows[0].server_time });
+
+  await ensureTriggerFunctions();
+  await ensureKundeTable();
+  await ensureLieferscheinTable();
+  await ensureRechnungTable();
+  await ensureSchmuckstueckTable();
+  await ensureAuditLogTable();
+  await ensureAuditLogTamperProtection();
+  await ensureAppUsersTable();
+  await ensureBestelluebersichtSchema();
+  await ensureLagerinventurEntwurfTable();
+  await ensureAusschussGrundConstraint();
+  await ensureTriggers();
+
+  schemaReady = true;
+  logger.info('DB', 'Schema vollständig verifiziert');
+}
 
 module.exports = {
   query,
   connect,
   setCurrentDbUsername,
   requestContextMiddleware,
+  initializeDatabase,
+  isSchemaReady,
   pool,
   connectionString,
 };
