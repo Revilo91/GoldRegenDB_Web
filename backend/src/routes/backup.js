@@ -384,7 +384,6 @@ router.get("/export-uploads", async (_req, res) => {
     });
     res.status(500).json({
       error: "Fehler beim Exportieren der Upload-Bilder",
-      details: err.message,
       fileName: err.fileName,
       filePath: err.filePath,
       cause: err.cause?.message,

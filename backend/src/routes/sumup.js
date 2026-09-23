@@ -340,7 +340,6 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
     logger.error('SUMUP', 'Import-Fehler', { message: err.message });
     res.status(500).json({
       error: "Fehler beim Importieren der SumUp-Daten",
-      details: err.message,
     });
   }
 });

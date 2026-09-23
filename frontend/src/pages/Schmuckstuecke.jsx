@@ -514,7 +514,6 @@ export default function Schmuckstuecke() {
   };
 
   const getLengthUnit = ({ Artikelnummer } = {}) => {
-    console.log("🔍 Bestimme Längeneinheit für Artikelnummer:", Artikelnummer);
     const produktartCode = String(Artikelnummer || "").charAt(2).toUpperCase();
     if (produktartCode === "O") return "mm";
     if (produktartCode === "H") return "cm";
@@ -1424,7 +1423,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>� Foto</h4>
+                <h4>Foto</h4>
                 <PhotoUpload
                   artikelnummer={
                     editing === "new"

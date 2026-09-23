@@ -280,7 +280,6 @@ router.get("/foto/:fileName", (req, res) => {
           requestedFileName: path.basename(String(req.params.fileName || "").trim()),
           resolvedFileName: lookup.resolvedFileName,
           resolvedBy: lookup.resolvedBy,
-          details: err.message,
         });
       }
     });
@@ -292,7 +291,6 @@ router.get("/foto/:fileName", (req, res) => {
     );
     res.status(500).json({
       error: "Fehler beim Abrufen des Fotos",
-      details: err.message,
     });
   }
 });
@@ -999,8 +997,7 @@ router.get("/unique-artikelnummern", async (req, res) => {
       { message: err.message },
     );
     res.status(500).json({
-      // error: "Fehler beim Laden der einzigartigen Artikelnummern",
-      error: String(err),
+      error: "Fehler beim Laden der einzigartigen Artikelnummern",
     });
   }
 });
