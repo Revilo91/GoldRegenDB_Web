@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatEur } from "../utils/zahlen";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faFileExcel,
@@ -26,12 +27,9 @@ const TABS = [
   { id: "alle", label: "Alle" },
 ];
 
-function formatEur(value) {
-  return Number(value || 0).toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  });
-}
+// formatEur liegt jetzt in utils/zahlen.js – es war die einzige deutsch korrekte
+// Geldformatierung im Projekt, während anderswo `${wert}€`, toFixed(0) und
+// toFixed(2) im Einsatz waren (Befund G21).
 
 function getBelegdatumForTab(item, tab) {
   if (tab === "verkauft") return item?.Rechnung_Datum || null;

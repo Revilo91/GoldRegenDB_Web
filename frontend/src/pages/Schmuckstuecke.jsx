@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { parseZahlOderNull, formatEur } from "../utils/zahlen";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
@@ -69,6 +70,27 @@ const createEmptyMehrfachRow = () => ({
   Form: "",
   Fassung: "",
 });
+
+// Die Zahlenfelder halten während der Eingabe den rohen Text, damit beim Tippen
+// von "12,50" nicht nach dem Komma der Wert wegspringt. Erst beim Speichern wird
+// normalisiert: leer oder unlesbar ergibt 0, nicht NaN. parseFloat("") war NaN,
+// und JSON.stringify macht daraus null – das landete als explizites NULL in der
+// Datenbank und löschte den Preis stillschweigend (Befund D1/D2).
+const ZAHLENFELDER = [
+  "Verkaufspreis",
+  "Herstellungskosten",
+  "Grösse",
+  "Länge",
+  "Anhänger_Grösse",
+];
+
+const normalisierteZahlenfelder = (form) =>
+  Object.fromEntries(
+    ZAHLENFELDER.filter((feld) => feld in form).map((feld) => [
+      feld,
+      parseZahlOderNull(form[feld], 0),
+    ]),
+  );
 
 const normalizeMehrfachArtikelnummer = (value) => {
   const normalized = String(value || "").trim().toUpperCase();
@@ -143,7 +165,7 @@ export default function Schmuckstuecke() {
 
   const handleSave = async ({ closeAfterSave = true } = {}) => {
     try {
-      const dataToSave = { ...form };
+      const dataToSave = { ...form, ...normalisierteZahlenfelder(form) };
 
       if (editing === "new" && nextArtikelnummerPreview) {
         dataToSave.Artikelnummer = nextArtikelnummerPreview;
@@ -791,7 +813,7 @@ export default function Schmuckstuecke() {
                   label: "Preis",
                   sortable: true,
                   render: (r) =>
-                    r.Verkaufspreis > 0 ? `${r.Verkaufspreis}€` : "-",
+                    r.Verkaufspreis > 0 ? formatEur(r.Verkaufspreis) : "-",
                 },
                 {
                   key: "Status",
@@ -1443,11 +1465,11 @@ export default function Schmuckstuecke() {
                     <label>Größe</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.1"
-                      value={form.Grösse || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Grösse ?? ""}
                       onChange={(e) =>
-                        setForm({ ...form, Grösse: parseFloat(e.target.value) })
+                        setForm({ ...form, Grösse: e.target.value })
                       }
                     />
                   </div>
@@ -1455,11 +1477,11 @@ export default function Schmuckstuecke() {
                     <label>Länge ({getLengthUnit(form)})</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.1"
-                      value={form.Länge || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Länge ?? ""}
                       onChange={(e) =>
-                        setForm({ ...form, Länge: parseFloat(e.target.value) })
+                        setForm({ ...form, Länge: e.target.value })
                       }
                     />
                   </div>
@@ -1614,13 +1636,13 @@ export default function Schmuckstuecke() {
                     <label>Anhänger Größe</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.1"
-                      value={form.Anhänger_Grösse || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Anhänger_Grösse ?? ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          Anhänger_Grösse: parseFloat(e.target.value),
+                          Anhänger_Grösse: e.target.value,
                         })
                       }
                     />
@@ -1767,13 +1789,13 @@ export default function Schmuckstuecke() {
                     <label>Verkaufspreis (€)</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.01"
-                      value={form.Verkaufspreis || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Verkaufspreis ?? ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          Verkaufspreis: parseFloat(e.target.value),
+                          Verkaufspreis: e.target.value,
                         })
                       }
                     />
@@ -1782,13 +1804,13 @@ export default function Schmuckstuecke() {
                     <label>Herstellungskosten (€)</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.01"
-                      value={form.Herstellungskosten || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Herstellungskosten ?? ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          Herstellungskosten: parseFloat(e.target.value),
+                          Herstellungskosten: e.target.value,
                         })
                       }
                     />

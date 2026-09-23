@@ -130,6 +130,17 @@ describe('schmuckstueckCreateSchema', () => {
     expect(res.body.Verkaufspreis).toBe(49.9);
   });
 
+  it('akzeptiert Preise mit deutschem Dezimalkomma', async () => {
+    // Befund D2: Number("12,50") ist NaN, die Validierung lehnte deutsche
+    // Eingaben deshalb mit "muss eine Zahl sein" ab.
+    const res = await post(schemas.schmuckstueckCreateSchema, {
+      Artikelnummer: 'MHO123', Verkaufspreis: '12,50', Herstellungskosten: '3,75',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.Verkaufspreis).toBe(12.5);
+    expect(res.body.Herstellungskosten).toBe(3.75);
+  });
+
   it('lehnt einen negativen Verkaufspreis ab', async () => {
     const res = await post(schemas.schmuckstueckCreateSchema, { Artikelnummer: 'MHO123', Verkaufspreis: -5 });
     expect(res.status).toBe(400);

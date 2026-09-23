@@ -27,7 +27,11 @@ const zahl = (opts = {}) => {
     const bereinigt = leerZuNull(v);
     if (bereinigt === null || bereinigt === undefined) return bereinigt;
     if (typeof bereinigt === 'string') {
-      const n = Number(bereinigt);
+      // Deutsche Eingaben kommen als "12,50". Number("12,50") ist NaN, die
+      // Validierung meldete dann "muss eine Zahl sein" – für einen
+      // deutschsprachigen Betrieb der wahrscheinlichste Alltagsfehler
+      // (Befund D2). Ein Punkt bleibt weiterhin erlaubt.
+      const n = Number(bereinigt.replace(',', '.'));
       return Number.isNaN(n) ? bereinigt : n;
     }
     return bereinigt;
