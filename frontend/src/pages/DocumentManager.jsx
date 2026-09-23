@@ -33,6 +33,7 @@ export default function DocumentManager({
     direction: "desc",
   });
   const [groupByKunde, setGroupByKunde] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
 
@@ -40,18 +41,19 @@ export default function DocumentManager({
   const openEditDraft = async (doc) => {
     try {
       const d = await api.getDetail(doc.ID);
-      setForm({
+      const neuesForm = {
         Nummer: d.Nummer,
         Kundennummer: d.Kundennummer,
         Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
         rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
         rabatt_positionen: d.rabatt_positionen || {},
-      });
+      };
+      setForm(neuesForm);
       setPieceSearch("");
       setArtikelnummerInput("");
       setEditing(doc.ID); // Edit mode with document ID
       setDetail(null); // Close detail modal
-      await loadAvailablePieces();
+      await loadAvailablePieces(neuesForm, doc.ID);
     } catch (err) {
       alert(err.message);
     }
@@ -131,10 +133,21 @@ export default function DocumentManager({
     }
   };
 
-  // Stückauswahl laden (unterschiedlich je nach Dokumenttyp)
-  const loadAvailablePieces = async () => {
+  // Stückauswahl laden (unterschiedlich je nach Dokumenttyp).
+  //
+  // Form und Editing-Zustand werden übergeben, nicht aus der Closure gelesen:
+  // openNew und openEditDraft rufen setForm/setEditing und direkt danach diese
+  // Funktion auf. Aus der Closure kam dann noch der ALTE Zustand, für
+  // Rechnungen also `{ ausgelagert: "" }`. Das ging als `ausgelagert=` ans
+  // Backend, wo builder.equals("Ausgelagert", parseInt("")) einen NaN-Parameter
+  // erzeugte – Postgres antwortete mit "invalid input syntax for type integer"
+  // und der Nutzer sah einen 500er (Befund G5). Weil availablePieces danach
+  // leer blieb, zeigte der Kopf "Ausgewählte Schmuckstücke (n)" über einer
+  // leeren Tabelle, und Speichern schrieb die unsichtbaren Positionen trotzdem
+  // (Befund G6).
+  const loadAvailablePieces = async (formToUse = form, editingToUse = editing) => {
     try {
-      const resp = await api.getPieces(pieceFilter(form, editing));
+      const resp = await api.getPieces(pieceFilter(formToUse, editingToUse));
       setAvailablePieces(resp.data);
     } catch (err) {
       setAvailablePieces([]);
@@ -154,34 +167,45 @@ export default function DocumentManager({
       }
     }
 
-    setForm({
+    const neuesForm = {
       Nummer: nummer,
       Kundennummer: "",
       Artikelnummern: [],
       rabatt_gesamt: 0,
       rabatt_positionen: {},
-    });
+    };
+    setForm(neuesForm);
     setPieceSearch("");
     setArtikelnummerInput("");
     setEditing("new");
-    loadAvailablePieces();
-  };
-
-  // Stückauswahl nach Kunde (nur für Rechnungen)
-  useEffect(() => {
-    if (
-      pieceSelectMode === "byKunde" &&
-      editing === "new" &&
-      form.Kundennummer
-    ) {
-      loadAvailablePieces();
-    } else if (
-      pieceSelectMode === "byKunde" &&
-      (!form.Kundennummer || editing !== "new")
-    ) {
+    // Nur im Modus "all" (Lieferschein) sofort laden. Bei "byKunde" (Rechnung)
+    // baut pieceFilter `ausgelagert: form.Kundennummer` – der ist hier noch
+    // leer, das ergäbe `ausgelagert=` und im Backend einen NaN-Parameter, also
+    // einen 500er direkt beim Öffnen des Dialogs. Sobald ein Kunde gewählt ist,
+    // lädt der useEffect unten nach. handleSave prüft genau so (Befund G5).
+    if (pieceSelectMode === "all") {
+      loadAvailablePieces(neuesForm, "new");
+    } else {
       setAvailablePieces([]);
     }
-    // Lieferschein: alle Stücke werden beim Öffnen geladen
+  };
+
+  // Stückauswahl nach Kunde (nur für Rechnungen).
+  //
+  // Die Bedingung war vorher `editing === "new"`, ein geöffneter Entwurf bekam
+  // damit nie eine Stückliste – seine ausgewählten Positionen blieben in der
+  // Tabelle unsichtbar, obwohl der Kopf sie zählte (Befund G5/G6). Jetzt lädt
+  // jeder Bearbeitungszustand nach, sobald ein Kunde gesetzt ist.
+  useEffect(() => {
+    if (pieceSelectMode !== "byKunde") {
+      // Lieferschein: alle Stücke werden beim Öffnen geladen
+      return;
+    }
+    if (editing && form.Kundennummer) {
+      loadAvailablePieces(form, editing);
+    } else {
+      setAvailablePieces([]);
+    }
   }, [form.Kundennummer, editing]);
 
   const handleSave = async (status = 'final') => {
@@ -189,6 +213,11 @@ export default function DocumentManager({
       alert(labels.kundeRequired);
       return;
     }
+    // Die Nummer wurde vorher per getNextNumber geholt. Ohne diese Sperre
+    // erzeugte ein Doppelklick zwei Dokumente mit identischer Nummer bzw. eine
+    // Primary-Key-Verletzung (Befund G4).
+    if (saving) return;
+    setSaving(true);
     try {
       if (editing === 'new') {
         await api.createItem({ ...form, status });
@@ -202,6 +231,8 @@ export default function DocumentManager({
       if (pieceSelectMode === "all") loadAvailablePieces();
     } catch (err) {
       alert(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1061,12 +1092,16 @@ export default function DocumentManager({
               </button>
               <button
                 className="btn btn-secondary"
+                disabled={saving}
                 onClick={() => handleSave('entwurf')}
                 style={{ marginLeft: 'auto' }}>
-                Als Entwurf speichern
+                {saving ? 'Speichert…' : 'Als Entwurf speichern'}
               </button>
-              <button className="btn btn-primary" onClick={() => handleSave('final')}>
-                Speichern &amp; Abschließen
+              <button
+                className="btn btn-primary"
+                disabled={saving}
+                onClick={() => handleSave('final')}>
+                {saving ? 'Speichert…' : 'Speichern & Abschließen'}
               </button>
             </div>
           </div>

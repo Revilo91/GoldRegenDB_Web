@@ -45,6 +45,7 @@ export default function Bestelluebersicht() {
   const [fotoDataUrl, setFotoDataUrl] = useState(null);
   const [fotoError, setFotoError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -137,6 +138,11 @@ export default function Bestelluebersicht() {
 
   const handleSave = async () => {
     setError("");
+    // Ohne diese Sperre erzeugte ein Doppelklick zwei Bestellungen: das
+    // disabled prueft nur die Consent-Checkbox, nicht den laufenden Request
+    // (Befund G4).
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = {
         versandart: form.versandart,
@@ -155,6 +161,8 @@ export default function Bestelluebersicht() {
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -473,9 +481,9 @@ export default function Bestelluebersicht() {
                 <button
                   className="btn btn-primary"
                   onClick={handleSave}
-                  disabled={editing === "new" && !form.consentErteilt}
+                  disabled={saving || (editing === "new" && !form.consentErteilt)}
                 >
-                  Speichern
+                  {saving ? "Speichert…" : "Speichern"}
                 </button>
               </div>
             </div>

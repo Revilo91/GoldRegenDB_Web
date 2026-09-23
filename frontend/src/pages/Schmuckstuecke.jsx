@@ -5,7 +5,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
   faHashtag,
-  faGem,
   faPen,
   faTrash,
   faPlus,
@@ -20,6 +19,7 @@ import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import TablePhoto from "../components/TablePhoto";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 
@@ -135,6 +135,7 @@ export default function Schmuckstuecke() {
     useState("");
   const [bulkLoadingTemplate, setBulkLoadingTemplate] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [bulkRows, setBulkRows] = useState([createEmptyMehrfachRow()]);
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
@@ -164,6 +165,11 @@ export default function Schmuckstuecke() {
   };
 
   const handleSave = async ({ closeAfterSave = true } = {}) => {
+    // Ohne diese Sperre erzeugte ein Doppelklick auf "Speichern + Weiter" zwei
+    // POSTs mit derselben nextArtikelnummerPreview: sequenziell zwei Datensätze,
+    // parallel ein Primary-Key-Konflikt mit rohem DB-Fehler im alert (Befund G4).
+    if (saving) return;
+    setSaving(true);
     try {
       const dataToSave = { ...form, ...normalisierteZahlenfelder(form) };
 
@@ -194,6 +200,8 @@ export default function Schmuckstuecke() {
       load();
     } catch (err) {
       alert(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -552,82 +560,6 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
-  function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
-    const [photoSrc, setPhotoSrc] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [photoError, setPhotoError] = useState(null);
-
-    useEffect(() => {
-      let isCancelled = false;
-      const controller = new AbortController();
-
-      if (!foto) {
-        setPhotoSrc(null);
-        setPhotoError(null);
-        setIsLoading(false);
-        return () => {
-          isCancelled = true;
-          controller.abort();
-        };
-      }
-
-      if (pauseLoading) {
-        setIsLoading(false);
-        return () => {
-          isCancelled = true;
-          controller.abort();
-        };
-      }
-
-      setIsLoading(true);
-      setPhotoError(null);
-      api
-        .loadPhotoAsDataUrl(foto, { signal: controller.signal })
-        .then((dataUrl) => {
-          if (isCancelled) return;
-          setPhotoSrc(dataUrl);
-        })
-        .catch((err) => {
-          if (isCancelled) return;
-          setPhotoSrc(null);
-          setPhotoError(err.message);
-        })
-        .finally(() => {
-          if (isCancelled) return;
-          setIsLoading(false);
-        });
-
-      return () => {
-        isCancelled = true;
-        controller.abort();
-      };
-    }, [foto, pauseLoading]);
-
-    if (!photoSrc) {
-      return (
-        <span
-          className="table-photo-placeholder"
-          title={
-            isLoading
-              ? "Foto wird geladen"
-              : photoError
-                ? `Foto konnte nicht geladen werden: ${photoError}`
-                : "Kein Foto verfügbar"
-          }>
-          <FontAwesomeIcon icon={faGem} />
-        </span>
-      );
-    }
-
-    return (
-      <img
-        className="table-photo-thumb"
-        src={photoSrc}
-        alt={`Foto ${artikelnummer}`}
-        loading="lazy"
-      />
-    );
-  }
 
   return (
     <div>
@@ -817,7 +749,13 @@ export default function Schmuckstuecke() {
                 {
                   key: "Status",
                   label: "Status",
-                  sortable: true,
+                  // Nicht sortierbar: das Backend liefert kein Feld "Status"
+                  // (schmuckstuecke.js gibt * plus Grundmaterial zurück), der
+                  // Wert wird hier erst aus Verkauft/Ausschuss/Ausgelagert
+                  // gebildet. row["Status"] war für jede Zeile undefined, der
+                  // Klick auf den Header tat also sichtbar nichts (Befund G13).
+                  // Serverseitiges Sortieren müsste das Feld mitliefern.
+                  sortable: false,
                   render: (r) =>
                     r.Verkauft === 1 ? (
                       <span className="badge success">Verkauft</span>
@@ -1744,22 +1682,14 @@ export default function Schmuckstuecke() {
                       ))}
                     </datalist>
                   </div>
-                  <div className="form-group">
-                    <label>Fassung</label>
-                    <input
-                      list="fassungen-list"
-                      className="form-control"
-                      value={form.Fassung || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Fassung: e.target.value })
-                      }
-                    />
-                    <datalist id="fassungen-list">
-                      {filterOptions.fassungen?.map((f) => (
-                        <option key={f} value={f} />
-                      ))}
-                    </datalist>
-                  </div>
+                  {/* Hier stand ein zweites Feld "Fassung", das auf
+                      form.Fassung des Hauptstücks schrieb – wer im
+                      Anhänger-Block etwas eintrug, überschrieb damit die
+                      Fassung des Hauptstücks. Dazu war die datalist-ID
+                      "fassungen-list" ein zweites Mal im DOM (ungültiges HTML,
+                      list= bindet immer an das erste Vorkommen). Das Hauptstück
+                      hat sein eigenes Feld im Abschnitt "Details", der Anhänger
+                      sein "Anhänger Fassung" weiter oben (Befund G3). */}
                   <div className="form-group">
                     <label>Anhänger (Allg.)</label>
                     <input
@@ -1902,20 +1832,23 @@ export default function Schmuckstuecke() {
                 <>
                   <button
                     className="btn btn-primary"
+                    disabled={saving}
                     onClick={() => handleSave({ closeAfterSave: true })}>
-                    Speichern + Schließen
+                    {saving ? "Speichert…" : "Speichern + Schließen"}
                   </button>
                   <button
                     className="btn btn-secondary"
+                    disabled={saving}
                     onClick={() => handleSave({ closeAfterSave: false })}>
-                    Speichern + Weiter
+                    {saving ? "Speichert…" : "Speichern + Weiter"}
                   </button>
                 </>
               ) : (
                 <button
                   className="btn btn-primary"
+                  disabled={saving}
                   onClick={() => handleSave({ closeAfterSave: true })}>
-                  Speichern
+                  {saving ? "Speichert…" : "Speichern"}
                 </button>
               )}
             </div>

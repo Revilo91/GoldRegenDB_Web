@@ -74,7 +74,7 @@ function readCollapsed() {
 }
 
 function AppLayout() {
-  const { user, logout, mustChangePassword, clearMustChangePassword } =
+  const { user, loading, logout, mustChangePassword, clearMustChangePassword } =
     useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readCollapsed);
@@ -179,6 +179,20 @@ function AppLayout() {
       setPasswordError(err.message);
     }
   };
+
+  // Solange /auth/me läuft, ist `user` noch null. Ohne diese Prüfung ersetzte
+  // ein Reload auf z. B. /inventur die URL sofort durch /login, und nach dem
+  // Laden griff die Weiterleitung unten und landete auf /. Deep-Links waren
+  // damit unbenutzbar und die Login-Seite blitzte bei jedem Reload auf
+  // (Befund G2). ProtectedRoute macht es richtig, kam aber nie zum Zug.
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        Laden…
+      </div>
+    );
+  }
 
   if (!user) {
     return (

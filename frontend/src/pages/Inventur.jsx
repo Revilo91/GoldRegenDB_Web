@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { formatEur } from "../utils/zahlen";
+import TablePhoto from "../components/TablePhoto";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faFileExcel,
   faFileInvoice,
   faTimes,
   faBox,
-  faGem,
   faPlus,
   faSave,
   faCheck,
@@ -53,83 +53,6 @@ function formatDateDE(dateValue) {
   });
 }
 
-function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
-  const [photoSrc, setPhotoSrc] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    const controller = new AbortController();
-
-    if (!foto) {
-      setPhotoSrc(null);
-      setPhotoError(null);
-      setIsLoading(false);
-      return () => {
-        isCancelled = true;
-        controller.abort();
-      };
-    }
-
-    if (pauseLoading) {
-      setIsLoading(false);
-      return () => {
-        isCancelled = true;
-        controller.abort();
-      };
-    }
-
-    setIsLoading(true);
-    setPhotoError(null);
-    api
-      .loadPhotoAsDataUrl(foto, { signal: controller.signal })
-      .then((dataUrl) => {
-        if (isCancelled) return;
-        setPhotoSrc(dataUrl);
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-        setPhotoSrc(null);
-        setPhotoError(err.message);
-      })
-      .finally(() => {
-        if (isCancelled) return;
-        setIsLoading(false);
-      });
-
-    return () => {
-      isCancelled = true;
-      controller.abort();
-    };
-  }, [foto, pauseLoading]);
-
-  if (!photoSrc) {
-    return (
-      <span
-        className="table-photo-placeholder"
-        title={
-          isLoading
-            ? "Foto wird geladen"
-            : photoError
-              ? `Foto konnte nicht geladen werden: ${photoError}`
-              : "Kein Foto verfügbar"
-        }>
-        <FontAwesomeIcon icon={faGem} />
-      </span>
-    );
-  }
-
-  return (
-    <img
-      className="table-photo-thumb"
-      src={photoSrc}
-      alt={`Foto ${artikelnummer}`}
-      title={`Foto ${artikelnummer}`}
-      loading="lazy"
-    />
-  );
-}
 
 function ItemsTable({
   items,
