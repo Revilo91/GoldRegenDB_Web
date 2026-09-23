@@ -396,6 +396,7 @@ export const api = {
     request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
+  getBackupTables: () => request('/backup/tables'),
   exportBackup: (tables) => {
     const params = new URLSearchParams();
     if (tables && tables.length) {

@@ -18,6 +18,7 @@ jest.mock('../src/utils/logger', () => ({
 
 const request = require('supertest');
 const express = require('express');
+const db = require('../src/config/db');
 const path = require('path');
 const fs = require('fs/promises');
 const AdmZip = require('adm-zip');
@@ -105,5 +106,318 @@ describe('backup uploads zip routes', () => {
     const zip = new AdmZip(res.body);
     const entries = zip.getEntries().map((e) => e.entryName);
     expect(entries).toContain(TEST_FILE_NAME);
+  });
+});
+
+// ── Q10: Tabellenliste, Reihenfolge, Sequences, Hash-Trigger ───────────────
+//
+// Das Schema, das die Katalog-Abfragen im Test liefern: zehn Tabellen, sechs
+// Fremdschlüssel – exakt wie die echte Datenbank es zurückgibt. `bestellung`,
+// `bestellung_kunde` und `bestellung_consent` fehlten in der alten Handliste.
+const KATALOG_TABELLEN = [
+  'Kunde',
+  'Lieferschein',
+  'Rechnung',
+  'Schmuckstück',
+  'app_users',
+  'audit_log',
+  'bestellung',
+  'bestellung_consent',
+  'bestellung_kunde',
+  'lagerinventur',
+];
+
+const KATALOG_FKS = [
+  { kind: 'Lieferschein', eltern: 'Kunde' },
+  { kind: 'Rechnung', eltern: 'Kunde' },
+  { kind: 'bestellung', eltern: 'bestellung_kunde' },
+  { kind: 'bestellung', eltern: 'Rechnung' },
+  { kind: 'bestellung_consent', eltern: 'bestellung_kunde' },
+  { kind: 'lagerinventur', eltern: 'app_users' },
+];
+
+const KATALOG_PKS = [
+  { tabelle: 'Kunde', spalte: 'Name' },
+  { tabelle: 'Lieferschein', spalte: 'Nummer' },
+  { tabelle: 'Rechnung', spalte: 'Nummer' },
+  { tabelle: 'Schmuckstück', spalte: 'Artikelnummer' },
+  { tabelle: 'app_users', spalte: 'id' },
+  { tabelle: 'audit_log', spalte: 'id' },
+  { tabelle: 'bestellung', spalte: 'id' },
+  { tabelle: 'bestellung_consent', spalte: 'id' },
+  { tabelle: 'bestellung_kunde', spalte: 'id' },
+  { tabelle: 'lagerinventur', spalte: 'id' },
+];
+
+// Spalten je Tabelle – daraus leitet der Handler die Sequences (hat_sequenz)
+// und die als Text zu exportierenden Zeitspalten ab.
+const spalte = (tabelle, spalte, typ = 'text', hat_sequenz = false) => ({
+  tabelle,
+  spalte,
+  typ,
+  hat_sequenz,
+});
+
+const KATALOG_SPALTEN = [
+  spalte('Kunde', 'ID', 'integer', true),
+  spalte('Kunde', 'Name'),
+  spalte('Lieferschein', 'ID', 'integer', true),
+  spalte('Lieferschein', 'Nummer'),
+  spalte('Lieferschein', 'Datum', 'timestamp without time zone'),
+  spalte('Rechnung', 'ID', 'integer', true),
+  spalte('Rechnung', 'Nummer'),
+  spalte('Schmuckstück', 'Artikelnummer'),
+  spalte('Schmuckstück', 'Verkaufspreis', 'numeric'),
+  spalte('Schmuckstück', 'Letzte_Änderung', 'timestamp without time zone'),
+  spalte('app_users', 'id', 'integer', true),
+  spalte('audit_log', 'id', 'integer', true),
+  spalte('audit_log', 'change_timestamp', 'timestamp without time zone'),
+  spalte('audit_log', 'hash'),
+  spalte('bestellung', 'id', 'integer', true),
+  spalte('bestellung', 'wunschdatum', 'date'),
+  spalte('bestellung_consent', 'id', 'integer', true),
+  spalte('bestellung_kunde', 'id', 'integer', true),
+  spalte('bestellung_kunde', 'name_enc', 'bytea'),
+  spalte('lagerinventur', 'id', 'integer', true),
+];
+
+// Antwortet auf die Katalogabfragen wie die echte Datenbank; alles andere
+// bekommt ein leeres Resultat. Spaltenlisten für den Import kommen aus
+// information_schema.columns, dieselbe Abfrage nutzt der Handler auch für die
+// Sequenzspalten – unterschieden wird über das Fragment 'nextval'.
+function katalogAntwort(sql) {
+  const text = String(sql);
+  if (text.includes("c.relkind = 'r'")) {
+    return { rows: KATALOG_TABELLEN.map((name) => ({ name })), rowCount: KATALOG_TABELLEN.length };
+  }
+  if (text.includes("k.contype = 'f'")) {
+    return { rows: KATALOG_FKS, rowCount: KATALOG_FKS.length };
+  }
+  if (text.includes("'PRIMARY KEY'")) {
+    return { rows: KATALOG_PKS, rowCount: KATALOG_PKS.length };
+  }
+  if (text.includes("column_default LIKE 'nextval%'")) {
+    return { rows: KATALOG_SPALTEN, rowCount: KATALOG_SPALTEN.length };
+  }
+  if (text.includes('NOT c.convalidated')) {
+    return { rows: [], rowCount: 0 };
+  }
+  return null;
+}
+
+describe('GET /api/backup/export', () => {
+  let app;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    db.query.mockReset();
+    db.query.mockImplementation(async (sql) => {
+      const katalog = katalogAntwort(sql);
+      if (katalog) return katalog;
+      return { rows: [], rowCount: 0 };
+    });
+  });
+
+  it('exportiert alle Tabellen aus dem Katalog, inklusive der Bestelltabellen', async () => {
+    const res = await request(app).get('/api/backup/export');
+
+    expect(res.status).toBe(200);
+    // Befund B18: die alte Handliste kannte diese drei nicht.
+    expect(Object.keys(res.body.tables)).toEqual(
+      expect.arrayContaining(['bestellung', 'bestellung_kunde', 'bestellung_consent']),
+    );
+    expect(Object.keys(res.body.tables)).toHaveLength(KATALOG_TABELLEN.length);
+  });
+
+  it('sortiert jeden SELECT nach dem Primärschlüssel (Befund B19)', async () => {
+    await request(app).get('/api/backup/export');
+
+    const selects = db.query.mock.calls
+      .map((c) => String(c[0]))
+      .filter((sql) => / FROM "[^"]+" ORDER BY /.test(sql));
+
+    expect(selects).toHaveLength(KATALOG_TABELLEN.length);
+    expect(selects.every((sql) => sql.includes('ORDER BY'))).toBe(true);
+    expect(selects).toContain(
+      'SELECT "id", "change_timestamp"::text AS "change_timestamp", "hash" ' +
+        'FROM "audit_log" ORDER BY "id"',
+    );
+    expect(
+      selects.find((sql) => sql.includes('FROM "Schmuckstück"')),
+    ).toContain('ORDER BY "Artikelnummer"');
+  });
+
+  it('exportiert Zeitspalten als Text, damit Mikrosekunden erhalten bleiben', async () => {
+    await request(app).get('/api/backup/export');
+
+    const selects = db.query.mock.calls
+      .map((c) => String(c[0]))
+      .filter((sql) => sql.startsWith('SELECT "'));
+
+    // node-postgres liefert timestamp als JS-Date (Millisekunden). Ohne ::text
+    // verlor der Export die Mikrosekunden und der Audit-Hash stimmte nach dem
+    // Import nicht mehr – gemessen 29 hash_mismatch von 4368 Zeilen.
+    const audit = selects.find((sql) => sql.includes('FROM "audit_log"'));
+    expect(audit).toContain('"change_timestamp"::text AS "change_timestamp"');
+    const bestellung = selects.find((sql) => sql.includes('FROM "bestellung"'));
+    expect(bestellung).toContain('"wunschdatum"::text AS "wunschdatum"');
+
+    // Nicht-Zeitspalten bleiben unangetastet.
+    expect(audit).toContain('"hash"');
+    expect(audit).not.toContain('"hash"::text');
+  });
+
+  it('beschränkt sich auf die angefragten Tabellen', async () => {
+    const res = await request(app).get('/api/backup/export?tables=Kunde,bestellung');
+
+    expect(Object.keys(res.body.tables).sort()).toEqual(['Kunde', 'bestellung']);
+  });
+});
+
+describe('POST /api/backup/import', () => {
+  let app;
+  let client;
+
+  const backupMit = (tabellen) => ({
+    backupData: { version: '1.0', tables: tabellen },
+  });
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    client = {
+      query: jest.fn(async (sql) => {
+        const text = String(sql);
+        const katalog = katalogAntwort(text);
+        if (katalog) return katalog;
+        // Spaltenliste je Tabelle für insertRows
+        if (text.includes('FROM information_schema.columns')) {
+          return {
+            rows: [
+              { column_name: 'id' },
+              { column_name: 'ID' },
+              { column_name: 'Name' },
+              { column_name: 'name_enc' },
+            ],
+            rowCount: 4,
+          };
+        }
+        if (text.includes('FROM pg_trigger')) return { rows: [{ '?column?': 1 }], rowCount: 1 };
+        if (text.includes('verify_audit_chain')) return { rows: [], rowCount: 0 };
+        if (text.includes('proname')) return { rows: [{ '?column?': 1 }], rowCount: 1 };
+        return { rows: [], rowCount: 0 };
+      }),
+      release: jest.fn(),
+    };
+    db.connect.mockReset();
+    db.connect.mockResolvedValue(client);
+  });
+
+  const verlauf = () => client.query.mock.calls.map((c) => String(c[0]));
+
+  it('fügt Eltern vor Kindern ein (topologisch, nicht geraten)', async () => {
+    const res = await request(app)
+      .post('/api/backup/import')
+      .send(
+        backupMit({
+          bestellung: [{ id: 1 }],
+          bestellung_kunde: [{ id: 1 }],
+          Kunde: [{ ID: 1, Name: 'A' }],
+          Rechnung: [{ ID: 1 }],
+        }),
+      );
+
+    expect(res.status).toBe(200);
+    const inserts = verlauf().filter((sql) => sql.startsWith('INSERT INTO'));
+    const pos = (t) => inserts.findIndex((sql) => sql.includes(`INSERT INTO "${t}"`));
+    expect(pos('Kunde')).toBeGreaterThanOrEqual(0);
+    expect(pos('Kunde')).toBeLessThan(pos('Rechnung'));
+    expect(pos('bestellung_kunde')).toBeLessThan(pos('bestellung'));
+    expect(pos('Rechnung')).toBeLessThan(pos('bestellung'));
+  });
+
+  it('zieht auch die lagerinventur-Sequence nach (Befund B17)', async () => {
+    await request(app)
+      .post('/api/backup/import')
+      .send(backupMit({ lagerinventur: [{ id: 7 }], app_users: [{ id: 1 }] }));
+
+    const setvals = client.query.mock.calls
+      .filter((c) => String(c[0]).includes('setval'))
+      .map((c) => c[1][0]);
+
+    // Die alte Handliste kannte nur app_users, audit_log, Kunde,
+    // Lieferschein und Rechnung – lagerinventur lief danach in duplicate key.
+    expect(setvals).toContain('"lagerinventur"');
+    expect(setvals).toContain('"app_users"');
+  });
+
+  it('schaltet den Audit-Hash-Trigger um die Inserts herum ab (Befund B19)', async () => {
+    await request(app)
+      .post('/api/backup/import')
+      .send(backupMit({ audit_log: [{ id: 1 }] }));
+
+    const sqls = verlauf();
+    const aus = sqls.findIndex((s) => s.includes('DISABLE TRIGGER trg_audit_log_hash_chain'));
+    const insert = sqls.findIndex((s) => s.includes('INSERT INTO "audit_log"'));
+    const an = sqls.findIndex((s) => s.includes('ENABLE TRIGGER trg_audit_log_hash_chain'));
+
+    expect(aus).toBeGreaterThanOrEqual(0);
+    expect(aus).toBeLessThan(insert);
+    expect(insert).toBeLessThan(an);
+    expect(an).toBeLessThan(sqls.lastIndexOf('COMMIT'));
+  });
+
+  it('benennt, was TRUNCATE CASCADE zusätzlich leert', async () => {
+    const res = await request(app)
+      .post('/api/backup/import')
+      .send({
+        backupData: { version: '1.0', tables: { Kunde: [{ ID: 1, Name: 'A' }] } },
+        selectedTables: ['Kunde'],
+      });
+
+    expect(res.status).toBe(200);
+    // Kunde -> Lieferschein/Rechnung -> bestellung: still geleert, jetzt benannt.
+    expect(res.body.kaskadierteTabellen).toEqual([
+      'Lieferschein',
+      'Rechnung',
+      'bestellung',
+    ]);
+  });
+
+  it('meldet Tabellen aus dem Backup, die es im Schema nicht gibt', async () => {
+    const res = await request(app)
+      .post('/api/backup/import')
+      .send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }], alte_tabelle: [{ id: 1 }] }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.ignorierteTabellen).toEqual(['alte_tabelle']);
+    expect(Object.keys(res.body.counts)).toEqual(['Kunde']);
+  });
+
+  it('rollt zurück und meldet den ursprünglichen Fehler, wenn ein INSERT scheitert', async () => {
+    client.query.mockImplementation(async (sql) => {
+      const text = String(sql);
+      if (text.startsWith('INSERT INTO')) throw new Error('Testfehler beim Insert');
+      const katalog = katalogAntwort(text);
+      if (katalog) return katalog;
+      if (text.includes('FROM information_schema.columns')) {
+        return { rows: [{ column_name: 'ID' }, { column_name: 'Name' }], rowCount: 2 };
+      }
+      return { rows: [], rowCount: 0 };
+    });
+
+    const res = await request(app)
+      .post('/api/backup/import')
+      .send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }] }));
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/Testfehler beim Insert/);
+    expect(verlauf()).toContain('ROLLBACK');
+    expect(client.release).toHaveBeenCalled();
   });
 });

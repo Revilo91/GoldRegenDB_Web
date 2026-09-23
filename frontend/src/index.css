@@ -2893,3 +2893,12 @@ select.form-control {
   color: var(--gold);
   margin-bottom: 16px !important;
 }
+
+/* Hinweisblöcke auf der Datensicherungs-Seite (Kaskade, unbekannte Tabellen,
+   Audit-Kette). Eigene Klasse statt style-Prop – CLAUDE.md verbietet Inline. */
+.datensicherung-meldung {
+  display: block;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  line-height: 1.5;
+}
