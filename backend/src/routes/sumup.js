@@ -59,6 +59,7 @@ const { sumupImportSchema } = require("../schemas");
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
 router.post("/import", validate(sumupImportSchema), async (req, res) => {
+  let client;
   try {
     // CSV-Daten aus Body (als String oder Array)
     const csvData = req.body.csvData;
@@ -141,11 +142,23 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
     builder.verfuegbar(); // Verfügbar = nicht verkauft, kein Ausschuss, im Lager
     builder.raw('"Artikelnummer" LIKE ANY($' + builder.getNextParamIdx() + '::text[])', likePatterns);
 
-    const { rows: matchingItems } = await db.query(
+    // Befund C4: Auswahl, Messe-Kunde und Belege liefen bisher teils vor dem
+    // BEGIN. Die Transaktion umschließt jetzt alles ab der Auswahl, und die
+    // Tabellensperren entsprechen denen der POST-Routen (MAX+1-Nummern).
+    client = await db.connect();
+    await client.query("BEGIN");
+    await client.query('LOCK TABLE "Lieferschein" IN SHARE ROW EXCLUSIVE MODE');
+    await client.query('LOCK TABLE "Rechnung" IN SHARE ROW EXCLUSIVE MODE');
+
+    // FOR UPDATE sperrt die ausgewählten Stücke: ohne die Sperre wählen zwei
+    // parallele Importe dieselben verfügbaren Stücke aus und schreiben sie auf
+    // zwei verschiedene Rechnungen (TOCTOU, ebenfalls Befund C4).
+    const { rows: matchingItems } = await client.query(
       `SELECT "Artikelnummer", "Verkaufspreis"
        FROM "Schmuckstück"
        ${builder.build()}
-       ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+       ORDER BY length("Artikelnummer"), "Artikelnummer"
+       FOR UPDATE`,
       builder.getParams(),
     );
 
@@ -174,6 +187,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
     });
 
     if (existingItems.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(400).json({
         error: "Keine der Artikelnummern wurde in der Datenbank gefunden",
         artikelnummern: artikelnummernArray,
@@ -188,15 +202,20 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       i.Artikelnummer.startsWith("S"),
     );
 
-    // Hole Kunde "Messe"
-    const { rows: kundenResult } = await db.query(
-      `SELECT "ID", "Name" FROM "Kunde" WHERE "Name" ILIKE '%messe%' LIMIT 1`,
+    // Hole Kunde "Messe". ORDER BY macht die Auswahl eindeutig: ohne sie
+    // entschied bei einem zweiten passenden Namen (z.B. "Messebau Müller")
+    // der Zufall, welcher Kunde die Belege bekommt (Befund C4).
+    const { rows: kundenResult } = await client.query(
+      `SELECT "ID", "Name" FROM "Kunde"
+       WHERE "Name" ILIKE '%messe%'
+       ORDER BY (lower("Name") = 'messe') DESC, "ID"
+       LIMIT 1`,
     );
 
     let messeKunde;
     if (kundenResult.length === 0) {
       // Erstelle Messe-Kunde falls nicht vorhanden
-      const { rows: newKunde } = await db.query(
+      const { rows: newKunde } = await client.query(
         `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Provision", "Aktiv")
          VALUES ('Messe', '', 0, '', 0, 0, true)
          RETURNING "ID", "Name"`,
@@ -206,141 +225,148 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       messeKunde = kundenResult[0];
     }
 
-    // Beginne Transaktion
-    await db.query("BEGIN");
+    // 1. Erstelle Lieferschein für alle Artikel
+    const aktuellesJahr = new Date().getFullYear();
+    const { rows: lieferscheinnummerResult } = await client.query(
+      `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+       FROM "Lieferschein"
+       WHERE "Nummer" ~ $1`,
+      [`^${aktuellesJahr}-[0-9]+$`],
+    );
+    const lieferscheinNummer = `${aktuellesJahr}-${String(Number(lieferscheinnummerResult[0].max_num) + 1).padStart(3, "0")}`;
 
-    try {
-      // 1. Erstelle Lieferschein für alle Artikel
-      const aktuellesJahr = new Date().getFullYear();
-      const { rows: lieferscheinnummerResult } = await db.query(
-        `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
-         FROM "Lieferschein"
-         WHERE "Nummer" ~ $1`,
-        [`^${aktuellesJahr}-[0-9]+$`],
+    const { rows: lieferscheinResult } = await client.query(
+      `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datum")
+       VALUES ($1, $2, NOW())
+       RETURNING "ID", "Nummer"`,
+      [lieferscheinNummer, messeKunde.ID],
+    );
+
+    const lieferschein = lieferscheinResult[0];
+
+    // Aktualisiere alle Artikel wurden-als ausgelagert und auf Lieferschein
+    // Nutze WHERE IN für bessere Performance statt individualer Updates
+    // Eigener Name: artikelnummernArray sind die aus der CSV gelesenen Nummern,
+    // hier gehen nur die tatsächlich gefundenen Stücke auf den Lieferschein.
+    const lieferscheinArtikelnummern = existingItems.map((i) => i.Artikelnummer);
+    if (lieferscheinArtikelnummern.length > 0) {
+      const updateBuilder = where();
+      updateBuilder.artikelnummerIn(lieferscheinArtikelnummern);
+      updateBuilder.nichtVerkauft();
+      updateBuilder.keinAusschuss();
+
+      // SET-Parameter zuerst, dann WHERE-Parameter
+      const setParams = [messeKunde.ID, lieferschein.ID];
+      const whereParams = updateBuilder.getParams();
+      await client.query(
+        `UPDATE "Schmuckstück"
+         SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
+         ${updateBuilder.build().replace(/\$1/g, `$${setParams.length + 1}`)}
+        `,
+        [...setParams, ...whereParams],
       );
-      const lieferscheinNummer = `${aktuellesJahr}-${String(Number(lieferscheinnummerResult[0].max_num) + 1).padStart(3, "0")}`;
+    }
 
-      const { rows: lieferscheinResult } = await db.query(
-        `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer", "Datum")
+    // Fortlaufende Rechnungsnummern im Format YYYY-XXX
+    const { rows: rechnungsnummerResult } = await client.query(
+      `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
+       FROM "Rechnung"
+       WHERE "Nummer" ~ $1`,
+      [`^${aktuellesJahr}-[0-9]+$`],
+    );
+    let naechsteRechnungsnummer = Number(rechnungsnummerResult[0].max_num) + 1;
+    const createRechnungsnummer = () =>
+      `${aktuellesJahr}-${String(naechsteRechnungsnummer++).padStart(3, "0")}`;
+
+    // 2. Erstelle Rechnung für Marina
+    let rechnungMarina = null;
+    if (marinaArtikelnummern.length > 0) {
+      const rechnungNummerM = createRechnungsnummer();
+
+      const { rows: rechnungMResult } = await client.query(
+        `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
          VALUES ($1, $2, NOW())
          RETURNING "ID", "Nummer"`,
-        [lieferscheinNummer, messeKunde.ID],
+        [rechnungNummerM, messeKunde.ID],
       );
 
-      const lieferschein = lieferscheinResult[0];
+      rechnungMarina = rechnungMResult[0];
 
-      // Aktualisiere alle Artikel wurden-als ausgelagert und auf Lieferschein
-      // Nutze WHERE IN für bessere Performance statt individualer Updates
-      const artikelnummernArray = existingItems.map((i) => i.Artikelnummer);
-      if (artikelnummernArray.length > 0) {
-        const updateBuilder = where();
-        updateBuilder.artikelnummerIn(artikelnummernArray);
-        updateBuilder.nichtVerkauft();
-        updateBuilder.keinAusschuss();
-
-        // SET-Parameter zuerst, dann WHERE-Parameter
-        const setParams = [messeKunde.ID, lieferschein.ID];
-        const whereParams = updateBuilder.getParams();
-        await db.query(
+      // Markiere Marina-Artikel als verkauft und auf Rechnung (Batch-Update)
+      const marinaArtikelnummernArray = marinaArtikelnummern.map(
+        (i) => i.Artikelnummer,
+      );
+      if (marinaArtikelnummernArray.length > 0) {
+        await client.query(
           `UPDATE "Schmuckstück"
-           SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
-           ${updateBuilder.build().replace(/\$1/g, `$${setParams.length + 1}`)}
-          `,
-          [...setParams, ...whereParams],
+           SET "Verkauft" = 1, "Rechnung_ID" = $1
+           WHERE "Artikelnummer" = ANY($2)`,
+          [rechnungMarina.ID, marinaArtikelnummernArray],
         );
       }
-
-      // Fortlaufende Rechnungsnummern im Format YYYY-XXX
-      const { rows: rechnungsnummerResult } = await db.query(
-        `SELECT COALESCE(MAX(CAST(SPLIT_PART("Nummer", '-', 2) AS INTEGER)), 0) AS max_num
-         FROM "Rechnung"
-         WHERE "Nummer" ~ $1`,
-        [`^${aktuellesJahr}-[0-9]+$`],
-      );
-      let naechsteRechnungsnummer = Number(rechnungsnummerResult[0].max_num) + 1;
-      const createRechnungsnummer = () =>
-        `${aktuellesJahr}-${String(naechsteRechnungsnummer++).padStart(3, "0")}`;
-
-      // 2. Erstelle Rechnung für Marina
-      let rechnungMarina = null;
-      if (marinaArtikelnummern.length > 0) {
-        const rechnungNummerM = createRechnungsnummer();
-
-        const { rows: rechnungMResult } = await db.query(
-          `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
-           VALUES ($1, $2, NOW())
-           RETURNING "ID", "Nummer"`,
-          [rechnungNummerM, messeKunde.ID],
-        );
-
-        rechnungMarina = rechnungMResult[0];
-
-        // Markiere Marina-Artikel als verkauft und auf Rechnung (Batch-Update)
-        const marinaArtikelnummernArray = marinaArtikelnummern.map(
-          (i) => i.Artikelnummer,
-        );
-        if (marinaArtikelnummernArray.length > 0) {
-          await db.query(
-            `UPDATE "Schmuckstück"
-             SET "Verkauft" = 1, "Rechnung_ID" = $1
-             WHERE "Artikelnummer" = ANY($2)`,
-            [rechnungMarina.ID, marinaArtikelnummernArray],
-          );
-        }
-      }
-
-      // 3. Erstelle Rechnung für Saskia
-      let rechnungSaskia = null;
-      if (saskiaArtikelnummern.length > 0) {
-        const rechnungNummerS = createRechnungsnummer();
-
-        const { rows: rechnungSResult } = await db.query(
-          `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
-           VALUES ($1, $2, NOW())
-           RETURNING "ID", "Nummer"`,
-          [rechnungNummerS, messeKunde.ID],
-        );
-
-        rechnungSaskia = rechnungSResult[0];
-
-        // Markiere Saskia-Artikel als verkauft und auf Rechnung (Batch-Update)
-        const saskiaArtikelnummernArray = saskiaArtikelnummern.map(
-          (i) => i.Artikelnummer,
-        );
-        if (saskiaArtikelnummernArray.length > 0) {
-          await db.query(
-            `UPDATE "Schmuckstück"
-             SET "Verkauft" = 1, "Rechnung_ID" = $1
-             WHERE "Artikelnummer" = ANY($2)`,
-            [rechnungSaskia.ID, saskiaArtikelnummernArray],
-          );
-        }
-      }
-
-      await db.query("COMMIT");
-
-      res.json({
-        success: true,
-        lieferschein: lieferschein,
-        rechnungen: {
-          marina: rechnungMarina,
-          saskia: rechnungSaskia,
-        },
-        artikel: {
-          gesamt: existingItems.length,
-          marina: marinaArtikelnummern.length,
-          saskia: saskiaArtikelnummern.length,
-        },
-      });
-    } catch (err) {
-      await db.query("ROLLBACK");
-      throw err;
     }
+
+    // 3. Erstelle Rechnung für Saskia
+    let rechnungSaskia = null;
+    if (saskiaArtikelnummern.length > 0) {
+      const rechnungNummerS = createRechnungsnummer();
+
+      const { rows: rechnungSResult } = await client.query(
+        `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", "Datum")
+         VALUES ($1, $2, NOW())
+         RETURNING "ID", "Nummer"`,
+        [rechnungNummerS, messeKunde.ID],
+      );
+
+      rechnungSaskia = rechnungSResult[0];
+
+      // Markiere Saskia-Artikel als verkauft und auf Rechnung (Batch-Update)
+      const saskiaArtikelnummernArray = saskiaArtikelnummern.map(
+        (i) => i.Artikelnummer,
+      );
+      if (saskiaArtikelnummernArray.length > 0) {
+        await client.query(
+          `UPDATE "Schmuckstück"
+           SET "Verkauft" = 1, "Rechnung_ID" = $1
+           WHERE "Artikelnummer" = ANY($2)`,
+          [rechnungSaskia.ID, saskiaArtikelnummernArray],
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      lieferschein: lieferschein,
+      rechnungen: {
+        marina: rechnungMarina,
+        saskia: rechnungSaskia,
+      },
+      artikel: {
+        gesamt: existingItems.length,
+        marina: marinaArtikelnummern.length,
+        saskia: saskiaArtikelnummern.length,
+      },
+    });
   } catch (err) {
+    if (client) {
+      // Eigenes try um das ROLLBACK, sonst verdeckt ein gescheiterter Rollback
+      // die eigentliche Fehlermeldung (Befund C29).
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackErr) {
+        logger.error('SUMUP', 'Rollback nach Import-Fehler fehlgeschlagen', { message: rollbackErr.message });
+      }
+    }
     logger.error('SUMUP', 'Import-Fehler', { message: err.message });
     res.status(500).json({
       error: "Fehler beim Importieren der SumUp-Daten",
     });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
