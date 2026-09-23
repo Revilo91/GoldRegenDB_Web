@@ -8,7 +8,6 @@ import {
   faTimes,
   faBox,
   faPlus,
-  faSave,
   faCheck,
   faSearch,
   faExclamationTriangle,
@@ -1442,10 +1441,9 @@ export default function Inventur() {
   const [filters, setFilters] = useState({ aktiv: "1" });
   const [selectedKunde, setSelectedKunde] = useState(null);
   const [activeTab, setActiveTab] = useState("kunden"); // 'kunden' | 'lager'
-  const [sortConfig, setSortConfig] = useState({
-    key: "Name",
-    direction: "asc",
-  });
+  // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
+  // also schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "Name", direction: "asc" };
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const load = () => {
@@ -1512,18 +1510,12 @@ export default function Inventur() {
     return sortableData;
   }, [filtered, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  // requestSort/getSortIcon waren nie verdrahtet – kein Header rief sie auf.
+  // Dadurch wird setSortConfig nirgends aufgerufen und die Sortierung unten
+  // steht dauerhaft auf ihrem Anfangswert; DataTable sortiert danach ohnehin
+  // ein zweites Mal clientseitig (Befund G14). Die tote Implementierung ist
+  // entfernt, das eingefrorene useMemo bleibt vorerst, weil es die
+  // Anfangsreihenfolge der Liste bestimmt.
 
   const totals = useMemo(
     () =>

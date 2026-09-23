@@ -9,7 +9,6 @@ import {
   faTimesCircle,
   faTrash,
   faTimes,
-  faKey,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";

@@ -28,10 +28,9 @@ export default function DocumentManager({
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
   const [artikelnummerInput, setArtikelnummerInput] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "Datum",
-    direction: "desc",
-  });
+  // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
+  // also schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "Datum", direction: "desc" };
   const [groupByKunde, setGroupByKunde] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
@@ -325,18 +324,12 @@ export default function DocumentManager({
     return sortableData;
   }, [filteredData, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  // requestSort/getSortIcon waren nie verdrahtet – kein Header rief sie auf.
+  // Dadurch wird setSortConfig nirgends aufgerufen und die Sortierung unten
+  // steht dauerhaft auf ihrem Anfangswert; DataTable sortiert danach ohnehin
+  // ein zweites Mal clientseitig (Befund G14). Die tote Implementierung ist
+  // entfernt, das eingefrorene useMemo bleibt vorerst, weil es die
+  // Anfangsreihenfolge der Liste bestimmt.
 
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);

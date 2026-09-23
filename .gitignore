@@ -19,3 +19,6 @@ graphify-out
 .vscode
 # Temporäre Worktrees der Claude-Code-Agents
 .claude/worktrees/
+
+# Coverage-Reports (jest --coverage / vitest --coverage)
+coverage/

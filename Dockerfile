@@ -9,7 +9,9 @@ ENV VITE_API_URL=$VITE_API_URL
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
 COPY frontend/package*.json ./
-RUN npm install
+# npm ci statt npm install: npm install darf das Lockfile aktualisieren, der
+# Produktionsbuild waere damit nicht reproduzierbar (Befund E7).
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
@@ -17,7 +19,8 @@ RUN npm run build
 FROM node:22-alpine AS backend-deps
 WORKDIR /app
 COPY backend/package*.json ./
-RUN npm install --production
+# --production ist die veraltete Form; --omit=dev ist die aktuelle.
+RUN npm ci --omit=dev
 
 # ─── Runtime image ──────────────────────────────────────────────────────────
 FROM node:22-alpine

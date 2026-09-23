@@ -120,10 +120,9 @@ export default function Schmuckstuecke() {
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [activeTab, setActiveTab] = useState("schmuckstuecke");
-  const [sortConfig, setSortConfig] = useState({
-    key: "Artikelnummer",
-    direction: "asc",
-  });
+  // Konstant: setSortConfig wurde nie aufgerufen, die Sortierung stand also
+  // schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "Artikelnummer", direction: "asc" };
   const [nextArtikelnummerPreview, setNextArtikelnummerPreview] = useState("");
   const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
     useState(false);

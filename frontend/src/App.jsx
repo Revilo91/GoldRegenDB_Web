@@ -16,7 +16,6 @@ import {
   faFileInvoice,
   faCreditCard,
   faClipboardList,
-  faTag,
   faWrench,
   faUserLock,
   faDatabase,
