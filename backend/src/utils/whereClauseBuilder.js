@@ -6,23 +6,13 @@
 class WhereClauseBuilder {
   /**
    * @param {number} [startParamIdx=1] Start-Index für Parameter ($1, $2, ...)
-   * @param {number|string|null} [tenantId=null] Tenant ID für Multi-Tenancy
    */
-  constructor(startParamIdx = 1, tenantId = null) {
+  constructor(startParamIdx = 1) {
     /** @type {string[]} */
     this.conditions = [];
     /** @type {SqlParam[]} */
     this.params = [];
     this.paramIdx = startParamIdx;
-    this.tenantId = tenantId;
-  }
-
-  _addTenantFilter() {
-    if (this.tenantId !== null) {
-      this.conditions.push(`"tenant_id" = $${this.paramIdx}`);
-      this.params.push(this.tenantId);
-      this.paramIdx++;
-    }
   }
 
   /** @returns {this} */
@@ -246,16 +236,17 @@ class WhereClauseBuilder {
     return this;
   }
 
+  // build() und buildConditions() sind idempotent: sie lesen nur, sie
+  // mutieren nicht. Das übliche Muster "ein Builder, zwei Queries" (Count +
+  // Daten) ruft build() zweimal auf (Befund F1).
   /** @returns {string} */
   build() {
-    this._addTenantFilter();
     if (this.conditions.length === 0) return "";
     return "WHERE " + this.conditions.join(" AND ");
   }
 
   /** @returns {string} */
   buildConditions() {
-    this._addTenantFilter();
     return this.conditions.join(" AND ");
   }
 
@@ -271,7 +262,7 @@ class WhereClauseBuilder {
 
   /** @returns {WhereClauseBuilder} */
   clone() {
-    const builder = new WhereClauseBuilder(this.paramIdx, this.tenantId);
+    const builder = new WhereClauseBuilder(this.paramIdx);
     builder.conditions = [...this.conditions];
     builder.params = [...this.params];
     return builder;
@@ -281,11 +272,10 @@ class WhereClauseBuilder {
 /**
  * Factory-Funktion für einfache Verwendung
  * @param {number} [startParamIdx=1] Start-Index für Parameter (default: 1)
- * @param {number|string|null} [tenantId=null] Tenant ID für Multi-Tenancy (default: null)
  * @returns {WhereClauseBuilder}
  */
-function where(startParamIdx = 1, tenantId = null) {
-  return new WhereClauseBuilder(startParamIdx, tenantId);
+function where(startParamIdx = 1) {
+  return new WhereClauseBuilder(startParamIdx);
 }
 
 module.exports = { WhereClauseBuilder, where };

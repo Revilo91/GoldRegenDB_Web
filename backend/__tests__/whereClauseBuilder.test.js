@@ -272,20 +272,30 @@ describe('WhereClauseBuilder', () => {
     });
   });
 
-  describe('Multi-Tenancy', () => {
-    test('tenant_id wird automatisch hinzugefügt', () => {
-      const builder = where(1, 42);
-      builder.verfuegbar();
+  // Befund F1: build() mutierte über _addTenantFilter() den Builder. Das
+  // übliche Muster "ein Builder, zwei Queries" (Count + Daten) ruft build()
+  // zweimal auf und bekam dann eine doppelte Bedingung mit verschobenen
+  // $n-Nummern.
+  describe('Idempotenz von build()', () => {
+    test('zweimal build() liefert dasselbe Ergebnis', () => {
+      const builder = where();
+      builder.verfuegbar().artikelnummer('MHO001');
 
-      expect(builder.build()).toBe('WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0 AND "tenant_id" = $1');
-      expect(builder.getParams()).toEqual([42]);
+      const ersterAufruf = builder.build();
+      const zweiterAufruf = builder.build();
+
+      expect(zweiterAufruf).toBe(ersterAufruf);
+      expect(builder.getParams()).toEqual(['MHO001']);
+      expect(builder.getNextParamIdx()).toBe(2);
     });
 
-    test('tenant_id = null fügt keine Bedingung hinzu', () => {
-      const builder = where(1, null);
-      builder.verfuegbar();
+    test('build() und buildConditions() gemischt bleiben stabil', () => {
+      const builder = where();
+      builder.verkauft();
 
-      expect(builder.build()).toBe('WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0');
+      expect(builder.buildConditions()).toBe('"Verkauft" = 1 AND "Ausschuss" = 0');
+      expect(builder.build()).toBe('WHERE "Verkauft" = 1 AND "Ausschuss" = 0');
+      expect(builder.buildConditions()).toBe('"Verkauft" = 1 AND "Ausschuss" = 0');
       expect(builder.getParams()).toEqual([]);
     });
   });

@@ -39,66 +39,31 @@ const { where } = require("../utils/whereClauseBuilder");
  */
 router.get("/", async (req, res) => {
   try {
-    const tenantId = req.user?.tenant_id ?? null;
-
     const soldCondition = where().verkauft().buildConditions();
     const outsourcedCondition = where().aktivAusgelagert().buildConditions();
     const rejectCondition = where().ausschuss().buildConditions();
     const inStockCondition = where().verfuegbar().buildConditions();
 
-    const schmuckStatsScopeBuilder = where(1, tenantId);
-    const schmuckStatsScope = schmuckStatsScopeBuilder.build();
-    const schmuckStatsParams = schmuckStatsScopeBuilder.getParams();
-
-    const kundenStatsScopeBuilder = where(
-      schmuckStatsScopeBuilder.getNextParamIdx(),
-      tenantId
-    );
-    const kundenStatsScope = kundenStatsScopeBuilder.build();
-    const kundenStatsParams = kundenStatsScopeBuilder.getParams();
-
-    const piecesByArtBuilder = where(1, tenantId);
+    const piecesByArtBuilder = where();
     piecesByArtBuilder.notEmpty("Art");
     const piecesByArtWhere = piecesByArtBuilder.build();
     const piecesByArtParams = piecesByArtBuilder.getParams();
 
-    const activeOutsourcedBuilder = where(1, tenantId);
+    const activeOutsourcedBuilder = where();
     activeOutsourcedBuilder.aktivAusgelagert();
     const activeOutsourcedWhere = activeOutsourcedBuilder.build();
+    const piecesByKundeParams = activeOutsourcedBuilder.getParams();
 
-    const kundenScopeBuilder = where(activeOutsourcedBuilder.getNextParamIdx(), tenantId);
-    const kundenScopeWhere = kundenScopeBuilder.build();
-    const piecesByKundeParams = [
-      ...activeOutsourcedBuilder.getParams(),
-      ...kundenScopeBuilder.getParams(),
-    ];
-
-    const soldWithInvoiceBuilder = where(1, tenantId);
+    const soldWithInvoiceBuilder = where();
     soldWithInvoiceBuilder.verkauft().mitRechnung();
     const soldWithInvoiceWhere = soldWithInvoiceBuilder.build();
-
-    const rechnungScopeBuilder = where(soldWithInvoiceBuilder.getNextParamIdx(), tenantId);
-    const rechnungScopeWhere = rechnungScopeBuilder.build();
-    const monthlyRevenueParams = [
-      ...soldWithInvoiceBuilder.getParams(),
-      ...rechnungScopeBuilder.getParams(),
-    ];
+    const monthlyRevenueParams = soldWithInvoiceBuilder.getParams();
 
     // Manufacturer-specific queries
-    const manufacturerStatsBuilder = where(1, tenantId);
-    const manufacturerStatsWhere = manufacturerStatsBuilder.build();
-    const manufacturerStatsParams = manufacturerStatsBuilder.getParams();
-
-    const manufacturerOutsourcedBuilder = where(1, tenantId);
+    const manufacturerOutsourcedBuilder = where();
     manufacturerOutsourcedBuilder.aktivAusgelagert();
     const manufacturerOutsourcedWhere = manufacturerOutsourcedBuilder.build();
-
-    const manufacturerKundenBuilder = where(manufacturerOutsourcedBuilder.getNextParamIdx(), tenantId);
-    const manufacturerKundenWhere = manufacturerKundenBuilder.build();
-    const manufacturerByKundeParams = [
-      ...manufacturerOutsourcedBuilder.getParams(),
-      ...manufacturerKundenBuilder.getParams(),
-    ];
+    const manufacturerByKundeParams = manufacturerOutsourcedBuilder.getParams();
 
     const [statisticsResult, recentChangesResult, piecesByArtResult, piecesByKundeResult, monthlyRevenueTrendResult, manufacturerStatsResult, manufacturerByKundeResult] =
       await Promise.all([
@@ -124,17 +89,14 @@ router.get("/", async (req, res) => {
               COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS "totalRevenue",
               COALESCE(SUM("Herstellungskosten"), 0)::DOUBLE PRECISION AS "totalCost"
             FROM "Schmuckstück"
-            ${schmuckStatsScope}
           ) s
           CROSS JOIN (
             SELECT
               COUNT(*)::INT AS "totalCustomers",
               COUNT(*) FILTER (WHERE "Aktiv" = true)::INT AS "activeCustomers"
             FROM "Kunde"
-            ${kundenStatsScope}
           ) k
-        `,
-          [...schmuckStatsParams, ...kundenStatsParams]
+        `
         ),
         db.query(`
           SELECT *
@@ -162,7 +124,6 @@ router.get("/", async (req, res) => {
             ${activeOutsourcedWhere}
           ) s
           JOIN "Kunde" k ON s."Ausgelagert" = k."ID"
-          ${kundenScopeWhere}
           GROUP BY k."Name"
           ORDER BY count DESC
         `,
@@ -187,7 +148,6 @@ router.get("/", async (req, res) => {
             AND LEFT("Artikelnummer", 1) IN ('M', 'S')
           ) s
           JOIN "Rechnung" r ON s."Rechnung_ID" = r."ID"
-          ${rechnungScopeWhere}
           GROUP BY monat
           ORDER BY monat
         `,
@@ -205,12 +165,10 @@ router.get("/", async (req, res) => {
             COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS ausschuss,
             COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS umsatz
           FROM "Schmuckstück"
-          ${manufacturerStatsWhere}
           WHERE LEFT("Artikelnummer", 1) IN ('M', 'S')
           GROUP BY LEFT("Artikelnummer", 1)
           ORDER BY hersteller
-        `,
-          manufacturerStatsParams
+        `
         ),
         // Outsourced pieces by manufacturer and customer
         db.query(
@@ -226,7 +184,6 @@ router.get("/", async (req, res) => {
             AND LEFT("Artikelnummer", 1) IN ('M', 'S')
           ) s
           JOIN "Kunde" k ON s."Ausgelagert" = k."ID"
-          ${manufacturerKundenWhere}
           GROUP BY LEFT(s."Artikelnummer", 1), k."Name"
           ORDER BY hersteller, anzahl DESC
         `,

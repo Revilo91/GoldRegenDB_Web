@@ -146,28 +146,16 @@ builder.raw(
 // VORSICHT: Bei raw() muss Benutzer-Input separat validiert werden!
 ```
 
-## Multi-Tenancy
-
-Der Builder unterstützt automatische Tenant-ID-Filter:
-
-```javascript
-const builder = where(1, req.user.tenant_id);  // Start-Param-Index, Tenant-ID
-builder.verfuegbar();
-
-// Ergibt: WHERE Verkauft = 0 AND Ausschuss = 0 AND Ausgelagert = 0 AND tenant_id = $1
-// Params: [req.user.tenant_id]
-```
-
 ## API
 
 ### Konstruktor / Factory
 
 ```javascript
 // Factory-Funktion (empfohlen)
-const builder = where(startParamIdx = 1, tenantId = null);
+const builder = where(startParamIdx = 1);
 
 // Direkter Konstruktor
-const builder = new WhereClauseBuilder(startParamIdx = 1, tenantId = null);
+const builder = new WhereClauseBuilder(startParamIdx = 1);
 ```
 
 ### Ausgabe-Methoden
@@ -304,7 +292,6 @@ await db.query(
 ✅ **Typsicherheit** – Keine String-Manipulation
 ✅ **Testbarkeit** – Separate Unit-Tests
 ✅ **Lesbarkeit** – `builder.verfuegbar()` statt SQL-String
-✅ **Multi-Tenancy** – Automatische tenant_id-Filter
 
 ## Migration
 
