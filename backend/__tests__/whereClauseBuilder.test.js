@@ -300,6 +300,43 @@ describe('WhereClauseBuilder', () => {
     });
   });
 
+  // Befund F5: Abfragen mit Tabellenalias (inventur.js, dashboard.js schreiben
+  // s."Verkauft") konnten den Builder gar nicht nutzen und haben ihre
+  // WHERE-Klauseln von Hand gebaut -- genau die Dublette, die der Builder
+  // verhindern soll.
+  describe('Tabellenalias', () => {
+    test('alias qualifiziert alle Spalten', () => {
+      expect(where(1, { alias: 's' }).verfuegbar().build())
+        .toBe('WHERE s."Verkauft" = 0 AND s."Ausschuss" = 0 AND s."Ausgelagert" = 0');
+    });
+
+    test('ohne alias bleibt die Ausgabe unverändert', () => {
+      expect(where().verfuegbar().build())
+        .toBe('WHERE "Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0');
+    });
+
+    test('alias gilt auch für Bedingungen mit Parameter', () => {
+      const builder = where(1, { alias: 's' }).ausgelagert(7);
+
+      expect(builder.build()).toBe('WHERE s."Ausgelagert" = $1');
+      expect(builder.getParams()).toEqual([7]);
+    });
+
+    test('alias gilt für SUBSTRING-Filter und equals()', () => {
+      expect(where(1, { alias: 's' }).hersteller('m').buildConditions())
+        .toBe('SUBSTRING(s."Artikelnummer", 1, 1) = $1');
+      expect(where(1, { alias: 'k' }).equals('Aktiv', true).buildConditions())
+        .toBe('k."Aktiv" = $1');
+    });
+
+    test('clone() übernimmt den alias', () => {
+      const builder = where(1, { alias: 's' }).verkauft().clone();
+
+      expect(builder.artikelnummer('MHO001').build())
+        .toBe('WHERE s."Verkauft" = 1 AND s."Ausschuss" = 0 AND s."Artikelnummer" = $1');
+    });
+  });
+
   describe('clone()', () => {
     test('clone() erstellt unabhängige Kopie', () => {
       const builder1 = where();

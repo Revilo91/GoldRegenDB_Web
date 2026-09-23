@@ -28,33 +28,6 @@ const HERSTELLER_OPTIONS = [
   { code: "S", label: "Saskia" },
 ];
 
-const GRUNDMATERIAL_OPTIONS = [
-  { code: "A", label: "Alkoholtinte" },
-  { code: "B", label: "Beton" },
-  { code: "C", label: "Cucio" },
-  { code: "E", label: "Edelstahl" },
-  { code: "F", label: "Fimo" },
-  { code: "H", label: "Harz" },
-  { code: "I", label: "Phiole" },
-  { code: "J", label: "Papier" },
-  { code: "K", label: "Kordel" },
-  { code: "L", label: "Leder" },
-  { code: "M", label: "Makramee" },
-  { code: "N", label: "Naturstein" },
-  { code: "P", label: "Perle" },
-  { code: "S", label: "Schrumpffolie" },
-  { code: "W", label: "Holz" },
-  { code: "X", label: "3D-Druck" },
-  { code: "Y", label: "Cabochon" },
-];
-
-const PRODUKTART_OPTIONS = [
-  { code: "A", label: "Armband" },
-  { code: "H", label: "Halskette" },
-  { code: "O", label: "Ohrring" },
-  { code: "S", label: "Schlüsselanhänger" },
-];
-
 const createRowId = () =>
   `row-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -115,6 +88,12 @@ export default function Schmuckstuecke() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
+  // Hersteller-, Grundmaterial- und Produktart-Codes kommen aus
+  // backend/src/utils/constants.js und reisen über die Filter-Optionen mit.
+  // Vorher lagen sie hier als eigene Kopie und im Produktart-Dropdown ein
+  // drittes Mal hartcodiert (Befund G22).
+  const grundmaterialOptionen = filterOptions.grundmaterialien || [];
+  const produktartOptionen = filterOptions.produktarten || [];
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
@@ -622,10 +601,11 @@ export default function Schmuckstuecke() {
                 setPage(1);
               }}>
               <option value="">Alle Arten</option>
-              <option value="A">Armband</option>
-              <option value="H">Halskette</option>
-              <option value="O">Ohrring</option>
-              <option value="S">Schlüsselanhänger</option>
+              {produktartOptionen.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.label}
+                </option>
+              ))}
             </select>
             <select
               className="form-control"
@@ -1216,7 +1196,7 @@ export default function Schmuckstuecke() {
                             });
                           }}>
                           <option value="">Grundmaterial</option>
-                          {GRUNDMATERIAL_OPTIONS.map((option) => (
+                          {grundmaterialOptionen.map((option) => (
                             <option key={option.code} value={option.code}>
                               {option.code} - {option.label}
                             </option>
@@ -1242,7 +1222,7 @@ export default function Schmuckstuecke() {
                             });
                           }}>
                           <option value="">Produktart</option>
-                          {PRODUKTART_OPTIONS.map((option) => (
+                          {produktartOptionen.map((option) => (
                             <option key={option.code} value={option.code}>
                               {option.code} - {option.label}
                             </option>

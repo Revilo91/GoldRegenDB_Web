@@ -1,0 +1,140 @@
+'use strict';
+
+/**
+ * Tests für /api/inventur.
+ *
+ * Befund C19: `verkauft` wurde als `s."Verkauft" = 1` gezählt, ohne den
+ * Ausschuss-Ausschluss aus CLAUDE.md. Ein Stück mit Verkauft=1 UND Ausschuss=1
+ * zählte damit in beiden Spalten, und `gesamt` war ungleich
+ * aktiv + verkauft + ausschuss. Gegen die echten Seed-Daten traf das 6 von 19
+ * Kunden.
+ *
+ * Befund F5: die Bedingungen standen von Hand in der Query statt aus dem
+ * whereClauseBuilder zu kommen.
+ */
+
+process.env.JWT_SECRET = 'test-secret-do-not-use-in-prod';
+
+const request = require('supertest');
+const express = require('express');
+
+jest.mock('../src/config/db', () => ({
+  query: jest.fn(),
+  connect: jest.fn(),
+  setCurrentDbUsername: jest.fn(),
+  requestContextMiddleware: (req, res, next) => next(),
+}));
+
+jest.mock('../src/utils/logger', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+}));
+
+jest.mock('../src/utils/excelService', () => ({
+  generateInventurExcel: jest.fn().mockResolvedValue(Buffer.from('xlsx')),
+}));
+
+const db = require('../src/config/db');
+const { requireBearbeiter } = require('../src/middleware/auth');
+const inventurRoutes = require('../src/routes/inventur');
+
+function buildApp(role = 'bearbeiter') {
+  const app = express();
+  app.use(express.json());
+  app.use((req, res, next) => {
+    req.user = { id: 1, username: 'testuser', role };
+    next();
+  });
+  app.use('/api/inventur', requireBearbeiter, inventurRoutes);
+  return app;
+}
+
+beforeEach(() => jest.clearAllMocks());
+
+describe('GET /api/inventur', () => {
+  it('liefert die Übersicht je Kunde', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ ID: 1, Name: 'Anna', gesamt: 3, aktiv: 1, verkauft: 1, ausschuss: 1 }],
+    });
+
+    const res = await request(buildApp()).get('/api/inventur');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveLength(1);
+  });
+
+  it('zählt "verkauft" nur ohne Ausschuss (C19)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    await request(buildApp()).get('/api/inventur');
+
+    const sql = String(db.query.mock.calls[0][0]);
+    // Die verkauft-Spalte muss den Ausschuss ausschliessen ...
+    expect(sql).toContain('s."Verkauft" = 1 AND s."Ausschuss" = 0');
+    // ... und darf das nackte `s."Verkauft" = 1 THEN` nicht mehr enthalten.
+    expect(sql).not.toMatch(/s\."Verkauft" = 1\s+THEN/);
+  });
+
+  it('nutzt für alle Statusspalten Bedingungen mit Tabellenalias (F5)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    await request(buildApp()).get('/api/inventur');
+
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain('s."Verkauft" = 0 AND s."Ausschuss" = 0');
+    expect(sql).toContain('s."Ausschuss" = 1');
+  });
+
+  it('lehnt den Zugriff mit Rolle user ab (403)', async () => {
+    const res = await request(buildApp('user')).get('/api/inventur');
+
+    expect(res.statusCode).toBe(403);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/inventur/:kundeId', () => {
+  it('bildet die Kennzahlen in SQL, nicht in JavaScript', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ID: 4, Name: 'Bea' }] }) // Kunde
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001', Verkauft: 1, Ausschuss: 1 }] })
+      .mockResolvedValueOnce({
+        rows: [{
+          gesamt: 1,
+          aktiv: 0,
+          ausschuss_frei_verkauft: 0,
+          ausschuss: 1,
+          wert_aktiv: '0.00',
+          wert_verkauft: '0.00',
+        }],
+      });
+
+    const res = await request(buildApp()).get('/api/inventur/4');
+
+    expect(res.statusCode).toBe(200);
+    // Das Stück hat Verkauft=1 UND Ausschuss=1: vorher zählte JavaScript es als
+    // verkauft UND als ausschuss. Jetzt entscheidet SQL, und zwar nur einmal.
+    expect(res.body.stats).toEqual({
+      gesamt: 1,
+      aktiv: 0,
+      verkauft: 0,
+      ausschuss: 1,
+      wert_aktiv: '0.00',
+      wert_verkauft: '0.00',
+    });
+    // Drei Abfragen: Kunde, Positionen, Kennzahlen
+    expect(db.query).toHaveBeenCalledTimes(3);
+    expect(String(db.query.mock.calls[2][0])).toContain('s."Verkauft" = 1 AND s."Ausschuss" = 0');
+  });
+
+  it('meldet 404 bei unbekanntem Kunden', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/inventur/999');
+
+    expect(res.statusCode).toBe(404);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+});

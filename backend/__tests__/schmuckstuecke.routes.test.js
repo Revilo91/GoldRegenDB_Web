@@ -105,12 +105,34 @@ describe('GET /api/schmuckstuecke/filter-options', () => {
     expect(res.body.ausschussgruende).toEqual([]);
   });
 
-  it('liefert bei leerer Tabelle für jedes Feld ein leeres Array', async () => {
+  it('liefert bei leerer Tabelle für jedes Datenfeld ein leeres Array', async () => {
     db.query.mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app).get('/api/schmuckstuecke/filter-options');
 
     expect(res.statusCode).toBe(200);
-    expect(Object.values(res.body).every((wert) => Array.isArray(wert) && wert.length === 0)).toBe(true);
+    // grundmaterialien/produktarten sind Konstanten aus utils/constants.js und
+    // hängen nicht am Datenbestand (Befund G22).
+    const { grundmaterialien, produktarten, ...datenFelder } = res.body;
+    expect(Object.values(datenFelder).every((wert) => Array.isArray(wert) && wert.length === 0)).toBe(true);
+    expect(grundmaterialien.length).toBeGreaterThan(0);
+    expect(produktarten.length).toBeGreaterThan(0);
+  });
+
+  // Befund G22: GRUNDMATERIAL und PRODUKTART lagen vierfach im Projekt. Die
+  // einzige Quelle ist utils/constants.js; das Frontend holt sie über diese
+  // Antwort, die es beim Mount ohnehin schon lädt.
+  it('liefert GRUNDMATERIAL und PRODUKTART aus utils/constants.js mit', async () => {
+    const { GRUNDMATERIAL, PRODUKTART } = require('../src/utils/constants');
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app).get('/api/schmuckstuecke/filter-options');
+
+    expect(res.body.grundmaterialien).toEqual(
+      Object.entries(GRUNDMATERIAL).map(([code, label]) => ({ code, label })),
+    );
+    expect(res.body.produktarten).toEqual(
+      Object.entries(PRODUKTART).map(([code, label]) => ({ code, label })),
+    );
   });
 });

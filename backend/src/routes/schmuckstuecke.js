@@ -13,7 +13,7 @@ const {
 } = require("../schemas");
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
-const { GRUNDMATERIAL } = require("../utils/constants");
+const { GRUNDMATERIAL, PRODUKTART } = require("../utils/constants");
 const {
   uploadsDir,
   resolvePhotoFile,
@@ -87,14 +87,51 @@ const SEARCHABLE_FIELDS = [
   "Letzte_Änderung",
 ];
 
-const PRODUKTART = {
-  A: "Armband",
-  H: "Halskette",
-  O: "Ohrring",
-  S: "Schlüsselanhänger",
-};
-
 const AUSSCHUSS_GRUND_CONSTRAINT = "schmuckstueck_ausschuss_grund_required_chk";
+
+// Statusfilter aus den Query-Parametern. Die Bedeutung von "verkauft" steht im
+// whereClauseBuilder, nicht in dieser Route (Befund F5): vorher hiess es hier
+// builder.equals("Verkauft", parseInt(verkauft)), also woertlich "Verkauft = 1"
+// -- damit lieferte das Dropdown "Verkauft" auch Ausschussstuecke, obwohl
+// CLAUDE.md Verkauft als "Verkauft=1 AND Ausschuss=0" definiert.
+// parseInt("abc") ergab ausserdem NaN als Query-Parameter und damit HTTP 500
+// statt 400 (Befund C25).
+const FLAG_WERTE = { 1: true, 0: false, true: true, false: false };
+
+// Leerstrings bedeuten wie ueberall im Projekt "kein Wert", nicht "= 0"
+// (siehe leerZuNull in schemas/common.js).
+const istLeer = (wert) => wert === undefined || String(wert).trim() === "";
+
+/**
+ * Haengt verkauft/ausschuss/ausgelagert an den Builder.
+ * @returns {string|null} Fehlermeldung fuer HTTP 400, oder null
+ */
+function statusFilterAnwenden(builder, query) {
+  if (!istLeer(query.verkauft)) {
+    const flag = FLAG_WERTE[String(query.verkauft)];
+    if (flag === undefined) return "verkauft muss 0 oder 1 sein";
+    if (flag) builder.verkauft();
+    else builder.nichtVerkauft();
+  }
+
+  if (!istLeer(query.ausschuss)) {
+    const flag = FLAG_WERTE[String(query.ausschuss)];
+    if (flag === undefined) return "ausschuss muss 0 oder 1 sein";
+    if (flag) builder.ausschuss();
+    else builder.keinAusschuss();
+  }
+
+  if (!istLeer(query.ausgelagert)) {
+    const kundeId = Number(query.ausgelagert);
+    if (!Number.isInteger(kundeId) || kundeId < 0) {
+      return "ausgelagert muss eine Kundennummer oder 0 sein";
+    }
+    if (kundeId === 0) builder.imLager();
+    else builder.ausgelagert(kundeId);
+  }
+
+  return null;
+}
 
 function resolveAusschussGrund(ausschuss, ausschussGrund) {
   const ausschussValue = Number(ausschuss) === 1 ? 1 : 0;
@@ -699,9 +736,6 @@ router.get("/", async (req, res) => {
     if (isNaN(limit)) limit = 50;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
-    const verkauft = req.query.verkauft;
-    const ausgelagert = req.query.ausgelagert;
-    const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
 
     // Initialisiere WHERE-Builder
@@ -749,23 +783,14 @@ router.get("/", async (req, res) => {
       builder.produktart(artikelnummer_art);
     }
 
-    if (verkauft !== undefined) {
-      builder.equals("Verkauft", parseInt(verkauft));
-    }
-
-    if (ausgelagert !== undefined) {
-      builder.equals("Ausgelagert", parseInt(ausgelagert));
-    }
-
-    if (ausschuss !== undefined) {
-      builder.equals("Ausschuss", parseInt(ausschuss));
+    const filterFehler = statusFilterAnwenden(builder, req.query);
+    if (filterFehler) {
+      return res.status(400).json({ error: filterFehler });
     }
 
     const whereClause = builder.build();
     const params = builder.getParams();
     const nextParamIdx = builder.getNextParamIdx();
-
-    // Gesamtzahl per Fensterfunktion statt separater COUNT-Abfrage: ein
     // Tabellendurchlauf weniger pro Seitenaufruf. Alle Requests teilen sich
     // denselben request-gebundenen DB-Client, laufen also ohnehin nacheinander.
     const ORDER_BY = 'ORDER BY length("Artikelnummer"), "Artikelnummer"';
@@ -920,6 +945,14 @@ router.get("/filter-options", async (req, res) => {
       options[key] = (row[key] || []).sort(vergleicheFilterwerte);
     }
 
+    // GRUNDMATERIAL und PRODUKTART lagen vierfach im Projekt: utils/constants.js,
+    // dieser Route (als eigene Kopie), Schmuckstuecke.jsx und nochmals
+    // hartcodiert im Produktart-Dropdown (Befund G22). utils/constants.js ist
+    // jetzt die einzige Quelle und reist über diese Antwort ins Frontend -- das
+    // holt sie ohnehin schon beim Mount, ein zweiter Endpunkt wäre unnötig.
+    options.grundmaterialien = Object.entries(GRUNDMATERIAL).map(([code, label]) => ({ code, label }));
+    options.produktarten = Object.entries(PRODUKTART).map(([code, label]) => ({ code, label }));
+
     res.json(options);
   } catch (err) {
     logger.error("SCHMUCK", "Fehler beim Laden der Filter-Optionen", {
@@ -954,22 +987,15 @@ router.get("/filter-options", async (req, res) => {
  */
 router.get("/unique-artikelnummern", async (req, res) => {
   try {
-    const verkauft = req.query.verkauft;
-    const ausgelagert = req.query.ausgelagert;
-    const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
     // Initialisiere WHERE-Builder
     const builder = where();
 
-    if (verkauft !== undefined) {
-      builder.equals("Verkauft", parseInt(verkauft));
+    const filterFehler = statusFilterAnwenden(builder, req.query);
+    if (filterFehler) {
+      return res.status(400).json({ error: filterFehler });
     }
-    if (ausgelagert !== undefined) {
-      builder.equals("Ausgelagert", parseInt(ausgelagert));
-    }
-    if (ausschuss !== undefined) {
-      builder.equals("Ausschuss", parseInt(ausschuss));
-    }
+
     if (artikelnummer_art) {
       builder.produktart(artikelnummer_art);
     }

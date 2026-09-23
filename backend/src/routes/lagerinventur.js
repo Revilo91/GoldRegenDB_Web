@@ -4,6 +4,7 @@ const db = require("../config/db");
 const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
 const { lagerinventurSchema } = require("../schemas");
+const { where } = require("../utils/whereClauseBuilder");
 
 /**
  * @swagger
@@ -224,11 +225,16 @@ router.get("/drafts/:id/diff", async (req, res) => {
     const scanned = draft.data || {}; // { "MXO001_1": 1, "MXO001_2": 2, ... }
 
     // Soll-Bestand: alle Artikel im Lager (nicht ausgelagert, nicht verkauft, kein Ausschuss)
+    // Wort für Wort dasselbe wie builder.verfuegbar(), war aber von Hand
+    // geschrieben (Befund F5).
+    const lagerBuilder = where();
+    lagerBuilder.verfuegbar();
     const { rows: lagerRows } = await db.query(
       `SELECT "Artikelnummer", "Name", "Verkaufspreis", "Art", "Material"
        FROM "Schmuckstück"
-       WHERE "Ausgelagert" = 0 AND "Verkauft" = 0 AND "Ausschuss" = 0
+       ${lagerBuilder.build()}
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      lagerBuilder.getParams(),
     );
 
     // Soll aggregieren

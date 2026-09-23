@@ -6,42 +6,58 @@
 class WhereClauseBuilder {
   /**
    * @param {number} [startParamIdx=1] Start-Index für Parameter ($1, $2, ...)
+   * @param {{alias?: string}} [opts={}] alias qualifiziert die Spalten, z. B.
+   *   alias: 's' ergibt s."Verkauft". Ohne alias bleibt es bei "Verkauft".
    */
-  constructor(startParamIdx = 1) {
+  constructor(startParamIdx = 1, opts = {}) {
     /** @type {string[]} */
     this.conditions = [];
     /** @type {SqlParam[]} */
     this.params = [];
     this.paramIdx = startParamIdx;
+    this.alias = opts.alias || null;
+  }
+
+  // Ohne Alias-Unterstützung konnten Abfragen mit Tabellenalias (inventur.js,
+  // dashboard.js schreiben s."Verkauft") den Builder gar nicht nutzen und haben
+  // ihre WHERE-Klauseln von Hand gebaut -- genau die Dublette aus Befund F5.
+  /**
+   * @param {string} name
+   * @returns {string}
+   */
+  _col(name) {
+    return this.alias ? `${this.alias}."${name}"` : `"${name}"`;
   }
 
   /** @returns {this} */
   verkauft() {
-    this.conditions.push(`"Verkauft" = 1 AND "Ausschuss" = 0`);
+    this.conditions.push(`${this._col('Verkauft')} = 1 AND ${this._col('Ausschuss')} = 0`);
     return this;
   }
 
   /** @returns {this} */
   nichtVerkauft() {
-    this.conditions.push(`"Verkauft" = 0`);
+    this.conditions.push(`${this._col('Verkauft')} = 0`);
     return this;
   }
 
   /** @returns {this} */
   ausschuss() {
-    this.conditions.push(`"Ausschuss" = 1`);
+    this.conditions.push(`${this._col('Ausschuss')} = 1`);
     return this;
   }
 
   /** @returns {this} */
   keinAusschuss() {
-    this.conditions.push(`"Ausschuss" = 0`);
+    this.conditions.push(`${this._col('Ausschuss')} = 0`);
     return this;
   }
 
   /** @returns {this} */
   verfuegbar() {
-    this.conditions.push(`"Verkauft" = 0 AND "Ausschuss" = 0 AND "Ausgelagert" = 0`);
+    this.conditions.push(
+      `${this._col('Verkauft')} = 0 AND ${this._col('Ausschuss')} = 0 AND ${this._col('Ausgelagert')} = 0`,
+    );
     return this;
   }
 
@@ -51,11 +67,11 @@ class WhereClauseBuilder {
    */
   ausgelagert(kundeId = null) {
     if (kundeId !== null) {
-      this.conditions.push(`"Ausgelagert" = $${this.paramIdx}`);
+      this.conditions.push(`${this._col('Ausgelagert')} = $${this.paramIdx}`);
       this.params.push(kundeId);
       this.paramIdx++;
     } else {
-      this.conditions.push(`"Ausgelagert" > 0`);
+      this.conditions.push(`${this._col('Ausgelagert')} > 0`);
     }
     return this;
   }
@@ -66,18 +82,23 @@ class WhereClauseBuilder {
    */
   aktivAusgelagert(kundeId = null) {
     if (kundeId !== null) {
-      this.conditions.push(`"Ausgelagert" = $${this.paramIdx} AND "Verkauft" = 0 AND "Ausschuss" = 0`);
+      this.conditions.push(
+        `${this._col('Ausgelagert')} = $${this.paramIdx}` +
+          ` AND ${this._col('Verkauft')} = 0 AND ${this._col('Ausschuss')} = 0`,
+      );
       this.params.push(kundeId);
       this.paramIdx++;
     } else {
-      this.conditions.push(`"Ausgelagert" > 0 AND "Verkauft" = 0 AND "Ausschuss" = 0`);
+      this.conditions.push(
+        `${this._col('Ausgelagert')} > 0 AND ${this._col('Verkauft')} = 0 AND ${this._col('Ausschuss')} = 0`,
+      );
     }
     return this;
   }
 
   /** @returns {this} */
   imLager() {
-    this.conditions.push(`"Ausgelagert" = 0`);
+    this.conditions.push(`${this._col('Ausgelagert')} = 0`);
     return this;
   }
 
@@ -87,11 +108,11 @@ class WhereClauseBuilder {
    */
   mitLieferschein(lieferscheinId = null) {
     if (lieferscheinId !== null) {
-      this.conditions.push(`"Lieferschein_ID" = $${this.paramIdx}`);
+      this.conditions.push(`${this._col('Lieferschein_ID')} = $${this.paramIdx}`);
       this.params.push(lieferscheinId);
       this.paramIdx++;
     } else {
-      this.conditions.push(`"Lieferschein_ID" > 0`);
+      this.conditions.push(`${this._col('Lieferschein_ID')} > 0`);
     }
     return this;
   }
@@ -102,24 +123,24 @@ class WhereClauseBuilder {
    */
   mitRechnung(rechnungId = null) {
     if (rechnungId !== null) {
-      this.conditions.push(`"Rechnung_ID" = $${this.paramIdx}`);
+      this.conditions.push(`${this._col('Rechnung_ID')} = $${this.paramIdx}`);
       this.params.push(rechnungId);
       this.paramIdx++;
     } else {
-      this.conditions.push(`"Rechnung_ID" > 0`);
+      this.conditions.push(`${this._col('Rechnung_ID')} > 0`);
     }
     return this;
   }
 
   /** @returns {this} */
   ohneLieferschein() {
-    this.conditions.push(`"Lieferschein_ID" = 0`);
+    this.conditions.push(`${this._col('Lieferschein_ID')} = 0`);
     return this;
   }
 
   /** @returns {this} */
   ohneRechnung() {
-    this.conditions.push(`"Rechnung_ID" = 0`);
+    this.conditions.push(`${this._col('Rechnung_ID')} = 0`);
     return this;
   }
 
@@ -128,7 +149,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   artikelnummer(artikelnummer) {
-    this.conditions.push(`"Artikelnummer" = $${this.paramIdx}`);
+    this.conditions.push(`${this._col('Artikelnummer')} = $${this.paramIdx}`);
     this.params.push(artikelnummer);
     this.paramIdx++;
     return this;
@@ -139,7 +160,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   artikelnummerLike(pattern) {
-    this.conditions.push(`"Artikelnummer" LIKE $${this.paramIdx}`);
+    this.conditions.push(`${this._col('Artikelnummer')} LIKE $${this.paramIdx}`);
     this.params.push(pattern);
     this.paramIdx++;
     return this;
@@ -150,7 +171,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   artikelnummerIn(artikelnummern) {
-    this.conditions.push(`"Artikelnummer" = ANY($${this.paramIdx})`);
+    this.conditions.push(`${this._col('Artikelnummer')} = ANY($${this.paramIdx})`);
     this.params.push(artikelnummern);
     this.paramIdx++;
     return this;
@@ -161,7 +182,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   hersteller(buchstabe) {
-    this.conditions.push(`SUBSTRING("Artikelnummer", 1, 1) = $${this.paramIdx}`);
+    this.conditions.push(`SUBSTRING(${this._col('Artikelnummer')}, 1, 1) = $${this.paramIdx}`);
     this.params.push(buchstabe.toUpperCase());
     this.paramIdx++;
     return this;
@@ -172,7 +193,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   grundmaterial(buchstabe) {
-    this.conditions.push(`SUBSTRING("Artikelnummer", 2, 1) = $${this.paramIdx}`);
+    this.conditions.push(`SUBSTRING(${this._col('Artikelnummer')}, 2, 1) = $${this.paramIdx}`);
     this.params.push(buchstabe.toUpperCase());
     this.paramIdx++;
     return this;
@@ -183,7 +204,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   produktart(buchstabe) {
-    this.conditions.push(`SUBSTRING("Artikelnummer", 3, 1) = $${this.paramIdx}`);
+    this.conditions.push(`SUBSTRING(${this._col('Artikelnummer')}, 3, 1) = $${this.paramIdx}`);
     this.params.push(buchstabe.toUpperCase());
     this.paramIdx++;
     return this;
@@ -195,7 +216,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   equals(spalte, wert) {
-    this.conditions.push(`"${spalte}" = $${this.paramIdx}`);
+    this.conditions.push(`${this._col(spalte)} = $${this.paramIdx}`);
     this.params.push(wert);
     this.paramIdx++;
     return this;
@@ -207,7 +228,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   like(spalte, pattern) {
-    this.conditions.push(`"${spalte}" LIKE $${this.paramIdx}`);
+    this.conditions.push(`${this._col(spalte)} LIKE $${this.paramIdx}`);
     this.params.push(pattern);
     this.paramIdx++;
     return this;
@@ -218,7 +239,7 @@ class WhereClauseBuilder {
    * @returns {this}
    */
   notEmpty(spalte) {
-    this.conditions.push(`"${spalte}" IS NOT NULL AND "${spalte}" != ''`);
+    this.conditions.push(`${this._col(spalte)} IS NOT NULL AND ${this._col(spalte)} != ''`);
     return this;
   }
 
@@ -262,7 +283,7 @@ class WhereClauseBuilder {
 
   /** @returns {WhereClauseBuilder} */
   clone() {
-    const builder = new WhereClauseBuilder(this.paramIdx);
+    const builder = new WhereClauseBuilder(this.paramIdx, { alias: this.alias || undefined });
     builder.conditions = [...this.conditions];
     builder.params = [...this.params];
     return builder;
@@ -272,10 +293,11 @@ class WhereClauseBuilder {
 /**
  * Factory-Funktion für einfache Verwendung
  * @param {number} [startParamIdx=1] Start-Index für Parameter (default: 1)
+ * @param {{alias?: string}} [opts={}] z. B. { alias: 's' } für s."Verkauft"
  * @returns {WhereClauseBuilder}
  */
-function where(startParamIdx = 1) {
-  return new WhereClauseBuilder(startParamIdx);
+function where(startParamIdx = 1, opts = {}) {
+  return new WhereClauseBuilder(startParamIdx, opts);
 }
 
 module.exports = { WhereClauseBuilder, where };
