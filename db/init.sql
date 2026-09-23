@@ -235,8 +235,11 @@ CREATE TABLE "Schmuckstück" (
     "Grösse" DOUBLE PRECISION DEFAULT 0,
     "Anhänger" TEXT DEFAULT NULL,
     "Zwischenstück" TEXT DEFAULT NULL,
-    "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
-    "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
+    -- Geld ist numeric, nie float (Befund B1): 19.99 ist binaer nicht exakt
+    -- darstellbar, 37 Positionen a 19,99 EUR ergaben 739.6299999999999.
+    -- pg liefert numeric bewusst als String, Number() erst an der Anzeigekante.
+    "Herstellungskosten" NUMERIC(10,2) NOT NULL DEFAULT 0,
+    "Verkaufspreis" NUMERIC(10,2) NOT NULL DEFAULT 0,
     "Ausgelagert" INTEGER DEFAULT 0,
     -- Booleans, nicht SMALLINT (Befund B6): als nullable SMALLINT waren
     -- Verkauft = 2 und NULL erlaubt, und so eine Zeile war in KEINEM Filter
@@ -256,7 +259,9 @@ CREATE TABLE "Schmuckstück" (
     -- als Ausschuss. Im Bestand gab es 28 solche Zeilen, siehe
     -- db/status_widerspruch_2026-09.csv und ensureStatusBooleans() in
     -- backend/src/config/db.js.
-    CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss"))
+    CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss")),
+    CONSTRAINT schmuck_preis_nicht_negativ
+      CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0)
 );
 
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");

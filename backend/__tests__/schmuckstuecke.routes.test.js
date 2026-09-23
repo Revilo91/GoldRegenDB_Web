@@ -152,7 +152,14 @@ describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
 
     expect(res.statusCode).toBe(200);
     const sql = String(db.query.mock.calls[0][0]);
-    for (const spalte of ['Ausgelagert', 'Verkauft', 'Ausschuss', 'Lieferschein_ID', 'Rechnung_ID']) {
+    const geschuetzt = [
+      'Ausgelagert', 'Verkauft', 'Ausschuss', 'Lieferschein_ID', 'Rechnung_ID',
+      // Die Geldspalten sind seit Befund B1 ebenfalls NOT NULL. Ohne COALESCE
+      // loeschte ein PUT ohne Preis den Preis still -- und der Audit-Trigger
+      // protokolliert Preisaenderungen nicht, die Spur fehlte also auch.
+      'Verkaufspreis', 'Herstellungskosten',
+    ];
+    for (const spalte of geschuetzt) {
       expect(sql).toMatch(new RegExp(`"${spalte}" = COALESCE\\(\\$\\d+, "${spalte}"\\)`));
     }
   });

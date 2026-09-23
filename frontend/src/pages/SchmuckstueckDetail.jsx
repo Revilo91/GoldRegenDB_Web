@@ -11,6 +11,7 @@ import {
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { statusBadge } from "../utils/status";
+import { formatEur } from "../utils/zahlen";
 
 export default function SchmuckstueckDetail() {
   const { artikelnummer } = useParams();
@@ -255,12 +256,12 @@ export default function SchmuckstueckDetail() {
               [
                 "Herstellungskosten",
                 item.Herstellungskosten
-                  ? `${item.Herstellungskosten}€`
+                  ? formatEur(item.Herstellungskosten)
                   : "–",
               ],
               [
                 "Verkaufspreis",
-                item.Verkaufspreis ? `${item.Verkaufspreis}€` : "–",
+                item.Verkaufspreis ? formatEur(item.Verkaufspreis) : "–",
               ],
               [
                 "Erstellt",

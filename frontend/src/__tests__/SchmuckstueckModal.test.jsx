@@ -19,7 +19,7 @@ const artikel = {
   Ausgelagert: 0,
   Foto: null,
   Grundmaterial: 'Gold',
-  Verkaufspreis: 120,
+  Verkaufspreis: '120.00',
 };
 
 describe('SchmuckstueckModal', () => {
@@ -46,7 +46,9 @@ describe('SchmuckstueckModal', () => {
 
     expect(await screen.findByText('Lager')).toBeInTheDocument();
     expect(screen.getByText('Goldkette')).toBeInTheDocument();
-    expect(screen.getByText('120€')).toBeInTheDocument();
+    // formatEur statt `${wert}€`: deutsche Schreibweise mit zwei
+    // Nachkommastellen, einheitlich im ganzen Projekt (Befund G21).
+    expect(screen.getByText(/120,00/)).toBeInTheDocument();
   });
 
   it('zeigt den Ausgelagert-Status mit Kundennamen', async () => {

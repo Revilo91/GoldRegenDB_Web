@@ -408,8 +408,8 @@ async function ensureSchmuckstueckTable() {
           "Grösse" DOUBLE PRECISION DEFAULT 0,
           "Anhänger" TEXT DEFAULT NULL,
           "Zwischenstück" TEXT DEFAULT NULL,
-          "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
-          "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
+          "Herstellungskosten" NUMERIC(10,2) NOT NULL DEFAULT 0,
+          "Verkaufspreis" NUMERIC(10,2) NOT NULL DEFAULT 0,
           "Ausgelagert" INTEGER DEFAULT 0,
           "Verkauft" BOOLEAN NOT NULL DEFAULT FALSE,
           "Ausschuss" BOOLEAN NOT NULL DEFAULT FALSE,
@@ -951,6 +951,74 @@ async function ensureStatusBooleans() {
   }
 }
 
+// ---- Geldspalten: DOUBLE PRECISION -> numeric(10,2) ----
+
+// Befund B1: "Verkaufspreis" und "Herstellungskosten" waren DOUBLE PRECISION.
+// 19.99 ist binär nicht exakt darstellbar; 37 Positionen à 19,99 € ergeben
+// 739.6299999999999. Excel rundete per numFmt, die API lieferte den Rohwert --
+// beide wichen ab, und Provisionsketten akkumulierten den Fehler ungerundet bis
+// zum Überweisungsbetrag. rabatt_gesamt war schon NUMERIC(5,2): in einer
+// Rechnungsberechnung trafen also exaktes Dezimal und Float aufeinander.
+//
+// pg liefert numeric bewusst als String (siehe types/db.d.ts). Number() erst
+// an der Anzeigekante -- die Konvention steht schon in swagger.js für
+// rabatt_gesamt und wird hier nur ausgeweitet.
+async function ensureGeldNumeric() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT column_name, data_type FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'Schmuckstück'
+        AND column_name IN ('Verkaufspreis', 'Herstellungskosten')
+    `);
+    const mussUmgestellt = rows.some((r) => r.data_type !== 'numeric');
+
+    if (mussUmgestellt) {
+      // NOT NULL ist erst jetzt möglich: D1/D2 aus Gruppe 1 haben die
+      // NULL-Quelle im Frontend geschlossen (parseFloat("") -> NaN -> null).
+      // COALESCE fängt Altbestand ab, der vor dieser Reparatur entstanden ist.
+      await pool.query(`
+        UPDATE "Schmuckstück"
+        SET "Verkaufspreis" = COALESCE("Verkaufspreis", 0),
+            "Herstellungskosten" = COALESCE("Herstellungskosten", 0)
+        WHERE "Verkaufspreis" IS NULL OR "Herstellungskosten" IS NULL
+      `);
+      await pool.query(`
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkaufspreis"
+            TYPE numeric(10,2) USING round("Verkaufspreis"::numeric, 2),
+          ALTER COLUMN "Herstellungskosten"
+            TYPE numeric(10,2) USING round("Herstellungskosten"::numeric, 2);
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkaufspreis"      SET NOT NULL,
+          ALTER COLUMN "Verkaufspreis"      SET DEFAULT 0,
+          ALTER COLUMN "Herstellungskosten" SET NOT NULL,
+          ALTER COLUMN "Herstellungskosten" SET DEFAULT 0;
+      `);
+      logger.info('DB', 'Geldspalten auf numeric(10,2) NOT NULL umgestellt');
+    }
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück' AND c.conname = 'schmuck_preis_nicht_negativ'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+            ADD CONSTRAINT schmuck_preis_nicht_negativ
+            CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0);
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Geldspalten verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Umstellen der Geldspalten', { message: err.message });
+    throw err;
+  }
+}
+
 // ---- Constraint: Ausschuss_Grund ----
 
 async function ensureAusschussGrundConstraint() {
@@ -1065,6 +1133,7 @@ async function initializeDatabase() {
   await ensureBestelluebersichtSchema();
   await ensureLagerinventurEntwurfTable();
   await ensureStatusBooleans();
+  await ensureGeldNumeric();
   await ensureAusschussGrundConstraint();
   await ensureTriggers();
 

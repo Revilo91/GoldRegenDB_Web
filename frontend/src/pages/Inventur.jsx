@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { formatEur } from "../utils/zahlen";
+import { formatEur, summeEur } from "../utils/zahlen";
 import { istWahr } from "../utils/status";
 import TablePhoto from "../components/TablePhoto";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -76,8 +76,7 @@ function ItemsTable({
     selectedForRechnung.size === items.length;
 
   const total = useMemo(
-    () =>
-      items.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    () => summeEur(items.map((item) => item.Verkaufspreis)),
     [items],
   );
 
@@ -373,9 +372,11 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       return;
     }
 
-    const totalValue = tabItems
-      .filter((i) => selectedForRechnung.has(i.Artikelnummer))
-      .reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+    const totalValue = summeEur(
+      tabItems
+        .filter((i) => selectedForRechnung.has(i.Artikelnummer))
+        .map((i) => i.Verkaufspreis),
+    );
 
     const confirmMsg = `Rechnung für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) für "${kundeName}" erstellen?`;
     if (!window.confirm(confirmMsg)) return;

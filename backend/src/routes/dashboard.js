@@ -86,8 +86,12 @@ router.get("/", async (req, res) => {
               COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS "outsourcedPieces",
               COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS "rejectPieces",
               COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS "inStockPieces",
-              COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS "totalRevenue",
-              COALESCE(SUM("Herstellungskosten"), 0)::DOUBLE PRECISION AS "totalCost"
+              -- Kein ::DOUBLE PRECISION mehr (Befund B1): die Spalte ist
+              -- numeric(10,2), der Cast haette die Exaktheit wieder
+              -- weggeworfen. pg liefert numeric als String, formatEur im
+              -- Frontend wandelt erst an der Anzeigekante.
+              COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0) AS "totalRevenue",
+              COALESCE(SUM("Herstellungskosten"), 0) AS "totalCost"
             FROM "Schmuckstück"
           ) s
           CROSS JOIN (
@@ -136,11 +140,11 @@ router.get("/", async (req, res) => {
             COALESCE(
               SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'M'),
               0
-            )::DOUBLE PRECISION AS "marinaUmsatz",
+            ) AS "marinaUmsatz",
             COALESCE(
               SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'S'),
               0
-            )::DOUBLE PRECISION AS "saskiaUmsatz"
+            ) AS "saskiaUmsatz"
           FROM (
             SELECT "Rechnung_ID", "Verkaufspreis", "Artikelnummer"
             FROM "Schmuckstück"
@@ -163,7 +167,7 @@ router.get("/", async (req, res) => {
             COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS ausgelagert,
             COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS verfuegbar,
             COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS ausschuss,
-            COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS umsatz
+            COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0) AS umsatz
           FROM "Schmuckstück"
           WHERE LEFT("Artikelnummer", 1) IN ('M', 'S')
           GROUP BY LEFT("Artikelnummer", 1)

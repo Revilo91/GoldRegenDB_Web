@@ -93,8 +93,12 @@ const definition = {
           Farbe: { type: 'string', nullable: true },
           Material: { type: 'string', nullable: true },
           Grösse: { type: 'number', nullable: true },
-          Herstellungskosten: { type: 'number', nullable: true },
-          Verkaufspreis: { type: 'number', nullable: true },
+          Herstellungskosten: {
+            type: 'string', description: 'NUMERIC(10,2), von pg als String geliefert', example: '19.99',
+          },
+          Verkaufspreis: {
+            type: 'string', description: 'NUMERIC(10,2), von pg als String geliefert', example: '24.50',
+          },
           Ausgelagert: { type: 'integer', description: '0 = im Lager, sonst Kunde.ID', example: 0 },
           Verkauft: { type: 'boolean' },
           Ausschuss: { type: 'boolean' },

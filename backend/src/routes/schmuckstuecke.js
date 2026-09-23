@@ -1371,8 +1371,13 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
         "Anhänger_Grösse" = $15, "Anhänger_Inhalt_Material" = $16,
         "Anhänger_Inhalt_Farbe" = $17, "Anhänger_Inhalt_Farbakzente" = $18,
         "Anhänger_Inhalt_Zusatzmaterial" = $19, "Material" = $20, "Grösse" = $21,
-        "Anhänger" = $22, "Zwischenstück" = $23, "Herstellungskosten" = $24,
-        "Verkaufspreis" = $25,
+        "Anhänger" = $22, "Zwischenstück" = $23,
+        -- Auch die Geldspalten sind NOT NULL (Befund B1). Ohne COALESCE
+        -- schrieb ein PUT ohne Preis frueher still NULL -- der Preis war weg,
+        -- und der Audit-Trigger protokolliert Preisaenderungen nicht, die
+        -- Spur fehlte also auch. Seit NOT NULL waere es stattdessen ein 500.
+        "Herstellungskosten" = COALESCE($24, "Herstellungskosten"),
+        "Verkaufspreis" = COALESCE($25, "Verkaufspreis"),
         -- COALESCE fuer die fuenf Statusfelder (Befund C8): sie stehen im
         -- Schema als .nullish(), ein PUT ohne diese Felder schrieb also NULL.
         -- Danach passte das Stueck auf keine Statusbedingung mehr -- weder

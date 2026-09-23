@@ -49,3 +49,18 @@ export function formatZahl(wert, nachkommastellen = 2) {
     maximumFractionDigits: nachkommastellen,
   });
 }
+
+// Summe von Geldbeträgen, exakt.
+//
+// Befund B1: 0.1 + 0.2 ist in IEEE-754 nicht 0.3, und bei ein paar hundert
+// Positionen summiert sich das auf. Die Beträge sind seit der numeric-Migration
+// auf zwei Nachkommastellen begrenzt, also wird in Cent addiert und erst am
+// Ende geteilt. Für Belege rechnet ohnehin SQL -- das hier ist für Summen über
+// eine Auswahl, die nur im Browser existiert (angehakte Zeilen, aktiver Tab).
+export function summeEur(werte) {
+  const cent = werte.reduce((summe, wert) => {
+    const zahl = Number(wert);
+    return summe + (Number.isFinite(zahl) ? Math.round(zahl * 100) : 0);
+  }, 0);
+  return cent / 100;
+}

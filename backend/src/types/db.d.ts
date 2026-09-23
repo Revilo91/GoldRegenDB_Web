@@ -96,8 +96,10 @@ export interface SchmuckstueckRow {
   Grösse: number;
   Anhänger: string | null;
   Zwischenstück: string | null;
-  Herstellungskosten: number;
-  Verkaufspreis: number;
+  /** NUMERIC(10,2) – kommt als String zurück, siehe Kommentar oben (Befund B1). */
+  Herstellungskosten: string;
+  /** NUMERIC(10,2) – kommt als String zurück, siehe Kommentar oben (Befund B1). */
+  Verkaufspreis: string;
   /** 0 = nicht ausgelagert, sonst Kundennummer ("Kunde"."ID"), an die ausgelagert wurde. */
   Ausgelagert: number;
   Verkauft: boolean;

@@ -9,6 +9,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import { statusBadge, statusVon, STATUS } from "../utils/status";
+import { formatEur } from "../utils/zahlen";
 
 /**
  * Zeigt ein Schmuckstück-Detail-Modal über einem bestehenden Modal.
@@ -193,11 +194,11 @@ export default function SchmuckstueckModal({
                 ["Zwischenstück", item["Zwischenstück"]],
                 [
                   "Herstellungskosten",
-                  item.Herstellungskosten ? `${item.Herstellungskosten}€` : "–",
+                  item.Herstellungskosten ? formatEur(item.Herstellungskosten) : "–",
                 ],
                 [
                   "Verkaufspreis",
-                  item.Verkaufspreis ? `${item.Verkaufspreis}€` : "–",
+                  item.Verkaufspreis ? formatEur(item.Verkaufspreis) : "–",
                 ],
                 [
                   "Erstellt",

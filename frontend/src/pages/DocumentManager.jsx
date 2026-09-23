@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import { formatEur } from "../utils/zahlen";
 
 export default function DocumentManager({
   type,
@@ -699,7 +700,7 @@ export default function DocumentManager({
                               marginBottom: "4px",
                             }}>
                             <span>Gesamtwert (brutto):</span>
-                            <strong>{totalBrutto.toFixed(2)} €</strong>
+                            <strong>{formatEur(totalBrutto)}</strong>
                           </div>
                           {provisionPercent > 0 && (
                             <>
@@ -711,9 +712,7 @@ export default function DocumentManager({
                                   color: "#d9534f",
                                 }}>
                                 <span>Provision ({provisionPercent}%):</span>
-                                <strong>
-                                  -{provisionValue.toFixed(2)} €
-                                </strong>
+                                <strong>-{formatEur(provisionValue)}</strong>
                               </div>
                               <div
                                 style={{
@@ -722,7 +721,7 @@ export default function DocumentManager({
                                   fontWeight: "600",
                                 }}>
                                 <span>Gesamtwert (netto):</span>
-                                <strong>{totalNetto.toFixed(2)} €</strong>
+                                <strong>{formatEur(totalNetto)}</strong>
                               </div>
                             </>
                           )}
@@ -738,28 +737,28 @@ export default function DocumentManager({
                           {marinaBrutto > 0 && (
                             <div>
                               <strong>Marina:</strong>{" "}
-                              {marinaNetto.toFixed(2)} €
+                              {formatEur(marinaNetto)}
                               <span
                                 style={{
                                   fontSize: "0.9em",
                                   color: "#999",
                                   marginLeft: "4px",
                                 }}>
-                                ({marinaBrutto.toFixed(2)} brutto)
+                                ({formatEur(marinaBrutto)} brutto)
                               </span>
                             </div>
                           )}
                           {saskiaBrutto > 0 && (
                             <div>
                               <strong>Saskia:</strong>{" "}
-                              {saskiaNetto.toFixed(2)} €
+                              {formatEur(saskiaNetto)}
                               <span
                                 style={{
                                   fontSize: "0.9em",
                                   color: "#999",
                                   marginLeft: "4px",
                                 }}>
-                                ({saskiaBrutto.toFixed(2)} brutto)
+                                ({formatEur(saskiaBrutto)} brutto)
                               </span>
                             </div>
                           )}
@@ -814,14 +813,14 @@ export default function DocumentManager({
                               {itemRabatt > 0 ? (
                                 <span>
                                   <span className="schmuck-item-row-price-original">
-                                    {Number(s.Verkaufspreis).toFixed(0)}€
+                                    {formatEur(s.Verkaufspreis)}
                                   </span>
                                   <span className="schmuck-item-row-price">
-                                    {(Number(s.Verkaufspreis) * (1 - itemRabatt / 100)).toFixed(0)}€
+                                    {formatEur(Number(s.Verkaufspreis) * (1 - itemRabatt / 100))}
                                   </span>
                                 </span>
                               ) : (
-                                `${Number(s.Verkaufspreis).toFixed(0)}€`
+                                formatEur(s.Verkaufspreis)
                               )}
                             </td>
                             {type === "rechnung" && (
@@ -935,7 +934,7 @@ export default function DocumentManager({
                             key: "Verkaufspreis",
                             label: "Preis",
                             sortable: true,
-                            render: (p) => `${p.Verkaufspreis}€`,
+                            render: (p) => formatEur(p.Verkaufspreis),
                           },
                         ]}
                         onRowClick={(p) => togglePiece(p.Artikelnummer)}
@@ -1014,7 +1013,7 @@ export default function DocumentManager({
                               <tr key={nr}>
                                 <td>{piece.Artikelnummer}</td>
                                 <td>{piece.Art}</td>
-                                <td>{piece.Verkaufspreis}€</td>
+                                <td>{formatEur(piece.Verkaufspreis)}</td>
                                 {type === "rechnung" && (
                                   <td>
                                     <input

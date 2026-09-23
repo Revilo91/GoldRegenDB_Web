@@ -25,6 +25,7 @@ import {
   Area,
 } from "recharts";
 import { api } from "../api";
+import { formatEur } from "../utils/zahlen";
 
 const CHART_COLORS = {
   accent: "#6366f1",
@@ -226,7 +227,7 @@ export default function Dashboard() {
           <div className="stat-icon">
             <FontAwesomeIcon icon={faEuroSign} />
           </div>
-          <div className="stat-value">{s.totalRevenue.toFixed(0)}€</div>
+          <div className="stat-value">{formatEur(s.totalRevenue)}</div>
           <div className="stat-label">Umsatz (verkauft)</div>
         </div>
         <div className="stat-card info">
@@ -319,7 +320,7 @@ export default function Dashboard() {
                 >
                   <span>Umsatz:</span>
                   <span style={{ fontWeight: 600, color: "#d4a853" }}>
-                    {mStats.umsatz.toFixed(2)}€
+                    {formatEur(mStats.umsatz)}
                   </span>
                 </div>
               </div>
@@ -392,7 +393,7 @@ export default function Dashboard() {
                 >
                   <span>Umsatz:</span>
                   <span style={{ fontWeight: 600, color: "#d4a853" }}>
-                    {sStats.umsatz.toFixed(2)}€
+                    {formatEur(sStats.umsatz)}
                   </span>
                 </div>
               </div>
@@ -853,7 +854,7 @@ export default function Dashboard() {
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(v, name) => [
-                      `${toNumber(v).toFixed(2)}€`,
+                      formatEur(v),
                       name,
                     ]}
                   />
