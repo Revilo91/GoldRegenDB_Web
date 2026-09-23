@@ -1182,44 +1182,47 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
       startSuffix = parseInt(parts[1]) || 1;
     }
 
-    // Daten von Produkt holen, sobald das form nicht ausgefüllt ist
+    // Befund C11: der Kommentar hier sagte "Daten von Produkt holen, sobald das
+    // form nicht ausgefüllt ist" -- geprüft wurde das nie. Die Bedingung war
+    // `if (b.Artikelnummer)`, und Artikelnummer ist Pflichtfeld, also IMMER
+    // wahr. Wer ein weiteres Exemplar mit korrigiertem Preis oder Namen anlegte,
+    // bekam stillschweigend die Werte des Vorgängers -- die Eingabe war weg,
+    // ohne Meldung.
+    //
+    // Jetzt gilt, was der Kommentar behauptete: übernommen wird nur, was der
+    // Client NICHT geschickt hat. Wer nichts vorgeben will, bekommt wie bisher
+    // die Werte des Vorgängers; wer etwas eingibt, behält es.
+    const UEBERNEHMBARE_FELDER = [
+      'Name', 'Foto', 'Art', 'Material', 'Farbe', 'Verkaufspreis',
+      'Herstellungskosten', 'Länge', 'Fassung', 'Inhalt_Material',
+      'Inhalt_Farbe', 'Inhalt_Farbakzent', 'Inhalt_Zusatzmaterial',
+      'Anhänger_Fassung', 'Anhänger_Form', 'Anhänger_Farbe', 'Anhänger_Grösse',
+      'Anhänger_Inhalt_Material', 'Anhänger_Inhalt_Farbe',
+      'Anhänger_Inhalt_Farbakzente', 'Anhänger_Inhalt_Zusatzmaterial',
+      'Grösse', 'Anhänger', 'Zwischenstück',
+      // "Ausschuss_Grund" steht hier bewusst NICHT: er wurde vom Vorgänger
+      // kopiert, während b.Ausschuss auf false erzwungen wird -- das ergab
+      // Datensätze mit Ausschussgrund, die kein Ausschuss sind.
+    ];
+
     if (b.Artikelnummer) {
       const { rows } = await client.query(
         `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 || '_' || $2`,
         [baseArtikelnummer, startSuffix - 1],
       );
       if (rows.length > 0) {
-        b.Name = rows[0].Name;
-        b.Foto = rows[0].Foto;
-        b.Art = rows[0].Art;
-        b.Material = rows[0].Material;
-        b.Farbe = rows[0].Farbe;
-        b.Verkaufspreis = rows[0].Verkaufspreis;
-        b.Herstellungskosten = rows[0].Herstellungskosten;
+        const vorgaenger = rows[0];
+        for (const feld of UEBERNEHMBARE_FELDER) {
+          const eingabe = b[feld];
+          const leer = eingabe === undefined || eingabe === null || eingabe === '';
+          if (leer) {
+            b[feld] = vorgaenger[feld];
+          }
+        }
+        // Ein Duplikat startet immer im Lager, unabhängig vom Vorgänger.
         b.Ausgelagert = 0;
         b.Verkauft = false;
         b.Ausschuss = false;
-        b.Ausschuss_Grund = rows[0].Ausschuss_Grund;
-        b.Länge = rows[0].Länge;
-        b.Fassung = rows[0].Fassung;
-        b.Farbe = rows[0].Farbe;
-        b.Inhalt_Material = rows[0].Inhalt_Material;
-        b.Inhalt_Farbe = rows[0].Inhalt_Farbe;
-        b.Inhalt_Farbakzent = rows[0].Inhalt_Farbakzent;
-        b.Inhalt_Zusatzmaterial = rows[0].Inhalt_Zusatzmaterial;
-        b.Anhänger_Fassung = rows[0].Anhänger_Fassung;
-        b.Anhänger_Form = rows[0].Anhänger_Form;
-        b.Anhänger_Farbe = rows[0].Anhänger_Farbe;
-        b.Anhänger_Grösse = rows[0].Anhänger_Grösse;
-        b.Anhänger_Inhalt_Material = rows[0].Anhänger_Inhalt_Material;
-        b.Anhänger_Inhalt_Farbe = rows[0].Anhänger_Inhalt_Farbe;
-        b.Anhänger_Inhalt_Farbakzente = rows[0].Anhänger_Inhalt_Farbakzente;
-        b.Anhänger_Inhalt_Zusatzmaterial =
-          rows[0].Anhänger_Inhalt_Zusatzmaterial;
-        b.Material = rows[0].Material;
-        b.Grösse = rows[0].Grösse;
-        b.Anhänger = rows[0].Anhänger;
-        b.Zwischenstück = rows[0].Zwischenstück;
       }
     }
     const createdItems = [];

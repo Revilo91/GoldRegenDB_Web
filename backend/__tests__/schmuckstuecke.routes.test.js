@@ -188,3 +188,84 @@ describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('POST /api/schmuckstuecke (Duplizieren)', () => {
+  // Befund C11: der Kommentar sagte "Daten von Produkt holen, sobald das form
+  // nicht ausgefüllt ist" -- geprüft wurde das nie. Die Bedingung war
+  // `if (b.Artikelnummer)`, und Artikelnummer ist Pflichtfeld, also immer wahr.
+  // Wer ein weiteres Exemplar mit korrigiertem Preis anlegte, bekam
+  // stillschweigend den Preis des Vorgängers.
+  function clientMitVorgaenger(vorgaenger) {
+    return {
+      query: jest.fn(async (sql) => {
+        const text = String(sql);
+        if (text.includes('MAX(CAST(SUBSTRING')) return { rows: [{ max_num: 111 }] };
+        if (text.includes('max_suffix')) return { rows: [{ max_suffix: 1 }] };
+        if (text.includes("|| '_' ||")) return { rows: [vorgaenger] };
+        if (text.startsWith('INSERT INTO "Schmuckstück"')) {
+          return { rows: [{ Artikelnummer: 'MHO123_2' }] };
+        }
+        return { rows: [], rowCount: 0 };
+      }),
+      release: jest.fn(),
+    };
+  }
+
+  const VORGAENGER = {
+    Name: 'Alter Name',
+    Verkaufspreis: '20.00',
+    Herstellungskosten: '5.00',
+    Farbe: 'gold',
+    Art: 'Kette',
+    Ausschuss_Grund: 'Defekt',
+  };
+
+  it('behält den eingegebenen Preis statt den des Vorgängers zu nehmen', async () => {
+    const client = clientMitVorgaenger(VORGAENGER);
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(app)
+      .post('/api/schmuckstuecke')
+      .send({ Artikelnummer: 'MHO123', Verkaufspreis: 25, Name: 'Neuer Name' });
+
+    expect(res.statusCode).toBe(201);
+    const insert = client.query.mock.calls.find(
+      (c) => String(c[0]).startsWith('INSERT INTO "Schmuckstück"'),
+    );
+    expect(insert[1]).toContain(25);          // eingegebener Preis
+    expect(insert[1]).toContain('Neuer Name'); // eingegebener Name
+    expect(insert[1]).not.toContain('20.00');
+    expect(insert[1]).not.toContain('Alter Name');
+  });
+
+  it('übernimmt weiterhin die Felder, die der Client nicht schickt', async () => {
+    const client = clientMitVorgaenger(VORGAENGER);
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(app)
+      .post('/api/schmuckstuecke')
+      .send({ Artikelnummer: 'MHO123', Verkaufspreis: 25 });
+
+    const insert = client.query.mock.calls.find(
+      (c) => String(c[0]).startsWith('INSERT INTO "Schmuckstück"'),
+    );
+    expect(insert[1]).toContain('Alter Name'); // nicht geschickt -> vom Vorgänger
+    expect(insert[1]).toContain('gold');
+  });
+
+  it('kopiert den Ausschussgrund nicht, weil Ausschuss auf false erzwungen wird', async () => {
+    const client = clientMitVorgaenger(VORGAENGER);
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(app)
+      .post('/api/schmuckstuecke')
+      .send({ Artikelnummer: 'MHO123' });
+
+    const insert = client.query.mock.calls.find(
+      (c) => String(c[0]).startsWith('INSERT INTO "Schmuckstück"'),
+    );
+    // Sonst entstanden Datensätze mit Ausschussgrund, die kein Ausschuss sind.
+    expect(insert[1]).not.toContain('Defekt');
+    expect(insert[1]).toContain(false); // Verkauft/Ausschuss
+  });
+});

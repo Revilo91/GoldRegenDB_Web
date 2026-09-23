@@ -227,11 +227,20 @@ router.put('/:id', validate(kundeSchema), async (req, res) => {
  */
 router.put('/:id/restock', async (req, res) => {
   try {
+    // Befund C7: hier stand builder.ausgelagert(id), das NUR auf
+    // "Ausgelagert" = $1 filtert -- anders als aktivAusgelagert() ohne
+    // Verkauft/Ausschuss. Zwei Folgen:
+    //   1. Ein beim Kunden VERKAUFTES Stück verlor seinen Kundenbezug. Der
+    //      JOIN in inventur.js fand es nicht mehr, wert_verkauft und damit die
+    //      Provisionsbasis des Kunden sank rückwirkend.
+    //   2. "Lieferschein_ID" blieb gesetzt. Das Stück war danach gleichzeitig
+    //      verfügbar UND Position eines Lieferscheins -- es konnte ein zweites
+    //      Mal ausgeliefert werden.
     const builder = where();
-    builder.ausgelagert(parseInt(req.params.id));
+    builder.aktivAusgelagert(parseInt(req.params.id));
 
     const { rowCount } = await db.query(
-      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
+      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0, "Lieferschein_ID" = 0 ${builder.build()}`,
       builder.getParams()
     );
     logger.info('KUNDEN', 'Artikel zurückgelagert', { id: req.params.id, anzahl: rowCount });
@@ -285,13 +294,14 @@ router.put('/:id/restock-selective', validate(restockSelectiveSchema), async (re
       return res.status(400).json({ error: 'Keine Artikelnummern angegeben' });
     }
 
+    // Gleiche Korrektur wie in /restock (Befund C7)
     const builder = where();
     builder.artikelnummerIn(artikelnummern);
-    builder.ausgelagert(parseInt(req.params.id));
+    builder.aktivAusgelagert(parseInt(req.params.id));
 
     // Use parameterized query with ANY for IN clause
     const { rowCount } = await db.query(
-      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
+      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0, "Lieferschein_ID" = 0 ${builder.build()}`,
       builder.getParams()
     );
     logger.info('KUNDEN', 'Artikel selektiv zurückgelagert', {
