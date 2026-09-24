@@ -115,6 +115,31 @@ describe('rechnungsSummen(queryable, id)', () => {
     expect(sql).toContain("FILTER (WHERE hersteller = 'S')");
   });
 
+  it('leitet jede Zeile aus der vorherigen ab, statt unabhängig zu runden', async () => {
+    // Der Fehler, den das verhindert: vorher war jedes Feld ein eigenes
+    // round(gesamtwert * ...). Auf Rechnung 273 (5 Stücke, 10 % Gesamtrabatt,
+    // 25 % auf eine Position, 10 % Provision) ergab das 119.25 Gesamtwert,
+    // 11.93 Rabatt und 107.33 Restsumme -- zusammen 119.26. Der Beleg
+    // widersprach sich um einen Cent, und die XRechnung nannte 107.32.
+    // Gegen die echte Datenbank nachgemessen: alle vier Summenproben gehen
+    // jetzt auf, und XRechnung wie Excel nennen 96.59 Auszahlungsbetrag.
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
+
+    await rechnungsSummen(queryable, 10);
+
+    const sql = String(queryable.query.mock.calls[0][0]);
+    // Subtraktion der GERUNDETEN Zwischensumme, nicht erneute Multiplikation
+    expect(sql).toContain('gesamtwert - gesamtrabatt_betrag');
+    expect(sql).toContain('summe_nach_rabatt - provision_betrag');
+    // Der Rest geht an Saskia, damit die Anteile die Restsumme exakt ergeben
+    expect(sql).toContain('summe_nach_rabatt - marina_brutto');
+    // Positionen werden auf Cent gerundet, BEVOR summiert wird -- dieselbe
+    // Reihenfolge wie in utils/eRechnung/modell.js
+    expect(sql).toMatch(/round\(\([\s\S]*?\)::numeric, 2\) AS wert/);
+    // und kein round(gesamtwert * (1 - ...)) mehr
+    expect(sql).not.toMatch(/round\(summen\.gesamtwert \* \(1 -/);
+  });
+
   it('liefert null, wenn die Rechnung nicht existiert', async () => {
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [] }) };
 

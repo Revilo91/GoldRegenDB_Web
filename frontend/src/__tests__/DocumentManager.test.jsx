@@ -38,7 +38,7 @@ function buildApi(overrides = {}) {
   };
 }
 
-function renderManager(apiOverrides = {}) {
+function renderManager(apiOverrides = {}, props = {}) {
   const api = buildApi(apiOverrides);
   rendereMitToast(
     <DocumentManager
@@ -48,10 +48,16 @@ function renderManager(apiOverrides = {}) {
       labels={labels}
       pieceFilter={() => ({})}
       pieceSelectMode="all"
+      {...props}
     />,
   );
   return api;
 }
+
+const eRechnungFormate = [
+  { format: 'xrechnung', label: 'XRechnung (XML)', dateiSuffix: 'XRechnung', endung: 'xml' },
+  { format: 'zugferd', label: 'ZUGFeRD (PDF)', dateiSuffix: 'ZUGFeRD', endung: 'pdf' },
+];
 
 describe('DocumentManager', () => {
   beforeEach(() => {
@@ -114,5 +120,48 @@ describe('DocumentManager', () => {
 
     await waitFor(() => expect(api.createItem).toHaveBeenCalled());
     expect(api.createItem.mock.calls[0][0]).toMatchObject({ Kundennummer: '1', status: 'final' });
+  });
+
+  it('zeigt E-Rechnung-Downloads nur, wenn Formate übergeben werden', async () => {
+    renderManager();
+    fireEvent.click(await screen.findByText('2026-001'));
+    await screen.findByText('Lieferschein erstellen');
+
+    expect(screen.queryByText('XRechnung (XML)')).not.toBeInTheDocument();
+  });
+
+  it('lädt eine E-Rechnung im gewählten Format herunter', async () => {
+    window.URL.createObjectURL = vi.fn(() => 'blob:x');
+    window.URL.revokeObjectURL = vi.fn();
+    const api = renderManager({ exportERechnung: vi.fn().mockResolvedValue(new Blob()) }, { eRechnungFormate });
+    fireEvent.click(await screen.findByText('2026-001'));
+
+    fireEvent.click(await screen.findByText('ZUGFeRD (PDF)'));
+
+    await waitFor(() => expect(api.exportERechnung).toHaveBeenCalledWith(1, 'zugferd'));
+    await waitFor(() => expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:x'));
+    // Kein Fehler-Toast: der Download lief durch.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('listet fehlende Pflichtangaben verständlich auf', async () => {
+    const fehler = Object.assign(new Error('HTTP 422'), {
+      payload: {
+        error: 'E-Rechnung kann nicht erstellt werden: Pflichtangaben fehlen.',
+        fehler: [{ bt: 'BT-49', meldung: 'E-Mail-Adresse des Kunden fehlt.' }],
+      },
+    });
+    renderManager({ exportERechnung: vi.fn().mockRejectedValue(fehler) }, { eRechnungFormate });
+    fireEvent.click(await screen.findByText('2026-001'));
+
+    fireEvent.click(await screen.findByText('XRechnung (XML)'));
+
+    // Seit Q14 als Toast statt als blockierendes alert(); der Text bleibt
+    // derselbe, die Zeilenumbrueche rendert das DOM als Leerzeichen.
+    const meldung = await screen.findByRole('alert');
+    expect(meldung).toHaveTextContent(
+      'E-Rechnung kann nicht erstellt werden: Pflichtangaben fehlen.',
+    );
+    expect(meldung).toHaveTextContent('E-Mail-Adresse des Kunden fehlt. (BT-49)');
   });
 });

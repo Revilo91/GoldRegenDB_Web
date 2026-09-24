@@ -114,6 +114,12 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
   Löschabfragen erlaubt
 - **No JSDoc boilerplate:** Describe props via code comments inline, not at-the-top blocks
 
+**Commit-Stil (bisect-freundlich):**
+- Kleine, atomare Commits: eine logische Änderung pro Commit
+- Jeder Commit ist für sich lauffähig – Tests grün, App startet –, damit `git bisect` an jedem Punkt eindeutig gut/schlecht liefert
+- Code, zugehörige Tests und Doku einer Änderung gehören in denselben Commit; unabhängige Änderungen (Skripte, Doku, Refactoring) in eigene Commits
+- Regeländerungen wie diese (CLAUDE.md) vorab und getrennt von der Code-Änderung committen
+
 ---
 
 ## Critical Project Rules

@@ -30,6 +30,9 @@ erDiagram
         text Telefonnummer
         int Provision
         boolean Aktiv
+        char2 Land
+        varchar20 UStIdNr
+        varchar50 Leitweg_ID
     }
 
     Lieferschein {
@@ -150,6 +153,12 @@ erDiagram
 
 - **Kunden** sind Einzelhandelspartner (Läden, Online, Messen, Sonderanfertigung)
 - **Provision**: variiert pro Kunde (0–40%)
+- **E-Rechnung** (EN 16931, `backend/src/utils/eRechnung/`, Doku: `docs/E-RECHNUNG.md`): XRechnung 3.0 (CII-XML)
+  und ZUGFeRD 2/Factur-X (PDF/A-3, Profil EN 16931). Gesamtrabatt und Provision werden als Nachlässe auf
+  Dokumentebene (BG-20) abgebildet, Umsatzsteuer als Kategorie `E` (Kleinunternehmer § 19 UStG). Verkäuferdaten
+  kommen aus `VERKAEUFER_*`-Umgebungsvariablen (`utils/eRechnung/verkaeufer.js`, auch vom Excel-Export genutzt),
+  Kundenfelder `Land`/`UStIdNr`/`Leitweg_ID` aus `Kunde`. Vor jeder Auslieferung prüft `validator.js` das XML
+  offline gegen XSD + Schematron (EN 16931, XRechnung) – dieselben Artefakte wie der KoSIT-Validator.
 - **Schmuckstücke** haben Suffix-Nummern (z.B. `MBH001_1`, `MBH001_2` = gleicher Typ, verschiedene Exemplare)
 - **Artikelnummern-Präfixe**:
   - Erste Stelle (Hersteller):
@@ -245,6 +254,7 @@ const result = await db.query(query, builder.getParams());
 | **Security-Header** | `helmet`                               |
 | **Input-Validierung** | `zod`                                |
 | **Excel-Export**  | `exceljs`                                |
+| **E-Rechnung**    | `pdf-lib` + `@pdf-lib/fontkit` (PDF/A-3), `xmllint-wasm` (XSD), `saxon-js` (Schematron) |
 | **Bild-Validierung** | `image-size`                          |
 | **Icons**         | Font Awesome (`@fortawesome/react-fontawesome`, `free-solid-svg-icons`, `free-regular-svg-icons`) |
 | **Frontend**      | React 19 + Vite + React Router v7        |
@@ -457,7 +467,7 @@ GoldRegenDB_Web/
 │       │   ├── kunden.js           # Kunden CRUD + Rücklagern
 │       │   ├── schmuckstuecke.js   # Schmuckstücke CRUD + Foto-Upload + Filter-Optionen
 │       │   ├── lieferscheine.js    # Lieferscheine CRUD + Excel-Export
-│       │   ├── rechnungen.js       # Rechnungen CRUD + Excel-Export
+│       │   ├── rechnungen.js       # Rechnungen CRUD + Excel-Export + E-Rechnung (XRechnung/ZUGFeRD)
 │       │   ├── sumup.js            # SumUp CSV Import/Export
 │       │   ├── inventur.js         # Inventurübersicht pro Kunde + Excel-Export
 │       │   ├── lagerinventur.js    # Lager-Inventur-Entwürfe CRUD + Diff-Auswertung (bearbeiter)
@@ -469,6 +479,9 @@ GoldRegenDB_Web/
 │       │   └── auth.js             # JWT-Middleware (authenticate, requireAdmin, requireBearbeiter)
 │       └── utils/
 │           ├── excelService.js     # Excel-Export (generateExcel, generateInventurExcel)
+│           ├── artikelBezeichnung.js  # Positionstexte/Kategorie für Excel und E-Rechnung
+│           ├── eRechnung/          # EN 16931: modell.js (DB → BT-Modell, Pflichtfelder), cii.js (XML),
+│           │                       #   validator.js (XSD + Schematron), zugferdPdf.js (PDF/A-3), verkaeufer.js
 │           ├── whereClauseBuilder.js  # WHERE-Clause-Builder für konsistente Schmuckstück-Queries
 │           ├── WHERE_BUILDER.md    # Dokumentation des WHERE-Clause-Builders
 │           └── logger.js           # Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix
@@ -594,6 +607,7 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | GET/POST | `/api/rechnungen`      | Rechnungen abrufen / anlegen          |
 | GET/PUT/DELETE | `/api/rechnungen/:id` | Rechnungs-Detail, bearbeiten, löschen |
 | GET     | `/api/rechnungen/:id/excel` | Rechnung als Excel-Datei herunterladen |
+| GET     | `/api/rechnungen/:id/erechnung?format=xrechnung\|zugferd` | E-Rechnung (XRechnung-XML / ZUGFeRD-PDF); 422 mit `fehler[]` bei fehlenden Pflichtangaben |
 | POST    | `/api/sumup/import`    | SumUp-Verkaufsbericht importieren (CSV) |
 | GET     | `/api/sumup/export`    | Verfügbare Schmuckstücke als SumUp-CSV exportieren |
 | GET     | `/api/inventur`        | Inventurübersicht aller Kunden mit ausgelagerten Stücken |

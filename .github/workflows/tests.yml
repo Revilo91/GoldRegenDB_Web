@@ -68,3 +68,78 @@ jobs:
       - name: Tests ausführen
         working-directory: frontend
         run: npm test
+
+  # Prüft Beispielrechnungen aus dem echten Generator mit den offiziellen Werkzeugen:
+  # KoSIT-Validator + XRechnung-Konfiguration (XRechnung-CII und EN16931-CII) sowie
+  # Mustang (veraPDF für PDF/A-3 + Factur-X-Schematron) für die ZUGFeRD-PDFs.
+  erechnung-validator:
+    name: E-Rechnung (KoSIT-Validator, Mustang)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      KOSIT_VALIDATOR_VERSION: '1.5.0'
+      XRECHNUNG_CONFIG_RELEASE: 'v2026-08-31'
+      MUSTANG_VERSION: '2.26.0'
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Abhängigkeiten installieren
+        working-directory: backend
+        run: npm ci
+
+      - name: Beispiel-E-Rechnungen erzeugen
+        working-directory: backend
+        run: node scripts/erechnung-beispiele.js "$RUNNER_TEMP/erechnung"
+
+      - name: Validatoren laden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP"
+          MAVEN=https://repo1.maven.org/maven2
+          curl -sSfL -o kosit.jar "$MAVEN/de/kosit/validationtool/$KOSIT_VALIDATOR_VERSION/validationtool-$KOSIT_VALIDATOR_VERSION-standalone.jar"
+          curl -sSfL -o mustang.jar "$MAVEN/org/mustangproject/Mustang-CLI/$MUSTANG_VERSION/Mustang-CLI-$MUSTANG_VERSION.jar"
+          gh release download "$XRECHNUNG_CONFIG_RELEASE" --repo itplr-kosit/validator-configuration-xrechnung \
+            --pattern '*.zip' --output xrechnung-config.zip
+          unzip -q xrechnung-config.zip -d xrechnung-config
+
+      - name: XRechnung/EN 16931 mit KoSIT-Validator prüfen
+        run: |
+          cd "$RUNNER_TEMP"
+          SZENARIEN=$(find xrechnung-config -name scenarios.xml | head -1)
+          java -jar kosit.jar -s "$SZENARIEN" -r "$(dirname "$SZENARIEN")" -o kosit-berichte erechnung/*.xml
+
+      - name: ZUGFeRD-PDFs mit Mustang (veraPDF) prüfen
+        run: |
+          cd "$RUNNER_TEMP"
+          for pdf in erechnung/*.pdf; do
+            echo "::group::$pdf"
+            java -jar mustang.jar --action validate --source "$pdf" --no-notices
+            echo "::endgroup::"
+          done
+
+      - name: Prüfberichte sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: erechnung-pruefberichte
+          path: |
+            ${{ runner.temp }}/erechnung
+            ${{ runner.temp }}/kosit-berichte
+          if-no-files-found: ignore

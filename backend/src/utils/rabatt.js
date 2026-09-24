@@ -84,7 +84,9 @@ async function rechnungsSummen(queryable, rechnungId) {
     `WITH positionen AS (
        SELECT
          LEFT(s."Artikelnummer", 1) AS hersteller,
-         ${nachPosition} AS wert
+         -- pro Stueck auf Cent runden, dann summieren: dieselbe Reihenfolge
+         -- wie in utils/eRechnung/modell.js, sonst weichen die Belege ab
+         round((${nachPosition})::numeric, 2) AS wert
        FROM "Schmuckstück" s
        JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
        WHERE s."Rechnung_ID" = $1
@@ -105,24 +107,54 @@ async function rechnungsSummen(queryable, rechnungId) {
          COALESCE(SUM(wert) FILTER (WHERE hersteller = 'M'), 0)        AS marina,
          COALESCE(SUM(wert) FILTER (WHERE hersteller = 'S'), 0)        AS saskia
        FROM positionen
+     ),
+     -- Jede Zeile wird aus der VORHERIGEN gerundeten Zeile abgeleitet, nicht
+     -- unabhaengig aus dem Rohwert. Vorher war jedes Feld ein eigenes
+     -- round(gesamtwert * ...), und die Teile ergaben das Ganze nicht mehr:
+     -- Rechnung 273 wies 119.25 Gesamtwert, 11.93 Rabatt und 107.33 Restsumme
+     -- aus -- zusammen 119.26. Ein Beleg, der sich um einen Cent selbst
+     -- widerspricht, ist genau der Fehler, den Befund C17 beschreibt. Die
+     -- Reihenfolge entspricht zugleich der Cent-Arithmetik der E-Rechnung
+     -- (utils/eRechnung/modell.js), damit XRechnung und Excel denselben Betrag
+     -- nennen.
+     schritte AS (
+       SELECT round(summen.gesamtwert, 2) AS gesamtwert,
+              round(summen.marina, 2)     AS marina,
+              round(summen.saskia, 2)     AS saskia,
+              round(round(summen.gesamtwert, 2) * kopf.rabatt_gesamt / 100, 2)
+                AS gesamtrabatt_betrag,
+              kopf.rabatt_gesamt,
+              kopf.provision
+         FROM summen CROSS JOIN kopf
+     ),
+     nach_rabatt AS (
+       SELECT schritte.*,
+              gesamtwert - gesamtrabatt_betrag              AS summe_nach_rabatt,
+              round(marina * (1 - rabatt_gesamt / 100), 2)  AS marina_brutto
+         FROM schritte
+     ),
+     nach_provision AS (
+       SELECT nach_rabatt.*,
+              round(summe_nach_rabatt * provision / 100, 2) AS provision_betrag,
+              -- Der Rest geht an Saskia, damit marina_brutto + saskia_brutto
+              -- immer exakt summe_nach_rabatt ergibt.
+              summe_nach_rabatt - marina_brutto             AS saskia_brutto
+         FROM nach_rabatt
      )
      SELECT
-       round(summen.gesamtwert, 2) AS gesamtwert,
-       round(summen.gesamtwert * kopf.rabatt_gesamt / 100, 2) AS gesamtrabatt_betrag,
-       round(summen.gesamtwert * (1 - kopf.rabatt_gesamt / 100), 2) AS summe_nach_rabatt,
-       round(summen.gesamtwert * (1 - kopf.rabatt_gesamt / 100)
-             * kopf.provision / 100, 2) AS provision_betrag,
-       round(summen.gesamtwert * (1 - kopf.rabatt_gesamt / 100)
-             * (1 - kopf.provision / 100), 2) AS ueberweisungsbetrag,
-       round(summen.marina * (1 - kopf.rabatt_gesamt / 100), 2) AS marina_brutto,
-       round(summen.marina * (1 - kopf.rabatt_gesamt / 100)
-             * (1 - kopf.provision / 100), 2) AS marina_netto,
-       round(summen.saskia * (1 - kopf.rabatt_gesamt / 100), 2) AS saskia_brutto,
-       round(summen.saskia * (1 - kopf.rabatt_gesamt / 100)
-             * (1 - kopf.provision / 100), 2) AS saskia_netto,
-       kopf.rabatt_gesamt,
-       kopf.provision
-     FROM summen CROSS JOIN kopf`,
+       gesamtwert,
+       gesamtrabatt_betrag,
+       summe_nach_rabatt,
+       provision_betrag,
+       summe_nach_rabatt - provision_betrag AS ueberweisungsbetrag,
+       marina_brutto,
+       round(marina_brutto * (1 - provision / 100), 2) AS marina_netto,
+       saskia_brutto,
+       (summe_nach_rabatt - provision_betrag)
+         - round(marina_brutto * (1 - provision / 100), 2) AS saskia_netto,
+       rabatt_gesamt,
+       provision
+     FROM nach_provision`,
     [rechnungId],
   );
   return rows[0] || null;

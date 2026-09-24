@@ -1,10 +1,11 @@
 /*
  * Etikett-Layout – Bildschirmvorschau und Druck rendern identisch.
  *
- * Das Etikett ist immer so groß wie das physische Medium ({{LABEL_W}}mm × {{LABEL_H}}mm,
- * Querformat wie im Drucker eingelegt). Bei .label--rotated wird der Inhalt in einer
- * um 90° getauschten Box gesetzt und gedreht – das ist keine Druck-Sonderbehandlung
- * mehr, sondern gilt auch in der Vorschau. Was man sieht, kommt so aus dem Drucker.
+ * Das Etikett ist immer so groß wie die Papiergröße im Drucker ({{LABEL_W}}mm × {{LABEL_H}}mm,
+ * Querformat: der Treiber legt Seitenbreite auf den Druckkopf). Bei .label--rotated wird der
+ * Inhalt in einer um 90° getauschten Box gesetzt und gedreht. Die Druckseite ist dann
+ * höher als das Etikett (--label-real-h), weil CUPS Querformat-Seiten von sich aus dreht;
+ * die Vorschau zeigt nur die echte Etikettenfläche.
  *
  * Platzhalter werden in backend/src/routes/etiketten.js aus LABEL_SIZES ersetzt.
  */
@@ -23,6 +24,7 @@
 :root {
   --label-w: {{LABEL_W}}mm;
   --label-h: {{LABEL_H}}mm;
+  --label-real-h: {{LABEL_REAL_H}}mm;
   --content-w: {{CONTENT_W}}mm;
   --content-h: {{CONTENT_H}}mm;
   --brand-h: {{BRAND_H}}mm;
@@ -69,9 +71,13 @@ body {
   overflow: hidden;
 }
 
-/* Hängeetikett: Inhalt läuft quer zur Vorschubrichtung */
+.label--rotated {
+  align-items: flex-start;
+}
+
+/* Die gedrehte Box liegt mittig in der ungedrehten; das Verschieben setzt sie oben bündig */
 .label--rotated .label-content {
-  transform: rotate(90deg);
+  transform: translateY(calc((var(--content-w) - var(--content-h)) / 2)) rotate(90deg);
 }
 
 .logo-container {
@@ -159,7 +165,7 @@ body {
   flex: 0 0 auto;
   margin: calc(var(--gap) * 0.5) 0 calc(var(--gap) * 0.25);
   font-weight: 600;
-  font-size: calc(var(--hint-size) * 0.62);
+  font-size: calc(var(--hint-size) * 0.78);
   line-height: 1;
 }
 
@@ -173,8 +179,8 @@ body {
 .hints-table td {
   width: 50%;
   text-align: left;
-  font-size: calc(var(--hint-size) * 0.62);
-  line-height: 1.05;
+  font-size: calc(var(--hint-size) * 0.78);
+  line-height: 1.1;
   vertical-align: top;
   padding: 0;
 }
@@ -241,6 +247,7 @@ html:has(.mode-single),
 }
 
 .mode-single .label {
+  height: var(--label-real-h);
   transform: scale(var(--preview-scale));
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
 }

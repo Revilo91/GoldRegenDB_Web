@@ -62,6 +62,9 @@ export default function Kunden() {
       Telefonnummer: "",
       Provision: 0,
       Aktiv: false,
+      Land: "DE",
+      UStIdNr: "",
+      Leitweg_ID: "",
       Artikelnummern_Erforderlich: false,
     });
     setEditing("new");
@@ -249,7 +252,7 @@ export default function Kunden() {
                 </div>
 
                 <div className="form-group">
-                  <label>Email</label>
+                  <label>Email (für XRechnung erforderlich)</label>
                   <input
                     className="form-control"
                     type="email"
@@ -267,6 +270,43 @@ export default function Kunden() {
                     value={form.Telefonnummer || ""}
                     onChange={(e) =>
                       setForm({ ...form, Telefonnummer: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Land (ISO-Code)</label>
+                  <input
+                    className="form-control"
+                    maxLength={2}
+                    placeholder="DE"
+                    value={form.Land || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, Land: e.target.value.toUpperCase() })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>USt-IdNr.</label>
+                  <input
+                    className="form-control"
+                    placeholder="optional, z. B. DE123456789"
+                    value={form.UStIdNr || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, UStIdNr: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Leitweg-ID / Käuferreferenz</label>
+                  <input
+                    className="form-control"
+                    placeholder="optional – sonst Kundennummer"
+                    value={form.Leitweg_ID || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, Leitweg_ID: e.target.value })
                     }
                   />
                 </div>

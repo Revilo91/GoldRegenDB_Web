@@ -104,6 +104,23 @@ describe('POST /api/kunden', () => {
     expect(res.body.ID).toBe(10);
   });
 
+  it('speichert die E-Rechnung-Felder normalisiert und setzt DE als Standardland', async () => {
+    db.query.mockResolvedValue({ rows: [{ ID: 11 }] });
+
+    await request(buildApp()).post('/api/kunden').send({ ...gueltigerKunde, UStIdNr: 'de 123 456 789', Leitweg_ID: '991-1' });
+    await request(buildApp()).post('/api/kunden').send({ ...gueltigerKunde, Land: 'at' });
+
+    expect(db.query.mock.calls[0][1].slice(-3)).toEqual(['DE', 'DE123456789', '991-1']);
+    expect(db.query.mock.calls[1][1].slice(-3)).toEqual(['AT', null, null]);
+  });
+
+  it('lehnt einen ungültigen Ländercode ab (400)', async () => {
+    const res = await request(buildApp()).post('/api/kunden').send({ ...gueltigerKunde, Land: 'Deutschland' });
+
+    expect(res.statusCode).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('lehnt fehlende Pflichtfelder ab (400)', async () => {
     const res = await request(buildApp()).post('/api/kunden').send({ Name: 'Nur Name' });
 
