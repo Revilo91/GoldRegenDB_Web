@@ -4,6 +4,7 @@ const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validate');
 const { rechnungSchema } = require('../schemas');
+const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
   return `${jahr}-${String(laufnummer).padStart(3, '0')}`;
@@ -19,6 +20,18 @@ async function getNextRechnungsnummer(queryable) {
   );
 
   return formatJahresNummer(aktuellesJahr, Number(nummerRows[0].max_num) + 1);
+}
+
+// Leistungszeitraum = frühestes bis spätestes Lieferscheindatum der berechneten Stücke
+async function ladeLeistungszeitraum(pieces) {
+  const lieferscheinIds = [...new Set(pieces.map((p) => p.Lieferschein_ID).filter((id) => id > 0))];
+  if (lieferscheinIds.length === 0) return null;
+  const { rows } = await db.query(
+    `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[])`,
+    [lieferscheinIds]
+  );
+  if (!rows[0] || !rows[0].min_datum) return null;
+  return { von: new Date(rows[0].min_datum), bis: new Date(rows[0].max_datum) };
 }
 
 /**
@@ -186,27 +199,13 @@ router.get('/:id/excel', async (req, res) => {
       [req.params.id]
     );
 
-    // Compute invoice period from Lieferschein dates of the pieces
-    const lieferscheinIds = [...new Set(pieces.rows.map(p => p.Lieferschein_ID).filter(id => id > 0))];
+    const zeitraum = await ladeLeistungszeitraum(pieces.rows);
+    const deDatum = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     let rechungsZeitraum = null;
-    if (lieferscheinIds.length > 0) {
-      const lsResult = await db.query(
-        `SELECT MIN("Datum") as min_datum, MAX("Datum") as max_datum FROM "Lieferschein" WHERE "ID" = ANY($1::int[])`,
-        [lieferscheinIds]
-      );
-      if (lsResult.rows[0] && lsResult.rows[0].min_datum) {
-        const minDate = new Date(lsResult.rows[0].min_datum).toLocaleDateString('de-DE', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-        const maxDate = new Date(lsResult.rows[0].max_datum).toLocaleDateString('de-DE', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-        rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
-      }
+    if (zeitraum) {
+      const minDate = deDatum(zeitraum.von);
+      const maxDate = deDatum(zeitraum.bis);
+      rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
     }
 
     const buffer = await generateExcel('Rechnung', {
@@ -222,6 +221,81 @@ router.get('/:id/excel', async (req, res) => {
   } catch (err) {
     logger.error('RECHNUNGEN', 'Excel-Generierung fehlgeschlagen', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Excel-Generierung fehlgeschlagen' });
+  }
+});
+
+/**
+ * @swagger
+ * /rechnungen/{id}/erechnung:
+ *   get:
+ *     summary: Rechnung als E-Rechnung (EN 16931) herunterladen
+ *     description: 'Erzeugt eine XRechnung 3.0 (CII-XML) oder ein ZUGFeRD-2-/Factur-X-PDF (PDF/A-3 mit
+ *       eingebettetem XML, Profil EN 16931). Vor der Auslieferung wird das XML gegen XSD und Schematron
+ *       (EN 16931, XRechnung) geprüft. Nur für abgeschlossene Rechnungen. Erfordert Rolle: bearbeiter oder admin.'
+ *     tags: [Rechnungen]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *       - { name: format, in: query, schema: { type: string, enum: [xrechnung, zugferd], default: xrechnung } }
+ *     responses:
+ *       200:
+ *         description: XRechnung-XML bzw. ZUGFeRD-PDF
+ *         content:
+ *           application/xml: { schema: { type: string } }
+ *           application/pdf: { schema: { type: string, format: binary } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       422:
+ *         description: Pflichtangaben fehlen oder die E-Rechnung verletzt EN-16931-/XRechnung-Regeln
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error: { type: string }
+ *                 fehler:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       bt: { type: string, example: 'BT-49' }
+ *                       feld: { type: string }
+ *                       meldung: { type: string }
+ */
+router.get('/:id/erechnung', async (req, res) => {
+  const format = req.query.format || 'xrechnung';
+  if (!FORMATE[format]) {
+    return res.status(400).json({ error: "Ungültiges Format – erlaubt sind 'xrechnung' und 'zugferd'" });
+  }
+  try {
+    const { rows } = await db.query('SELECT * FROM "Rechnung" WHERE "ID" = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+    const rechnung = rows[0];
+
+    const kunde = await db.query('SELECT * FROM "Kunde" WHERE "ID" = $1', [rechnung.Kundennummer]);
+    const pieces = await db.query('SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1', [req.params.id]);
+
+    const ergebnis = await erstelleERechnung({
+      rechnung,
+      kunde: kunde.rows[0] || {},
+      schmuckstuecke: pieces.rows,
+      leistungszeitraum: await ladeLeistungszeitraum(pieces.rows),
+    }, format);
+
+    logger.info('RECHNUNGEN', 'E-Rechnung erzeugt', {
+      id: req.params.id, format, warnungen: ergebnis.warnungen.map((w) => w.regel),
+    });
+    res.setHeader('Content-Type', ergebnis.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${ergebnis.dateiname.replace(/[^\w.-]/g, '_')}"`);
+    res.send(ergebnis.inhalt);
+  } catch (err) {
+    if (err instanceof ERechnungFehler) {
+      logger.warn('RECHNUNGEN', 'E-Rechnung abgelehnt', { id: req.params.id, format, fehler: err.fehler.map((f) => f.bt) });
+      return res.status(422).json({ error: err.message, fehler: err.fehler });
+    }
+    logger.error('RECHNUNGEN', 'E-Rechnung-Erzeugung fehlgeschlagen', { id: req.params.id, format, message: err.message });
+    res.status(500).json({ error: 'E-Rechnung-Erzeugung fehlgeschlagen' });
   }
 });
 

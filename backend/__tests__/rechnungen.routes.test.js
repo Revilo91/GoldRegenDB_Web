@@ -230,3 +230,87 @@ describe('DELETE /api/rechnungen/:id', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 });
+
+describe('GET /api/rechnungen/:id/erechnung', () => {
+  const rechnung = {
+    ID: 3, Nummer: '2026-003', Kundennummer: 4, Datum: '2026-09-20T10:00:00Z', status: 'final',
+    rabatt_gesamt: '0.00', rabatt_positionen: {},
+  };
+  const kunde = {
+    ID: 4, Name: 'Laden', Strasse: 'Weg', Hausnummer: 1, PLZ: 84085, Ort: 'Langquaid',
+    Email: 'laden@example.org', Provision: 25, Land: 'DE',
+  };
+  const stueck = { Artikelnummer: 'MHO123_1', Verkaufspreis: 40, Lieferschein_ID: 9 };
+
+  // Reihenfolge der Abfragen: Rechnung, Kunde, Schmuckstücke, Lieferschein-Zeitraum
+  const mockRechnung = (r = rechnung, k = kunde) =>
+    db.query
+      .mockResolvedValueOnce({ rows: [r] })
+      .mockResolvedValueOnce({ rows: [k] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ min_datum: '2026-08-01', max_datum: '2026-08-15' }] });
+
+  const ENV_BACKUP = { ...process.env };
+  beforeEach(() => {
+    process.env.VERKAEUFER_STEUERNUMMER = '201/123/45678';
+  });
+  afterAll(() => {
+    process.env = ENV_BACKUP;
+  });
+
+  it('liefert eine geprüfte XRechnung als XML-Download', async () => {
+    mockRechnung();
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung?format=xrechnung');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('application/xml');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="Rechnung_2026-003_XRechnung.xml"');
+    expect(res.text).toContain('<ram:DuePayableAmount>30.00</ram:DuePayableAmount>');
+    expect(res.text).toContain('<udt:DateTimeString format="102">20260801</udt:DateTimeString>');
+  }, 30000);
+
+  it('liefert ein ZUGFeRD-PDF', async () => {
+    mockRechnung();
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung?format=zugferd').buffer(true);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.body.subarray(0, 5).toString()).toBe('%PDF-');
+  }, 30000);
+
+  it('meldet fehlende Pflichtangaben mit 422 und Feldliste', async () => {
+    mockRechnung(rechnung, { ...kunde, Email: null, PLZ: 0 });
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung');
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body.error).toBe('E-Rechnung kann nicht erstellt werden: Pflichtangaben fehlen.');
+    expect(res.body.fehler.map((f) => f.bt)).toEqual(['BT-53', 'BT-49']);
+  });
+
+  it('lehnt Entwürfe ab', async () => {
+    mockRechnung({ ...rechnung, status: 'entwurf' });
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung');
+
+    expect(res.statusCode).toBe(422);
+    expect(res.body.fehler[0].meldung).toContain('Nur abgeschlossene Rechnungen');
+  });
+
+  it('meldet 400 bei unbekanntem Format', async () => {
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung?format=pdf');
+
+    expect(res.statusCode).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('meldet 404 bei unbekannter Rechnung', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/999/erechnung');
+
+    expect(res.statusCode).toBe(404);
+  });
+});

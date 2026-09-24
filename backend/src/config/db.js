@@ -228,6 +228,12 @@ async function ensureKundeTable() {
           UNIQUE ("ID")
       );
     `);
+    // E-Rechnung (EN 16931): Ländercode BT-55, USt-IdNr. BT-48, Leitweg-ID/Käuferreferenz BT-10
+    await pool.query(`
+      ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "Land" CHAR(2) NOT NULL DEFAULT 'DE';
+      ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "UStIdNr" VARCHAR(20) DEFAULT NULL;
+      ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "Leitweg_ID" VARCHAR(50) DEFAULT NULL;
+    `);
     logger.info('DB', '"Kunde" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Kunde Tabelle', { message: err.message });

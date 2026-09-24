@@ -10,6 +10,7 @@ export default function DocumentManager({
   labels,
   pieceFilter,
   pieceSelectMode = "all",
+  eRechnungFormate = [], // nur Rechnungen: [{ format, label, dateiSuffix, endung }]
 }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,22 +115,36 @@ export default function DocumentManager({
     }
   };
 
-  const handleExcelExport = async (id, nummer) => {
+  const dateiBasis = (id, nummer) =>
+    `${labels.excelFilePrefix}_${String(nummer || id).replace(/[\\/:*?"<>|]+/g, "_")}`;
+
+  const downloadDatei = async (ladeBlob, dateiname) => {
     try {
-      const blob = await api.exportExcel(id);
+      const blob = await ladeBlob();
       const url = window.URL.createObjectURL(blob);
-      const safeNummer = String(nummer || id).replace(/[\\/:*?"<>|]+/g, "_");
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${labels.excelFilePrefix}_${safeNummer}.xlsx`;
+      a.download = dateiname;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      alert(err.message);
+      // E-Rechnung: Backend liefert bei fehlenden Pflichtangaben eine Liste (422)
+      const fehler = err.payload?.fehler;
+      alert(
+        Array.isArray(fehler) && fehler.length > 0
+          ? `${err.payload.error}\n\n${fehler.map((f) => `• ${f.meldung} (${f.bt})`).join("\n")}`
+          : err.message,
+      );
     }
   };
+
+  const handleExcelExport = (id, nummer) =>
+    downloadDatei(() => api.exportExcel(id), `${dateiBasis(id, nummer)}.xlsx`);
+
+  const handleERechnungExport = (id, nummer, f) =>
+    downloadDatei(() => api.exportERechnung(id, f.format), `${dateiBasis(id, nummer)}_${f.dateiSuffix}.${f.endung}`);
 
   // Stückauswahl laden (unterschiedlich je nach Dokumenttyp)
   const loadAvailablePieces = async () => {
@@ -564,6 +579,15 @@ export default function DocumentManager({
                   {labels.excel}
                 </button>
               )}
+              {detail.status === 'final' && eRechnungFormate.map((f) => (
+                <button
+                  key={f.format}
+                  className="btn btn-secondary btn-sm header-action-btn"
+                  title="E-Rechnung nach EN 16931 – wird vor dem Download automatisch geprüft"
+                  onClick={() => handleERechnungExport(detail.ID, detail.Nummer, f)}>
+                  {f.label}
+                </button>
+              ))}
               <button
                 className="btn btn-danger btn-sm header-delete-btn"
                 onClick={() => handleDelete(detail.ID)}>

@@ -131,6 +131,9 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
  *               Telefonnummer: { type: string, nullable: true }
  *               Provision: { type: integer, minimum: 0, maximum: 100 }
  *               Aktiv: { type: boolean }
+ *               Land: { type: string, pattern: '^[A-Z]{2}$', default: DE, description: 'ISO 3166-1 (E-Rechnung BT-55)' }
+ *               UStIdNr: { type: string, nullable: true, description: 'E-Rechnung BT-48' }
+ *               Leitweg_ID: { type: string, nullable: true, maxLength: 50, description: 'E-Rechnung BT-10 (Käuferreferenz)' }
  *     responses:
  *       201:
  *         description: Kunde erstellt
@@ -141,11 +144,13 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
  */
 router.post('/', validate(kundeSchema), async (req, res) => {
   try {
-    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
+    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, Land, UStIdNr, Leitweg_ID } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Email", "Telefonnummer", "Provision", "Aktiv")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision || 0, Aktiv || false]
+      `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Email", "Telefonnummer", "Provision", "Aktiv",
+         "Land", "UStIdNr", "Leitweg_ID")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision || 0, Aktiv || false,
+        Land || 'DE', UStIdNr || null, Leitweg_ID || null]
     );
     logger.info('KUNDEN', `Kunde erstellt: ID=${rows[0].ID}`);
     res.status(201).json(rows[0]);
@@ -184,13 +189,14 @@ router.post('/', validate(kundeSchema), async (req, res) => {
  */
 router.put('/:id', validate(kundeSchema), async (req, res) => {
   try {
-    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv } = req.body;
+    const { Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, Land, UStIdNr, Leitweg_ID } = req.body;
     const { rows } = await db.query(
       `UPDATE "Kunde" SET "Name" = $1, "Strasse" = $2, "Hausnummer" = $3, "Ort" = $4,
        "PLZ" = $5, "Email" = $6, "Telefonnummer" = $7, "Provision" = $8,
-       "Aktiv" = $9
-       WHERE "ID" = $10 RETURNING *`,
-      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv, req.params.id]
+       "Aktiv" = $9, "Land" = $10, "UStIdNr" = $11, "Leitweg_ID" = $12
+       WHERE "ID" = $13 RETURNING *`,
+      [Name, Strasse, Hausnummer, Ort, PLZ, Email, Telefonnummer, Provision, Aktiv,
+        Land || 'DE', UStIdNr || null, Leitweg_ID || null, req.params.id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Kunde nicht gefunden' });

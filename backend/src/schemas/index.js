@@ -27,6 +27,16 @@ const kundeSchema = z.object({
   Telefonnummer: text(50),
   Provision: ganzzahl({ min: 0, max: 100 }),
   Aktiv: bool(),
+  // E-Rechnung (EN 16931)
+  Land: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim().toUpperCase() || null : v),
+    z.string().regex(/^[A-Z]{2}$/, 'muss ein zweistelliger Ländercode sein (z. B. DE)').nullish(),
+  ),
+  UStIdNr: z.preprocess(
+    (v) => (typeof v === 'string' ? v.replace(/\s+/g, '').toUpperCase() || null : v),
+    z.string().regex(/^[A-Z]{2}[A-Z0-9]{2,13}$/, 'ist keine gültige USt-IdNr. (z. B. DE123456789)').nullish(),
+  ),
+  Leitweg_ID: text(50),
 });
 
 const restockSelectiveSchema = z.object({
