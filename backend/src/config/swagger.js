@@ -76,6 +76,12 @@ const definition = {
           Telefonnummer: { type: 'string', nullable: true },
           Provision: { type: 'integer', minimum: 0, maximum: 100, example: 20 },
           Aktiv: { type: 'boolean' },
+          Land: { type: 'string', example: 'DE', description: 'ISO 3166-1 Alpha-2 (E-Rechnung BT-55)' },
+          UStIdNr: { type: 'string', nullable: true, example: 'DE123456789', description: 'E-Rechnung BT-48' },
+          Leitweg_ID: {
+            type: 'string', nullable: true,
+            description: 'E-Rechnung BT-10 (Käuferreferenz); ohne Angabe wird die Kundennummer verwendet',
+          },
         },
       },
       Schmuckstueck: {

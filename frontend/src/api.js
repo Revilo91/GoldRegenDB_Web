@@ -377,6 +377,8 @@ export const api = {
   // Excel Export
   exportLieferscheinExcel: (id) => downloadBlob(`/lieferscheine/${id}/excel`),
   exportRechnungExcel: (id) => downloadBlob(`/rechnungen/${id}/excel`),
+  // E-Rechnung (EN 16931): format = 'xrechnung' (XML) | 'zugferd' (PDF/A-3)
+  exportERechnung: (id, format) => downloadBlob(`/rechnungen/${id}/erechnung?format=${format}`),
 
   // Sumup
   // Export - Blob-Download mit Token

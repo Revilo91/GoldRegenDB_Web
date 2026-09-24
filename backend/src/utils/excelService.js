@@ -2,33 +2,13 @@ const ExcelJS = require("exceljs");
 const fs = require("fs");
 const path = require("path");
 const { imageSize: sizeOf } = require("image-size");
-const { GRUNDMATERIAL } = require("./constants");
+const { artikelKategorie, artikelBezeichnung } = require("./artikelBezeichnung");
+const { getVerkaeufer, formatIban } = require("./eRechnung/verkaeufer");
 
 const DEFAULT_LOGO_PATH = path.join(
   __dirname,
   "../assets/Logo trasparent weißer Kreis.png",
 );
-
-const CONTACTS = {
-  GOLDREGEN: {
-    company: "Goldregen Schmuckdesign",
-    name: "Marina Südholt",
-    mobile: "0152 22731186",
-    email: "goldregen.schmuckdesign@gmail.com",
-    website: "www.goldregenschmuckdesign.de",
-    bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447",
-  },
-  TCS: {
-    company: "TechCraft Südholt",
-    name: "Oliver Südholt",
-    mobile: "0151 21832342",
-    email: "techcraftsuedholt@gmail.com",
-    website: "",
-    bank: "UniCredit Bank AG\nDE51 7502 0073 0029 2620 20\nHYVEDEMM447",
-  },
-};
-
-const BUSINESS_ADDRESS = "Herzogin-Ludmilla-Ring 5 • 84085 Langquaid";
 
 const INVENTUR_COLUMNS = [
   { header: "Artikelnummer", key: "Artikelnummer", width: 18 },
@@ -232,7 +212,16 @@ async function generateExcel(type, data, logoPath) {
   workbook.defaultFont = { name: "Calibri", size: 10 };
   worksheet.font = { name: "Calibri", size: 10 };
 
-  const contact = CONTACTS.GOLDREGEN; // Default to Marina/GoldRegen
+  const verkaeufer = getVerkaeufer();
+  const contact = {
+    company: verkaeufer.firma,
+    name: verkaeufer.name,
+    mobile: verkaeufer.telefon,
+    email: verkaeufer.email,
+    website: verkaeufer.website,
+    bank: `${verkaeufer.bank}\n${formatIban(verkaeufer.iban)}\n${verkaeufer.bic}`,
+  };
+  const BUSINESS_ADDRESS = `${verkaeufer.strasse} • ${verkaeufer.plz} ${verkaeufer.ort}`;
 
   // Helper: convert centimeters to Excel column width (approx.)
   // Calibration: adjust if Excel shows different cm than expected
@@ -461,40 +450,11 @@ async function generateExcel(type, data, logoPath) {
 
     const row = worksheet.getRow(currentRow);
     row.getCell(1).value = artikelnummerBasis;
-    const materialCode = artikelnummerBasis[1];
-    row.getCell(2).value = GRUNDMATERIAL[materialCode] || s.Art || "";
+    row.getCell(2).value = artikelKategorie(s);
 
     worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
 
-    // Detailed description logic (ported from Python)
-    let bezeichnung = "";
-    const getVal = (val) => (val && val !== "0" && val !== 0 ? val : "-");
-
-    const artCode = artikelnummerBasis[2];
-    const artikelTyp =
-      artCode === "H"
-        ? "Halskette"
-        : artCode === "O"
-          ? "Ohrring"
-          : artCode === "A"
-            ? "Armband"
-            : artCode === "S"
-              ? "Schlüsselanhänger"
-              : "";
-    if (s.Name && s.Name.trim()) {
-      bezeichnung = `${artikelTyp}: ${s.Name}`;
-    } else if (artikelTyp === "Ohrring") {
-      bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Form)} ${getVal(s.Fassung)} ${getVal(s.Farbe)}, ${getVal(s.Inhalt_Zusatzmaterial)}`;
-    } else if (artikelTyp === "Halskette") {
-      bezeichnung = `${artikelTyp}: Fassung ${getVal(s.Anhänger_Fassung)} ${getVal(s.Anhänger_Form)}, ${getVal(s.Anhänger_Inhalt_Farbe)} ${getVal(s.Anhänger_Inhalt_Zusatzmaterial)}`;
-    } else if (artikelTyp === "Armband") {
-      bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Farbe)}, ${getVal(s.Anhänger)}, ${getVal(s.Zwischenstück)}`;
-    } else if (artikelTyp === "Schlüsselanhänger") {
-      bezeichnung = `${artikelTyp}: ${getVal(s.Art)} ${getVal(s.Form)}`;
-    } else {
-      bezeichnung = `${s.Art || ""}: ${s.Material || ""} ${s.Farbe || ""}`;
-    }
-
+    const bezeichnung = artikelBezeichnung(s);
     row.getCell(3).value = bezeichnung;
 
     const menge = articleCounts[artikelnummerBasis] || 1;

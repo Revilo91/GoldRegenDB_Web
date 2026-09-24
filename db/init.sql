@@ -168,6 +168,10 @@ CREATE TABLE "Kunde" (
     "Telefonnummer" TEXT DEFAULT NULL,
     "Provision" INTEGER NOT NULL DEFAULT 0,
     "Aktiv" BOOLEAN NOT NULL DEFAULT FALSE,
+    -- E-Rechnung (EN 16931): Ländercode BT-55, USt-IdNr. BT-48, Leitweg-ID/Käuferreferenz BT-10
+    "Land" CHAR(2) NOT NULL DEFAULT 'DE',
+    "UStIdNr" VARCHAR(20) DEFAULT NULL,
+    "Leitweg_ID" VARCHAR(50) DEFAULT NULL,
     PRIMARY KEY ("Name"),
     UNIQUE ("ID")
 );

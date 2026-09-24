@@ -23,6 +23,7 @@ export default function Rechnungen() {
         createItem: api.createRechnung,
         updateItem: api.updateRechnung,
         exportExcel: api.exportRechnungExcel,
+        exportERechnung: api.exportERechnung,
         getKunden: api.getKunden,
         getPieces: (filter) => api.getSchmuckstuecke(filter),
       }}
@@ -40,6 +41,10 @@ export default function Rechnungen() {
       }}
       pieceFilter={(form) => ({ ausgelagert: form.Kundennummer, verkauft: "0", ausschuss: "0", limit: -1 })}
       pieceSelectMode="byKunde"
+      eRechnungFormate={[
+        { format: "xrechnung", label: "XRechnung (XML)", dateiSuffix: "XRechnung", endung: "xml" },
+        { format: "zugferd", label: "ZUGFeRD (PDF)", dateiSuffix: "ZUGFeRD", endung: "pdf" },
+      ]}
     />
   );
 }
