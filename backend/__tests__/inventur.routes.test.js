@@ -37,6 +37,7 @@ jest.mock('../src/utils/excelService', () => ({
 }));
 
 const db = require('../src/config/db');
+const { pruefeKlammern } = require('./helpers/dbMock');
 const { requireBearbeiter } = require('../src/middleware/auth');
 const inventurRoutes = require('../src/routes/inventur');
 
@@ -87,6 +88,34 @@ describe('GET /api/inventur', () => {
     expect(sql).toContain('s."Ausschuss" IS TRUE');
   });
 
+  it('erzeugt syntaktisch geschlossenes SQL', async () => {
+    // Der Fehler, der das erzwingt: in der Uebersicht stand
+    //   round(SUM(CASE WHEN ... THEN 1 ELSE 0 END)::int AS "verkauft",
+    // -- ein verirrtes round( ohne zweites Argument und ohne schliessende
+    // Klammer, entstanden beim Einwickeln der GELDsummen (Q4). Postgres
+    // antwortete mit "syntax error at or near AS", GET /api/inventur war ein
+    // 500er. Kein Test hat es gesehen, weil der db-Mock SQL nie parst.
+    db.query.mockResolvedValue({ rows: [] });
+
+    await request(buildApp()).get('/api/inventur').expect(200);
+
+    const sqls = db.query.mock.calls.map((c) => String(c[0]));
+    expect(sqls.length).toBeGreaterThan(0);
+    sqls.forEach((sql) => expect(() => pruefeKlammern(sql)).not.toThrow());
+  });
+
+  it('rundet die Zaehlspalten nicht', async () => {
+    // Zaehlungen sind ::int -- round() hat darauf nichts zu suchen, und genau
+    // dieses versehentliche round( war der Syntaxfehler.
+    db.query.mockResolvedValue({ rows: [] });
+
+    await request(buildApp()).get('/api/inventur').expect(200);
+
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toMatch(/END\)::int AS "verkauft"/);
+    expect(sql).not.toMatch(/round\(SUM\(CASE[^)]*END\)::int/);
+  });
+
   it('lehnt den Zugriff mit Rolle user ab (403)', async () => {
     const res = await request(buildApp('user')).get('/api/inventur');
 
@@ -127,6 +156,17 @@ describe('GET /api/inventur/:kundeId', () => {
     // Drei Abfragen: Kunde, Positionen, Kennzahlen
     expect(db.query).toHaveBeenCalledTimes(3);
     expect(String(db.query.mock.calls[2][0])).toContain('s."Verkauft" IS TRUE AND s."Ausschuss" IS FALSE');
+  });
+
+  it('meldet 400 statt 500 bei nicht-numerischer Kundennummer (C25)', async () => {
+    // Vorher ging der Pfadteil ungeprueft als $1 in "ID" = $1: Postgres
+    // antwortete mit 22P02 ("invalid input syntax for type integer") und der
+    // Aufrufer sah einen 500er fuer seinen eigenen Eingabefehler.
+    const res = await request(buildApp()).get('/api/inventur/lager');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/gültige ID/);
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   it('meldet 404 bei unbekanntem Kunden', async () => {

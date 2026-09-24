@@ -4,6 +4,7 @@ const db = require('../config/db');
 const { generateInventurExcel } = require('../utils/excelService');
 const { where } = require('../utils/whereClauseBuilder');
 const { preisNachAllenRabattenSql } = require('../utils/rabatt');
+const { idParam } = require('../schemas/common');
 const logger = require('../utils/logger');
 
 // Die Statusbedingungen kommen aus dem whereClauseBuilder, nicht von Hand
@@ -65,7 +66,7 @@ router.get('/', async (req, res) => {
          k."Aktiv",
          COUNT(s."Artikelnummer")::int AS "gesamt",
          SUM(CASE WHEN ${aktivBedingung}    THEN 1 ELSE 0 END)::int AS "aktiv",
-         round(SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "verkauft",
+         SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "verkauft",
          SUM(CASE WHEN ${ausschussBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss",
          SUM(CASE WHEN ${aktivBedingung}    THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END) AS "wert_aktiv",
          round(SUM(CASE WHEN ${verkauftBedingung} THEN ${verkaufswert} ELSE 0 END), 2) AS "wert_verkauft"
@@ -119,6 +120,14 @@ router.get('/:kundeId', async (req, res) => {
   try {
     const { kundeId } = req.params;
 
+    // Befund C25: der Wert ging ungeprueft als $1 in "ID" = $1 und "Ausgelagert"
+    // = $1. Ein nicht-numerischer Pfadteil erzeugte damit 22P02 und einen 500er,
+    // obwohl es eine Eingabe des Aufrufers ist. Das vorhandene idParam-Schema
+    // war da, wurde hier aber nicht benutzt.
+    if (!idParam.safeParse(kundeId).success) {
+      return res.status(400).json({ error: 'Kundennummer muss eine gültige ID sein' });
+    }
+
     const kundeRes = await db.query(
       'SELECT * FROM "Kunde" WHERE "ID" = $1',
       [kundeId]
@@ -153,7 +162,7 @@ router.get('/:kundeId', async (req, res) => {
       `SELECT
          COUNT(*)::int AS "gesamt",
          SUM(CASE WHEN ${aktivBedingung}    THEN 1 ELSE 0 END)::int AS "aktiv",
-         round(SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss_frei_verkauft",
+         SUM(CASE WHEN ${verkauftBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss_frei_verkauft",
          SUM(CASE WHEN ${ausschussBedingung} THEN 1 ELSE 0 END)::int AS "ausschuss",
          COALESCE(SUM(CASE WHEN ${aktivBedingung}
                     THEN COALESCE(s."Verkaufspreis", 0) ELSE 0 END), 0) AS "wert_aktiv",
@@ -203,6 +212,14 @@ router.get('/:kundeId', async (req, res) => {
 router.get('/:kundeId/excel', async (req, res) => {
   try {
     const { kundeId } = req.params;
+
+    // Befund C25: der Wert ging ungeprueft als $1 in "ID" = $1 und "Ausgelagert"
+    // = $1. Ein nicht-numerischer Pfadteil erzeugte damit 22P02 und einen 500er,
+    // obwohl es eine Eingabe des Aufrufers ist. Das vorhandene idParam-Schema
+    // war da, wurde hier aber nicht benutzt.
+    if (!idParam.safeParse(kundeId).success) {
+      return res.status(400).json({ error: 'Kundennummer muss eine gültige ID sein' });
+    }
 
     const kundeRes = await db.query(
       'SELECT * FROM "Kunde" WHERE "ID" = $1',
