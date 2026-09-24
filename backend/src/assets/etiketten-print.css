@@ -159,7 +159,7 @@ body {
   flex: 0 0 auto;
   margin: calc(var(--gap) * 0.5) 0 calc(var(--gap) * 0.25);
   font-weight: 600;
-  font-size: calc(var(--hint-size) * 0.62);
+  font-size: calc(var(--hint-size) * 0.78);
   line-height: 1;
 }
 
@@ -173,8 +173,8 @@ body {
 .hints-table td {
   width: 50%;
   text-align: left;
-  font-size: calc(var(--hint-size) * 0.62);
-  line-height: 1.05;
+  font-size: calc(var(--hint-size) * 0.78);
+  line-height: 1.1;
   vertical-align: top;
   padding: 0;
 }
