@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { rendereMitToast } from './helpers/rendern';
 import React from 'react';
 import SchmuckstueckModal from '../components/SchmuckstueckModal';
 import { api } from '../api';
@@ -32,7 +33,7 @@ describe('SchmuckstueckModal', () => {
     let resolveGet;
     api.getSchmuckstueck.mockReturnValue(new Promise((resolve) => (resolveGet = resolve)));
 
-    render(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
 
     expect(screen.getByText('Lade…')).toBeInTheDocument();
     resolveGet(artikel);
@@ -42,7 +43,7 @@ describe('SchmuckstueckModal', () => {
   it('rendert die Details eines Schmuckstücks im Lager', async () => {
     api.getSchmuckstueck.mockResolvedValue(artikel);
 
-    render(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
 
     expect(await screen.findByText('Lager')).toBeInTheDocument();
     expect(screen.getByText('Goldkette')).toBeInTheDocument();
@@ -54,7 +55,7 @@ describe('SchmuckstueckModal', () => {
   it('zeigt den Ausgelagert-Status mit Kundennamen', async () => {
     api.getSchmuckstueck.mockResolvedValue({ ...artikel, Ausgelagert: 1 });
 
-    render(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
 
     expect(await screen.findByText('Anna')).toBeInTheDocument();
   });
@@ -62,27 +63,26 @@ describe('SchmuckstueckModal', () => {
   it('zeigt den Verkauft-Status mit Kundennamen', async () => {
     api.getSchmuckstueck.mockResolvedValue({ ...artikel, Verkauft: true, Ausgelagert: 1 });
 
-    render(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
 
     expect(await screen.findByText('Verkauft')).toBeInTheDocument();
   });
 
   it('ruft onClose auf und zeigt eine Fehlermeldung, wenn das Laden fehlschlägt', async () => {
     const onClose = vi.fn();
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
     api.getSchmuckstueck.mockRejectedValue(new Error('Netzwerkfehler'));
 
-    render(<SchmuckstueckModal artikelnummer="MHO001" onClose={onClose} />);
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={onClose} />);
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Netzwerkfehler'));
+    expect(await screen.findByText(/Netzwerkfehler/)).toBeInTheDocument();
   });
 
   it('schließt das Modal über den Schließen-Button', async () => {
     const onClose = vi.fn();
     api.getSchmuckstueck.mockResolvedValue(artikel);
 
-    render(<SchmuckstueckModal artikelnummer="MHO001" onClose={onClose} />);
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={onClose} />);
     await screen.findByText('Goldkette');
 
     fireEvent.click(screen.getByRole('button', { name: '' }));

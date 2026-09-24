@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { formatEur } from "../utils/zahlen";
+import { useToast } from "../components/Toast";
 
 export default function DocumentManager({
   type,
@@ -12,6 +13,7 @@ export default function DocumentManager({
   pieceFilter,
   pieceSelectMode = "all",
 }) {
+  const toast = useToast();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
@@ -55,7 +57,7 @@ export default function DocumentManager({
       setDetail(null); // Close detail modal
       await loadAvailablePieces(neuesForm, doc.ID);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -77,7 +79,7 @@ export default function DocumentManager({
       setDetail(null);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -87,21 +89,21 @@ export default function DocumentManager({
     api
       .getList()
       .then(setData)
-      .catch((err) => alert("Fehler beim Laden der Dokumente: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden der Dokumente: " + err.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
-  }, []);
+    api.getKunden().then(setKunden).catch((err) => toast.fehler("Fehler beim Laden der Kunden: " + err.message));
+  }, [toast]);
 
   const openDetail = async (id) => {
     try {
       const d = await api.getDetail(id);
       setDetail(d);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -112,7 +114,7 @@ export default function DocumentManager({
       setDetail(null);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -129,7 +131,7 @@ export default function DocumentManager({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -151,7 +153,7 @@ export default function DocumentManager({
       setAvailablePieces(resp.data);
     } catch (err) {
       setAvailablePieces([]);
-      alert("Fehler beim Laden der verfügbaren Schmuckstücke: " + err.message);
+      toast.fehler("Fehler beim Laden der verfügbaren Schmuckstücke: " + err.message);
     }
   };
 
@@ -163,7 +165,7 @@ export default function DocumentManager({
         const response = await api.getNextNumber();
         nummer = String(response?.Nummer || "").trim();
       } catch (err) {
-        alert("Nächste Nummer konnte nicht abgerufen werden: " + err.message);
+        toast.fehler("Nächste Nummer konnte nicht abgerufen werden: " + err.message);
       }
     }
 
@@ -210,7 +212,7 @@ export default function DocumentManager({
 
   const handleSave = async (status = 'final') => {
     if (!form.Kundennummer) {
-      alert(labels.kundeRequired);
+      toast.fehler(labels.kundeRequired);
       return;
     }
     // Die Nummer wurde vorher per getNextNumber geholt. Ohne diese Sperre
@@ -230,7 +232,7 @@ export default function DocumentManager({
       load();
       if (pieceSelectMode === "all") loadAvailablePieces();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setSaving(false);
     }
@@ -259,7 +261,7 @@ export default function DocumentManager({
       (p) => p.Artikelnummer.toUpperCase() === nr.toUpperCase(),
     );
     if (!piece) {
-      alert(labels.pieceNotFound(nr));
+      toast.fehler(labels.pieceNotFound(nr));
       return;
     }
     if (!form.Artikelnummern.includes(piece.Artikelnummer)) {

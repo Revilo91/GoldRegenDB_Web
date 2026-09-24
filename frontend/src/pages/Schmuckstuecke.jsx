@@ -23,6 +23,7 @@ import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import TablePhoto from "../components/TablePhoto";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
+import { useToast } from "../components/Toast";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -79,6 +80,7 @@ const normalizeMehrfachArtikelnummer = (value) => {
 };
 
 export default function Schmuckstuecke() {
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -115,6 +117,8 @@ export default function Schmuckstuecke() {
   const [bulkLoadingTemplate, setBulkLoadingTemplate] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [gebremsteSuche, setGebremsteSuche] = useState("");
+  const [ladeZaehler, setLadeZaehler] = useState(0);
   const [bulkRows, setBulkRows] = useState([createEmptyMehrfachRow()]);
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
@@ -122,14 +126,17 @@ export default function Schmuckstuecke() {
     return `${hersteller}${grundmaterial}${produktart}`;
   };
 
-  const load = () => {
-    setLoading(true);
-    api
-      .getSchmuckstuecke({ page, limit: 50, search, ...filters })
-      .then(setData)
-      .catch((err) => alert("Fehler beim Laden der Schmuckstücke: " + err.message))
-      .finally(() => setLoading(false));
-  };
+  // Vorher feuerte jeder Tastendruck einen eigenen Request, ohne Debounce,
+  // ohne Abbruch: antwortete Request 2 nach Request 4, ueberschrieb setData
+  // die neueren Treffer, und das finally des ersten setzte loading=false,
+  // waehrend der letzte noch lief (Befund G8). Das Muster hier ist das aus
+  // Etiketten.jsx, das es von Anfang an richtig gemacht hat.
+  //
+  // neuLaden() ist der Ersatz fuer das frueher direkt aufgerufene load():
+  // es erhoeht nur einen Zaehler, den Effekt unten als Abhaengigkeit hat –
+  // so laeuft auch ein Neuladen nach Speichern/Loeschen durch dieselbe
+  // Abbruchlogik.
+  const neuLaden = () => setLadeZaehler((n) => n + 1);
 
   const handleDelete = async (nr) => {
     if (!confirm(`Schmuckstück ${nr} wirklich löschen?`)) return;
@@ -137,9 +144,9 @@ export default function Schmuckstuecke() {
       await api.deleteSchmuckstueck(nr);
       setSelected(null);
       setEditing(null);
-      load();
+      neuLaden();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -157,7 +164,7 @@ export default function Schmuckstuecke() {
       }
 
       if (editing === "new" && !dataToSave.Artikelnummer) {
-        alert(
+        toast.fehler(
           "Bitte Hersteller, Grundmaterial und Produktart auswählen, damit die Artikelnummer erzeugt werden kann.",
         );
         return;
@@ -168,7 +175,7 @@ export default function Schmuckstuecke() {
         if (!closeAfterSave) {
           setForm((prev) => ({ ...prev, Foto: "" }));
           setNextArtikelnummerRefreshKey((prev) => prev + 1);
-          alert(`${dataToSave.Artikelnummer} wurde erstellt.`);
+          toast.erfolg(`${dataToSave.Artikelnummer} wurde erstellt.`);
         }
       } else {
         await api.updateSchmuckstueck(editing, dataToSave);
@@ -176,9 +183,9 @@ export default function Schmuckstuecke() {
       if (closeAfterSave || editing !== "new") {
         setEditing(null);
       }
-      load();
+      neuLaden();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setSaving(false);
     }
@@ -252,7 +259,7 @@ export default function Schmuckstuecke() {
   const loadBulkTemplate = async () => {
     const input = bulkTemplateArtikelnummer.trim().toUpperCase();
     if (!input) {
-      alert("Bitte eine Artikelnummer als Vorlage eingeben.");
+      toast.fehler("Bitte eine Artikelnummer als Vorlage eingeben.");
       return;
     }
 
@@ -324,7 +331,7 @@ export default function Schmuckstuecke() {
         },
       ]);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setBulkLoadingTemplate(false);
     }
@@ -342,7 +349,7 @@ export default function Schmuckstuecke() {
       .filter((row) => row.Artikelnummer);
 
     if (items.length === 0) {
-      alert("Bitte mindestens eine Zeile mit Artikelnummer eintragen.");
+      toast.fehler("Bitte mindestens eine Zeile mit Artikelnummer eintragen.");
       return;
     }
 
@@ -350,32 +357,32 @@ export default function Schmuckstuecke() {
       setBulkSaving(true);
       const result = await api.createSchmuckstueckeBulk({ items });
 
-      alert(
+      toast.fehler(
         `${result.createdCount} Schmuckstücke wurden erfolgreich nachgetragen.`,
       );
       setBulkModalOpen(false);
-      load();
+      neuLaden();
     } catch (err) {
       const payload = err.payload || {};
       if (Array.isArray(payload.invalidArtikelnummern)) {
-        alert(
+        toast.fehler(
           `Ungültige Artikelnummern:\n${payload.invalidArtikelnummern.join("\n")}`,
         );
         return;
       }
       if (Array.isArray(payload.existingArtikelnummern)) {
-        alert(
+        toast.fehler(
           `Diese Artikelnummern existieren bereits:\n${payload.existingArtikelnummern.join("\n")}`,
         );
         return;
       }
       if (Array.isArray(payload.duplicateArtikelnummern)) {
-        alert(
+        toast.fehler(
           `Diese Artikelnummern wurden doppelt eingegeben:\n${payload.duplicateArtikelnummern.join("\n")}`,
         );
         return;
       }
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setBulkSaving(false);
     }
@@ -419,13 +426,40 @@ export default function Schmuckstuecke() {
   };
 
   useEffect(() => {
-    api.getFilterOptions().then(setFilterOptions).catch((err) => alert("Fehler beim Laden der Filter-Optionen: " + err.message));
-    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
-  }, []);
+    api.getFilterOptions().then(setFilterOptions).catch((err) => toast.fehler("Fehler beim Laden der Filter-Optionen: " + err.message));
+    api.getKunden().then(setKunden).catch((err) => toast.fehler("Fehler beim Laden der Kunden: " + err.message));
+  }, [toast]);
 
   useEffect(() => {
-    load();
-  }, [page, search, filters]);
+    const timer = setTimeout(() => setGebremsteSuche(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const abbruch = new AbortController();
+    let verworfen = false;
+    setLoading(true);
+    api
+      .getSchmuckstuecke(
+        { page, limit: 50, search: gebremsteSuche, ...filters },
+        { signal: abbruch.signal },
+      )
+      .then((antwort) => {
+        if (!verworfen) setData(antwort);
+      })
+      .catch((err) => {
+        // Ein abgebrochener Request ist kein Fehler, den der Nutzer sehen muss.
+        if (verworfen || err?.name === "AbortError") return;
+        toast.fehler("Fehler beim Laden der Schmuckstücke: " + err.message);
+      })
+      .finally(() => {
+        if (!verworfen) setLoading(false);
+      });
+    return () => {
+      verworfen = true;
+      abbruch.abort();
+    };
+  }, [page, gebremsteSuche, filters, ladeZaehler, toast]);
 
   useEffect(() => {
     if (editing !== "new") {
@@ -489,11 +523,11 @@ export default function Schmuckstuecke() {
           openDuplicate(item);
         }
       })
-      .catch((err) => alert("Fehler beim Laden des Schmuckstücks: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden des Schmuckstücks: " + err.message))
       .finally(() => {
         navigate(location.pathname, { replace: true, state: {} });
       });
-  }, [location.pathname, location.state, navigate]);
+  }, [location.pathname, location.state, navigate, toast]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);

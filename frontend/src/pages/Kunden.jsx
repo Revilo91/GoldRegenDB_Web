@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import { useToast } from "../components/Toast";
 
 export default function Kunden() {
+  const toast = useToast();
   const [kunden, setKunden] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -12,18 +14,18 @@ export default function Kunden() {
   const [form, setForm] = useState({});
   // Default sorting handled by DataTable via defaultSort prop
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     api
       .getKunden()
       .then(setKunden)
-      .catch((err) => alert("Fehler beim Laden der Kunden: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden der Kunden: " + err.message))
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const handleSave = async () => {
     try {
@@ -35,7 +37,7 @@ export default function Kunden() {
       setEditing(null);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -45,7 +47,7 @@ export default function Kunden() {
       await api.deleteKunde(id);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 

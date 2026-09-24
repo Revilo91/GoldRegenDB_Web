@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import { useToast } from "../components/Toast";
 
 export default function AuditLog() {
+  const toast = useToast();
   const [data, setData] = useState({ data: [], pagination: {} });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -18,9 +20,9 @@ export default function AuditLog() {
     api
       .getAuditLog({ page, limit: 100, search })
       .then(setData)
-      .catch((err) => alert("Fehler beim Laden des Audit-Logs: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden des Audit-Logs: " + err.message))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, toast]);
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];

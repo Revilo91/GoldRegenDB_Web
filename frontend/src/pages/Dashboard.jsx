@@ -72,14 +72,16 @@ function EmptyChart({ message }) {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
   const [revenueSeriesMode, setRevenueSeriesMode] = useState("all");
 
   useEffect(() => {
     api
       .getDashboard()
       .then(setData)
-      .catch(() => setError(true))
+      .catch((err) =>
+        setError(err.message || "Die Dashboard-Daten konnten nicht geladen werden."),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -91,7 +93,10 @@ export default function Dashboard() {
     );
   if (error || !data)
     return (
-      <div className="loading">Fehler beim Laden der Dashboard-Daten.</div>
+      <div className="alert alert-danger">
+        Fehler beim Laden der Dashboard-Daten
+        {error ? `: ${error}` : "."}
+      </div>
     );
 
   const s = data.statistics;

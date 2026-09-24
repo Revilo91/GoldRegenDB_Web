@@ -23,6 +23,14 @@ export default defineConfig([
       },
     },
     rules: {
+      // Befund G19: 68 blockierende alert() im Projekt. Eine Regel ohne Linter
+      // ist Dokumentationsschuld – deshalb hier, damit sie nicht zurueckkommen.
+      // Bewusst nicht `no-alert`: die Regel deckt auch confirm() ab, und das
+      // ist in den Loeschpfaden weiter in Gebrauch.
+      'no-restricted-globals': ['error', {
+        name: 'alert',
+        message: 'Statt alert() den useToast()-Hook aus components/Toast.jsx benutzen.',
+      }],
       'no-unused-vars': ['error', {
         varsIgnorePattern: '^[A-Z_]',
         // `const { ausgelagert, ...rest } = filters` entfernt einen Schlüssel aus

@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { rendereMitToast } from './helpers/rendern';
 import React from 'react';
 import DocumentManager from '../pages/DocumentManager';
 
@@ -39,7 +40,7 @@ function buildApi(overrides = {}) {
 
 function renderManager(apiOverrides = {}) {
   const api = buildApi(apiOverrides);
-  render(
+  rendereMitToast(
     <DocumentManager
       type="lieferschein"
       api={api}
@@ -54,7 +55,6 @@ function renderManager(apiOverrides = {}) {
 
 describe('DocumentManager', () => {
   beforeEach(() => {
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -97,7 +97,8 @@ describe('DocumentManager', () => {
 
     fireEvent.click(screen.getByText('Speichern & Abschließen'));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(labels.kundeRequired));
+    // Frueher ein blockierendes alert(), jetzt ein Toast im Dokument (Befund G19).
+    expect(await screen.findByText(labels.kundeRequired)).toBeInTheDocument();
     expect(api.createItem).not.toHaveBeenCalled();
   });
 

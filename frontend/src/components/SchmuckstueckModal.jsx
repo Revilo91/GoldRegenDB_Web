@@ -10,6 +10,7 @@ import {
 import { api } from "../api";
 import { statusBadge, statusVon, STATUS } from "../utils/status";
 import { formatEur } from "../utils/zahlen";
+import { useToast } from "./Toast";
 
 /**
  * Zeigt ein Schmuckstück-Detail-Modal über einem bestehenden Modal.
@@ -27,6 +28,7 @@ export default function SchmuckstueckModal({
   onEdit,
   onDelete,
 }) {
+  const toast = useToast();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [kunden, setKunden] = useState([]);
@@ -42,11 +44,11 @@ export default function SchmuckstueckModal({
         setKunden(k);
       })
       .catch((err) => {
-        alert("Fehler beim Laden des Schmuckstücks: " + err.message);
+        toast.fehler("Fehler beim Laden des Schmuckstücks: " + err.message);
         onClose();
       })
       .finally(() => setLoading(false));
-  }, [artikelnummer]);
+  }, [artikelnummer, toast]);
 
   useEffect(() => {
     if (item?.Foto) {

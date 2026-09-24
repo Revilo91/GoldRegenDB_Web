@@ -15,8 +15,10 @@ import {
   faHandPointRight,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import { useToast } from "../components/Toast";
 
 export default function Sumup() {
+  const toast = useToast();
   const [sumupImporting, setSumupImporting] = useState(false);
   const [sumupResult, setSumupResult] = useState(null);
   const [sumupError, setSumupError] = useState(null);
@@ -65,7 +67,7 @@ export default function Sumup() {
       document.body.removeChild(a);
     } catch (err) {
       console.error("Export Error:", err);
-      alert(`Fehler beim Export: ${err.message}`);
+      toast.fehler(`Fehler beim Export: ${err.message}`);
     } finally {
       setSumupExport(false);
     }

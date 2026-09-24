@@ -5,6 +5,7 @@ import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
 import "./../index.css"; // Make sure styles are loaded
+import { useToast } from "../components/Toast";
 
 const formatDebugError = (err) => {
   if (err?.status === 401) {
@@ -48,6 +49,7 @@ const EditableCell = ({ value, onSave, onCancel }) => {
 };
 
 const DebugTable = ({ tableName }) => {
+  const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [data, setData] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -103,7 +105,7 @@ const DebugTable = ({ tableName }) => {
           : null;
 
     if (!pk) {
-      alert("Cannot update this table: No primary key found.");
+      toast.fehler("Cannot update this table: No primary key found.");
       return;
     }
 
@@ -120,7 +122,7 @@ const DebugTable = ({ tableName }) => {
       newData[rowIndex] = updatedRow;
       setData(newData);
     } catch (err) {
-      alert(`Error updating cell: ${err.message}`);
+      toast.fehler(`Error updating cell: ${err.message}`);
       // Re-fetch to reset to actual state
       fetchTableData();
     }

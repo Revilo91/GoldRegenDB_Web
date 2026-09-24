@@ -12,8 +12,10 @@ import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { statusBadge } from "../utils/status";
 import { formatEur } from "../utils/zahlen";
+import { useToast } from "../components/Toast";
 
 export default function SchmuckstueckDetail() {
+  const toast = useToast();
   const { artikelnummer } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -40,8 +42,13 @@ export default function SchmuckstueckDetail() {
       .then(setItem)
       .catch(() => navigate("/schmuckstuecke", { replace: true }))
       .finally(() => setLoading(false));
-    api.getKunden().then(setKunden).catch(console.error);
-  }, [artikelnummer]);
+    api
+      .getKunden()
+      .then(setKunden)
+      .catch((err) =>
+        toast.fehler("Fehler beim Laden der Kunden: " + err.message),
+      );
+  }, [artikelnummer, toast]);
 
   useEffect(() => {
     if (item?.Foto) {
@@ -73,7 +80,7 @@ export default function SchmuckstueckDetail() {
       await api.deleteSchmuckstueck(artikelnummer);
       navigate("/schmuckstuecke");
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
