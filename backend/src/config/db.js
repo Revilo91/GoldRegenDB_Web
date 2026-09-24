@@ -135,9 +135,15 @@ async function query(text, params) {
   return client.query(text, params);
 }
 
+// Ein Fehler auf einem *idle* Client ist kein Grund, den Prozess zu beenden:
+// ein DB-Neustart, ein Netzwerk-Blip oder ein Spin-Down der NAS-Platte riss
+// sonst alle laufenden Requests mit (Befund A6). pg entfernt den betroffenen
+// Client selbst aus dem Pool; der naechste Request holt sich einen neuen.
 pool.on('error', (err) => {
-  logger.error('DB', 'Unerwarteter Fehler auf Idle-Client', { message: err.message, code: err.code });
-  process.exit(-1);
+  logger.error('DB', 'Unerwarteter Fehler auf Idle-Client – Client wird verworfen', {
+    message: err.message,
+    code: err.code,
+  });
 });
 
 pool.on('connect', () => {
@@ -205,6 +211,7 @@ async function ensureTriggerFunctions() {
     logger.info('DB', 'Trigger-Funktionen verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Trigger-Funktionen', { message: err.message });
+    throw err;
   }
 }
 
@@ -228,6 +235,11 @@ async function ensureKundeTable() {
           UNIQUE ("ID")
       );
     `);
+    // Migrate: Default fuer "Aktiv" auf TRUE (Befund B6). Ein neu angelegter
+    // Kunde war bisher standardmaessig inaktiv; das war nicht beabsichtigt.
+    // Bestandsdaten bleiben unberuehrt, ein DEFAULT wirkt nur auf neue Zeilen.
+    await pool.query(`ALTER TABLE "Kunde" ALTER COLUMN "Aktiv" SET DEFAULT TRUE;`);
+
     // E-Rechnung (EN 16931): Ländercode BT-55, USt-IdNr. BT-48, Leitweg-ID/Käuferreferenz BT-10
     await pool.query(`
       ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "Land" CHAR(2) NOT NULL DEFAULT 'DE';
@@ -237,6 +249,7 @@ async function ensureKundeTable() {
     logger.info('DB', '"Kunde" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Kunde Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -268,9 +281,21 @@ async function ensureLieferscheinTable() {
       END
       $$;
     `);
+    // Befund B11: "Lieferschein" hatte keinen einzigen Index, obwohl "Rechnung"
+    // einen auf "Kundennummer" hat und MySQL ihn fuer beide Tabellen hatte.
+    // Ohne den Index muss jedes DELETE auf "Kunde" die ganze Tabelle scannen,
+    // um den Fremdschluessel zu pruefen, und der LEFT JOIN in
+    // routes/lieferscheine.js:53 kann nicht indexgestuetzt joinen.
+    // "Datum" ist die Default-Sortierung beider Dokumentlisten
+    // (lieferscheine.js:61, rechnungen.js:61).
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_lieferschein_kundennummer ON "Lieferschein" ("Kundennummer");
+      CREATE INDEX IF NOT EXISTS idx_lieferschein_datum ON "Lieferschein" ("Datum" DESC);
+    `);
     logger.info('DB', '"Lieferschein" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Lieferschein Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -287,8 +312,8 @@ async function ensureRechnungTable() {
           PRIMARY KEY ("Nummer"),
           CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
       );
-      CREATE INDEX IF NOT EXISTS idx_rechnung_id ON "Rechnung" ("ID");
       CREATE INDEX IF NOT EXISTS idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
+      CREATE INDEX IF NOT EXISTS idx_rechnung_datum ON "Rechnung" ("Datum" DESC);
     `);
     // Migrate: add status column if missing
     await pool.query(`
@@ -329,9 +354,34 @@ async function ensureRechnungTable() {
       END
       $$;
     `);
+    // Migrate: UNIQUE auf "ID" nachziehen (Befund B4).
+    // "Lieferschein" hat sein UNIQUE ("ID"), "Rechnung" nie bekommen – die
+    // Asymmetrie kam 1:1 aus MySQL mit (ADD UNIQUE KEY vs. ADD KEY). Ohne
+    // Eindeutigkeit koennen zwei Rechnungen dieselbe "ID" tragen; jeder JOIN
+    // ueber Schmuckstueck."Rechnung_ID" mischt dann die Positionen beider, und
+    // ein Fremdschluessel darauf ist ohnehin unmoeglich.
+    // Der bisherige Index idx_rechnung_id wird dadurch redundant: der
+    // UNIQUE-Constraint bringt seinen eigenen Index mit.
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          JOIN pg_namespace n ON n.oid = t.relnamespace
+          WHERE n.nspname = 'public' AND t.relname = 'Rechnung'
+            AND c.conname = 'rechnung_id_key'
+        ) THEN
+          ALTER TABLE "Rechnung" ADD CONSTRAINT rechnung_id_key UNIQUE ("ID");
+          DROP INDEX IF EXISTS idx_rechnung_id;
+        END IF;
+      END
+      $$;
+    `);
     logger.info('DB', '"Rechnung" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Rechnung Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -365,11 +415,11 @@ async function ensureSchmuckstueckTable() {
           "Grösse" DOUBLE PRECISION DEFAULT 0,
           "Anhänger" TEXT DEFAULT NULL,
           "Zwischenstück" TEXT DEFAULT NULL,
-          "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
-          "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
+          "Herstellungskosten" NUMERIC(10,2) NOT NULL DEFAULT 0,
+          "Verkaufspreis" NUMERIC(10,2) NOT NULL DEFAULT 0,
           "Ausgelagert" INTEGER DEFAULT 0,
-          "Verkauft" SMALLINT DEFAULT 0,
-          "Ausschuss" SMALLINT DEFAULT 0,
+          "Verkauft" BOOLEAN NOT NULL DEFAULT FALSE,
+          "Ausschuss" BOOLEAN NOT NULL DEFAULT FALSE,
           "Ausschuss_Grund" TEXT DEFAULT NULL,
           "Lieferschein_ID" INTEGER DEFAULT 0,
           "Rechnung_ID" INTEGER DEFAULT 0,
@@ -391,6 +441,7 @@ async function ensureSchmuckstueckTable() {
     logger.info('DB', '"Schmuckstück" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Schmuckstück Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -410,10 +461,22 @@ async function ensureAuditLogTable() {
           changed_by VARCHAR(255) DEFAULT NULL,
           change_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      -- Befund B11: audit_log hatte ausser dem Primaerschluessel keinen Index,
+      -- waechst aber unbegrenzt. Abgefragt wird sie durchweg nach Zeitstempel:
+      --   dashboard.js:139  ORDER BY change_timestamp DESC LIMIT 10  (jeder
+      --                     Dashboard-Aufruf, also Seq Scan + kompletter Sort)
+      --   auditLog.js:62    ORDER BY change_timestamp DESC LIMIT/OFFSET
+      --   auditLog.js:139   WHERE artikelnummer_id = $1 ORDER BY ts DESC
+      --                     (Artikelhistorie im Detaildialog)
+      CREATE INDEX IF NOT EXISTS idx_audit_ts
+        ON audit_log (change_timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_audit_artikel
+        ON audit_log (artikelnummer_id, change_timestamp DESC);
     `);
     logger.info('DB', 'audit_log Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der audit_log Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -541,6 +604,7 @@ async function ensureAuditLogTamperProtection() {
     logger.info('DB', 'audit_log Tamper-Schutz (Hash-Kette + Immutabilität) verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren des audit_log Tamper-Schutzes', { message: err.message });
+    throw err;
   }
 }
 
@@ -618,6 +682,7 @@ async function ensureAppUsersTable() {
     logger.info('DB', 'app_users Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der app_users Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -640,6 +705,7 @@ async function ensureLagerinventurEntwurfTable() {
     logger.info('DB', 'lagerinventur Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der lagerinventur Tabelle', { message: err.message });
+    throw err;
   }
 }
 
@@ -800,6 +866,208 @@ async function ensureBestelluebersichtSchema() {
     logger.info('DB', 'Bestellübersicht-Schema verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren des Bestellübersicht-Schemas', { message: err.message });
+    throw err;
+  }
+}
+
+// ---- Statusfelder: SMALLINT -> boolean ----
+
+// Befund B6: "Verkauft" und "Ausschuss" waren nullable SMALLINT ohne CHECK.
+// Verkauft = 2 oder NULL war erlaubt, und so eine Zeile war in KEINEM Filter
+// enthalten -- nicht "verkauft" (= 1) und nicht "verfügbar" (= 0, denn
+// NULL = 0 ist UNKNOWN). Der Artikel verschwand lautlos aus allen Listen,
+// zählte aber weiter in totalPieces.
+//
+// Die Umstellung läuft in drei Schritten, deren Reihenfolge zwingend ist:
+// 1. Die Ausschuss_Grund-Constraint löschen. Zwei Gründe: sie prüft
+//    COALESCE("Ausschuss", 0) = 0, und Postgres parst CHECK-Ausdrücke bei
+//    ALTER COLUMN TYPE neu -- COALESCE(boolean, integer) ist ein Fehler. Und
+//    sie steht als NOT VALID im Schema: das heißt nur, dass der BESTAND beim
+//    Anlegen ungeprüft blieb; jedes spätere UPDATE einer Zeile wird sehr wohl
+//    geprüft. Die 28 Zeilen aus Schritt 2 haben Ausschuss=1 ohne Grund
+//    (Befund D7 -- das gilt für alle 240 Ausschuss-Stücke), ihr UPDATE wäre
+//    also daran gescheitert. ensureAusschussGrundConstraint() legt sie danach
+//    in der boolean-Form wieder an.
+// 2. Die widersprüchlichen Zeilen bereinigen, NOCH als SMALLINT -- so schreibt
+//    der Audit-Trigger '1' -> '0' im alten Wertformat und die Korrektur ist im
+//    Revisionsprotokoll nachvollziehbar.
+// 3. Typ ändern, NOT NULL und DEFAULT setzen, dann den Widerspruchs-CHECK --
+//    validiert, nicht NOT VALID, weil Schritt 2 ihn erfüllbar gemacht hat.
+async function ensureStatusBooleans() {
+  try {
+    const { rows: typRows } = await pool.query(`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'Schmuckstück' AND column_name = 'Verkauft'
+    `);
+
+    if (typRows.length > 0 && typRows[0].data_type !== 'boolean') {
+      // Schritt 1
+      await pool.query(`
+        ALTER TABLE "Schmuckstück"
+          DROP CONSTRAINT IF EXISTS schmuckstueck_ausschuss_grund_required_chk
+      `);
+
+      // Schritt 2: Verkauft=1 UND Ausschuss=1 ist fachlich unmöglich. Im
+      // Bestand gab es 28 solche Zeilen, alle bei einem Kunden ausgelagert.
+      // Entschieden wurde: Ausschuss ist richtig, Verkauft ist der Fehler.
+      // Die betroffenen Artikelnummern stehen in db/status_widerspruch_2026-09.csv.
+      const bereinigt = await pool.query(`
+        UPDATE "Schmuckstück" SET "Verkauft" = 0
+        WHERE "Verkauft" = 1 AND "Ausschuss" = 1
+      `);
+      if (bereinigt.rowCount > 0) {
+        logger.info('DB', 'Widersprüchlicher Status bereinigt: Verkauft=0 gesetzt, weil Ausschuss=1',
+          { zeilen: bereinigt.rowCount });
+      }
+
+      // Schritt 3
+      await pool.query(`
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkauft"  DROP DEFAULT,
+          ALTER COLUMN "Ausschuss" DROP DEFAULT;
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkauft"  TYPE boolean USING (COALESCE("Verkauft", 0)  <> 0),
+          ALTER COLUMN "Ausschuss" TYPE boolean USING (COALESCE("Ausschuss", 0) <> 0);
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkauft"  SET NOT NULL,
+          ALTER COLUMN "Verkauft"  SET DEFAULT false,
+          ALTER COLUMN "Ausschuss" SET NOT NULL,
+          ALTER COLUMN "Ausschuss" SET DEFAULT false;
+      `);
+      logger.info('DB', 'Statusfelder auf boolean NOT NULL umgestellt');
+    }
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück' AND c.conname = 'schmuck_status_chk'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+            ADD CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss"));
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Statusfelder und Widerspruchs-Constraint verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Umstellen der Statusfelder', { message: err.message });
+    throw err;
+  }
+}
+
+// ---- Geldspalten: DOUBLE PRECISION -> numeric(10,2) ----
+
+// Befund B1: "Verkaufspreis" und "Herstellungskosten" waren DOUBLE PRECISION.
+// 19.99 ist binär nicht exakt darstellbar; 37 Positionen à 19,99 € ergeben
+// 739.6299999999999. Excel rundete per numFmt, die API lieferte den Rohwert --
+// beide wichen ab, und Provisionsketten akkumulierten den Fehler ungerundet bis
+// zum Überweisungsbetrag. rabatt_gesamt war schon NUMERIC(5,2): in einer
+// Rechnungsberechnung trafen also exaktes Dezimal und Float aufeinander.
+//
+// pg liefert numeric bewusst als String (siehe types/db.d.ts). Number() erst
+// an der Anzeigekante -- die Konvention steht schon in swagger.js für
+// rabatt_gesamt und wird hier nur ausgeweitet.
+async function ensureGeldNumeric() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT column_name, data_type FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'Schmuckstück'
+        AND column_name IN ('Verkaufspreis', 'Herstellungskosten')
+    `);
+    const mussUmgestellt = rows.some((r) => r.data_type !== 'numeric');
+
+    if (mussUmgestellt) {
+      // NOT NULL ist erst jetzt möglich: D1/D2 aus Gruppe 1 haben die
+      // NULL-Quelle im Frontend geschlossen (parseFloat("") -> NaN -> null).
+      // COALESCE fängt Altbestand ab, der vor dieser Reparatur entstanden ist.
+      await pool.query(`
+        UPDATE "Schmuckstück"
+        SET "Verkaufspreis" = COALESCE("Verkaufspreis", 0),
+            "Herstellungskosten" = COALESCE("Herstellungskosten", 0)
+        WHERE "Verkaufspreis" IS NULL OR "Herstellungskosten" IS NULL
+      `);
+      await pool.query(`
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkaufspreis"
+            TYPE numeric(10,2) USING round("Verkaufspreis"::numeric, 2),
+          ALTER COLUMN "Herstellungskosten"
+            TYPE numeric(10,2) USING round("Herstellungskosten"::numeric, 2);
+        ALTER TABLE "Schmuckstück"
+          ALTER COLUMN "Verkaufspreis"      SET NOT NULL,
+          ALTER COLUMN "Verkaufspreis"      SET DEFAULT 0,
+          ALTER COLUMN "Herstellungskosten" SET NOT NULL,
+          ALTER COLUMN "Herstellungskosten" SET DEFAULT 0;
+      `);
+      logger.info('DB', 'Geldspalten auf numeric(10,2) NOT NULL umgestellt');
+    }
+
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück' AND c.conname = 'schmuck_preis_nicht_negativ'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+            ADD CONSTRAINT schmuck_preis_nicht_negativ
+            CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0);
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Geldspalten verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Umstellen der Geldspalten', { message: err.message });
+    throw err;
+  }
+}
+
+// ---- Constraint: Artikelnummer in Grossbuchstaben ----
+
+// Befund D4: normalisiert wird im zod-Schema, und die Datenbank sichert es ab.
+// Landete ein Stueck ueber einen nicht normalisierenden Pfad als 'mho123' in der
+// Tabelle, war SUBSTRING('mho123',1,1) = 'm' <> 'M' -- das Stueck erschien in
+// KEINEM Hersteller-, Grundmaterial- oder Produktartfilter. Und weil
+// "Artikelnummer" der Primaerschluessel ist, existierten MHO123 und mho123 als
+// zwei Zeilen fuer ein physisches Schmuckstueck.
+async function ensureArtikelnummerGrossschreibung() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT count(*)::int AS abweichend
+      FROM "Schmuckstück"
+      WHERE "Artikelnummer" <> UPPER("Artikelnummer")
+    `);
+    if (rows[0].abweichend > 0) {
+      // Nicht automatisch korrigieren: eine Umbenennung des Primaerschluessels
+      // kann zwei Zeilen fuer dasselbe Stueck zusammenfuehren muessen, das ist
+      // eine fachliche Entscheidung. Der Constraint kommt dann NOT VALID.
+      logger.warn('DB', 'Artikelnummern mit Kleinbuchstaben im Bestand – '
+        + 'Constraint wird nur für neue Zeilen gesetzt', { anzahl: rows[0].abweichend });
+    }
+    const validitaet = rows[0].abweichend > 0 ? 'NOT VALID' : '';
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'Schmuckstück' AND c.conname = 'schmuck_artikelnummer_gross_chk'
+        ) THEN
+          ALTER TABLE "Schmuckstück"
+            ADD CONSTRAINT schmuck_artikelnummer_gross_chk
+            CHECK ("Artikelnummer" = UPPER("Artikelnummer")) ${validitaet};
+        END IF;
+      END
+      $$;
+    `);
+    logger.info('DB', 'Constraint für Artikelnummer-Großschreibung verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren der Artikelnummer-Constraint', { message: err.message });
+    throw err;
   }
 }
 
@@ -821,7 +1089,7 @@ async function ensureAusschussGrundConstraint() {
           ALTER TABLE "Schmuckstück"
           ADD CONSTRAINT ${constraintName}
           CHECK (
-            COALESCE("Ausschuss", 0) = 0
+            "Ausschuss" IS NOT TRUE
             OR LENGTH(BTRIM(COALESCE("Ausschuss_Grund", ''))) > 0
           ) NOT VALID;
         END IF;
@@ -831,6 +1099,7 @@ async function ensureAusschussGrundConstraint() {
     logger.info('DB', 'Constraint für Ausschuss_Grund verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Ausschuss_Grund-Constraint', { message: err.message });
+    throw err;
   }
 }
 
@@ -871,6 +1140,7 @@ async function ensureTriggers() {
     logger.info('DB', 'Trigger auf "Schmuckstück" verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Trigger', { message: err.message });
+    throw err;
   }
 }
 
@@ -891,31 +1161,46 @@ async function ensureTriggers() {
 //   10. lagerinventur
 //   11. Constraints & Trigger (brauchen die Tabellen)
 
-pool.query('SELECT NOW() AS server_time')
-  .then((res) => {
-    logger.info('DB', 'Verbindung erfolgreich hergestellt', { server_time: res.rows[0].server_time });
-    return ensureTriggerFunctions()
-      .then(() => ensureKundeTable())
-      .then(() => ensureLieferscheinTable())
-      .then(() => ensureRechnungTable())
-      .then(() => ensureSchmuckstueckTable())
-      .then(() => ensureAuditLogTable())
-      .then(() => ensureAuditLogTamperProtection())
-      .then(() => ensureAppUsersTable())
-      .then(() => ensureBestelluebersichtSchema())
-      .then(() => ensureLagerinventurEntwurfTable())
-      .then(() => ensureAusschussGrundConstraint())
-      .then(() => ensureTriggers());
-  })
-  .catch((err) => {
-    logger.error('DB', 'Verbindung zur Datenbank fehlgeschlagen', { message: err.message, code: err.code });
-  });
+// Bis die Kette durch ist, darf die Anwendung keine Requests beantworten: sonst
+// treffen die ersten Aufrufe ein Schema, dem noch Spalten fehlen (Befund A1).
+// index.js wartet darauf und bricht bei einem Fehler den Start ab.
+let schemaReady = false;
+
+function isSchemaReady() {
+  return schemaReady;
+}
+
+async function initializeDatabase() {
+  const res = await pool.query('SELECT NOW() AS server_time');
+  logger.info('DB', 'Verbindung erfolgreich hergestellt', { server_time: res.rows[0].server_time });
+
+  await ensureTriggerFunctions();
+  await ensureKundeTable();
+  await ensureLieferscheinTable();
+  await ensureRechnungTable();
+  await ensureSchmuckstueckTable();
+  await ensureAuditLogTable();
+  await ensureAuditLogTamperProtection();
+  await ensureAppUsersTable();
+  await ensureBestelluebersichtSchema();
+  await ensureLagerinventurEntwurfTable();
+  await ensureStatusBooleans();
+  await ensureGeldNumeric();
+  await ensureArtikelnummerGrossschreibung();
+  await ensureAusschussGrundConstraint();
+  await ensureTriggers();
+
+  schemaReady = true;
+  logger.info('DB', 'Schema vollständig verifiziert');
+}
 
 module.exports = {
   query,
   connect,
   setCurrentDbUsername,
   requestContextMiddleware,
+  initializeDatabase,
+  isSchemaReady,
   pool,
   connectionString,
 };

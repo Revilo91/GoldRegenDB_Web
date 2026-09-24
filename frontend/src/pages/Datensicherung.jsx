@@ -11,20 +11,33 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 
-// All known tables in display order
-const ALL_TABLES = [
-  { key: "Kunde", label: "Kunden" },
-  { key: "Lieferschein", label: "Lieferscheine" },
-  { key: "Rechnung", label: "Rechnungen" },
-  { key: "Schmuckstück", label: "Schmuckstücke" },
-  { key: "audit_log", label: "Audit-Log" },
-  { key: "app_users", label: "Benutzer" },
-  { key: "lagerinventur", label: "Lagerinventur" },
-];
+// Nur die deutschen Beschriftungen stehen hier – welche Tabellen es gibt,
+// liefert GET /api/backup/tables aus dem Systemkatalog (Befund B18). Die
+// frühere Handliste hier filterte Export UND Import: eine Tabelle, die sie
+// nicht kannte, wurde stillschweigend übersprungen, auch wenn das Backend sie
+// exportiert hätte. Ein unbekannter Name erscheint jetzt unter seinem
+// Rohnamen statt zu verschwinden.
+const TABLE_LABELS = {
+  Kunde: "Kunden",
+  Lieferschein: "Lieferscheine",
+  Rechnung: "Rechnungen",
+  Schmuckstück: "Schmuckstücke",
+  audit_log: "Audit-Log",
+  app_users: "Benutzer",
+  lagerinventur: "Lagerinventur",
+  bestellung: "Bestellungen",
+  bestellung_kunde: "Bestellkunden",
+  bestellung_consent: "Einwilligungen (DSGVO)",
+};
 
-const TABLE_LABELS = Object.fromEntries(
-  ALL_TABLES.map(({ key, label }) => [key, label]),
-);
+const beschriftung = (name) => TABLE_LABELS[name] ?? name;
+
+// Fällt /backup/tables aus, bleibt die Seite bedienbar: diese Reihenfolge ist
+// FK-sicher und deckt den Stand bei Auslieferung ab.
+const TABELLEN_FALLBACK = Object.keys(TABLE_LABELS);
+
+const alsAuswahl = (namen) =>
+  namen.map((name) => ({ key: name, label: beschriftung(name) }));
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return "–";
@@ -125,9 +138,8 @@ export default function Datensicherung() {
   const [exportError, setExportError] = useState(null);
   const [exportUploadsError, setExportUploadsError] = useState(null);
   const [exportUploadsProgress, setExportUploadsProgress] = useState(null);
-  const [exportSelected, setExportSelected] = useState(
-    ALL_TABLES.map((t) => t.key),
-  );
+  const [tabellen, setTabellen] = useState(TABELLEN_FALLBACK);
+  const [exportSelected, setExportSelected] = useState(TABELLEN_FALLBACK);
   const [exportIncludeUploads, setExportIncludeUploads] = useState(false);
 
   // --- Import state ---
@@ -155,6 +167,28 @@ export default function Datensicherung() {
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+    };
+  }, []);
+
+  // Tabellen aus dem Katalog holen. Schlägt das fehl, bleibt der Fallback
+  // stehen – die Seite ist dann weiter bedienbar, nur ohne neue Tabellen.
+  useEffect(() => {
+    let verworfen = false;
+    api
+      .getBackupTables()
+      .then((antwort) => {
+        const namen = (antwort?.tables || [])
+          .map((t) => t.name)
+          .filter(Boolean);
+        if (verworfen || namen.length === 0) return;
+        setTabellen(namen);
+        setExportSelected(namen);
+      })
+      .catch(() => {
+        /* Fallback-Liste bleibt; der Export funktioniert weiterhin. */
+      });
+    return () => {
+      verworfen = true;
     };
   }, []);
 
@@ -403,10 +437,14 @@ export default function Datensicherung() {
         .map((i) => i.name);
     }
 
-    // Keep only known tables in display order
-    const availableTables = ALL_TABLES.filter((t) => tableKeys.includes(t.key));
+    // Alles anbieten, was in der Datei steht – in der Reihenfolge des Schemas,
+    // Unbekanntes hinten. Das Backend prüft die Namen ohnehin gegen den
+    // Katalog und benennt in `ignorierteTabellen`, was es nicht kennt.
+    const bekannt = tabellen.filter((t) => tableKeys.includes(t));
+    const unbekannt = tableKeys.filter((t) => !tabellen.includes(t)).sort();
+    const availableTables = alsAuswahl([...bekannt, ...unbekannt]);
     if (availableTables.length === 0) {
-      setImportError("Keine bekannten Tabellen in der Backup-Datei gefunden.");
+      setImportError("Keine Tabellen in der Backup-Datei gefunden.");
       return;
     }
 
@@ -591,7 +629,7 @@ export default function Datensicherung() {
             werden.
           </p>
           <TableCheckboxList
-            tables={ALL_TABLES}
+            tables={alsAuswahl(tabellen)}
             selected={exportSelected}
             onChange={setExportSelected}
             disabled={exporting}
@@ -724,7 +762,7 @@ export default function Datensicherung() {
                   Importiert:{" "}
                   {[
                     ...Object.entries(importResult.counts || {}).map(
-                      ([t, n]) => `${n} ${TABLE_LABELS[t] ?? t}`,
+                      ([t, n]) => `${n} ${beschriftung(t)}`,
                     ),
                     importResult.uploads
                       ? `${importResult.uploads.restored} Upload-Bilder`
@@ -736,6 +774,33 @@ export default function Datensicherung() {
                     ` (${importResult.uploads.skipped} übersprungen)`}
                 </div>
               )}
+              {importResult?.kaskadierteTabellen?.length > 0 && (
+                <div className="badge warning datensicherung-meldung">
+                  <FontAwesomeIcon icon={faExclamationTriangle} /> Zusätzlich
+                  geleert (Fremdschlüssel zeigen auf die importierten
+                  Tabellen):{" "}
+                  {importResult.kaskadierteTabellen
+                    .map((t) => beschriftung(t))
+                    .join(", ")}
+                </div>
+              )}
+              {importResult?.ignorierteTabellen?.length > 0 && (
+                <div className="badge warning datensicherung-meldung">
+                  <FontAwesomeIcon icon={faExclamationTriangle} /> Im Backup
+                  enthalten, im aktuellen Schema unbekannt – nicht importiert:{" "}
+                  {importResult.ignorierteTabellen.join(", ")}
+                </div>
+              )}
+              {importResult?.auditKette &&
+                !importResult.auditKette.gueltig && (
+                  <div className="badge warning datensicherung-meldung">
+                    <FontAwesomeIcon icon={faExclamationTriangle} /> Die
+                    Hash-Kette des importierten Audit-Logs ist nicht
+                    durchgehend (
+                    {importResult.auditKette.kaputteEintraege.length} Einträge).
+                    Bei einem Teil-Import des Audit-Logs ist das zu erwarten.
+                  </div>
+                )}
               {importError && (
                 <div
                   className="badge danger"

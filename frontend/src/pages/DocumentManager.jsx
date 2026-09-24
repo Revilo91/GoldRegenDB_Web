@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DataTable from "../components/DataTable";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import { formatEur } from "../utils/zahlen";
+import { useToast } from "../components/Toast";
 
 export default function DocumentManager({
   type,
@@ -12,6 +14,7 @@ export default function DocumentManager({
   pieceSelectMode = "all",
   eRechnungFormate = [], // nur Rechnungen: [{ format, label, dateiSuffix, endung }]
 }) {
+  const toast = useToast();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
@@ -29,11 +32,11 @@ export default function DocumentManager({
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
   const [artikelnummerInput, setArtikelnummerInput] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "Datum",
-    direction: "desc",
-  });
+  // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
+  // also schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "Datum", direction: "desc" };
   const [groupByKunde, setGroupByKunde] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
 
@@ -41,20 +44,21 @@ export default function DocumentManager({
   const openEditDraft = async (doc) => {
     try {
       const d = await api.getDetail(doc.ID);
-      setForm({
+      const neuesForm = {
         Nummer: d.Nummer,
         Kundennummer: d.Kundennummer,
         Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
         rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
         rabatt_positionen: d.rabatt_positionen || {},
-      });
+      };
+      setForm(neuesForm);
       setPieceSearch("");
       setArtikelnummerInput("");
       setEditing(doc.ID); // Edit mode with document ID
       setDetail(null); // Close detail modal
-      await loadAvailablePieces();
+      await loadAvailablePieces(neuesForm, doc.ID);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -76,7 +80,7 @@ export default function DocumentManager({
       setDetail(null);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -86,21 +90,21 @@ export default function DocumentManager({
     api
       .getList()
       .then(setData)
-      .catch((err) => alert("Fehler beim Laden der Dokumente: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden der Dokumente: " + err.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
-  }, []);
+    api.getKunden().then(setKunden).catch((err) => toast.fehler("Fehler beim Laden der Kunden: " + err.message));
+  }, [toast]);
 
   const openDetail = async (id) => {
     try {
       const d = await api.getDetail(id);
       setDetail(d);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -111,7 +115,7 @@ export default function DocumentManager({
       setDetail(null);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -132,7 +136,7 @@ export default function DocumentManager({
     } catch (err) {
       // E-Rechnung: Backend liefert bei fehlenden Pflichtangaben eine Liste (422)
       const fehler = err.payload?.fehler;
-      alert(
+      toast.fehler(
         Array.isArray(fehler) && fehler.length > 0
           ? `${err.payload.error}\n\n${fehler.map((f) => `• ${f.meldung} (${f.bt})`).join("\n")}`
           : err.message,
@@ -146,14 +150,25 @@ export default function DocumentManager({
   const handleERechnungExport = (id, nummer, f) =>
     downloadDatei(() => api.exportERechnung(id, f.format), `${dateiBasis(id, nummer)}_${f.dateiSuffix}.${f.endung}`);
 
-  // Stückauswahl laden (unterschiedlich je nach Dokumenttyp)
-  const loadAvailablePieces = async () => {
+  // Stückauswahl laden (unterschiedlich je nach Dokumenttyp).
+  //
+  // Form und Editing-Zustand werden übergeben, nicht aus der Closure gelesen:
+  // openNew und openEditDraft rufen setForm/setEditing und direkt danach diese
+  // Funktion auf. Aus der Closure kam dann noch der ALTE Zustand, für
+  // Rechnungen also `{ ausgelagert: "" }`. Das ging als `ausgelagert=` ans
+  // Backend, wo builder.equals("Ausgelagert", parseInt("")) einen NaN-Parameter
+  // erzeugte – Postgres antwortete mit "invalid input syntax for type integer"
+  // und der Nutzer sah einen 500er (Befund G5). Weil availablePieces danach
+  // leer blieb, zeigte der Kopf "Ausgewählte Schmuckstücke (n)" über einer
+  // leeren Tabelle, und Speichern schrieb die unsichtbaren Positionen trotzdem
+  // (Befund G6).
+  const loadAvailablePieces = async (formToUse = form, editingToUse = editing) => {
     try {
-      const resp = await api.getPieces(pieceFilter(form, editing));
+      const resp = await api.getPieces(pieceFilter(formToUse, editingToUse));
       setAvailablePieces(resp.data);
     } catch (err) {
       setAvailablePieces([]);
-      alert("Fehler beim Laden der verfügbaren Schmuckstücke: " + err.message);
+      toast.fehler("Fehler beim Laden der verfügbaren Schmuckstücke: " + err.message);
     }
   };
 
@@ -165,45 +180,61 @@ export default function DocumentManager({
         const response = await api.getNextNumber();
         nummer = String(response?.Nummer || "").trim();
       } catch (err) {
-        alert("Nächste Nummer konnte nicht abgerufen werden: " + err.message);
+        toast.fehler("Nächste Nummer konnte nicht abgerufen werden: " + err.message);
       }
     }
 
-    setForm({
+    const neuesForm = {
       Nummer: nummer,
       Kundennummer: "",
       Artikelnummern: [],
       rabatt_gesamt: 0,
       rabatt_positionen: {},
-    });
+    };
+    setForm(neuesForm);
     setPieceSearch("");
     setArtikelnummerInput("");
     setEditing("new");
-    loadAvailablePieces();
-  };
-
-  // Stückauswahl nach Kunde (nur für Rechnungen)
-  useEffect(() => {
-    if (
-      pieceSelectMode === "byKunde" &&
-      editing === "new" &&
-      form.Kundennummer
-    ) {
-      loadAvailablePieces();
-    } else if (
-      pieceSelectMode === "byKunde" &&
-      (!form.Kundennummer || editing !== "new")
-    ) {
+    // Nur im Modus "all" (Lieferschein) sofort laden. Bei "byKunde" (Rechnung)
+    // baut pieceFilter `ausgelagert: form.Kundennummer` – der ist hier noch
+    // leer, das ergäbe `ausgelagert=` und im Backend einen NaN-Parameter, also
+    // einen 500er direkt beim Öffnen des Dialogs. Sobald ein Kunde gewählt ist,
+    // lädt der useEffect unten nach. handleSave prüft genau so (Befund G5).
+    if (pieceSelectMode === "all") {
+      loadAvailablePieces(neuesForm, "new");
+    } else {
       setAvailablePieces([]);
     }
-    // Lieferschein: alle Stücke werden beim Öffnen geladen
+  };
+
+  // Stückauswahl nach Kunde (nur für Rechnungen).
+  //
+  // Die Bedingung war vorher `editing === "new"`, ein geöffneter Entwurf bekam
+  // damit nie eine Stückliste – seine ausgewählten Positionen blieben in der
+  // Tabelle unsichtbar, obwohl der Kopf sie zählte (Befund G5/G6). Jetzt lädt
+  // jeder Bearbeitungszustand nach, sobald ein Kunde gesetzt ist.
+  useEffect(() => {
+    if (pieceSelectMode !== "byKunde") {
+      // Lieferschein: alle Stücke werden beim Öffnen geladen
+      return;
+    }
+    if (editing && form.Kundennummer) {
+      loadAvailablePieces(form, editing);
+    } else {
+      setAvailablePieces([]);
+    }
   }, [form.Kundennummer, editing]);
 
   const handleSave = async (status = 'final') => {
     if (!form.Kundennummer) {
-      alert(labels.kundeRequired);
+      toast.fehler(labels.kundeRequired);
       return;
     }
+    // Die Nummer wurde vorher per getNextNumber geholt. Ohne diese Sperre
+    // erzeugte ein Doppelklick zwei Dokumente mit identischer Nummer bzw. eine
+    // Primary-Key-Verletzung (Befund G4).
+    if (saving) return;
+    setSaving(true);
     try {
       if (editing === 'new') {
         await api.createItem({ ...form, status });
@@ -216,7 +247,9 @@ export default function DocumentManager({
       load();
       if (pieceSelectMode === "all") loadAvailablePieces();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -243,7 +276,7 @@ export default function DocumentManager({
       (p) => p.Artikelnummer.toUpperCase() === nr.toUpperCase(),
     );
     if (!piece) {
-      alert(labels.pieceNotFound(nr));
+      toast.fehler(labels.pieceNotFound(nr));
       return;
     }
     if (!form.Artikelnummern.includes(piece.Artikelnummer)) {
@@ -309,18 +342,12 @@ export default function DocumentManager({
     return sortableData;
   }, [filteredData, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  // requestSort/getSortIcon waren nie verdrahtet – kein Header rief sie auf.
+  // Dadurch wird setSortConfig nirgends aufgerufen und die Sortierung unten
+  // steht dauerhaft auf ihrem Anfangswert; DataTable sortiert danach ohnehin
+  // ein zweites Mal clientseitig (Befund G14). Die tote Implementierung ist
+  // entfernt, das eingefrorene useMemo bleibt vorerst, weil es die
+  // Anfangsreihenfolge der Liste bestimmt.
 
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);
@@ -647,38 +674,22 @@ export default function DocumentManager({
                     Aufteilung (Netto nach Provision):
                   </label>
                   {(() => {
-                    const totalBrutto = detail.schmuckstuecke.reduce(
-                      (sum, s) => sum + (Number(s.Verkaufspreis) || 0),
-                      0,
-                    );
+                    // Befund G7: diese Zahlen wurden hier aus rohen Preisen
+                    // summiert -- ohne Positions- und Gesamtrabatt. Bei 20 %
+                    // Rabatt stand im Modal ein um 20 % zu hoher
+                    // Auszahlungsbetrag je Herstellerin, und genau danach wird
+                    // abgerechnet. Sie kommen jetzt aus SQL (utils/rabatt.js),
+                    // in derselben Reihenfolge wie auf dem Beleg.
+                    const summen = detail.summen || {};
                     const provisionPercent = Number(detail.Provision) || 0;
-                    const provisionValue =
-                      totalBrutto * (provisionPercent / 100);
-                    const totalNetto = totalBrutto - provisionValue;
-
-                    const marinaBrutto = detail.schmuckstuecke
-                      .filter((s) =>
-                        s.Artikelnummer?.toUpperCase().startsWith("M"),
-                      )
-                      .reduce(
-                        (sum, s) =>
-                          sum + (Number(s.Verkaufspreis) || 0),
-                        0,
-                      );
-                    const saskiaBrutto = detail.schmuckstuecke
-                      .filter((s) =>
-                        s.Artikelnummer?.toUpperCase().startsWith("S"),
-                      )
-                      .reduce(
-                        (sum, s) =>
-                          sum + (Number(s.Verkaufspreis) || 0),
-                        0,
-                      );
-
-                    const marinaNetto =
-                      marinaBrutto * (1 - provisionPercent / 100);
-                    const saskiaNetto =
-                      saskiaBrutto * (1 - provisionPercent / 100);
+                    const totalBrutto = Number(summen.summe_nach_rabatt) || 0;
+                    const provisionValue = Number(summen.provision_betrag) || 0;
+                    const totalNetto = Number(summen.ueberweisungsbetrag) || 0;
+                    const marinaBrutto = Number(summen.marina_brutto) || 0;
+                    const saskiaBrutto = Number(summen.saskia_brutto) || 0;
+                    const marinaNetto = Number(summen.marina_netto) || 0;
+                    const saskiaNetto = Number(summen.saskia_netto) || 0;
+                    const rabattGesamt = Number(summen.rabatt_gesamt) || 0;
 
                     return (
                       <div
@@ -698,8 +709,13 @@ export default function DocumentManager({
                               justifyContent: "space-between",
                               marginBottom: "4px",
                             }}>
-                            <span>Gesamtwert (brutto):</span>
-                            <strong>{totalBrutto.toFixed(2)} €</strong>
+                            {/* Dieselbe Bezeichnung wie auf dem Beleg, damit
+                                Modal und Rechnung nicht zwei Namen fuer
+                                dieselbe Zahl fuehren (Befund G7). */}
+                            <span>
+                              {rabattGesamt > 0 ? "Summe nach Rabatt:" : "Gesamtwert:"}
+                            </span>
+                            <strong>{formatEur(totalBrutto)}</strong>
                           </div>
                           {provisionPercent > 0 && (
                             <>
@@ -711,9 +727,7 @@ export default function DocumentManager({
                                   color: "#d9534f",
                                 }}>
                                 <span>Provision ({provisionPercent}%):</span>
-                                <strong>
-                                  -{provisionValue.toFixed(2)} €
-                                </strong>
+                                <strong>-{formatEur(provisionValue)}</strong>
                               </div>
                               <div
                                 style={{
@@ -721,8 +735,8 @@ export default function DocumentManager({
                                   justifyContent: "space-between",
                                   fontWeight: "600",
                                 }}>
-                                <span>Gesamtwert (netto):</span>
-                                <strong>{totalNetto.toFixed(2)} €</strong>
+                                <span>Überweisungsbetrag:</span>
+                                <strong>{formatEur(totalNetto)}</strong>
                               </div>
                             </>
                           )}
@@ -738,28 +752,28 @@ export default function DocumentManager({
                           {marinaBrutto > 0 && (
                             <div>
                               <strong>Marina:</strong>{" "}
-                              {marinaNetto.toFixed(2)} €
+                              {formatEur(marinaNetto)}
                               <span
                                 style={{
                                   fontSize: "0.9em",
                                   color: "#999",
                                   marginLeft: "4px",
                                 }}>
-                                ({marinaBrutto.toFixed(2)} brutto)
+                                ({formatEur(marinaBrutto)} brutto)
                               </span>
                             </div>
                           )}
                           {saskiaBrutto > 0 && (
                             <div>
                               <strong>Saskia:</strong>{" "}
-                              {saskiaNetto.toFixed(2)} €
+                              {formatEur(saskiaNetto)}
                               <span
                                 style={{
                                   fontSize: "0.9em",
                                   color: "#999",
                                   marginLeft: "4px",
                                 }}>
-                                ({saskiaBrutto.toFixed(2)} brutto)
+                                ({formatEur(saskiaBrutto)} brutto)
                               </span>
                             </div>
                           )}
@@ -814,14 +828,14 @@ export default function DocumentManager({
                               {itemRabatt > 0 ? (
                                 <span>
                                   <span className="schmuck-item-row-price-original">
-                                    {Number(s.Verkaufspreis).toFixed(0)}€
+                                    {formatEur(s.Verkaufspreis)}
                                   </span>
                                   <span className="schmuck-item-row-price">
-                                    {(Number(s.Verkaufspreis) * (1 - itemRabatt / 100)).toFixed(0)}€
+                                    {formatEur(Number(s.Verkaufspreis) * (1 - itemRabatt / 100))}
                                   </span>
                                 </span>
                               ) : (
-                                `${Number(s.Verkaufspreis).toFixed(0)}€`
+                                formatEur(s.Verkaufspreis)
                               )}
                             </td>
                             {type === "rechnung" && (
@@ -935,7 +949,7 @@ export default function DocumentManager({
                             key: "Verkaufspreis",
                             label: "Preis",
                             sortable: true,
-                            render: (p) => `${p.Verkaufspreis}€`,
+                            render: (p) => formatEur(p.Verkaufspreis),
                           },
                         ]}
                         onRowClick={(p) => togglePiece(p.Artikelnummer)}
@@ -1014,7 +1028,7 @@ export default function DocumentManager({
                               <tr key={nr}>
                                 <td>{piece.Artikelnummer}</td>
                                 <td>{piece.Art}</td>
-                                <td>{piece.Verkaufspreis}€</td>
+                                <td>{formatEur(piece.Verkaufspreis)}</td>
                                 {type === "rechnung" && (
                                   <td>
                                     <input
@@ -1085,12 +1099,16 @@ export default function DocumentManager({
               </button>
               <button
                 className="btn btn-secondary"
+                disabled={saving}
                 onClick={() => handleSave('entwurf')}
                 style={{ marginLeft: 'auto' }}>
-                Als Entwurf speichern
+                {saving ? 'Speichert…' : 'Als Entwurf speichern'}
               </button>
-              <button className="btn btn-primary" onClick={() => handleSave('final')}>
-                Speichern &amp; Abschließen
+              <button
+                className="btn btn-primary"
+                disabled={saving}
+                onClick={() => handleSave('final')}>
+                {saving ? 'Speichert…' : 'Speichern & Abschließen'}
               </button>
             </div>
           </div>

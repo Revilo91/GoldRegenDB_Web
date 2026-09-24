@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../config/db");
 const logger = require("../utils/logger");
 const { where } = require("../utils/whereClauseBuilder");
+const { preisNachAllenRabattenSql } = require("../utils/rabatt");
 
 /**
  * @swagger
@@ -39,66 +40,41 @@ const { where } = require("../utils/whereClauseBuilder");
  */
 router.get("/", async (req, res) => {
   try {
-    const tenantId = req.user?.tenant_id ?? null;
+    // Befund C18: der Umsatz ignorierte rabatt_gesamt und rabatt_positionen,
+    // obwohl der Beleg sie abzieht -- Dashboard- und Monatsumsatz waren bei
+    // jedem Rabatt zu hoch. Die Formel kommt aus utils/rabatt.js, derselben
+    // Quelle wie fuer den Beleg. Verkaufte Stuecke ohne Rechnung
+    // (Rechnung_ID = 0) bekommen ueber den LEFT JOIN keinen Rabatt.
+    //
+    // Die Umsatzabfragen brauchen dafuer einen Tabellenalias, also tragen auch
+    // ihre Statusbedingungen einen.
+    const umsatzAusdruck = preisNachAllenRabattenSql('s', 'r');
+    const mitAlias = () => where(1, { alias: 's' });
+    const soldConditionMitAlias = mitAlias().verkauft().buildConditions();
+    const outsourcedConditionMitAlias = mitAlias().aktivAusgelagert().buildConditions();
+    const rejectConditionMitAlias = mitAlias().ausschuss().buildConditions();
+    const inStockConditionMitAlias = mitAlias().verfuegbar().buildConditions();
 
-    const soldCondition = where().verkauft().buildConditions();
-    const outsourcedCondition = where().aktivAusgelagert().buildConditions();
-    const rejectCondition = where().ausschuss().buildConditions();
-    const inStockCondition = where().verfuegbar().buildConditions();
-
-    const schmuckStatsScopeBuilder = where(1, tenantId);
-    const schmuckStatsScope = schmuckStatsScopeBuilder.build();
-    const schmuckStatsParams = schmuckStatsScopeBuilder.getParams();
-
-    const kundenStatsScopeBuilder = where(
-      schmuckStatsScopeBuilder.getNextParamIdx(),
-      tenantId
-    );
-    const kundenStatsScope = kundenStatsScopeBuilder.build();
-    const kundenStatsParams = kundenStatsScopeBuilder.getParams();
-
-    const piecesByArtBuilder = where(1, tenantId);
+    const piecesByArtBuilder = where();
     piecesByArtBuilder.notEmpty("Art");
     const piecesByArtWhere = piecesByArtBuilder.build();
     const piecesByArtParams = piecesByArtBuilder.getParams();
 
-    const activeOutsourcedBuilder = where(1, tenantId);
+    const activeOutsourcedBuilder = where();
     activeOutsourcedBuilder.aktivAusgelagert();
     const activeOutsourcedWhere = activeOutsourcedBuilder.build();
+    const piecesByKundeParams = activeOutsourcedBuilder.getParams();
 
-    const kundenScopeBuilder = where(activeOutsourcedBuilder.getNextParamIdx(), tenantId);
-    const kundenScopeWhere = kundenScopeBuilder.build();
-    const piecesByKundeParams = [
-      ...activeOutsourcedBuilder.getParams(),
-      ...kundenScopeBuilder.getParams(),
-    ];
-
-    const soldWithInvoiceBuilder = where(1, tenantId);
+    const soldWithInvoiceBuilder = where();
     soldWithInvoiceBuilder.verkauft().mitRechnung();
     const soldWithInvoiceWhere = soldWithInvoiceBuilder.build();
-
-    const rechnungScopeBuilder = where(soldWithInvoiceBuilder.getNextParamIdx(), tenantId);
-    const rechnungScopeWhere = rechnungScopeBuilder.build();
-    const monthlyRevenueParams = [
-      ...soldWithInvoiceBuilder.getParams(),
-      ...rechnungScopeBuilder.getParams(),
-    ];
+    const monthlyRevenueParams = soldWithInvoiceBuilder.getParams();
 
     // Manufacturer-specific queries
-    const manufacturerStatsBuilder = where(1, tenantId);
-    const manufacturerStatsWhere = manufacturerStatsBuilder.build();
-    const manufacturerStatsParams = manufacturerStatsBuilder.getParams();
-
-    const manufacturerOutsourcedBuilder = where(1, tenantId);
+    const manufacturerOutsourcedBuilder = where();
     manufacturerOutsourcedBuilder.aktivAusgelagert();
     const manufacturerOutsourcedWhere = manufacturerOutsourcedBuilder.build();
-
-    const manufacturerKundenBuilder = where(manufacturerOutsourcedBuilder.getNextParamIdx(), tenantId);
-    const manufacturerKundenWhere = manufacturerKundenBuilder.build();
-    const manufacturerByKundeParams = [
-      ...manufacturerOutsourcedBuilder.getParams(),
-      ...manufacturerKundenBuilder.getParams(),
-    ];
+    const manufacturerByKundeParams = manufacturerOutsourcedBuilder.getParams();
 
     const [statisticsResult, recentChangesResult, piecesByArtResult, piecesByKundeResult, monthlyRevenueTrendResult, manufacturerStatsResult, manufacturerByKundeResult] =
       await Promise.all([
@@ -117,24 +93,27 @@ router.get("/", async (req, res) => {
           FROM (
             SELECT
               COUNT(*)::INT AS "totalPieces",
-              COUNT(*) FILTER (WHERE ${soldCondition})::INT AS "soldPieces",
-              COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS "outsourcedPieces",
-              COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS "rejectPieces",
-              COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS "inStockPieces",
-              COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS "totalRevenue",
-              COALESCE(SUM("Herstellungskosten"), 0)::DOUBLE PRECISION AS "totalCost"
-            FROM "Schmuckstück"
-            ${schmuckStatsScope}
+              COUNT(*) FILTER (WHERE ${soldConditionMitAlias})::INT AS "soldPieces",
+              COUNT(*) FILTER (WHERE ${outsourcedConditionMitAlias})::INT AS "outsourcedPieces",
+              COUNT(*) FILTER (WHERE ${rejectConditionMitAlias})::INT AS "rejectPieces",
+              COUNT(*) FILTER (WHERE ${inStockConditionMitAlias})::INT AS "inStockPieces",
+              -- Kein ::DOUBLE PRECISION mehr (Befund B1): die Spalte ist
+              -- numeric(10,2), der Cast haette die Exaktheit wieder
+              -- weggeworfen. pg liefert numeric als String, formatEur im
+              -- Frontend wandelt erst an der Anzeigekante.
+              round(COALESCE(SUM(${umsatzAusdruck})
+                FILTER (WHERE ${soldConditionMitAlias}), 0), 2) AS "totalRevenue",
+              COALESCE(SUM(s."Herstellungskosten"), 0) AS "totalCost"
+            FROM "Schmuckstück" s
+            LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
           ) s
           CROSS JOIN (
             SELECT
               COUNT(*)::INT AS "totalCustomers",
               COUNT(*) FILTER (WHERE "Aktiv" = true)::INT AS "activeCustomers"
             FROM "Kunde"
-            ${kundenStatsScope}
           ) k
-        `,
-          [...schmuckStatsParams, ...kundenStatsParams]
+        `
         ),
         db.query(`
           SELECT *
@@ -162,7 +141,6 @@ router.get("/", async (req, res) => {
             ${activeOutsourcedWhere}
           ) s
           JOIN "Kunde" k ON s."Ausgelagert" = k."ID"
-          ${kundenScopeWhere}
           GROUP BY k."Name"
           ORDER BY count DESC
         `,
@@ -172,14 +150,12 @@ router.get("/", async (req, res) => {
           `
           SELECT
             TO_CHAR(r."Datum", 'YYYY-MM') AS monat,
-            COALESCE(
-              SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'M'),
-              0
-            )::DOUBLE PRECISION AS "marinaUmsatz",
-            COALESCE(
-              SUM(s."Verkaufspreis") FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'S'),
-              0
-            )::DOUBLE PRECISION AS "saskiaUmsatz"
+            round(COALESCE(
+              SUM(${umsatzAusdruck}) FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'M'),
+              0), 2) AS "marinaUmsatz",
+            round(COALESCE(
+              SUM(${umsatzAusdruck}) FILTER (WHERE LEFT(s."Artikelnummer", 1) = 'S'),
+              0), 2) AS "saskiaUmsatz"
           FROM (
             SELECT "Rechnung_ID", "Verkaufspreis", "Artikelnummer"
             FROM "Schmuckstück"
@@ -187,7 +163,6 @@ router.get("/", async (req, res) => {
             AND LEFT("Artikelnummer", 1) IN ('M', 'S')
           ) s
           JOIN "Rechnung" r ON s."Rechnung_ID" = r."ID"
-          ${rechnungScopeWhere}
           GROUP BY monat
           ORDER BY monat
         `,
@@ -197,20 +172,20 @@ router.get("/", async (req, res) => {
         db.query(
           `
           SELECT
-            LEFT("Artikelnummer", 1) AS hersteller,
+            LEFT(s."Artikelnummer", 1) AS hersteller,
             COUNT(*)::INT AS total,
-            COUNT(*) FILTER (WHERE ${soldCondition})::INT AS verkauft,
-            COUNT(*) FILTER (WHERE ${outsourcedCondition})::INT AS ausgelagert,
-            COUNT(*) FILTER (WHERE ${inStockCondition})::INT AS verfuegbar,
-            COUNT(*) FILTER (WHERE ${rejectCondition})::INT AS ausschuss,
-            COALESCE(SUM("Verkaufspreis") FILTER (WHERE ${soldCondition}), 0)::DOUBLE PRECISION AS umsatz
-          FROM "Schmuckstück"
-          ${manufacturerStatsWhere}
-          WHERE LEFT("Artikelnummer", 1) IN ('M', 'S')
-          GROUP BY LEFT("Artikelnummer", 1)
+            COUNT(*) FILTER (WHERE ${soldConditionMitAlias})::INT AS verkauft,
+            COUNT(*) FILTER (WHERE ${outsourcedConditionMitAlias})::INT AS ausgelagert,
+            COUNT(*) FILTER (WHERE ${inStockConditionMitAlias})::INT AS verfuegbar,
+            COUNT(*) FILTER (WHERE ${rejectConditionMitAlias})::INT AS ausschuss,
+            round(COALESCE(SUM(${umsatzAusdruck})
+              FILTER (WHERE ${soldConditionMitAlias}), 0), 2) AS umsatz
+          FROM "Schmuckstück" s
+          LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
+          WHERE LEFT(s."Artikelnummer", 1) IN ('M', 'S')
+          GROUP BY LEFT(s."Artikelnummer", 1)
           ORDER BY hersteller
-        `,
-          manufacturerStatsParams
+        `
         ),
         // Outsourced pieces by manufacturer and customer
         db.query(
@@ -226,7 +201,6 @@ router.get("/", async (req, res) => {
             AND LEFT("Artikelnummer", 1) IN ('M', 'S')
           ) s
           JOIN "Kunde" k ON s."Ausgelagert" = k."ID"
-          ${manufacturerKundenWhere}
           GROUP BY LEFT(s."Artikelnummer", 1), k."Name"
           ORDER BY hersteller, anzahl DESC
         `,

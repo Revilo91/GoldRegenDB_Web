@@ -26,6 +26,7 @@ jest.mock('../src/utils/excelService', () => ({
 const db = require('../src/config/db');
 const { requireBearbeiter } = require('../src/middleware/auth');
 const rechnungenRoutes = require('../src/routes/rechnungen');
+const { createTxClientMock, sqlVerlauf } = require('./helpers/txClientMock');
 
 function buildApp(role = 'bearbeiter') {
   const app = express();
@@ -80,15 +81,19 @@ describe('GET /api/rechnungen/next-number', () => {
 });
 
 describe('GET /api/rechnungen/:id', () => {
-  it('liefert Rechnung inkl. zugeordneter Schmuckstücke', async () => {
+  it('liefert Rechnung inkl. Schmuckstücke und Summen', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] })
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001' }] });
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001' }] })
+      // Befund G7: die Auszahlungsaufteilung kommt jetzt aus SQL statt aus
+      // roh summierten Preisen im Frontend.
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '40.00', marina_brutto: '40.00', saskia_brutto: '0.00' }] });
 
     const res = await request(buildApp()).get('/api/rechnungen/1');
 
     expect(res.statusCode).toBe(200);
     expect(res.body.schmuckstuecke).toHaveLength(1);
+    expect(res.body.summen).toMatchObject({ gesamtwert: '40.00', marina_brutto: '40.00' });
   });
 
   it('meldet 404 bei unbekannter ID', async () => {
@@ -104,7 +109,8 @@ describe('GET /api/rechnungen/:id/excel', () => {
   it('liefert eine XLSX-Datei', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '0.00' }] }); // rechnungsSummen
 
     const res = await request(buildApp()).get('/api/rechnungen/1/excel');
 
@@ -179,55 +185,113 @@ describe('POST /api/rechnungen', () => {
 });
 
 describe('PUT /api/rechnungen/:id', () => {
-  it('aktualisiert eine bestehende Rechnung', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] })
-      .mockResolvedValueOnce({ rowCount: 0 });
+  it('aktualisiert eine bestehende Rechnung und committet', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp())
       .put('/api/rechnungen/1')
       .send({ Nummer: '2026-001', Kundennummer: 1 });
 
     expect(res.statusCode).toBe(200);
+    expect(sqlVerlauf(client)).toContain('COMMIT');
+    expect(client.release).toHaveBeenCalled();
   });
 
-  it('meldet 404 bei unbekannter ID', async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
+  it('meldet 404 bei unbekannter ID und rollt zurück', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp())
       .put('/api/rechnungen/999')
       .send({ Nummer: '2026-001', Kundennummer: 1 });
 
     expect(res.statusCode).toBe(404);
+    expect(sqlVerlauf(client)).toContain('ROLLBACK');
+    expect(sqlVerlauf(client)).not.toContain('COMMIT');
+  });
+
+  // Befund C2: ohne Transaktion blieben nach diesem Fehler alle Positionen
+  // einer finalen Rechnung auf Verkauft = 0 – der Umsatz war weg und die
+  // Stücke konnten doppelt verkauft werden.
+  it('rollt den Kopf-Update zurück, wenn das Neusetzen der Positionen scheitert', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'final' }] } },
+      fehlerBei: '"Verkauft" = TRUE',
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .put('/api/rechnungen/1')
+      .send({ Nummer: '2026-001', Kundennummer: 1, Artikelnummern: ['MHO001'], status: 'final' });
+
+    expect(res.statusCode).toBe(500);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf).toContain('BEGIN');
+    expect(verlauf).toContain('ROLLBACK');
+    expect(verlauf).not.toContain('COMMIT');
+    expect(client.release).toHaveBeenCalled();
   });
 });
 
 describe('DELETE /api/rechnungen/:id', () => {
-  it('löscht eine bestehende Rechnung', async () => {
-    db.query
-      .mockResolvedValueOnce({ rowCount: 0 })
-      .mockResolvedValueOnce({ rowCount: 1 });
+  it('löscht eine bestehende Rechnung und committet', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'SELECT "ID" FROM "Rechnung"': { rows: [{ ID: 1 }], rowCount: 1 } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp()).delete('/api/rechnungen/1');
 
     expect(res.statusCode).toBe(200);
+    expect(sqlVerlauf(client)).toContain('COMMIT');
   });
 
-  it('meldet 404 bei unbekannter ID', async () => {
-    db.query
-      .mockResolvedValueOnce({ rowCount: 0 })
-      .mockResolvedValueOnce({ rowCount: 0 });
+  // Befund C3: vorher wurden die Positionen zurückgesetzt und danach 404
+  // geliefert – der Reset blieb bestehen.
+  it('setzt bei unbekannter ID keine Positionen zurück (404)', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'SELECT "ID" FROM "Rechnung"': { rows: [], rowCount: 0 } },
+    });
+    db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp()).delete('/api/rechnungen/999');
 
     expect(res.statusCode).toBe(404);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((sql) => sql.includes('UPDATE "Schmuckstück"'))).toBe(false);
+    expect(verlauf).toContain('ROLLBACK');
+  });
+
+  // Befund C3, konkretes Szenario: bestellung.rechnung_nummer verweist noch
+  // auf die Rechnung. Vorher standen danach alle Positionen auf Verkauft = 0,
+  // die Rechnung existierte weiter und der Nutzer bekam ein nacktes 500.
+  it('rollt den Reset zurück und meldet 409, wenn die Rechnung noch verknüpft ist', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'SELECT "ID" FROM "Rechnung"': { rows: [{ ID: 42 }], rowCount: 1 } },
+      fehlerBei: 'DELETE FROM "Rechnung"',
+      fehler: Object.assign(new Error('violates foreign key constraint'), { code: '23503' }),
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp()).delete('/api/rechnungen/42');
+
+    expect(res.statusCode).toBe(409);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((sql) => sql.includes('UPDATE "Schmuckstück"'))).toBe(true);
+    expect(verlauf).toContain('ROLLBACK');
+    expect(verlauf).not.toContain('COMMIT');
   });
 
   it('lehnt den Zugriff mit Rolle user ab (403)', async () => {
     const res = await request(buildApp('user')).delete('/api/rechnungen/1');
 
     expect(res.statusCode).toBe(403);
-    expect(db.query).not.toHaveBeenCalled();
+    expect(db.connect).not.toHaveBeenCalled();
   });
 });
 

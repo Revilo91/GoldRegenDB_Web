@@ -34,12 +34,15 @@ jobs:
         working-directory: backend
         run: npm run typecheck
 
-      - name: Tests ausführen
+      # --coverage ist nicht kosmetisch: backend/package.json definiert
+      # coverageThreshold (branches 31, functions 42, lines/statements 36),
+      # ohne das Flag wurde die Schwelle nie ausgewertet (Befund E5).
+      - name: Tests mit Coverage ausführen
         working-directory: backend
         env:
           JWT_SECRET: test-secret-ci
           BESTELLUNG_ENCRYPTION_KEY: b3ae96f21e2f1ca8b65351153ccb3d8f0a1aa9b495c91b11530467d34c2e9336
-        run: npm test
+        run: npm test -- --coverage
 
   frontend-tests:
     name: Frontend Tests (Vitest)

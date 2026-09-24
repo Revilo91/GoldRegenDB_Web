@@ -71,7 +71,10 @@ services:
       - "3000:5173"
       - "3001:${PORT}"
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:3001/api/health >/dev/null 2>&1 || exit 1"]
+      # -f ist hier wesentlich: ohne das Flag liefert curl auch bei HTTP 503
+      # Exit 0, und /api/health antwortet mit 503, solange die Schema-Migration
+      # läuft oder gescheitert ist (Befund A3).
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3001/api/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

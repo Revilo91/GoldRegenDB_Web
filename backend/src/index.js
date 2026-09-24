@@ -163,8 +163,18 @@ app.use('/api/public/bestellung', publicOrderLimiter, bestellungPublicRoutes);
 // entscheidend ist, dass fremde Seiten es nicht auslesen können)
 app.get('/api/csrf-token', csrfTokenHandler);
 
-// Health check (public) – includes database connectivity test
+// Health check (public) – prüft Datenbankverbindung UND Schemastand.
+// Ohne die Schema-Prüfung meldet der Endpunkt "ok", während die Migrationen noch
+// laufen oder gescheitert sind (Befund A3) – Orchestrierer und Compose-
+// Healthchecks hielten ein kaputtes Backend dann für gesund.
 app.get('/api/health', async (req, res) => {
+  if (!db.isSchemaReady()) {
+    return res.status(503).json({
+      status: 'starting',
+      database: 'schema_not_ready',
+      timestamp: new Date().toISOString(),
+    });
+  }
   try {
     await db.query('SELECT 1 AS ok');
     res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
@@ -237,7 +247,38 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: 'Interner Serverfehler' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  logger.info('SERVER', `GoldRegenDB Backend läuft auf Port ${PORT}`);
-  logger.info('SERVER', '=== Backend bereit ===');
-});
+// Erst migrieren, dann lauschen. Vorher lief die Migrationskette als frei
+// laufendes Promise und app.listen() startete sofort – die ersten Requests
+// trafen dann ein Schema, dem noch Spalten fehlten (Befund A1). Scheitert das
+// Schema, ist das ein Startfehler und kein Logeintrag (Befund A2).
+db.initializeDatabase()
+  .then(() => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      logger.info('SERVER', `GoldRegenDB Backend läuft auf Port ${PORT}`);
+      logger.info('SERVER', '=== Backend bereit ===');
+    });
+
+    // Ohne Signal-Handler reisst `docker stop` laufende Requests ab und der
+    // Pool wird nie geschlossen (Befund A6).
+    const shutdown = (signal) => {
+      logger.info('SERVER', `${signal} empfangen – Backend wird beendet`);
+      server.close(async () => {
+        try {
+          await db.pool.end();
+          logger.info('SERVER', 'Datenbank-Pool geschlossen');
+        } catch (err) {
+          logger.error('SERVER', 'Fehler beim Schließen des Pools', { message: err.message });
+        }
+        process.exit(0);
+      });
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+  })
+  .catch((err) => {
+    logger.error('SERVER', 'FATAL: Datenbankschema konnte nicht hergestellt werden – Start abgebrochen.', {
+      message: err.message,
+      code: err.code,
+    });
+    process.exit(1);
+  });

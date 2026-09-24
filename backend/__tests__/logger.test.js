@@ -110,6 +110,18 @@ describe('logger', () => {
       expect(typeof entry.hostname).toBe('string');
     });
 
+    it('ein message-Feld im Meta überschreibt die Meldung nicht', () => {
+      process.env.LOG_FORMAT = 'json';
+      logger.error('DB', 'Fehler beim Verifizieren der Kunde Tabelle', {
+        message: 'syntax error at or near "!!"',
+        code: '42601',
+      });
+      const entry = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      expect(entry.message).toBe('Fehler beim Verifizieren der Kunde Tabelle');
+      expect(entry.detail).toBe('syntax error at or near "!!"');
+      expect(entry.code).toBe('42601');
+    });
+
     it('NODE_ENV=production wählt JSON ohne explizites LOG_FORMAT', () => {
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';

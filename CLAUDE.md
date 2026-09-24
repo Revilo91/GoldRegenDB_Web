@@ -107,6 +107,11 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
   öffentliches Bestellformular) – dort mit echten Limits, kein "10000 = praktisch
   unbegrenzt". Die angemeldete Anwendung bleibt bewusst ungedrosselt: die
   Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
+- **Kein `alert()`:** Fehler und Erfolgsmeldungen laufen über `useToast()` aus
+  `frontend/src/components/Toast.jsx`. `alert()` blockiert den Tab, und zwei
+  Fehler kurz hintereinander ergaben zwei Dialoge zum Wegklicken. ESLint
+  erzwingt das per `no-restricted-globals` — `confirm()` bleibt für
+  Löschabfragen erlaubt
 - **No JSDoc boilerplate:** Describe props via code comments inline, not at-the-top blocks
 
 **Commit-Stil (bisect-freundlich):**
@@ -293,8 +298,24 @@ See `README.md` section "Synology NAS" for full step-by-step (copy release zip, 
 
 ## Cleanup Tasks Status
 
-**All remaining cleanup tasks have been successfully completed:**
-- **Debug logging cleanup**: Removed leftover debug logs and replaced unhandled `.catch(console.error)` calls with proper, user-friendly error dialogs and alerts in `Schmuckstuecke.jsx`, `Kunden.jsx`, `DocumentManager.jsx`, `AuditLog.jsx`, `Inventur.jsx`, and `SchmuckstueckModal.jsx`.
+**Fehlermeldungen im Frontend** (korrigierte Fassung): Hier stand, die
+unbehandelten `.catch(console.error)` seien „durch benutzerfreundliche
+Fehlerdialoge und Alerts" ersetzt. Das war **verfrüht** — zum Zeitpunkt der
+Aussage lagen in `Dashboard.jsx`, `Bestelluebersicht.jsx`,
+`SchmuckstueckDetail.jsx`, `Benutzerverwaltung.jsx` und `api.js` weiter
+verschluckte Fehler, und 68 `alert()` verteilt über 11 Dateien. Jetzt gilt:
+- Meldungen laufen über `useToast()` (`components/Toast.jsx`), nicht über
+  `alert()`; gleiche Meldungen werden zusammengefasst statt gestapelt.
+- Die fünf verschluckten Fehler führen ihre Meldung mit: `Dashboard.jsx` zeigt
+  sie an, `Bestelluebersicht.jsx` setzt `fotoError`, `SchmuckstueckDetail.jsx`
+  und `Benutzerverwaltung.jsx` melden per Toast, und `api.js` lässt einen
+  fehlgeschlagenen CSRF-Token-Abruf laut scheitern statt alle folgenden
+  Schreibzugriffe stumm in einen 403 laufen zu lassen.
+- Die Schmuckstückliste entprellt ihre Suche (250 ms) und bricht überholte
+  Requests per `AbortController` ab — vorher überschrieb eine späte Antwort
+  die neueren Treffer.
+
+**Weitere abgeschlossene Aufräumarbeiten:**
 - **Shrinking excelService.js**: Extracted formatting utility `formatCell()` and sheet-creating helper `addInventurSheet()`. Saved 80+ lines of duplicate styles.
 - **Merging photo resolution logic**: Consolidated `findPhotoForArtikel()` and `resolvePhotoFile()` into a single, unified `resolvePhotoFile(identifier)` function in `schmuckstuecke.js` route, reducing duplication by 40+ lines.
 

@@ -1,4 +1,3 @@
-import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faUser,
@@ -36,7 +35,7 @@ export default function Lieferscheine() {
         deleteConfirm: "Lieferschein wirklich löschen?",
         excelFilePrefix: "Lieferschein",
         kundeRequired: "Bitte Kunde angeben.",
-        pieceNotFound: (nr) => `Artikelnummer \"${nr}\" nicht gefunden oder nicht verfügbar.`,
+        pieceNotFound: (nr) => `Artikelnummer "${nr}" nicht gefunden oder nicht verfügbar.`,
       }}
       pieceFilter={() => ({ ausgelagert: "0", verkauft: "0", ausschuss: "0", limit: -1 })}
       pieceSelectMode="all"

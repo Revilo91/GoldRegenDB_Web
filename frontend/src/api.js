@@ -28,10 +28,29 @@ async function ensureCsrfToken(erzwingen = false) {
     if (vorhanden) return vorhanden;
   }
   if (!csrfAnforderung) {
+    // Befund G20: hier stand `.catch(() => null)`. Schlug /csrf-token fehl,
+    // gingen alle folgenden POST/PUT/DELETE ohne Header raus und scheiterten
+    // mit 403 – die Ursache stand nur in der Konsole. Jetzt schlaegt der
+    // Aufruf laut fehl, und der Aufrufer sieht, woran es lag.
     csrfAnforderung = fetch(`${API_URL}/csrf-token`, { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : { csrfToken: null }))
-      .then(({ csrfToken }) => csrfToken)
-      .catch(() => null)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(
+            `CSRF-Token konnte nicht geholt werden (HTTP ${res.status}). ` +
+              'Schreibende Zugriffe sind damit nicht moeglich.',
+          );
+        }
+        return res.json();
+      })
+      .then(({ csrfToken }) => {
+        if (!csrfToken) {
+          throw new Error(
+            'Der Server hat kein CSRF-Token geliefert. Schreibende Zugriffe ' +
+              'sind damit nicht moeglich.',
+          );
+        }
+        return csrfToken;
+      })
       .finally(() => {
         csrfAnforderung = null;
       });
@@ -54,7 +73,10 @@ async function request(url, options = {}, frischesCsrfToken = null) {
   }
 
   try {
-    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', headers, ...options });
+    // Befund G25: `...options` stand hinter `headers` – sobald ein Aufrufer
+    // options.headers setzte, verwarf der Spread Content-Type UND
+    // X-CSRF-Token. Jetzt gewinnen die oben zusammengebauten Header.
+    const res = await fetch(`${API_URL}${url}`, { credentials: 'include', ...options, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       // Abgelaufenes oder fehlendes CSRF-Token: einmal neu holen und wiederholen
@@ -266,9 +288,11 @@ export const api = {
   restockKundeSelective: (id, artikelnummern) => request(`/kunden/${id}/restock-selective`, { method: 'PUT', body: JSON.stringify({ artikelnummern }) }),
 
   // Schmuckstücke
-  getSchmuckstuecke: (params) => {
+  // options nimmt { signal } auf, damit die Liste einen ueberholten Request
+  // abbrechen kann (Befund G8).
+  getSchmuckstuecke: (params, options = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return request(`/schmuckstuecke?${qs}`);
+    return request(`/schmuckstuecke?${qs}`, options);
   },
   getUniqueArtikelnummern: (params) => {
     const qs = params ? new URLSearchParams(params).toString() : '';
@@ -398,6 +422,7 @@ export const api = {
     request(`/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Datensicherung (Backup / Restore)
+  getBackupTables: () => request('/backup/tables'),
   exportBackup: (tables) => {
     const params = new URLSearchParams();
     if (tables && tables.length) {

@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { rendereMitToast } from './helpers/rendern';
 import React from 'react';
 import DocumentManager from '../pages/DocumentManager';
 
@@ -39,7 +40,7 @@ function buildApi(overrides = {}) {
 
 function renderManager(apiOverrides = {}, props = {}) {
   const api = buildApi(apiOverrides);
-  render(
+  rendereMitToast(
     <DocumentManager
       type="lieferschein"
       api={api}
@@ -60,7 +61,6 @@ const eRechnungFormate = [
 
 describe('DocumentManager', () => {
   beforeEach(() => {
-    vi.spyOn(window, 'alert').mockImplementation(() => {});
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -103,7 +103,8 @@ describe('DocumentManager', () => {
 
     fireEvent.click(screen.getByText('Speichern & Abschließen'));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(labels.kundeRequired));
+    // Frueher ein blockierendes alert(), jetzt ein Toast im Dokument (Befund G19).
+    expect(await screen.findByText(labels.kundeRequired)).toBeInTheDocument();
     expect(api.createItem).not.toHaveBeenCalled();
   });
 
@@ -132,7 +133,6 @@ describe('DocumentManager', () => {
   it('lädt eine E-Rechnung im gewählten Format herunter', async () => {
     window.URL.createObjectURL = vi.fn(() => 'blob:x');
     window.URL.revokeObjectURL = vi.fn();
-    window.alert.mockClear();
     const api = renderManager({ exportERechnung: vi.fn().mockResolvedValue(new Blob()) }, { eRechnungFormate });
     fireEvent.click(await screen.findByText('2026-001'));
 
@@ -140,7 +140,8 @@ describe('DocumentManager', () => {
 
     await waitFor(() => expect(api.exportERechnung).toHaveBeenCalledWith(1, 'zugferd'));
     await waitFor(() => expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:x'));
-    expect(window.alert).not.toHaveBeenCalled();
+    // Kein Fehler-Toast: der Download lief durch.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('listet fehlende Pflichtangaben verständlich auf', async () => {
@@ -155,8 +156,12 @@ describe('DocumentManager', () => {
 
     fireEvent.click(await screen.findByText('XRechnung (XML)'));
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith(
-      'E-Rechnung kann nicht erstellt werden: Pflichtangaben fehlen.\n\n• E-Mail-Adresse des Kunden fehlt. (BT-49)',
-    ));
+    // Seit Q14 als Toast statt als blockierendes alert(); der Text bleibt
+    // derselbe, die Zeilenumbrueche rendert das DOM als Leerzeichen.
+    const meldung = await screen.findByRole('alert');
+    expect(meldung).toHaveTextContent(
+      'E-Rechnung kann nicht erstellt werden: Pflichtangaben fehlen.',
+    );
+    expect(meldung).toHaveTextContent('E-Mail-Adresse des Kunden fehlt. (BT-49)');
   });
 });

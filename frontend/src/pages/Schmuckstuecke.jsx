@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { parseZahlOderNull, formatEur } from "../utils/zahlen";
+import { statusBadge, statusVon, STATUS, istWahr } from "../utils/status";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
   faHashtag,
-  faGem,
   faPen,
   faTrash,
   faPlus,
@@ -19,39 +20,14 @@ import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import TablePhoto from "../components/TablePhoto";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
+import { useToast } from "../components/Toast";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
   { code: "S", label: "Saskia" },
-];
-
-const GRUNDMATERIAL_OPTIONS = [
-  { code: "A", label: "Alkoholtinte" },
-  { code: "B", label: "Beton" },
-  { code: "C", label: "Cucio" },
-  { code: "E", label: "Edelstahl" },
-  { code: "F", label: "Fimo" },
-  { code: "H", label: "Harz" },
-  { code: "I", label: "Phiole" },
-  { code: "J", label: "Papier" },
-  { code: "K", label: "Kordel" },
-  { code: "L", label: "Leder" },
-  { code: "M", label: "Makramee" },
-  { code: "N", label: "Naturstein" },
-  { code: "P", label: "Perle" },
-  { code: "S", label: "Schrumpffolie" },
-  { code: "W", label: "Holz" },
-  { code: "X", label: "3D-Druck" },
-  { code: "Y", label: "Cabochon" },
-];
-
-const PRODUKTART_OPTIONS = [
-  { code: "A", label: "Armband" },
-  { code: "H", label: "Halskette" },
-  { code: "O", label: "Ohrring" },
-  { code: "S", label: "Schlüsselanhänger" },
 ];
 
 const createRowId = () =>
@@ -70,6 +46,27 @@ const createEmptyMehrfachRow = () => ({
   Fassung: "",
 });
 
+// Die Zahlenfelder halten während der Eingabe den rohen Text, damit beim Tippen
+// von "12,50" nicht nach dem Komma der Wert wegspringt. Erst beim Speichern wird
+// normalisiert: leer oder unlesbar ergibt 0, nicht NaN. parseFloat("") war NaN,
+// und JSON.stringify macht daraus null – das landete als explizites NULL in der
+// Datenbank und löschte den Preis stillschweigend (Befund D1/D2).
+const ZAHLENFELDER = [
+  "Verkaufspreis",
+  "Herstellungskosten",
+  "Grösse",
+  "Länge",
+  "Anhänger_Grösse",
+];
+
+const normalisierteZahlenfelder = (form) =>
+  Object.fromEntries(
+    ZAHLENFELDER.filter((feld) => feld in form).map((feld) => [
+      feld,
+      parseZahlOderNull(form[feld], 0),
+    ]),
+  );
+
 const normalizeMehrfachArtikelnummer = (value) => {
   const normalized = String(value || "").trim().toUpperCase();
   if (!normalized) return "";
@@ -83,6 +80,7 @@ const normalizeMehrfachArtikelnummer = (value) => {
 };
 
 export default function Schmuckstuecke() {
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -93,15 +91,20 @@ export default function Schmuckstuecke() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
+  // Hersteller-, Grundmaterial- und Produktart-Codes kommen aus
+  // backend/src/utils/constants.js und reisen über die Filter-Optionen mit.
+  // Vorher lagen sie hier als eigene Kopie und im Produktart-Dropdown ein
+  // drittes Mal hartcodiert (Befund G22).
+  const grundmaterialOptionen = filterOptions.grundmaterialien || [];
+  const produktartOptionen = filterOptions.produktarten || [];
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [activeTab, setActiveTab] = useState("schmuckstuecke");
-  const [sortConfig, setSortConfig] = useState({
-    key: "Artikelnummer",
-    direction: "asc",
-  });
+  // Konstant: setSortConfig wurde nie aufgerufen, die Sortierung stand also
+  // schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "Artikelnummer", direction: "asc" };
   const [nextArtikelnummerPreview, setNextArtikelnummerPreview] = useState("");
   const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
     useState(false);
@@ -113,6 +116,9 @@ export default function Schmuckstuecke() {
     useState("");
   const [bulkLoadingTemplate, setBulkLoadingTemplate] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [gebremsteSuche, setGebremsteSuche] = useState("");
+  const [ladeZaehler, setLadeZaehler] = useState(0);
   const [bulkRows, setBulkRows] = useState([createEmptyMehrfachRow()]);
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
@@ -120,14 +126,17 @@ export default function Schmuckstuecke() {
     return `${hersteller}${grundmaterial}${produktart}`;
   };
 
-  const load = () => {
-    setLoading(true);
-    api
-      .getSchmuckstuecke({ page, limit: 50, search, ...filters })
-      .then(setData)
-      .catch((err) => alert("Fehler beim Laden der Schmuckstücke: " + err.message))
-      .finally(() => setLoading(false));
-  };
+  // Vorher feuerte jeder Tastendruck einen eigenen Request, ohne Debounce,
+  // ohne Abbruch: antwortete Request 2 nach Request 4, ueberschrieb setData
+  // die neueren Treffer, und das finally des ersten setzte loading=false,
+  // waehrend der letzte noch lief (Befund G8). Das Muster hier ist das aus
+  // Etiketten.jsx, das es von Anfang an richtig gemacht hat.
+  //
+  // neuLaden() ist der Ersatz fuer das frueher direkt aufgerufene load():
+  // es erhoeht nur einen Zaehler, den Effekt unten als Abhaengigkeit hat –
+  // so laeuft auch ein Neuladen nach Speichern/Loeschen durch dieselbe
+  // Abbruchlogik.
+  const neuLaden = () => setLadeZaehler((n) => n + 1);
 
   const handleDelete = async (nr) => {
     if (!confirm(`Schmuckstück ${nr} wirklich löschen?`)) return;
@@ -135,22 +144,27 @@ export default function Schmuckstuecke() {
       await api.deleteSchmuckstueck(nr);
       setSelected(null);
       setEditing(null);
-      load();
+      neuLaden();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
   const handleSave = async ({ closeAfterSave = true } = {}) => {
+    // Ohne diese Sperre erzeugte ein Doppelklick auf "Speichern + Weiter" zwei
+    // POSTs mit derselben nextArtikelnummerPreview: sequenziell zwei Datensätze,
+    // parallel ein Primary-Key-Konflikt mit rohem DB-Fehler im alert (Befund G4).
+    if (saving) return;
+    setSaving(true);
     try {
-      const dataToSave = { ...form };
+      const dataToSave = { ...form, ...normalisierteZahlenfelder(form) };
 
       if (editing === "new" && nextArtikelnummerPreview) {
         dataToSave.Artikelnummer = nextArtikelnummerPreview;
       }
 
       if (editing === "new" && !dataToSave.Artikelnummer) {
-        alert(
+        toast.fehler(
           "Bitte Hersteller, Grundmaterial und Produktart auswählen, damit die Artikelnummer erzeugt werden kann.",
         );
         return;
@@ -161,7 +175,7 @@ export default function Schmuckstuecke() {
         if (!closeAfterSave) {
           setForm((prev) => ({ ...prev, Foto: "" }));
           setNextArtikelnummerRefreshKey((prev) => prev + 1);
-          alert(`${dataToSave.Artikelnummer} wurde erstellt.`);
+          toast.erfolg(`${dataToSave.Artikelnummer} wurde erstellt.`);
         }
       } else {
         await api.updateSchmuckstueck(editing, dataToSave);
@@ -169,9 +183,11 @@ export default function Schmuckstuecke() {
       if (closeAfterSave || editing !== "new") {
         setEditing(null);
       }
-      load();
+      neuLaden();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -189,8 +205,8 @@ export default function Schmuckstuecke() {
       Verkaufspreis: 0,
       Herstellungskosten: 0,
       Ausgelagert: 0,
-      Verkauft: 0,
-      Ausschuss: 0,
+      Verkauft: false,
+      Ausschuss: false,
       Ausschuss_Grund: "",
     });
     setEditing("new");
@@ -243,7 +259,7 @@ export default function Schmuckstuecke() {
   const loadBulkTemplate = async () => {
     const input = bulkTemplateArtikelnummer.trim().toUpperCase();
     if (!input) {
-      alert("Bitte eine Artikelnummer als Vorlage eingeben.");
+      toast.fehler("Bitte eine Artikelnummer als Vorlage eingeben.");
       return;
     }
 
@@ -315,7 +331,7 @@ export default function Schmuckstuecke() {
         },
       ]);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setBulkLoadingTemplate(false);
     }
@@ -333,7 +349,7 @@ export default function Schmuckstuecke() {
       .filter((row) => row.Artikelnummer);
 
     if (items.length === 0) {
-      alert("Bitte mindestens eine Zeile mit Artikelnummer eintragen.");
+      toast.fehler("Bitte mindestens eine Zeile mit Artikelnummer eintragen.");
       return;
     }
 
@@ -341,32 +357,32 @@ export default function Schmuckstuecke() {
       setBulkSaving(true);
       const result = await api.createSchmuckstueckeBulk({ items });
 
-      alert(
+      toast.fehler(
         `${result.createdCount} Schmuckstücke wurden erfolgreich nachgetragen.`,
       );
       setBulkModalOpen(false);
-      load();
+      neuLaden();
     } catch (err) {
       const payload = err.payload || {};
       if (Array.isArray(payload.invalidArtikelnummern)) {
-        alert(
+        toast.fehler(
           `Ungültige Artikelnummern:\n${payload.invalidArtikelnummern.join("\n")}`,
         );
         return;
       }
       if (Array.isArray(payload.existingArtikelnummern)) {
-        alert(
+        toast.fehler(
           `Diese Artikelnummern existieren bereits:\n${payload.existingArtikelnummern.join("\n")}`,
         );
         return;
       }
       if (Array.isArray(payload.duplicateArtikelnummern)) {
-        alert(
+        toast.fehler(
           `Diese Artikelnummern wurden doppelt eingegeben:\n${payload.duplicateArtikelnummern.join("\n")}`,
         );
         return;
       }
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setBulkSaving(false);
     }
@@ -402,21 +418,48 @@ export default function Schmuckstuecke() {
       Anzahl: 1,
       Foto: "",
       Ausgelagert: 0,
-      Verkauft: 0,
-      Ausschuss: 0,
+      Verkauft: false,
+      Ausschuss: false,
       Ausschuss_Grund: "",
     });
     setEditing("new");
   };
 
   useEffect(() => {
-    api.getFilterOptions().then(setFilterOptions).catch((err) => alert("Fehler beim Laden der Filter-Optionen: " + err.message));
-    api.getKunden().then(setKunden).catch((err) => alert("Fehler beim Laden der Kunden: " + err.message));
-  }, []);
+    api.getFilterOptions().then(setFilterOptions).catch((err) => toast.fehler("Fehler beim Laden der Filter-Optionen: " + err.message));
+    api.getKunden().then(setKunden).catch((err) => toast.fehler("Fehler beim Laden der Kunden: " + err.message));
+  }, [toast]);
 
   useEffect(() => {
-    load();
-  }, [page, search, filters]);
+    const timer = setTimeout(() => setGebremsteSuche(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const abbruch = new AbortController();
+    let verworfen = false;
+    setLoading(true);
+    api
+      .getSchmuckstuecke(
+        { page, limit: 50, search: gebremsteSuche, ...filters },
+        { signal: abbruch.signal },
+      )
+      .then((antwort) => {
+        if (!verworfen) setData(antwort);
+      })
+      .catch((err) => {
+        // Ein abgebrochener Request ist kein Fehler, den der Nutzer sehen muss.
+        if (verworfen || err?.name === "AbortError") return;
+        toast.fehler("Fehler beim Laden der Schmuckstücke: " + err.message);
+      })
+      .finally(() => {
+        if (!verworfen) setLoading(false);
+      });
+    return () => {
+      verworfen = true;
+      abbruch.abort();
+    };
+  }, [page, gebremsteSuche, filters, ladeZaehler, toast]);
 
   useEffect(() => {
     if (editing !== "new") {
@@ -480,11 +523,11 @@ export default function Schmuckstuecke() {
           openDuplicate(item);
         }
       })
-      .catch((err) => alert("Fehler beim Laden des Schmuckstücks: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden des Schmuckstücks: " + err.message))
       .finally(() => {
         navigate(location.pathname, { replace: true, state: {} });
       });
-  }, [location.pathname, location.state, navigate]);
+  }, [location.pathname, location.state, navigate, toast]);
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -492,7 +535,6 @@ export default function Schmuckstuecke() {
   };
 
   const getLengthUnit = ({ Artikelnummer } = {}) => {
-    console.log("🔍 Bestimme Längeneinheit für Artikelnummer:", Artikelnummer);
     const produktartCode = String(Artikelnummer || "").charAt(2).toUpperCase();
     if (produktartCode === "O") return "mm";
     if (produktartCode === "H") return "cm";
@@ -531,82 +573,6 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
-  function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
-    const [photoSrc, setPhotoSrc] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [photoError, setPhotoError] = useState(null);
-
-    useEffect(() => {
-      let isCancelled = false;
-      const controller = new AbortController();
-
-      if (!foto) {
-        setPhotoSrc(null);
-        setPhotoError(null);
-        setIsLoading(false);
-        return () => {
-          isCancelled = true;
-          controller.abort();
-        };
-      }
-
-      if (pauseLoading) {
-        setIsLoading(false);
-        return () => {
-          isCancelled = true;
-          controller.abort();
-        };
-      }
-
-      setIsLoading(true);
-      setPhotoError(null);
-      api
-        .loadPhotoAsDataUrl(foto, { signal: controller.signal })
-        .then((dataUrl) => {
-          if (isCancelled) return;
-          setPhotoSrc(dataUrl);
-        })
-        .catch((err) => {
-          if (isCancelled) return;
-          setPhotoSrc(null);
-          setPhotoError(err.message);
-        })
-        .finally(() => {
-          if (isCancelled) return;
-          setIsLoading(false);
-        });
-
-      return () => {
-        isCancelled = true;
-        controller.abort();
-      };
-    }, [foto, pauseLoading]);
-
-    if (!photoSrc) {
-      return (
-        <span
-          className="table-photo-placeholder"
-          title={
-            isLoading
-              ? "Foto wird geladen"
-              : photoError
-                ? `Foto konnte nicht geladen werden: ${photoError}`
-                : "Kein Foto verfügbar"
-          }>
-          <FontAwesomeIcon icon={faGem} />
-        </span>
-      );
-    }
-
-    return (
-      <img
-        className="table-photo-thumb"
-        src={photoSrc}
-        alt={`Foto ${artikelnummer}`}
-        loading="lazy"
-      />
-    );
-  }
 
   return (
     <div>
@@ -670,10 +636,11 @@ export default function Schmuckstuecke() {
                 setPage(1);
               }}>
               <option value="">Alle Arten</option>
-              <option value="A">Armband</option>
-              <option value="H">Halskette</option>
-              <option value="O">Ohrring</option>
-              <option value="S">Schlüsselanhänger</option>
+              {produktartOptionen.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.label}
+                </option>
+              ))}
             </select>
             <select
               className="form-control"
@@ -791,22 +758,25 @@ export default function Schmuckstuecke() {
                   label: "Preis",
                   sortable: true,
                   render: (r) =>
-                    r.Verkaufspreis > 0 ? `${r.Verkaufspreis}€` : "-",
+                    r.Verkaufspreis > 0 ? formatEur(r.Verkaufspreis) : "-",
                 },
                 {
                   key: "Status",
                   label: "Status",
-                  sortable: true,
-                  render: (r) =>
-                    r.Verkauft === 1 ? (
-                      <span className="badge success">Verkauft</span>
-                    ) : r.Ausschuss === 1 ? (
-                      <span className="badge danger">Ausschuss</span>
-                    ) : r.Verkauft === 0 &&
-                      r.Ausschuss === 0 &&
-                      r.Ausgelagert === 0 ? (
-                      <span className="badge gold">Lager</span>
-                    ) : null,
+                  // Nicht sortierbar: das Backend liefert kein Feld "Status"
+                  // (schmuckstuecke.js gibt * plus Grundmaterial zurück), der
+                  // Wert wird hier erst aus Verkauft/Ausschuss/Ausgelagert
+                  // gebildet. row["Status"] war für jede Zeile undefined, der
+                  // Klick auf den Header tat also sichtbar nichts (Befund G13).
+                  // Serverseitiges Sortieren müsste das Feld mitliefern.
+                  sortable: false,
+                  render: (r) => {
+                    // Ausgelagerte Stuecke haben in dieser Liste eine eigene
+                    // Spalte, hier bleibt die Zelle dafuer leer.
+                    if (statusVon(r) === STATUS.AUSGELAGERT) return null;
+                    const badge = statusBadge(r);
+                    return <span className={badge.klasse}>{badge.label}</span>;
+                  },
                 },
                 {
                   key: "Ausgelagert",
@@ -1258,7 +1228,7 @@ export default function Schmuckstuecke() {
                             });
                           }}>
                           <option value="">Grundmaterial</option>
-                          {GRUNDMATERIAL_OPTIONS.map((option) => (
+                          {grundmaterialOptionen.map((option) => (
                             <option key={option.code} value={option.code}>
                               {option.code} - {option.label}
                             </option>
@@ -1284,7 +1254,7 @@ export default function Schmuckstuecke() {
                             });
                           }}>
                           <option value="">Produktart</option>
-                          {PRODUKTART_OPTIONS.map((option) => (
+                          {produktartOptionen.map((option) => (
                             <option key={option.code} value={option.code}>
                               {option.code} - {option.label}
                             </option>
@@ -1402,7 +1372,7 @@ export default function Schmuckstuecke() {
               </div>
 
               <div className="form-section">
-                <h4>� Foto</h4>
+                <h4>Foto</h4>
                 <PhotoUpload
                   artikelnummer={
                     editing === "new"
@@ -1443,11 +1413,11 @@ export default function Schmuckstuecke() {
                     <label>Größe</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.1"
-                      value={form.Grösse || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Grösse ?? ""}
                       onChange={(e) =>
-                        setForm({ ...form, Grösse: parseFloat(e.target.value) })
+                        setForm({ ...form, Grösse: e.target.value })
                       }
                     />
                   </div>
@@ -1455,11 +1425,11 @@ export default function Schmuckstuecke() {
                     <label>Länge ({getLengthUnit(form)})</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.1"
-                      value={form.Länge || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Länge ?? ""}
                       onChange={(e) =>
-                        setForm({ ...form, Länge: parseFloat(e.target.value) })
+                        setForm({ ...form, Länge: e.target.value })
                       }
                     />
                   </div>
@@ -1614,13 +1584,13 @@ export default function Schmuckstuecke() {
                     <label>Anhänger Größe</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.1"
-                      value={form.Anhänger_Grösse || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Anhänger_Grösse ?? ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          Anhänger_Grösse: parseFloat(e.target.value),
+                          Anhänger_Grösse: e.target.value,
                         })
                       }
                     />
@@ -1723,22 +1693,14 @@ export default function Schmuckstuecke() {
                       ))}
                     </datalist>
                   </div>
-                  <div className="form-group">
-                    <label>Fassung</label>
-                    <input
-                      list="fassungen-list"
-                      className="form-control"
-                      value={form.Fassung || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Fassung: e.target.value })
-                      }
-                    />
-                    <datalist id="fassungen-list">
-                      {filterOptions.fassungen?.map((f) => (
-                        <option key={f} value={f} />
-                      ))}
-                    </datalist>
-                  </div>
+                  {/* Hier stand ein zweites Feld "Fassung", das auf
+                      form.Fassung des Hauptstücks schrieb – wer im
+                      Anhänger-Block etwas eintrug, überschrieb damit die
+                      Fassung des Hauptstücks. Dazu war die datalist-ID
+                      "fassungen-list" ein zweites Mal im DOM (ungültiges HTML,
+                      list= bindet immer an das erste Vorkommen). Das Hauptstück
+                      hat sein eigenes Feld im Abschnitt "Details", der Anhänger
+                      sein "Anhänger Fassung" weiter oben (Befund G3). */}
                   <div className="form-group">
                     <label>Anhänger (Allg.)</label>
                     <input
@@ -1767,13 +1729,13 @@ export default function Schmuckstuecke() {
                     <label>Verkaufspreis (€)</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.01"
-                      value={form.Verkaufspreis || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Verkaufspreis ?? ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          Verkaufspreis: parseFloat(e.target.value),
+                          Verkaufspreis: e.target.value,
                         })
                       }
                     />
@@ -1782,13 +1744,13 @@ export default function Schmuckstuecke() {
                     <label>Herstellungskosten (€)</label>
                     <input
                       className="form-control"
-                      type="number"
-                      step="0.01"
-                      value={form.Herstellungskosten || 0}
+                      type="text"
+                      inputMode="decimal"
+                      value={form.Herstellungskosten ?? ""}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          Herstellungskosten: parseFloat(e.target.value),
+                          Herstellungskosten: e.target.value,
                         })
                       }
                     />
@@ -1826,12 +1788,12 @@ export default function Schmuckstuecke() {
                           type="checkbox"
                           id="form-ausschuss"
                           className="form-checkbox"
-                          checked={form.Ausschuss === 1}
+                          checked={istWahr(form.Ausschuss)}
                           disabled={editing === "new"}
                           onChange={(e) =>
                             setForm({
                               ...form,
-                              Ausschuss: e.target.checked ? 1 : 0,
+                              Ausschuss: e.target.checked,
                               Ausschuss_Grund: e.target.checked
                                 ? form.Ausschuss_Grund || "Defekt"
                                 : "",
@@ -1840,7 +1802,7 @@ export default function Schmuckstuecke() {
                         />
                       </div>
 
-                      {form.Ausschuss === 1 && (
+                      {istWahr(form.Ausschuss) && (
                         <div className="form-row" style={{ marginTop: "12px" }}>
                           <div className="form-group" style={{ flex: 1 }}>
                             <label>Ausschuss Grund</label>
@@ -1881,20 +1843,23 @@ export default function Schmuckstuecke() {
                 <>
                   <button
                     className="btn btn-primary"
+                    disabled={saving}
                     onClick={() => handleSave({ closeAfterSave: true })}>
-                    Speichern + Schließen
+                    {saving ? "Speichert…" : "Speichern + Schließen"}
                   </button>
                   <button
                     className="btn btn-secondary"
+                    disabled={saving}
                     onClick={() => handleSave({ closeAfterSave: false })}>
-                    Speichern + Weiter
+                    {saving ? "Speichert…" : "Speichern + Weiter"}
                   </button>
                 </>
               ) : (
                 <button
                   className="btn btn-primary"
+                  disabled={saving}
                   onClick={() => handleSave({ closeAfterSave: true })}>
-                  Speichern
+                  {saving ? "Speichert…" : "Speichern"}
                 </button>
               )}
             </div>

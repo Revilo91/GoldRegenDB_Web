@@ -1,13 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatEur, summeEur } from "../utils/zahlen";
+import { istWahr } from "../utils/status";
+import TablePhoto from "../components/TablePhoto";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faFileExcel,
   faFileInvoice,
   faTimes,
   faBox,
-  faGem,
   faPlus,
-  faSave,
   faCheck,
   faSearch,
   faExclamationTriangle,
@@ -18,6 +19,7 @@ import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import { useToast } from "../components/Toast";
 
 const TABS = [
   { id: "aktiv", label: "Nicht verkauft" },
@@ -26,12 +28,9 @@ const TABS = [
   { id: "alle", label: "Alle" },
 ];
 
-function formatEur(value) {
-  return Number(value || 0).toLocaleString("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  });
-}
+// formatEur liegt jetzt in utils/zahlen.js – es war die einzige deutsch korrekte
+// Geldformatierung im Projekt, während anderswo `${wert}€`, toFixed(0) und
+// toFixed(2) im Einsatz waren (Befund G21).
 
 function getBelegdatumForTab(item, tab) {
   if (tab === "verkauft") return item?.Rechnung_Datum || null;
@@ -55,83 +54,6 @@ function formatDateDE(dateValue) {
   });
 }
 
-function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
-  const [photoSrc, setPhotoSrc] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    const controller = new AbortController();
-
-    if (!foto) {
-      setPhotoSrc(null);
-      setPhotoError(null);
-      setIsLoading(false);
-      return () => {
-        isCancelled = true;
-        controller.abort();
-      };
-    }
-
-    if (pauseLoading) {
-      setIsLoading(false);
-      return () => {
-        isCancelled = true;
-        controller.abort();
-      };
-    }
-
-    setIsLoading(true);
-    setPhotoError(null);
-    api
-      .loadPhotoAsDataUrl(foto, { signal: controller.signal })
-      .then((dataUrl) => {
-        if (isCancelled) return;
-        setPhotoSrc(dataUrl);
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-        setPhotoSrc(null);
-        setPhotoError(err.message);
-      })
-      .finally(() => {
-        if (isCancelled) return;
-        setIsLoading(false);
-      });
-
-    return () => {
-      isCancelled = true;
-      controller.abort();
-    };
-  }, [foto, pauseLoading]);
-
-  if (!photoSrc) {
-    return (
-      <span
-        className="table-photo-placeholder"
-        title={
-          isLoading
-            ? "Foto wird geladen"
-            : photoError
-              ? `Foto konnte nicht geladen werden: ${photoError}`
-              : "Kein Foto verfügbar"
-        }>
-        <FontAwesomeIcon icon={faGem} />
-      </span>
-    );
-  }
-
-  return (
-    <img
-      className="table-photo-thumb"
-      src={photoSrc}
-      alt={`Foto ${artikelnummer}`}
-      title={`Foto ${artikelnummer}`}
-      loading="lazy"
-    />
-  );
-}
 
 function ItemsTable({
   items,
@@ -155,8 +77,7 @@ function ItemsTable({
     selectedForRechnung.size === items.length;
 
   const total = useMemo(
-    () =>
-      items.reduce((sum, item) => sum + (Number(item.Verkaufspreis) || 0), 0),
+    () => summeEur(items.map((item) => item.Verkaufspreis)),
     [items],
   );
 
@@ -323,6 +244,7 @@ function ItemsTable({
 }
 
 function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
+  const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("aktiv");
@@ -339,21 +261,21 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
     api
       .getInventurKunde(kundeId)
       .then(setData)
-      .catch((err) => alert(err.message))
+      .catch((err) => toast.fehler(err.message))
       .finally(() => setLoading(false));
-  }, [kundeId]);
+  }, [kundeId, toast]);
 
   const tabItems = useMemo(() => {
     if (!data) return [];
     const { items } = data;
     if (tab === "aktiv")
       return items.filter(
-        (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+        (i) => !istWahr(i.Verkauft) && !istWahr(i.Ausschuss),
       );
     if (tab === "verkauft")
-      return items.filter((i) => Number(i.Verkauft) === 1);
+      return items.filter((i) => istWahr(i.Verkauft));
     if (tab === "ausschuss")
-      return items.filter((i) => Number(i.Ausschuss) === 1);
+      return items.filter((i) => istWahr(i.Ausschuss));
     return items;
   }, [data, tab]);
 
@@ -374,7 +296,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setExporting(false);
     }
@@ -382,7 +304,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
   const handleRestock = async () => {
     if (selectedForReturn.size === 0) {
-      alert("Bitte wähle mindestens einen Artikel aus");
+      toast.fehler("Bitte wähle mindestens einen Artikel aus");
       return;
     }
 
@@ -392,11 +314,11 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
     setRestocking(true);
     try {
       await api.restockKundeSelective(kundeId, Array.from(selectedForReturn));
-      alert("Artikel erfolgreich zurückgelagert!");
+      toast.erfolg("Artikel erfolgreich zurückgelagert!");
       onRestock?.();
       onClose();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setRestocking(false);
     }
@@ -448,13 +370,15 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 
   const handleCreateRechnung = async () => {
     if (selectedForRechnung.size === 0) {
-      alert("Bitte wähle mindestens einen Artikel für die Rechnung aus");
+      toast.fehler("Bitte wähle mindestens einen Artikel für die Rechnung aus");
       return;
     }
 
-    const totalValue = tabItems
-      .filter((i) => selectedForRechnung.has(i.Artikelnummer))
-      .reduce((s, i) => s + (Number(i.Verkaufspreis) || 0), 0);
+    const totalValue = summeEur(
+      tabItems
+        .filter((i) => selectedForRechnung.has(i.Artikelnummer))
+        .map((i) => i.Verkaufspreis),
+    );
 
     const confirmMsg = `Rechnung für ${selectedForRechnung.size} Artikel (${formatEur(totalValue)}) für "${kundeName}" erstellen?`;
     if (!window.confirm(confirmMsg)) return;
@@ -465,11 +389,11 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
         Kundennummer: kundeId,
         Artikelnummern: Array.from(selectedForRechnung),
       });
-      alert(`Rechnung "${created?.Nummer}" erfolgreich erstellt!`);
+      toast.erfolg(`Rechnung "${created?.Nummer}" erfolgreich erstellt!`);
       onRestock?.();
       onClose();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     } finally {
       setCreatingRechnung(false);
     }
@@ -685,6 +609,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
 }
 
 function InventurDiffModal({ draftId, onClose }) {
+  const toast = useToast();
   const [diff, setDiff] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState("fehlend");
@@ -693,9 +618,9 @@ function InventurDiffModal({ draftId, onClose }) {
     api
       .getInventurDiff(draftId)
       .then(setDiff)
-      .catch((err) => alert("Fehler beim Laden der Auswertung: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden der Auswertung: " + err.message))
       .finally(() => setLoading(false));
-  }, [draftId]);
+  }, [draftId, toast]);
 
   return (
     <div className="modal-overlay">
@@ -1089,6 +1014,7 @@ function InventurDiffModal({ draftId, onClose }) {
 }
 
 function LagerInventurEditor({ draftId, onBack }) {
+  const toast = useToast();
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1111,7 +1037,7 @@ function LagerInventurEditor({ draftId, onBack }) {
         setTimeout(() => setDraftLoaded(true), 100);
       })
       .catch((err) => {
-        alert(err.message);
+        toast.fehler(err.message);
         onBack();
       })
       .finally(() => setLoading(false));
@@ -1129,9 +1055,9 @@ function LagerInventurEditor({ draftId, onBack }) {
         }
       })
       .catch((err) =>
-        alert("Fehler beim Laden der Artikelnummern: " + err.message)
+        toast.fehler("Fehler beim Laden der Artikelnummern: " + err.message)
       );
-  }, [draftId, onBack]);
+  }, [draftId, onBack, toast]);
 
   const performSave = async (showSuccessAlert = false) => {
     const currentStr = JSON.stringify({
@@ -1140,7 +1066,7 @@ function LagerInventurEditor({ draftId, onBack }) {
     });
     if (currentStr === lastSavedDraftStr) {
       // Nichts geändert, muss nicht gespeichert werden
-      if (showSuccessAlert) alert("Inventur erfolgreich gespeichert!");
+      if (showSuccessAlert) toast.erfolg("Inventur erfolgreich gespeichert!");
       return true;
     }
 
@@ -1152,14 +1078,14 @@ function LagerInventurEditor({ draftId, onBack }) {
       });
       setLastSavedDraftStr(currentStr);
       if (showSuccessAlert) {
-        alert("Inventur erfolgreich gespeichert!");
+        toast.erfolg("Inventur erfolgreich gespeichert!");
       }
       return true;
     } catch (err) {
       if (showSuccessAlert) {
-        alert("Fehler beim Speichern: " + err.message);
+        toast.fehler("Fehler beim Speichern: " + err.message);
       } else {
-        alert("Automatische Speicherung fehlgeschlagen: " + err.message);
+        toast.fehler("Automatische Speicherung fehlgeschlagen: " + err.message);
       }
       throw err;
     } finally {
@@ -1224,7 +1150,7 @@ function LagerInventurEditor({ draftId, onBack }) {
       setIsCompleted(true);
       setShowDiff(true); // Fehlbestand automatisch anzeigen
     } catch (err) {
-      alert("Fehler beim Abschließen: " + err.message);
+      toast.fehler("Fehler beim Abschließen: " + err.message);
     }
   };
 
@@ -1233,7 +1159,7 @@ function LagerInventurEditor({ draftId, onBack }) {
       await performSave(false);
       setShowDiff(true);
     } catch (err) {
-      alert("Fehler vor Auswertung: " + err.message);
+      toast.fehler("Fehler vor Auswertung: " + err.message);
     }
   };
 
@@ -1417,31 +1343,32 @@ function LagerInventurEditor({ draftId, onBack }) {
 }
 
 function LagerInventurUI() {
+  const toast = useToast();
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeDraftId, setActiveDraftId] = useState(null);
 
-  const loadDrafts = () => {
+  const loadDrafts = useCallback(() => {
     setLoading(true);
     api
       .getInventurDrafts()
       .then(setDrafts)
-      .catch((err) => alert("Fehler beim Laden der Inventuren: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden der Inventuren: " + err.message))
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (!activeDraftId) {
       loadDrafts();
     }
-  }, [activeDraftId]);
+  }, [activeDraftId, loadDrafts]);
 
   const createDraft = async () => {
     try {
       const draft = await api.createInventurDraft({ data: {}, kommentar: "" });
       setActiveDraftId(draft.id);
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -1515,30 +1442,30 @@ function LagerInventurUI() {
 }
 
 export default function Inventur() {
+  const toast = useToast();
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ aktiv: "1" });
   const [selectedKunde, setSelectedKunde] = useState(null);
   const [activeTab, setActiveTab] = useState("kunden"); // 'kunden' | 'lager'
-  const [sortConfig, setSortConfig] = useState({
-    key: "Name",
-    direction: "asc",
-  });
+  // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
+  // also schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "Name", direction: "asc" };
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     api
       .getInventur()
       .then(setSummary)
-      .catch((err) => alert(err.message))
+      .catch((err) => toast.fehler(err.message))
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -1591,18 +1518,12 @@ export default function Inventur() {
     return sortableData;
   }, [filtered, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  // requestSort/getSortIcon waren nie verdrahtet – kein Header rief sie auf.
+  // Dadurch wird setSortConfig nirgends aufgerufen und die Sortierung unten
+  // steht dauerhaft auf ihrem Anfangswert; DataTable sortiert danach ohnehin
+  // ein zweites Mal clientseitig (Befund G14). Die tote Implementierung ist
+  // entfernt, das eingefrorene useMemo bleibt vorerst, weil es die
+  // Anfangsreihenfolge der Liste bestimmt.
 
   const totals = useMemo(
     () =>
@@ -1871,10 +1792,10 @@ function InlineItems({ kundeId }) {
   if (!data) return null;
 
   const aktiv = data.items.filter(
-    (i) => Number(i.Verkauft) === 0 && Number(i.Ausschuss) === 0,
+    (i) => !istWahr(i.Verkauft) && !istWahr(i.Ausschuss),
   );
-  const verkauft = data.items.filter((i) => Number(i.Verkauft) === 1);
-  const ausschuss = data.items.filter((i) => Number(i.Ausschuss) === 1);
+  const verkauft = data.items.filter((i) => istWahr(i.Verkauft));
+  const ausschuss = data.items.filter((i) => istWahr(i.Ausschuss));
 
   return (
     <div style={{ padding: "8px 0", fontSize: 13 }}>

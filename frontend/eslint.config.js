@@ -23,7 +23,25 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Befund G19: 68 blockierende alert() im Projekt. Eine Regel ohne Linter
+      // ist Dokumentationsschuld – deshalb hier, damit sie nicht zurueckkommen.
+      // Bewusst nicht `no-alert`: die Regel deckt auch confirm() ab, und das
+      // ist in den Loeschpfaden weiter in Gebrauch.
+      'no-restricted-globals': ['error', {
+        name: 'alert',
+        message: 'Statt alert() den useToast()-Hook aus components/Toast.jsx benutzen.',
+      }],
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        // `const { ausgelagert, ...rest } = filters` entfernt einen Schlüssel aus
+        // rest – die benannte Variable ist absichtlich unbenutzt. Ohne diese
+        // Option meldete die Regel jedes solche Muster als Fehler (6 Fundstellen).
+        ignoreRestSiblings: true,
+        // `[_, count]` überspringt das erste Element einer Array-Destrukturierung.
+        destructuredArrayIgnorePattern: '^_',
+        // Bewusst ignorierte Parameter als `_name` schreiben dürfen.
+        argsIgnorePattern: '^_',
+      }],
     },
   },
   {
@@ -31,6 +49,16 @@ export default defineConfig([
     files: ['*.config.js'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    // Vitest läuft mit `globals: true` (siehe vite.config.js), describe/it/
+    // expect/vi sind dort also echte Globals. Ohne diese Deklaration meldete
+    // ESLint sie als no-undef – das waren 104 der 155 Fehler, allesamt aus
+    // dieser einen fehlenden Konfigurationszeile.
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.test.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.vitest },
     },
   },
 ])

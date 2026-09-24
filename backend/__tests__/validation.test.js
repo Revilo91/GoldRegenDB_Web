@@ -130,6 +130,17 @@ describe('schmuckstueckCreateSchema', () => {
     expect(res.body.Verkaufspreis).toBe(49.9);
   });
 
+  it('akzeptiert Preise mit deutschem Dezimalkomma', async () => {
+    // Befund D2: Number("12,50") ist NaN, die Validierung lehnte deutsche
+    // Eingaben deshalb mit "muss eine Zahl sein" ab.
+    const res = await post(schemas.schmuckstueckCreateSchema, {
+      Artikelnummer: 'MHO123', Verkaufspreis: '12,50', Herstellungskosten: '3,75',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.Verkaufspreis).toBe(12.5);
+    expect(res.body.Herstellungskosten).toBe(3.75);
+  });
+
   it('lehnt einen negativen Verkaufspreis ab', async () => {
     const res = await post(schemas.schmuckstueckCreateSchema, { Artikelnummer: 'MHO123', Verkaufspreis: -5 });
     expect(res.status).toBe(400);
@@ -371,5 +382,41 @@ describe('sumupImportSchema', () => {
   it('lehnt einen leeren Import ab', async () => {
     const res = await post(schemas.sumupImportSchema, { csvData: '' });
     expect(res.status).toBe(400);
+  });
+});
+
+// Befund D3/D4: der Regex erlaubte [A-Za-zÄÖÜäöü], die Suffix-Generierung in
+// schmuckstuecke.js prüfte aber /^[A-Z]{3}\d{3}$/ -- zwei Wahrheiten über das
+// Format desselben Primärschlüssels. Und normalisiert wurde an elf verstreuten
+// Stellen, mit Lücken: ein Stück als 'mho123' in der Datenbank erschien in
+// KEINEM Hersteller-, Grundmaterial- oder Produktartfilter und existierte als
+// zweite Zeile für dasselbe physische Schmuckstück.
+describe('Artikelnummer-Normalisierung (D3, D4)', () => {
+  const { artikelnummer, vollstaendigeArtikelnummer } = require('../src/schemas/common');
+
+  it('macht Großbuchstaben, an genau dieser Stelle', () => {
+    expect(artikelnummer.parse('mho123')).toBe('MHO123');
+    expect(artikelnummer.parse(' mho123_2 ')).toBe('MHO123_2');
+    expect(vollstaendigeArtikelnummer.parse('mho123_2')).toBe('MHO123_2');
+  });
+
+  it('lässt eine schon normalisierte Nummer unverändert', () => {
+    expect(vollstaendigeArtikelnummer.parse('MHO123')).toBe('MHO123');
+  });
+
+  it('lehnt Umlaute ab – GRUNDMATERIAL und PRODUKTART kennen nur ASCII', () => {
+    expect(vollstaendigeArtikelnummer.safeParse('MÄO123').success).toBe(false);
+    expect(vollstaendigeArtikelnummer.safeParse('mäo123').success).toBe(false);
+  });
+
+  it('lehnt unvollständige Formen im strengen Schema ab', () => {
+    expect(vollstaendigeArtikelnummer.safeParse('MHO').success).toBe(false);
+    expect(vollstaendigeArtikelnummer.safeParse('MHO12').success).toBe(false);
+    expect(vollstaendigeArtikelnummer.safeParse('MHO123_').success).toBe(false);
+  });
+
+  it('erlaubt die Kurzformen im lockeren Schema (das Anlegen braucht sie)', () => {
+    expect(artikelnummer.parse('mho')).toBe('MHO');
+    expect(artikelnummer.parse('mho123')).toBe('MHO123');
   });
 });

@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
 const { lagerinventurSchema } = require("../schemas");
+const { where } = require("../utils/whereClauseBuilder");
 
 /**
  * @swagger
@@ -29,12 +31,8 @@ router.get("/drafts", async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        error: "Fehler beim Abrufen der Entwürfe",
-        details: err.message,
-      });
+    logger.error("LAGERINVENTUR", "Fehler beim Abrufen der Entwürfe", { message: err.message });
+    res.status(500).json({ error: "Fehler beim Abrufen der Entwürfe" });
   }
 });
 
@@ -67,12 +65,8 @@ router.get("/drafts/:id", async (req, res) => {
       return res.status(404).json({ error: "Entwurf nicht gefunden" });
     res.json(rows[0]);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        error: "Fehler beim Abrufen des Entwurfs",
-        details: err.message,
-      });
+    logger.error("LAGERINVENTUR", "Fehler beim Abrufen des Entwurfs", { message: err.message });
+    res.status(500).json({ error: "Fehler beim Abrufen des Entwurfs" });
   }
 });
 
@@ -119,12 +113,8 @@ router.post("/drafts", validate(lagerinventurSchema), async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        error: "Fehler beim Anlegen des Entwurfs",
-        details: err.message,
-      });
+    logger.error("LAGERINVENTUR", "Fehler beim Anlegen des Entwurfs", { message: err.message });
+    res.status(500).json({ error: "Fehler beim Anlegen des Entwurfs" });
   }
 });
 
@@ -180,12 +170,8 @@ router.put("/drafts/:id", validate(lagerinventurSchema), async (req, res) => {
         .json({ error: "Entwurf nicht gefunden oder nicht mehr bearbeitbar" });
     res.json(rows[0]);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        error: "Fehler beim Aktualisieren des Entwurfs",
-        details: err.message,
-      });
+    logger.error("LAGERINVENTUR", "Fehler beim Aktualisieren des Entwurfs", { message: err.message });
+    res.status(500).json({ error: "Fehler beim Aktualisieren des Entwurfs" });
   }
 });
 
@@ -239,11 +225,16 @@ router.get("/drafts/:id/diff", async (req, res) => {
     const scanned = draft.data || {}; // { "MXO001_1": 1, "MXO001_2": 2, ... }
 
     // Soll-Bestand: alle Artikel im Lager (nicht ausgelagert, nicht verkauft, kein Ausschuss)
+    // Wort für Wort dasselbe wie builder.verfuegbar(), war aber von Hand
+    // geschrieben (Befund F5).
+    const lagerBuilder = where();
+    lagerBuilder.verfuegbar();
     const { rows: lagerRows } = await db.query(
       `SELECT "Artikelnummer", "Name", "Verkaufspreis", "Art", "Material"
        FROM "Schmuckstück"
-       WHERE "Ausgelagert" = 0 AND "Verkauft" = 0 AND "Ausschuss" = 0
+       ${lagerBuilder.build()}
        ORDER BY length("Artikelnummer"), "Artikelnummer"`,
+      lagerBuilder.getParams(),
     );
 
     // Soll aggregieren
@@ -354,9 +345,8 @@ router.get("/drafts/:id/diff", async (req, res) => {
       },
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Fehler beim Vergleichen", details: err.message });
+    logger.error("LAGERINVENTUR", "Fehler beim Vergleichen", { message: err.message });
+    res.status(500).json({ error: "Fehler beim Vergleichen" });
   }
 });
 
@@ -397,12 +387,8 @@ router.post("/drafts/:id/complete", async (req, res) => {
         .json({ error: "Entwurf nicht gefunden oder bereits abgeschlossen" });
     res.json(rows[0]);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        error: "Fehler beim Abschließen des Entwurfs",
-        details: err.message,
-      });
+    logger.error("LAGERINVENTUR", "Fehler beim Abschließen des Entwurfs", { message: err.message });
+    res.status(500).json({ error: "Fehler beim Abschließen des Entwurfs" });
   }
 });
 

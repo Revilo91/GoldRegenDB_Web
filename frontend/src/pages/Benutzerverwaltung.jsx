@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
@@ -9,11 +9,11 @@ import {
   faTimesCircle,
   faTrash,
   faTimes,
-  faKey,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import { useToast } from "../components/Toast";
 
 const ROLES = [
   { value: "admin", label: "Admin" },
@@ -53,6 +53,7 @@ const EMPTY_FORM = {
 };
 
 export default function Benutzerverwaltung() {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -62,18 +63,20 @@ export default function Benutzerverwaltung() {
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     api
       .getUsers()
       .then((data) => setUsers(data || []))
-      .catch(console.error)
+      .catch((err) =>
+        toast.fehler("Fehler beim Laden der Benutzer: " + err.message),
+      )
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const openNew = () => {
     setForm({ ...EMPTY_FORM });
@@ -92,19 +95,19 @@ export default function Benutzerverwaltung() {
   const handleSave = async () => {
     try {
       if (editing === "new") {
-        if (form.password !== form.passwordConfirm) return alert("Passwörter stimmen nicht überein");
-        if (form.password.length < 8) return alert("Passwort muss mindestens 8 Zeichen lang sein");
-        if (!form.username.trim()) return alert("Benutzername darf nicht leer sein");
+        if (form.password !== form.passwordConfirm) return toast.fehler("Passwörter stimmen nicht überein");
+        if (form.password.length < 8) return toast.fehler("Passwort muss mindestens 8 Zeichen lang sein");
+        if (!form.username.trim()) return toast.fehler("Benutzername darf nicht leer sein");
         await api.createUser({ username: form.username, password: form.password, email: form.email, role: form.role, active: form.active });
       } else {
-        if (!form.username.trim()) return alert("Benutzername darf nicht leer sein");
+        if (!form.username.trim()) return toast.fehler("Benutzername darf nicht leer sein");
         await api.updateUser(selected.id, { username: form.username, email: form.email, role: form.role, active: form.active });
       }
       setEditing(null);
       setSelected(null);
       load();
     } catch (err) {
-      alert(err.message || "Fehler beim Speichern");
+      toast.fehler(err.message || "Fehler beim Speichern");
     }
   };
 
@@ -117,20 +120,20 @@ export default function Benutzerverwaltung() {
       setEditing(null);
       load();
     } catch (err) {
-      alert(err.message || "Fehler");
+      toast.fehler(err.message || "Fehler");
     }
   };
 
   const handleResetPassword = async () => {
     try {
-      if (!newPassword || newPassword.length < 8) return alert("Passwort muss mindestens 8 Zeichen lang sein");
+      if (!newPassword || newPassword.length < 8) return toast.fehler("Passwort muss mindestens 8 Zeichen lang sein");
       await api.resetUserPassword(selected.id, newPassword);
-      alert("Passwort erfolgreich zurückgesetzt");
+      toast.erfolg("Passwort erfolgreich zurückgesetzt");
       setNewPassword("");
       setShowNewPassword(false);
       load();
     } catch (err) {
-      alert(err.message || "Fehler");
+      toast.fehler(err.message || "Fehler");
     }
   };
 

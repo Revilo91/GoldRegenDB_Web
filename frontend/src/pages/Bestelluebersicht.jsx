@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import { useToast } from "../components/Toast";
 
 const VERSANDART_LABEL = { lieferung: "Lieferung", abholung: "Abholung" };
 const STATUS_LABEL = {
@@ -32,6 +33,7 @@ const ERLAUBTE_FOTO_TYPEN = ["image/jpeg", "image/png", "image/gif"];
 const MAX_FOTO_BYTES = 5 * 1024 * 1024;
 
 export default function Bestelluebersicht() {
+  const toast = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -45,19 +47,20 @@ export default function Bestelluebersicht() {
   const [fotoDataUrl, setFotoDataUrl] = useState(null);
   const [fotoError, setFotoError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     api
       .getBestellungen()
       .then(setBestellungen)
-      .catch((err) => alert("Fehler beim Laden der Bestellungen: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden der Bestellungen: " + err.message))
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const openNew = () => {
     setForm(EMPTY_FORM);
@@ -93,7 +96,11 @@ export default function Bestelluebersicht() {
       api
         .loadBestellungFotoAsDataUrl(b.foto_pfad)
         .then(setFotoDataUrl)
-        .catch(() => setFotoDataUrl(null));
+        .catch((err) => {
+          // Vorher verschwand das Foto ohne jeden Hinweis (Befund G20).
+          setFotoDataUrl(null);
+          setFotoError(err.message || "Das Foto konnte nicht geladen werden.");
+        });
     }
   };
 
@@ -137,6 +144,11 @@ export default function Bestelluebersicht() {
 
   const handleSave = async () => {
     setError("");
+    // Ohne diese Sperre erzeugte ein Doppelklick zwei Bestellungen: das
+    // disabled prueft nur die Consent-Checkbox, nicht den laufenden Request
+    // (Befund G4).
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = {
         versandart: form.versandart,
@@ -155,6 +167,8 @@ export default function Bestelluebersicht() {
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -165,7 +179,7 @@ export default function Bestelluebersicht() {
       setEditing(null);
       load();
     } catch (err) {
-      alert(err.message);
+      toast.fehler(err.message);
     }
   };
 
@@ -473,9 +487,9 @@ export default function Bestelluebersicht() {
                 <button
                   className="btn btn-primary"
                   onClick={handleSave}
-                  disabled={editing === "new" && !form.consentErteilt}
+                  disabled={saving || (editing === "new" && !form.consentErteilt)}
                 >
-                  Speichern
+                  {saving ? "Speichert…" : "Speichern"}
                 </button>
               </div>
             </div>

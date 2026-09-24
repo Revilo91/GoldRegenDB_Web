@@ -4,6 +4,7 @@ const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validate');
 const { rechnungSchema } = require('../schemas');
+const { rechnungsSummen } = require('../utils/rabatt');
 const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
@@ -154,7 +155,14 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
-    res.json({ ...rows[0], schmuckstuecke: pieces.rows });
+    // Befund G7: die Auszahlungsaufteilung je Herstellerin wurde im Frontend
+    // aus rohen Preisen summiert, ohne Positions- und Gesamtrabatt -- bei 20 %
+    // Rabatt zeigte das Modal einen um 20 % zu hohen Betrag. Das ist die Zahl,
+    // nach der abgerechnet wird, deshalb kommt sie jetzt aus SQL, in derselben
+    // Reihenfolge wie auf dem Beleg.
+    const summen = await rechnungsSummen(db, req.params.id);
+
+    res.json({ ...rows[0], schmuckstuecke: pieces.rows, summen });
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
@@ -208,10 +216,13 @@ router.get('/:id/excel', async (req, res) => {
       rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
     }
 
+    const summen = await rechnungsSummen(db, req.params.id);
+
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],
       kunde: rows[0],
       rechungsZeitraum,
+      summen,
       schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     });
 
@@ -373,7 +384,7 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (status === 'final') {
         await client.query(
-          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = TRUE WHERE "Artikelnummer" = ANY($2::text[])`,
           [rechnungId, Artikelnummern]
         );
       } else {
@@ -453,7 +464,11 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
  *       403: { $ref: '#/components/responses/Forbidden' }
  *       404: { $ref: '#/components/responses/NotFound' }
  */
+// Wie beim Lieferschein sind Zurücksetzen und Neusetzen ein Vorgang: ohne
+// Transaktion stehen nach einem Teilfehler alle Positionen einer finalen
+// Rechnung auf Verkauft = 0 und können doppelt verkauft werden (Befund C2).
 router.put('/:id', validate(rechnungSchema), async (req, res) => {
+  let client;
   try {
     const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen } = req.body;
 
@@ -477,38 +492,62 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
     updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;
     params.push(req.params.id);
 
-    const { rows } = await db.query(updateQuery, params);
+    client = await db.connect();
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(updateQuery, params);
     if (rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
 
     const currentStatus = rows[0].status;
 
     // Always reset old associations first (both Rechnung_ID and Verkauft)
-    await db.query(`UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`, [req.params.id]);
+    await client.query(
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
+      [req.params.id]
+    );
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (currentStatus === 'final') {
         // Final: set both Rechnung_ID and Verkauft
-        await db.query(
-          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = 1 WHERE "Artikelnummer" = ANY($2::text[])`,
+        await client.query(
+          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = TRUE WHERE "Artikelnummer" = ANY($2::text[])`,
           [req.params.id, Artikelnummern]
         );
       } else {
         // Draft: only set Rechnung_ID, don't change Verkauft
-        await db.query(
+        await client.query(
           `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1 WHERE "Artikelnummer" = ANY($2::text[])`,
           [req.params.id, Artikelnummern]
         );
       }
     }
 
+    await client.query('COMMIT');
+
     logger.info('RECHNUNGEN', 'Rechnung aktualisiert', { id: req.params.id, status: currentStatus });
     res.json(rows[0]);
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('RECHNUNGEN', 'Rollback fehlgeschlagen beim Aktualisieren der Rechnung',
+          { id: req.params.id, message: rollbackErr.message });
+      }
+    }
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Rechnungsnummer existiert bereits' });
+    }
     logger.error('RECHNUNGEN', 'Fehler beim Aktualisieren der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Aktualisieren der Rechnung' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
@@ -534,24 +573,59 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.delete('/:id', async (req, res) => {
+  let client;
   try {
-    // Reset associations before deleting
-    await db.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = 0 WHERE "Rechnung_ID" = $1`,
+    client = await db.connect();
+    await client.query('BEGIN');
+
+    // Existenz zuerst prüfen (Befund C3): vorher wurden die Positionen auch
+    // dann auf Verkauft = 0 zurückgesetzt, wenn danach 404 geliefert wurde.
+    const { rowCount: vorhanden } = await client.query(
+      'SELECT "ID" FROM "Rechnung" WHERE "ID" = $1 FOR UPDATE',
       [req.params.id]
     );
-    const { rowCount } = await db.query(
+    if (vorhanden === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+    }
+
+    // Reset associations before deleting
+    await client.query(
+      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
+      [req.params.id]
+    );
+    await client.query(
       'DELETE FROM "Rechnung" WHERE "ID" = $1',
       [req.params.id]
     );
-    if (rowCount === 0) {
-      return res.status(404).json({ error: 'Rechnung nicht gefunden' });
-    }
+
+    await client.query('COMMIT');
+
     logger.info('RECHNUNGEN', 'Rechnung gelöscht', { id: req.params.id });
     res.json({ message: 'Rechnung gelöscht' });
   } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('RECHNUNGEN', 'Rollback fehlgeschlagen beim Löschen der Rechnung',
+          { id: req.params.id, message: rollbackErr.message });
+      }
+    }
+    // bestellung.rechnung_nummer verweist mit NO ACTION auf "Rechnung"; ohne
+    // diese Abfrage wäre eine noch verknüpfte Rechnung ein generischer 500,
+    // dessen Grund der Nutzer nie erfährt (Befund C3).
+    if (err.code === '23503') {
+      return res.status(409).json({
+        error: 'Rechnung ist noch mit einer Bestellung verknüpft und kann nicht gelöscht werden',
+      });
+    }
     logger.error('RECHNUNGEN', 'Fehler beim Löschen der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen der Rechnung' });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 

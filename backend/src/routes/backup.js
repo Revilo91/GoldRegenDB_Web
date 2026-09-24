@@ -261,19 +261,269 @@ async function importUploadsFromZipBuffer(zipBuffer) {
   return { restored, skipped };
 }
 
-// Zentrale Tabellenliste für Export/Import (Reihenfolge: FK-sicher für Import und Truncate)
-const ALL_TABLES = [
-  "Schmuckstück",
-  "lagerinventur",
-  "Rechnung",
-  "Lieferschein",
-  "Kunde",
-  "audit_log",
-  "app_users",
-];
+// ── Tabellen und Schlüssel aus dem Systemkatalog (Befunde B18, B17, B19) ────
+//
+// Vorher stand hier eine handgepflegte Liste von sieben Tabellennamen. Sie ließ
+// `bestellung`, `bestellung_kunde` und `bestellung_consent` aus – also die
+// komplette Bestellübersicht samt der DSGVO-Consent-Nachweise. Ein Export
+// "aller Tabellen" war damit unvollständig, und nach einem Import (der mit
+// TRUNCATE ... CASCADE beginnt) waren die Nachweise weg, ohne dass es irgendwo
+// auffiel. Jede handgeschriebene Liste vergisst irgendwann einen Eintrag;
+// deshalb wird sie hier aus `pg_class` abgeleitet und über die echten
+// FK-Beziehungen aus `pg_constraint` topologisch sortiert.
+const AUDIT_HASH_TRIGGER = "trg_audit_log_hash_chain";
 
-// Alias für Export (alle Tabellen)
-const EXPORT_TABLES = ALL_TABLES;
+// Kahn: Eltern zuerst. Bei gleicher Bereitschaft alphabetisch, damit die
+// Reihenfolge – und damit ein Export – reproduzierbar ist.
+function topologischSortieren(tabellen, kanten, aufZyklus) {
+  const offen = new Set(tabellen);
+  const elternVon = new Map(tabellen.map((t) => [t, new Set()]));
+  for (const { kind, eltern } of kanten) {
+    if (offen.has(kind) && offen.has(eltern)) elternVon.get(kind).add(eltern);
+  }
+
+  const sortiert = [];
+  while (offen.size > 0) {
+    const bereit = [...offen]
+      .filter((t) => [...elternVon.get(t)].every((e) => !offen.has(e)))
+      .sort();
+    if (bereit.length === 0) {
+      // FK-Zyklus: nicht auflösbar, Rest alphabetisch anhängen und melden.
+      const rest = [...offen].sort();
+      if (aufZyklus) aufZyklus(rest);
+      sortiert.push(...rest);
+      break;
+    }
+    for (const t of bereit) {
+      sortiert.push(t);
+      offen.delete(t);
+    }
+  }
+  return sortiert;
+}
+
+// Alles, was Export und Import über das Schema wissen müssen – in einem Aufruf.
+async function ermittleSchemaInfo(queryable) {
+  const { rows: tabellenZeilen } = await queryable.query(
+    `SELECT c.relname AS name
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+      ORDER BY c.relname`,
+  );
+  const tabellen = tabellenZeilen.map((r) => r.name);
+
+  const { rows: kanten } = await queryable.query(
+    `SELECT src.relname AS kind, ziel.relname AS eltern
+       FROM pg_constraint k
+       JOIN pg_class src  ON src.oid  = k.conrelid
+       JOIN pg_class ziel ON ziel.oid = k.confrelid
+       JOIN pg_namespace n ON n.oid = src.relnamespace
+      WHERE k.contype = 'f' AND n.nspname = 'public' AND src.oid <> ziel.oid`,
+  );
+
+  const { rows: pkZeilen } = await queryable.query(
+    `SELECT tc.table_name AS tabelle, kcu.column_name AS spalte
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON kcu.constraint_name = tc.constraint_name
+        AND kcu.table_schema    = tc.table_schema
+      WHERE tc.constraint_type = 'PRIMARY KEY'
+        AND tc.table_schema    = 'public'
+      ORDER BY tc.table_name, kcu.ordinal_position`,
+  );
+  const primaerschluessel = new Map();
+  for (const { tabelle, spalte } of pkZeilen) {
+    if (!primaerschluessel.has(tabelle)) primaerschluessel.set(tabelle, []);
+    primaerschluessel.get(tabelle).push(spalte);
+  }
+
+  const { rows: spaltenZeilen } = await queryable.query(
+    `SELECT table_name  AS tabelle,
+            column_name AS spalte,
+            data_type   AS typ,
+            column_default LIKE 'nextval%' AS hat_sequenz
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+      ORDER BY table_name, ordinal_position`,
+  );
+
+  const spalten = new Map();
+  for (const zeile of spaltenZeilen) {
+    if (!spalten.has(zeile.tabelle)) spalten.set(zeile.tabelle, []);
+    spalten.get(zeile.tabelle).push({ name: zeile.spalte, typ: zeile.typ });
+  }
+
+  // Befund B17: die setval-Handliste kannte lagerinventur nicht – der nächste
+  // Inventur-Entwurf lief nach einem Import so lange in "duplicate key", bis
+  // die Sequence aufgeholt hatte.
+  const sequenzspalten = spaltenZeilen
+    .filter((z) => z.hat_sequenz)
+    .map((z) => ({ tabelle: z.tabelle, spalte: z.spalte }));
+
+  const reihenfolge = topologischSortieren(tabellen, kanten, (rest) =>
+    logger.warn("BACKUP", "FK-Zyklus im Schema, Reihenfolge unbestimmt", {
+      tabellen: rest,
+    }),
+  );
+
+  return { reihenfolge, kanten, primaerschluessel, sequenzspalten, spalten };
+}
+
+// Welche Tabellen räumt `TRUNCATE ... CASCADE` zusätzlich leer, weil sie auf
+// eine der ausgewählten zeigen? Ohne diese Warnung ist ein selektiver Import
+// von z. B. nur "Kunde" ein stiller Totalverlust der Bestellungen.
+function ermittleKaskade(kanten, ausgewaehlt) {
+  const betroffen = new Set(ausgewaehlt);
+  let gewachsen = true;
+  while (gewachsen) {
+    gewachsen = false;
+    for (const { kind, eltern } of kanten) {
+      if (betroffen.has(eltern) && !betroffen.has(kind)) {
+        betroffen.add(kind);
+        gewachsen = true;
+      }
+    }
+  }
+  return [...betroffen].filter((t) => !ausgewaehlt.includes(t)).sort();
+}
+
+// `bytea` kommt aus pg als Buffer und landet in JSON als
+// {"type":"Buffer","data":[...]}. Beim Import ist das ein Objekt, kein Puffer –
+// die verschlüsselten Bestellkunden-Felder (name_enc, telefonnummer_enc, …)
+// kämen als JSON-Text in der Spalte an. Hier zurück in einen Buffer.
+function jsonWertZuDb(wert) {
+  if (
+    wert &&
+    typeof wert === "object" &&
+    wert.type === "Buffer" &&
+    Array.isArray(wert.data)
+  ) {
+    return Buffer.from(wert.data);
+  }
+  return wert;
+}
+
+// Constraints, die die Datenbank selbst als NOT VALID führt, sind von den
+// vorhandenen Zeilen nachweislich nicht erfüllt (hier:
+// schmuckstueck_ausschuss_grund_required_chk, 240 Ausschuss-Stücke ohne Grund,
+// Befund D7). Ein Import ist ein Wiederherstellen genau dieser Zeilen – als
+// INSERT werden sie aber geprüft, und der komplette Import scheitert. Deshalb
+// wird ein NOT-VALID-Constraint für die Dauer des Imports entfernt und danach
+// wieder als NOT VALID angelegt: dieselbe Reihenfolge, die pg_dump benutzt
+// (Daten vor Constraints). Validierte Constraints bleiben in Kraft – Daten, die
+// gegen sie verstoßen, können in der Quelle nicht existiert haben.
+async function loeseNichtValidierteChecks(client, tabellen) {
+  if (tabellen.length === 0) return [];
+  const { rows } = await client.query(
+    `SELECT c.conrelid::regclass::text AS tabelle,
+            c.conname                  AS name,
+            pg_get_constraintdef(c.oid) AS definition
+       FROM pg_constraint c
+       JOIN pg_class t ON t.oid = c.conrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE c.contype = 'c' AND NOT c.convalidated
+        AND n.nspname = 'public' AND t.relname = ANY($1::text[])`,
+    [tabellen],
+  );
+  for (const { tabelle, name } of rows) {
+    await client.query(`ALTER TABLE ${tabelle} DROP CONSTRAINT "${name}"`);
+  }
+  if (rows.length > 0) {
+    logger.info("BACKUP", "NOT-VALID-Checks für den Import gelöst", {
+      constraints: rows.map((r) => r.name),
+    });
+  }
+  return rows;
+}
+
+async function stelleChecksWiederHer(client, geloest) {
+  for (const { tabelle, name, definition } of geloest) {
+    // pg_get_constraintdef liefert die Definition inklusive "NOT VALID".
+    const mitNotValid = /NOT VALID\s*$/.test(definition)
+      ? definition
+      : `${definition} NOT VALID`;
+    await client.query(
+      `ALTER TABLE ${tabelle} ADD CONSTRAINT "${name}" ${mitNotValid}`,
+    );
+  }
+}
+
+// node-postgres liefert timestamp/date als JS-Date – und ein Date kennt nur
+// Millisekunden. Der Export verlor damit die Mikrosekunden jeder Zeile, die die
+// laufende Anwendung geschrieben hat (CURRENT_TIMESTAMP liefert sechs Stellen).
+// Für audit_log ist das fatal: `change_timestamp::text` geht in den SHA-256 der
+// Hash-Kette ein, also meldete `verify_audit_chain()` nach jedem Import
+// `hash_mismatch` für genau diese Zeilen – gemessen 29 von 4368, nämlich alle,
+// die nicht aus dem Seed stammten. Als ::text exportiert bleibt der Wert exakt,
+// und Postgres parst ihn beim Import unverändert zurück.
+const ZEITTYPEN = new Set([
+  "timestamp without time zone",
+  "timestamp with time zone",
+  "date",
+  "time without time zone",
+  "time with time zone",
+]);
+
+function selectListe(tabelle, spalten) {
+  const liste = spalten.get(tabelle);
+  if (!liste || liste.length === 0) return "*";
+  return liste
+    .map(({ name, typ }) =>
+      ZEITTYPEN.has(typ) ? `"${name}"::text AS "${name}"` : `"${name}"`,
+    )
+    .join(", ");
+}
+
+function orderByPk(tabelle, primaerschluessel) {
+  const spalten = primaerschluessel.get(tabelle);
+  if (!spalten || spalten.length === 0) return "";
+  return ` ORDER BY ${spalten.map((c) => `"${c}"`).join(", ")}`;
+}
+
+/**
+ * @swagger
+ * /backup/tables:
+ *   get:
+ *     summary: Exportierbare Tabellen (aus dem Systemkatalog abgeleitet)
+ *     description: 'Liefert die Tabellen in FK-sicherer Reihenfolge samt Zeilenzahl.
+ *       Das Frontend baut daraus seine Auswahl, damit keine zweite Handliste gepflegt
+ *       werden muss. Erfordert Rolle: admin.'
+ *     tags: [Backup]
+ *     responses:
+ *       200:
+ *         description: Tabellenliste
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 tables:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name: { type: string }
+ *                       rows: { type: integer }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ */
+router.get("/tables", async (_req, res) => {
+  try {
+    const { reihenfolge } = await ermittleSchemaInfo(db);
+    const tables = [];
+    for (const name of reihenfolge) {
+      const { rows } = await db.query(`SELECT count(*)::int AS n FROM "${name}"`);
+      tables.push({ name, rows: rows[0].n });
+    }
+    res.json({ tables });
+  } catch (err) {
+    logger.error("BACKUP", "Fehler beim Ermitteln der Tabellen", {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Ermitteln der Tabellen" });
+  }
+});
 
 /**
  * @swagger
@@ -303,17 +553,20 @@ const EXPORT_TABLES = ALL_TABLES;
  */
 router.get("/export", async (req, res) => {
   try {
-    // Determine which tables to export
+    // Tabellenliste aus dem Katalog; die Schnittmenge bleibt gleichzeitig die
+    // Allowlist, die den Tabellennamen im SELECT unten absichert.
+    const { reihenfolge, primaerschluessel, spalten } =
+      await ermittleSchemaInfo(db);
+
     let tablesToExport;
     if (req.query.tables) {
       const requested = req.query.tables
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      // Only allow tables that are in the known EXPORT_TABLES list
-      tablesToExport = EXPORT_TABLES.filter((t) => requested.includes(t));
+      tablesToExport = reihenfolge.filter((t) => requested.includes(t));
     } else {
-      tablesToExport = EXPORT_TABLES;
+      tablesToExport = reihenfolge;
     }
 
     const exportData = {
@@ -322,8 +575,17 @@ router.get("/export", async (req, res) => {
       tables: {},
     };
 
+    // Befund B19: ohne ORDER BY liefert der Export Heap-Reihenfolge. Beim
+    // Import rechnet der Hash-Trigger `previous_hash`/`hash` anhand der
+    // EINFÜGE-Reihenfolge neu, `verify_audit_chain()` prüft aber nach `id` –
+    // nach einem VACUUM FULL oder einem Parallel-Seq-Scan meldete die
+    // Prüfung dann tausende `chain_broken` für eine Datenbank, an der niemand
+    // manipuliert hatte. Sortiert sind Backups außerdem diffbar.
     for (const table of tablesToExport) {
-      const result = await db.query(`SELECT * FROM "${table}"`);
+      const result = await db.query(
+        `SELECT ${selectListe(table, spalten)} FROM "${table}"` +
+          orderByPk(table, primaerschluessel),
+      );
       exportData.tables[table] = result.rows;
     }
 
@@ -384,7 +646,6 @@ router.get("/export-uploads", async (_req, res) => {
     });
     res.status(500).json({
       error: "Fehler beim Exportieren der Upload-Bilder",
-      details: err.message,
       fileName: err.fileName,
       filePath: err.filePath,
       cause: err.cause?.message,
@@ -641,6 +902,21 @@ function normalizeBackupData(data) {
  *                 message: { type: string }
  *                 counts: { type: object, additionalProperties: { type: integer } }
  *                 uploads: { type: object, nullable: true }
+ *                 auditKette:
+ *                   type: object
+ *                   nullable: true
+ *                   description: Ergebnis von verify_audit_chain() nach dem Import
+ *                   properties:
+ *                     gueltig: { type: boolean }
+ *                     kaputteEintraege: { type: array, items: { type: object } }
+ *                 kaskadierteTabellen:
+ *                   type: array
+ *                   items: { type: string }
+ *                   description: Tabellen, die TRUNCATE CASCADE zusätzlich geleert hat (nicht Teil der Auswahl)
+ *                 ignorierteTabellen:
+ *                   type: array
+ *                   items: { type: string }
+ *                   description: Tabellen aus dem Backup, die es im aktuellen Schema nicht gibt
  *       400:
  *         description: Ungültiges Backup-Format
  *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
@@ -686,33 +962,50 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
 
   const { tables, version, uploads } = normalized;
 
-  // Bestimme, welche Tabellen importiert werden sollen (FK-sichere Reihenfolge)
-  let tablesToImport;
-  if (Array.isArray(selectedTables) && selectedTables.length > 0) {
-    // Nur bekannte Tabellen; Reihenfolge wie in ALL_TABLES
-    const selectedSet = new Set(selectedTables);
-    tablesToImport = ALL_TABLES.filter(
-      (t) =>
-        selectedSet.has(t) && Object.prototype.hasOwnProperty.call(tables, t),
-    );
-  } else {
-    // Standard: alle Tabellen aus Backup, Reihenfolge wie in ALL_TABLES
-    tablesToImport = ALL_TABLES.filter((t) =>
-      Object.prototype.hasOwnProperty.call(tables, t),
-    );
-  }
-
-  logger.info("BACKUP", `Import gestartet (Version: ${version})`, {
-    tabellen: tablesToImport,
-  });
-
   let client;
   try {
     client = await db.connect();
     await client.query("BEGIN");
 
-    // Truncate only the selected tables; table names are validated against FK_SAFE_ORDER whitelist above.
-    // CASCADE satisfies any remaining FK constraints (e.g. when a parent table is truncated).
+    // Reihenfolge und Schlüssel aus dem Katalog, nicht aus einer Handliste.
+    const { reihenfolge, kanten, sequenzspalten } =
+      await ermittleSchemaInfo(client);
+
+    // Was im Backup steht, die Datenbank aber nicht (mehr) kennt, wird nicht
+    // still verschluckt, sondern in der Antwort benannt.
+    const imBackup = Object.keys(tables);
+    const selectedSet =
+      Array.isArray(selectedTables) && selectedTables.length > 0
+        ? new Set(selectedTables)
+        : null;
+    const tablesToImport = reihenfolge.filter(
+      (t) =>
+        Object.prototype.hasOwnProperty.call(tables, t) &&
+        (selectedSet === null || selectedSet.has(t)),
+    );
+    const ignorierteTabellen = imBackup
+      .filter((t) => !reihenfolge.includes(t))
+      .sort();
+    if (ignorierteTabellen.length > 0) {
+      logger.warn("BACKUP", "Tabellen im Backup existieren nicht im Schema", {
+        tabellen: ignorierteTabellen,
+      });
+    }
+
+    logger.info("BACKUP", `Import gestartet (Version: ${version})`, {
+      tabellen: tablesToImport,
+    });
+
+    // Die Tabellennamen stammen aus `reihenfolge`, also aus dem Katalog – sie
+    // sind damit gegen eine Allowlist geprüft, bevor sie interpoliert werden.
+    // CASCADE leert zusätzlich alles, was auf eine ausgewählte Tabelle zeigt;
+    // bei einer Teilauswahl ist das ein Datenverlust, der benannt werden muss.
+    const kaskadierteTabellen = ermittleKaskade(kanten, tablesToImport);
+    if (kaskadierteTabellen.length > 0) {
+      logger.warn("BACKUP", "TRUNCATE CASCADE leert zusätzliche Tabellen", {
+        tabellen: kaskadierteTabellen,
+      });
+    }
     if (tablesToImport.length > 0) {
       const truncateList = tablesToImport.map((t) => `"${t}"`).join(", ");
       await client.query(
@@ -770,7 +1063,7 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
 
         // Extract only the values for columns that will be inserted
         const values = batch.flatMap((row) =>
-          columnsToInsert.map((col) => row[col]),
+          columnsToInsert.map((col) => jsonWertZuDb(row[col])),
         );
 
         await client.query(
@@ -780,25 +1073,85 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
       }
     };
 
-    // Insert rows in FK-sicherer Reihenfolge: Eltern zuerst (umgekehrte ALL_TABLES)
-    const INSERT_ORDER = [...ALL_TABLES].reverse();
-    for (const tableName of INSERT_ORDER) {
+    // Befund B19: der Hash-Trigger rechnet `previous_hash`/`hash` bei jedem
+    // INSERT neu und überschreibt damit die Werte aus dem Backup. Für die
+    // Dauer des Imports wird er abgeschaltet, sodass die Original-Hashes
+    // erhalten bleiben und `verify_audit_chain()` danach eine Aussage über die
+    // gesicherten Daten trifft statt über die Einfügereihenfolge.
+    const hashTriggerAktiv =
+      tablesToImport.includes("audit_log") &&
+      (
+        await client.query(
+          `SELECT 1 FROM pg_trigger
+            WHERE tgrelid = 'audit_log'::regclass AND tgname = $1`,
+          [AUDIT_HASH_TRIGGER],
+        )
+      ).rowCount > 0;
+    if (hashTriggerAktiv) {
+      await client.query(
+        `ALTER TABLE audit_log DISABLE TRIGGER ${AUDIT_HASH_TRIGGER}`,
+      );
+    }
+
+    const geloesteChecks = await loeseNichtValidierteChecks(
+      client,
+      tablesToImport,
+    );
+
+    // `reihenfolge` ist topologisch sortiert (Eltern zuerst). Das ersetzt das
+    // frühere `[...ALL_TABLES].reverse()`, das die FK-Reihenfolge geraten hat.
+    //
+    // Nicht verwendet: `SET CONSTRAINTS ALL DEFERRED`. Das wirkt in Postgres
+    // ausschließlich auf DEFERRABLE deklarierte Constraints – in diesem Schema
+    // ist keiner der sechs Fremdschlüssel deferrable (`pg_constraint.
+    // condeferrable` ist überall false), die Anweisung wäre also ein No-op mit
+    // trügerischer Wirkung. Die echte Sortierung trägt weiter.
+    for (const tableName of reihenfolge) {
       if (tablesToImport.includes(tableName)) {
         await insertRows(tableName, tables[tableName]);
       }
     }
 
-    // Reset SERIAL sequences to avoid PK conflicts on future inserts
-    const allSeqResets = {
-      app_users: `SELECT setval(pg_get_serial_sequence('"app_users"', 'id'), COALESCE((SELECT MAX("id") FROM "app_users"), 0) + 1, false)`,
-      audit_log: `SELECT setval(pg_get_serial_sequence('"audit_log"', 'id'), COALESCE((SELECT MAX("id") FROM "audit_log"), 0) + 1, false)`,
-      Kunde: `SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Kunde"), 0) + 1, false)`,
-      Lieferschein: `SELECT setval(pg_get_serial_sequence('"Lieferschein"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Lieferschein"), 0) + 1, false)`,
-      Rechnung: `SELECT setval(pg_get_serial_sequence('"Rechnung"', 'ID'), COALESCE((SELECT MAX("ID") FROM "Rechnung"), 0) + 1, false)`,
-    };
-    for (const tableName of tablesToImport) {
-      if (allSeqResets[tableName]) {
-        await client.query(allSeqResets[tableName]);
+    if (hashTriggerAktiv) {
+      await client.query(
+        `ALTER TABLE audit_log ENABLE TRIGGER ${AUDIT_HASH_TRIGGER}`,
+      );
+    }
+
+    await stelleChecksWiederHer(client, geloesteChecks);
+
+    // Sequences nachziehen – generisch aus dem Katalog (Befund B17). Tabelle
+    // und Spalte sind Parameter, nicht interpoliert; nur der MAX()-Ausdruck
+    // braucht den gequoteten Namen, und der stammt aus dem Katalog.
+    for (const { tabelle, spalte } of sequenzspalten) {
+      if (!tablesToImport.includes(tabelle)) continue;
+      await client.query(
+        `SELECT setval(
+           pg_get_serial_sequence($1, $2),
+           COALESCE((SELECT MAX("${spalte}") FROM "${tabelle}"), 0) + 1,
+           false)`,
+        [`"${tabelle}"`, spalte],
+      );
+    }
+
+    // Aussage über die importierte Kette, solange die Transaktion offen ist.
+    let auditKette = null;
+    if (tablesToImport.includes("audit_log")) {
+      const { rowCount: pruefungVorhanden } = await client.query(
+        `SELECT 1 FROM pg_proc p
+           JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'public' AND p.proname = 'verify_audit_chain'`,
+      );
+      if (pruefungVorhanden > 0) {
+        const { rows: kaputt } = await client.query(
+          "SELECT * FROM verify_audit_chain()",
+        );
+        auditKette = { gueltig: kaputt.length === 0, kaputteEintraege: kaputt };
+        if (kaputt.length > 0) {
+          logger.warn("BACKUP", "Audit-Kette im Backup ist nicht intakt", {
+            anzahl: kaputt.length,
+          });
+        }
       }
     }
 
@@ -819,10 +1172,25 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
       message: "Import erfolgreich",
       counts,
       uploads: uploadImportResult,
+      auditKette,
+      kaskadierteTabellen,
+      ignorierteTabellen,
+      geloesteChecks: geloesteChecks.map((c) => c.name),
     });
     logger.info("BACKUP", "Import erfolgreich abgeschlossen", counts);
   } catch (err) {
-    if (client) await client.query("ROLLBACK");
+    if (client) {
+      // Befund C29: scheitert das ROLLBACK – typisch bei Verbindungsverlust,
+      // also genau im Fehlerfall –, ginge sonst die eigentliche Meldung
+      // verloren und der Client wanderte mit offener Transaktion zurück.
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackErr) {
+        logger.error("BACKUP", "ROLLBACK nach Importfehler fehlgeschlagen", {
+          message: rollbackErr.message,
+        });
+      }
+    }
     logger.error("BACKUP", "Fehler beim Importieren", { message: err.message });
     res.status(500).json({ error: `Fehler beim Importieren: ${err.message}` });
   } finally {

@@ -171,6 +171,30 @@ describe('PUT /api/kunden/:id/restock', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe('3 Artikel zurückgelagert');
   });
+
+  // Befund C7: hier stand builder.ausgelagert(id), das nur auf
+  // "Ausgelagert" = $1 filtert. Ein beim Kunden VERKAUFTES Stück verlor damit
+  // seinen Kundenbezug -- die Provisionsbasis des Kunden sank rückwirkend.
+  it('fasst verkaufte und Ausschuss-Stücke nicht an', async () => {
+    db.query.mockResolvedValueOnce({ rowCount: 1 });
+
+    await request(buildApp()).put('/api/kunden/3/restock');
+
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain('"Verkauft" IS FALSE');
+    expect(sql).toContain('"Ausschuss" IS FALSE');
+  });
+
+  // Befund C7, zweite Folge: "Lieferschein_ID" blieb gesetzt. Das Stück war
+  // danach gleichzeitig verfügbar UND Position eines Lieferscheins und konnte
+  // ein zweites Mal ausgeliefert werden.
+  it('setzt die Lieferschein-Zuordnung mit zurück', async () => {
+    db.query.mockResolvedValueOnce({ rowCount: 1 });
+
+    await request(buildApp()).put('/api/kunden/3/restock');
+
+    expect(String(db.query.mock.calls[0][0])).toContain('"Lieferschein_ID" = 0');
+  });
 });
 
 describe('PUT /api/kunden/:id/restock-selective', () => {
@@ -192,6 +216,19 @@ describe('PUT /api/kunden/:id/restock-selective', () => {
 
     expect(res.statusCode).toBe(400);
     expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('wendet dieselben Schutzbedingungen an wie /restock (C7)', async () => {
+    db.query.mockResolvedValueOnce({ rowCount: 1 });
+
+    await request(buildApp())
+      .put('/api/kunden/3/restock-selective')
+      .send({ artikelnummern: ['MHO123_1'] });
+
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain('"Verkauft" IS FALSE');
+    expect(sql).toContain('"Ausschuss" IS FALSE');
+    expect(sql).toContain('"Lieferschein_ID" = 0');
   });
 });
 

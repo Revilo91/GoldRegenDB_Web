@@ -13,7 +13,7 @@ const {
 } = require("../schemas");
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
-const { GRUNDMATERIAL } = require("../utils/constants");
+const { GRUNDMATERIAL, PRODUKTART } = require("../utils/constants");
 const {
   uploadsDir,
   resolvePhotoFile,
@@ -87,26 +87,68 @@ const SEARCHABLE_FIELDS = [
   "Letzte_Änderung",
 ];
 
-const PRODUKTART = {
-  A: "Armband",
-  H: "Halskette",
-  O: "Ohrring",
-  S: "Schlüsselanhänger",
-};
-
 const AUSSCHUSS_GRUND_CONSTRAINT = "schmuckstueck_ausschuss_grund_required_chk";
 
+// Statusfilter aus den Query-Parametern. Die Bedeutung von "verkauft" steht im
+// whereClauseBuilder, nicht in dieser Route (Befund F5): vorher hiess es hier
+// builder.equals("Verkauft", parseInt(verkauft)), also woertlich "Verkauft = 1"
+// -- damit lieferte das Dropdown "Verkauft" auch Ausschussstuecke, obwohl
+// CLAUDE.md Verkauft als "Verkauft=1 AND Ausschuss=0" definiert.
+// parseInt("abc") ergab ausserdem NaN als Query-Parameter und damit HTTP 500
+// statt 400 (Befund C25).
+const FLAG_WERTE = { 1: true, 0: false, true: true, false: false };
+
+// Leerstrings bedeuten wie ueberall im Projekt "kein Wert", nicht "= 0"
+// (siehe leerZuNull in schemas/common.js).
+const istLeer = (wert) => wert === undefined || String(wert).trim() === "";
+
+/**
+ * Haengt verkauft/ausschuss/ausgelagert an den Builder.
+ * @returns {string|null} Fehlermeldung fuer HTTP 400, oder null
+ */
+function statusFilterAnwenden(builder, query) {
+  if (!istLeer(query.verkauft)) {
+    const flag = FLAG_WERTE[String(query.verkauft)];
+    if (flag === undefined) return "verkauft muss 0 oder 1 sein";
+    if (flag) builder.verkauft();
+    else builder.nichtVerkauft();
+  }
+
+  if (!istLeer(query.ausschuss)) {
+    const flag = FLAG_WERTE[String(query.ausschuss)];
+    if (flag === undefined) return "ausschuss muss 0 oder 1 sein";
+    if (flag) builder.ausschuss();
+    else builder.keinAusschuss();
+  }
+
+  if (!istLeer(query.ausgelagert)) {
+    const kundeId = Number(query.ausgelagert);
+    if (!Number.isInteger(kundeId) || kundeId < 0) {
+      return "ausgelagert muss eine Kundennummer oder 0 sein";
+    }
+    if (kundeId === 0) builder.imLager();
+    else builder.ausgelagert(kundeId);
+  }
+
+  return null;
+}
+
+// ausschuss kommt aus zod als boolean (Befund B6); aeltere Aufrufer und Tests
+// schicken 0/1 oder "1" -- beides bleibt gueltig.
 function resolveAusschussGrund(ausschuss, ausschussGrund) {
-  const ausschussValue = Number(ausschuss) === 1 ? 1 : 0;
+  const istAusschuss = ausschuss === true || ausschuss === 1 || ausschuss === "1";
   const normalizedGrund =
     typeof ausschussGrund === "string" ? ausschussGrund.trim() : "";
 
-  if (ausschussValue === 1) {
+  if (istAusschuss) {
     return normalizedGrund || "Defekt";
   }
   return normalizedGrund || null;
 }
 
+// Normalisiert wird im zod-Schema (Befund D4). Hier wird nur noch getrennt und
+// getrimmt -- die String-Variante ("MHO123, MHO124") kommt als ein Feld an und
+// kann von zod nicht einzeln normalisiert werden.
 function normalizeBulkArtikelnummern(input) {
   if (Array.isArray(input)) {
     return input.map((value) => String(value || "").trim().toUpperCase());
@@ -127,12 +169,8 @@ function parseBulkItemsFromPayload(payload) {
     return payload.items
       .map((item) => ({ ...(item || {}) }))
       .filter((item) => Object.keys(item).length > 0)
-      .map((item) => ({
-        ...item,
-        Artikelnummer: String(item.Artikelnummer || "")
-          .trim()
-          .toUpperCase(),
-      }));
+      // Artikelnummer ist hier bereits normalisiert (zod, Befund D4)
+      .map((item) => ({ ...item }));
   }
 
   const template = payload?.template || {};
@@ -280,7 +318,6 @@ router.get("/foto/:fileName", (req, res) => {
           requestedFileName: path.basename(String(req.params.fileName || "").trim()),
           resolvedFileName: lookup.resolvedFileName,
           resolvedBy: lookup.resolvedBy,
-          details: err.message,
         });
       }
     });
@@ -292,7 +329,6 @@ router.get("/foto/:fileName", (req, res) => {
     );
     res.status(500).json({
       error: "Fehler beim Abrufen des Fotos",
-      details: err.message,
     });
   }
 });
@@ -605,9 +641,9 @@ router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async
           item.Zwischenstück || "",
           item.Herstellungskosten || 0,
           item.Verkaufspreis || 0,
-          0,
-          0,
-          0,
+          0,      // Ausgelagert
+          false,  // Verkauft
+          false,  // Ausschuss (item.Ausschuss wird verworfen, Befund C12)
           ausschussGrundValue,
         ],
       );
@@ -701,9 +737,6 @@ router.get("/", async (req, res) => {
     if (isNaN(limit)) limit = 50;
     const offset = (page - 1) * limit;
     const search = req.query.search || "";
-    const verkauft = req.query.verkauft;
-    const ausgelagert = req.query.ausgelagert;
-    const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
 
     // Initialisiere WHERE-Builder
@@ -751,23 +784,14 @@ router.get("/", async (req, res) => {
       builder.produktart(artikelnummer_art);
     }
 
-    if (verkauft !== undefined) {
-      builder.equals("Verkauft", parseInt(verkauft));
-    }
-
-    if (ausgelagert !== undefined) {
-      builder.equals("Ausgelagert", parseInt(ausgelagert));
-    }
-
-    if (ausschuss !== undefined) {
-      builder.equals("Ausschuss", parseInt(ausschuss));
+    const filterFehler = statusFilterAnwenden(builder, req.query);
+    if (filterFehler) {
+      return res.status(400).json({ error: filterFehler });
     }
 
     const whereClause = builder.build();
     const params = builder.getParams();
     const nextParamIdx = builder.getNextParamIdx();
-
-    // Gesamtzahl per Fensterfunktion statt separater COUNT-Abfrage: ein
     // Tabellendurchlauf weniger pro Seitenaufruf. Alle Requests teilen sich
     // denselben request-gebundenen DB-Client, laufen also ohnehin nacheinander.
     const ORDER_BY = 'ORDER BY length("Artikelnummer"), "Artikelnummer"';
@@ -801,7 +825,9 @@ router.get("/", async (req, res) => {
       return {
         ...row,
         Grundmaterial: row.Artikelnummer
-          ? GRUNDMATERIAL[row.Artikelnummer[1]?.toUpperCase()] || "Unbekannt"
+          // Kein toUpperCase: der CHECK in der Datenbank garantiert
+          // Großbuchstaben (Befund D4).
+          ? GRUNDMATERIAL[row.Artikelnummer[1]] || "Unbekannt"
           : "Keine Nummer",
       };
     });
@@ -909,7 +935,9 @@ router.get("/filter-options", async (req, res) => {
          array_agg(DISTINCT "Name") FILTER (WHERE "Name" IS NOT NULL AND "Name" <> '') AS namen,
          array_agg(DISTINCT "Verkaufspreis") FILTER (WHERE "Verkaufspreis" IS NOT NULL) AS verkaufspreise,
          array_agg(DISTINCT "Herstellungskosten") FILTER (WHERE "Herstellungskosten" IS NOT NULL) AS herstellungskosten,
-         array_agg(DISTINCT "Ausschuss") FILTER (WHERE "Ausschuss" IS NOT NULL) AS ausschuesse,
+         -- ::int, damit die Filter-Optionen weiter 0/1 liefern und das
+         -- Dropdown im Frontend unberuehrt bleibt
+         array_agg(DISTINCT "Ausschuss"::int) FILTER (WHERE "Ausschuss" IS NOT NULL) AS ausschuesse,
          array_agg(DISTINCT "Anhänger") FILTER (WHERE "Anhänger" IS NOT NULL AND "Anhänger" <> '') AS anhaenger,
          array_agg(DISTINCT "Ausschuss_Grund") FILTER (WHERE "Ausschuss_Grund" IS NOT NULL AND "Ausschuss_Grund" <> '') AS ausschussgruende
        FROM "Schmuckstück"`,
@@ -921,6 +949,14 @@ router.get("/filter-options", async (req, res) => {
       // array_agg liefert NULL, wenn die Tabelle leer ist
       options[key] = (row[key] || []).sort(vergleicheFilterwerte);
     }
+
+    // GRUNDMATERIAL und PRODUKTART lagen vierfach im Projekt: utils/constants.js,
+    // dieser Route (als eigene Kopie), Schmuckstuecke.jsx und nochmals
+    // hartcodiert im Produktart-Dropdown (Befund G22). utils/constants.js ist
+    // jetzt die einzige Quelle und reist über diese Antwort ins Frontend -- das
+    // holt sie ohnehin schon beim Mount, ein zweiter Endpunkt wäre unnötig.
+    options.grundmaterialien = Object.entries(GRUNDMATERIAL).map(([code, label]) => ({ code, label }));
+    options.produktarten = Object.entries(PRODUKTART).map(([code, label]) => ({ code, label }));
 
     res.json(options);
   } catch (err) {
@@ -956,22 +992,15 @@ router.get("/filter-options", async (req, res) => {
  */
 router.get("/unique-artikelnummern", async (req, res) => {
   try {
-    const verkauft = req.query.verkauft;
-    const ausgelagert = req.query.ausgelagert;
-    const ausschuss = req.query.ausschuss;
     const artikelnummer_art = req.query.artikelnummer_art;
     // Initialisiere WHERE-Builder
     const builder = where();
 
-    if (verkauft !== undefined) {
-      builder.equals("Verkauft", parseInt(verkauft));
+    const filterFehler = statusFilterAnwenden(builder, req.query);
+    if (filterFehler) {
+      return res.status(400).json({ error: filterFehler });
     }
-    if (ausgelagert !== undefined) {
-      builder.equals("Ausgelagert", parseInt(ausgelagert));
-    }
-    if (ausschuss !== undefined) {
-      builder.equals("Ausschuss", parseInt(ausschuss));
-    }
+
     if (artikelnummer_art) {
       builder.produktart(artikelnummer_art);
     }
@@ -999,8 +1028,7 @@ router.get("/unique-artikelnummern", async (req, res) => {
       { message: err.message },
     );
     res.status(500).json({
-      // error: "Fehler beim Laden der einzigartigen Artikelnummern",
-      error: String(err),
+      error: "Fehler beim Laden der einzigartigen Artikelnummern",
     });
   }
 });
@@ -1088,7 +1116,7 @@ router.get("/:artikelnummer", async (req, res) => {
  *               Grösse: { type: number, nullable: true }
  *               Herstellungskosten: { type: number, nullable: true }
  *               Verkaufspreis: { type: number, nullable: true }
- *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Ausschuss: { type: boolean }
  *               Ausschuss_Grund: { type: string, nullable: true }
  *     responses:
  *       201:
@@ -1126,9 +1154,11 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
 
     await client.query("BEGIN");
 
+    // baseArtikelnummer ist bereits normalisiert (zod, Befund D4) -- die
+    // toUpperCase-Aufrufe in diesem Block sind deshalb entfallen.
     // Case 1: Prefix only (3 chars, e.g. "MHO")
     if (baseArtikelnummer.length === 3) {
-      const prefix = baseArtikelnummer.toUpperCase();
+      const prefix = baseArtikelnummer;
       const { rows } = await client.query(
         `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 4, 3) AS INTEGER)) as max_num
          FROM "Schmuckstück"
@@ -1139,8 +1169,7 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
       baseArtikelnummer = prefix + nextNum.toString().padStart(3, "0");
     }
     // Case 2: Base Artikelnummer (e.g. "MHO112")
-    else if (/^[A-Z]{3}\d{3}$/.test(baseArtikelnummer.toUpperCase())) {
-      baseArtikelnummer = baseArtikelnummer.toUpperCase();
+    else if (/^[A-Z]{3}\d{3}$/.test(baseArtikelnummer)) {
       const { rows } = await client.query(
         `SELECT MAX(CAST(SUBSTRING("Artikelnummer", 8) AS INTEGER)) as max_suffix
          FROM "Schmuckstück"
@@ -1151,48 +1180,51 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
     } else if (baseArtikelnummer.includes("_")) {
       // If they provided a full number with suffix, just use it as is (quantity will still work but might collide)
       const parts = baseArtikelnummer.split("_");
-      baseArtikelnummer = parts[0].toUpperCase();
+      baseArtikelnummer = parts[0];
       startSuffix = parseInt(parts[1]) || 1;
     }
 
-    // Daten von Produkt holen, sobald das form nicht ausgefüllt ist
+    // Befund C11: der Kommentar hier sagte "Daten von Produkt holen, sobald das
+    // form nicht ausgefüllt ist" -- geprüft wurde das nie. Die Bedingung war
+    // `if (b.Artikelnummer)`, und Artikelnummer ist Pflichtfeld, also IMMER
+    // wahr. Wer ein weiteres Exemplar mit korrigiertem Preis oder Namen anlegte,
+    // bekam stillschweigend die Werte des Vorgängers -- die Eingabe war weg,
+    // ohne Meldung.
+    //
+    // Jetzt gilt, was der Kommentar behauptete: übernommen wird nur, was der
+    // Client NICHT geschickt hat. Wer nichts vorgeben will, bekommt wie bisher
+    // die Werte des Vorgängers; wer etwas eingibt, behält es.
+    const UEBERNEHMBARE_FELDER = [
+      'Name', 'Foto', 'Art', 'Material', 'Farbe', 'Verkaufspreis',
+      'Herstellungskosten', 'Länge', 'Fassung', 'Inhalt_Material',
+      'Inhalt_Farbe', 'Inhalt_Farbakzent', 'Inhalt_Zusatzmaterial',
+      'Anhänger_Fassung', 'Anhänger_Form', 'Anhänger_Farbe', 'Anhänger_Grösse',
+      'Anhänger_Inhalt_Material', 'Anhänger_Inhalt_Farbe',
+      'Anhänger_Inhalt_Farbakzente', 'Anhänger_Inhalt_Zusatzmaterial',
+      'Grösse', 'Anhänger', 'Zwischenstück',
+      // "Ausschuss_Grund" steht hier bewusst NICHT: er wurde vom Vorgänger
+      // kopiert, während b.Ausschuss auf false erzwungen wird -- das ergab
+      // Datensätze mit Ausschussgrund, die kein Ausschuss sind.
+    ];
+
     if (b.Artikelnummer) {
       const { rows } = await client.query(
         `SELECT * FROM "Schmuckstück" WHERE "Artikelnummer" = $1 || '_' || $2`,
         [baseArtikelnummer, startSuffix - 1],
       );
       if (rows.length > 0) {
-        b.Name = rows[0].Name;
-        b.Foto = rows[0].Foto;
-        b.Art = rows[0].Art;
-        b.Material = rows[0].Material;
-        b.Farbe = rows[0].Farbe;
-        b.Verkaufspreis = rows[0].Verkaufspreis;
-        b.Herstellungskosten = rows[0].Herstellungskosten;
+        const vorgaenger = rows[0];
+        for (const feld of UEBERNEHMBARE_FELDER) {
+          const eingabe = b[feld];
+          const leer = eingabe === undefined || eingabe === null || eingabe === '';
+          if (leer) {
+            b[feld] = vorgaenger[feld];
+          }
+        }
+        // Ein Duplikat startet immer im Lager, unabhängig vom Vorgänger.
         b.Ausgelagert = 0;
-        b.Verkauft = 0;
-        b.Ausschuss = 0;
-        b.Ausschuss_Grund = rows[0].Ausschuss_Grund;
-        b.Länge = rows[0].Länge;
-        b.Fassung = rows[0].Fassung;
-        b.Farbe = rows[0].Farbe;
-        b.Inhalt_Material = rows[0].Inhalt_Material;
-        b.Inhalt_Farbe = rows[0].Inhalt_Farbe;
-        b.Inhalt_Farbakzent = rows[0].Inhalt_Farbakzent;
-        b.Inhalt_Zusatzmaterial = rows[0].Inhalt_Zusatzmaterial;
-        b.Anhänger_Fassung = rows[0].Anhänger_Fassung;
-        b.Anhänger_Form = rows[0].Anhänger_Form;
-        b.Anhänger_Farbe = rows[0].Anhänger_Farbe;
-        b.Anhänger_Grösse = rows[0].Anhänger_Grösse;
-        b.Anhänger_Inhalt_Material = rows[0].Anhänger_Inhalt_Material;
-        b.Anhänger_Inhalt_Farbe = rows[0].Anhänger_Inhalt_Farbe;
-        b.Anhänger_Inhalt_Farbakzente = rows[0].Anhänger_Inhalt_Farbakzente;
-        b.Anhänger_Inhalt_Zusatzmaterial =
-          rows[0].Anhänger_Inhalt_Zusatzmaterial;
-        b.Material = rows[0].Material;
-        b.Grösse = rows[0].Grösse;
-        b.Anhänger = rows[0].Anhänger;
-        b.Zwischenstück = rows[0].Zwischenstück;
+        b.Verkauft = false;
+        b.Ausschuss = false;
       }
     }
     const createdItems = [];
@@ -1237,8 +1269,8 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
           b.Herstellungskosten || 0,
           b.Verkaufspreis || 0,
           b.Ausgelagert || 0,
-          b.Verkauft || 0,
-          b.Ausschuss || 0,
+          b.Verkauft ?? false,
+          b.Ausschuss ?? false,
           ausschussGrundValue,
         ],
       );
@@ -1301,8 +1333,8 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
  *               Herstellungskosten: { type: number, nullable: true }
  *               Verkaufspreis: { type: number, nullable: true }
  *               Ausgelagert: { type: integer, description: '0 oder Kunde.ID' }
- *               Verkauft: { type: integer, enum: [0, 1] }
- *               Ausschuss: { type: integer, enum: [0, 1] }
+ *               Verkauft: { type: boolean }
+ *               Ausschuss: { type: boolean }
  *               Ausschuss_Grund: { type: string, nullable: true }
  *               Lieferschein_ID: { type: integer }
  *               Rechnung_ID: { type: integer }
@@ -1344,9 +1376,24 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
         "Anhänger_Grösse" = $15, "Anhänger_Inhalt_Material" = $16,
         "Anhänger_Inhalt_Farbe" = $17, "Anhänger_Inhalt_Farbakzente" = $18,
         "Anhänger_Inhalt_Zusatzmaterial" = $19, "Material" = $20, "Grösse" = $21,
-        "Anhänger" = $22, "Zwischenstück" = $23, "Herstellungskosten" = $24,
-        "Verkaufspreis" = $25, "Ausgelagert" = $26,
-        "Verkauft" = $27, "Ausschuss" = $28, "Ausschuss_Grund" = $29, "Lieferschein_ID" = $30, "Rechnung_ID" = $31
+        "Anhänger" = $22, "Zwischenstück" = $23,
+        -- Auch die Geldspalten sind NOT NULL (Befund B1). Ohne COALESCE
+        -- schrieb ein PUT ohne Preis frueher still NULL -- der Preis war weg,
+        -- und der Audit-Trigger protokolliert Preisaenderungen nicht, die
+        -- Spur fehlte also auch. Seit NOT NULL waere es stattdessen ein 500.
+        "Herstellungskosten" = COALESCE($24, "Herstellungskosten"),
+        "Verkaufspreis" = COALESCE($25, "Verkaufspreis"),
+        -- COALESCE fuer die fuenf Statusfelder (Befund C8): sie stehen im
+        -- Schema als .nullish(), ein PUT ohne diese Felder schrieb also NULL.
+        -- Danach passte das Stueck auf keine Statusbedingung mehr -- weder
+        -- verfuegbar (= 0) noch aktivAusgelagert (> 0) -- und fiel aus Liste,
+        -- Dashboard, Inventur und SumUp-Export heraus.
+        "Ausgelagert" = COALESCE($26, "Ausgelagert"),
+        "Verkauft" = COALESCE($27, "Verkauft"),
+        "Ausschuss" = COALESCE($28, "Ausschuss"),
+        "Ausschuss_Grund" = $29,
+        "Lieferschein_ID" = COALESCE($30, "Lieferschein_ID"),
+        "Rechnung_ID" = COALESCE($31, "Rechnung_ID")
              WHERE "Artikelnummer" = $32 RETURNING *`,
       [
         b.Name,

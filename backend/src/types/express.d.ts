@@ -3,9 +3,6 @@
 //
 // Inhalt des Payloads: siehe jwt.sign(...) in backend/src/routes/auth.js
 //   { id, username, role }  + von jsonwebtoken automatisch ergänzt: iat, exp.
-// Ein einzelnes Feld (z. B. "tenant_id" in routes/dashboard.js) wird optional
-// per Optional Chaining gelesen, existiert aber in keinem aktuellen
-// JWT-Payload und keiner Tabelle – dort bewusst nicht mit aufgenommen.
 
 import type { AppRole } from './db';
 

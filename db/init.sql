@@ -167,7 +167,9 @@ CREATE TABLE "Kunde" (
     "Email" TEXT DEFAULT NULL,
     "Telefonnummer" TEXT DEFAULT NULL,
     "Provision" INTEGER NOT NULL DEFAULT 0,
-    "Aktiv" BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Befund B6: Default war FALSE, ein neu angelegter Kunde also inaktiv.
+    -- Das war nicht beabsichtigt.
+    "Aktiv" BOOLEAN NOT NULL DEFAULT TRUE,
     -- E-Rechnung (EN 16931): Ländercode BT-55, USt-IdNr. BT-48, Leitweg-ID/Käuferreferenz BT-10
     "Land" CHAR(2) NOT NULL DEFAULT 'DE',
     "UStIdNr" VARCHAR(20) DEFAULT NULL,
@@ -187,6 +189,12 @@ CREATE TABLE "Lieferschein" (
     CONSTRAINT "Lieferschein_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
 
+-- Ohne diese Indizes muss jedes DELETE auf "Kunde" die ganze Tabelle scannen,
+-- um den Fremdschlüssel zu prüfen, und die Default-Sortierung der Dokumentliste
+-- (ORDER BY "Datum" DESC) sortiert bei jedem Aufruf neu (Befund B11).
+CREATE INDEX idx_lieferschein_kundennummer ON "Lieferschein" ("Kundennummer");
+CREATE INDEX idx_lieferschein_datum ON "Lieferschein" ("Datum" DESC);
+
 CREATE TABLE "Rechnung" (
     "ID" SERIAL,
     "Nummer" VARCHAR(20) NOT NULL,
@@ -194,11 +202,17 @@ CREATE TABLE "Rechnung" (
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'final',
     PRIMARY KEY ("Nummer"),
+    -- "Schmuckstück"."Rechnung_ID" zeigt auf diese Spalte. Ohne Eindeutigkeit
+    -- könnten zwei Rechnungen dieselbe "ID" tragen und jeder JOIN darüber die
+    -- Positionen beider mischen (Befund B4). "Lieferschein" hatte das UNIQUE
+    -- von Anfang an, "Rechnung" nicht – die Asymmetrie kam aus MySQL.
+    CONSTRAINT rechnung_id_key UNIQUE ("ID"),
     CONSTRAINT "Rechnung_ibfk_1" FOREIGN KEY ("Kundennummer") REFERENCES "Kunde" ("ID")
 );
 
-CREATE INDEX idx_rechnung_id ON "Rechnung" ("ID");
+-- Kein separater Index auf "ID": der UNIQUE-Constraint bringt ihn mit.
 CREATE INDEX idx_rechnung_kundennummer ON "Rechnung" ("Kundennummer");
+CREATE INDEX idx_rechnung_datum ON "Rechnung" ("Datum" DESC);
 
 CREATE TABLE "Schmuckstück" (
     "Artikelnummer" VARCHAR(20) NOT NULL,
@@ -225,17 +239,40 @@ CREATE TABLE "Schmuckstück" (
     "Grösse" DOUBLE PRECISION DEFAULT 0,
     "Anhänger" TEXT DEFAULT NULL,
     "Zwischenstück" TEXT DEFAULT NULL,
-    "Herstellungskosten" DOUBLE PRECISION DEFAULT 0,
-    "Verkaufspreis" DOUBLE PRECISION DEFAULT 0,
+    -- Geld ist numeric, nie float (Befund B1): 19.99 ist binaer nicht exakt
+    -- darstellbar, 37 Positionen a 19,99 EUR ergaben 739.6299999999999.
+    -- pg liefert numeric bewusst als String, Number() erst an der Anzeigekante.
+    "Herstellungskosten" NUMERIC(10,2) NOT NULL DEFAULT 0,
+    "Verkaufspreis" NUMERIC(10,2) NOT NULL DEFAULT 0,
     "Ausgelagert" INTEGER DEFAULT 0,
-    "Verkauft" SMALLINT DEFAULT 0,
-    "Ausschuss" SMALLINT DEFAULT 0,
+    -- Booleans, nicht SMALLINT (Befund B6): als nullable SMALLINT waren
+    -- Verkauft = 2 und NULL erlaubt, und so eine Zeile war in KEINEM Filter
+    -- enthalten -- weder "verkauft" (= 1) noch "verfügbar" (= 0, denn NULL = 0
+    -- ist UNKNOWN). Der Artikel verschwand lautlos aus allen Listen, zählte
+    -- aber weiter in totalPieces.
+    "Verkauft" BOOLEAN NOT NULL DEFAULT FALSE,
+    "Ausschuss" BOOLEAN NOT NULL DEFAULT FALSE,
     "Ausschuss_Grund" TEXT DEFAULT NULL,
     "Lieferschein_ID" INTEGER DEFAULT 0,
     "Rechnung_ID" INTEGER DEFAULT 0,
     "Erstelldatum" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "Letzte_Änderung" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY ("Artikelnummer")
+    PRIMARY KEY ("Artikelnummer"),
+    -- Verkauft UND Ausschuss gleichzeitig ist in keinem Status-Mapping
+    -- vorgesehen: die Zeile zählt in der Inventur doppelt und im Dashboard nur
+    -- als Ausschuss. Im Bestand gab es 28 solche Zeilen, siehe
+    -- db/status_widerspruch_2026-09.csv und ensureStatusBooleans() in
+    -- backend/src/config/db.js.
+    CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss")),
+    CONSTRAINT schmuck_preis_nicht_negativ
+      CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0),
+    -- Normalisiert wird im zod-Schema (backend/src/schemas/common.js), die
+    -- Datenbank sichert es ab (Befund D4): 'mho123' waere ueber
+    -- SUBSTRING(...,1,1) = 'm' in keinem Hersteller-, Grundmaterial- oder
+    -- Produktartfilter gelandet -- und als Primaerschluessel eine zweite Zeile
+    -- fuer dasselbe physische Schmuckstueck.
+    CONSTRAINT schmuck_artikelnummer_gross_chk
+      CHECK ("Artikelnummer" = UPPER("Artikelnummer"))
 );
 
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");
@@ -260,6 +297,15 @@ CREATE TABLE audit_log (
     previous_hash CHAR(64) DEFAULT NULL,
     hash CHAR(64) DEFAULT NULL
 );
+
+-- Die Tabelle wächst unbegrenzt und wird durchweg nach Zeitstempel abgefragt:
+--   dashboard.js:139  ORDER BY change_timestamp DESC LIMIT 10 (jeder Aufruf)
+--   auditLog.js:62    ORDER BY change_timestamp DESC LIMIT/OFFSET
+--   auditLog.js:139   WHERE artikelnummer_id = $1 ORDER BY ts DESC
+-- Ohne Index war jede dieser Abfragen ein Seq Scan mit vollständigem Sort
+-- (Befund B11).
+CREATE INDEX idx_audit_ts ON audit_log (change_timestamp DESC);
+CREATE INDEX idx_audit_artikel ON audit_log (artikelnummer_id, change_timestamp DESC);
 
 -- ============================================================
 -- User Management

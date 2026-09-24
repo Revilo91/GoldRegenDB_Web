@@ -1,4 +1,3 @@
-import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faUser,
@@ -37,7 +36,7 @@ export default function Rechnungen() {
         deleteConfirm: "Rechnung wirklich löschen?",
         excelFilePrefix: "Rechnung",
         kundeRequired: "Bitte Kunde angeben.",
-        pieceNotFound: (nr) => `Artikelnummer \"${nr}\" nicht gefunden oder nicht beim Kunden ausgelagert.`,
+        pieceNotFound: (nr) => `Artikelnummer "${nr}" nicht gefunden oder nicht beim Kunden ausgelagert.`,
       }}
       pieceFilter={(form) => ({ ausgelagert: form.Kundennummer, verkauft: "0", ausschuss: "0", limit: -1 })}
       pieceSelectMode="byKunde"

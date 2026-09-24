@@ -44,8 +44,36 @@ Die Dateinamen enthalten einen Zeitstempel (`YYYYMMDD_HHMMSS`).
 | `POSTGRES_DB`  | `goldregendb`   | Datenbankname                              |
 | `POSTGRES_USER`| `goldregen`     | Datenbankbenutzer                          |
 | `BACKUP_DIR`   | `/backups`      | Zielverzeichnis im Container               |
-| `KEEP_DAILY`   | `7`             | Anzahl täglich aufzubewahrender Backups    |
-| `KEEP_WEEKLY`  | `4`             | Anzahl wöchentlich aufzubewahrender Backups|
+| `KEEP_DAILY`   | `7`             | Aufbewahrung täglicher Backups in **Tagen**|
+| `KEEP_WEEKLY`  | `4`             | Aufbewahrung wöchentlicher Backups in **Wochen**|
+| `MIN_BACKUP_BYTES` | `10240`     | Mindestgröße, unter der ein Dump verworfen wird|
+
+> `KEEP_DAILY`/`KEEP_WEEKLY` sind **Zeiträume, keine Dateizahlen.** Die
+> Rotation läuft über `find -mtime`, löscht also nach Alter. Vorher behielt sie
+> die *N neuesten Dateien* — sieben manuelle Läufe an einem Vormittag
+> verkürzten das Aufbewahrungsfenster damit von einer Woche auf zwei Stunden.
+
+### Prüfung, bevor ein Dump ein Backup wird
+
+`backup.sh` schreibt nie direkt auf den Zieldateinamen. Der Ablauf:
+
+1. `pg_dump` schreibt in eine Temporärdatei `<ziel>.tmp.<pid>`.
+2. Die Datei wird geprüft: `gzip -t` (lesbares Archiv), Mindestgröße
+   (`MIN_BACKUP_BYTES`) und das Vorhandensein der Haupttabellen
+   (`Schmuckstück`, `Kunde`, `Rechnung`, `Lieferschein`, `audit_log`,
+   `app_users`) im Dump.
+3. Erst danach wird sie per `mv` (atomar innerhalb desselben Verzeichnisses) an
+   den endgültigen Namen verschoben.
+4. Scheitert eine Prüfung, wird die Temporärdatei gelöscht (`trap` auf `EXIT`)
+   und **bestehende Backups bleiben unangetastet**.
+
+Vorher legte die Shell die Zieldatei an, *bevor* `pg_dump` startete. Ein
+fehlgeschlagener Dump hinterließ damit eine unbrauchbare `.sql.gz`, die beim
+nächsten Lauf als gültiges Backup zählte und ein funktionierendes verdrängte.
+
+Das Wochen-Backup ist ein **eigener `pg_dump`** mit eigener Prüfung, keine
+Kopie des Tages-Backups — sonst wurde aus einem korrupten Daily ein korruptes
+Weekly.
 
 ---
 
@@ -98,6 +126,20 @@ docker compose cp db:/backups/daily ./backups_export/
 > ⚠️ **Achtung:** Die Wiederherstellung löscht alle aktuellen Daten und
 > ersetzt sie durch den Stand des Backups.
 
+> ⚠️ **Vorher den `app`-Container stoppen:**
+>
+> ```bash
+> docker compose stop app
+> ```
+>
+> `restore.sh` trennt per `pg_terminate_backend` alle Verbindungen zur
+> Datenbank. Läuft das Backend weiter, reißt das seine Verbindung ab; es
+> startet wegen `restart: always` neu und legt seine `ensureX`-Tabellen
+> **parallel zum laufenden Restore** an. Die `CREATE TABLE` aus dem Dump
+> treffen dann auf bereits existierende Tabellen, `ON_ERROR_STOP=1` bricht ab,
+> und das Ergebnis ist eine **teilweise** wiederhergestellte Datenbank. Nach
+> dem Restore wieder starten mit `docker compose start app`.
+
 ```bash
 # Verfügbare Backups anzeigen
 docker compose exec db /restore.sh
@@ -111,10 +153,24 @@ docker compose exec db /restore.sh /backups/weekly/goldregendb_weekly_20231231_0
 
 ### Wiederherstellungs-Ablauf
 
-1. Alle bestehenden Verbindungen zur Datenbank werden getrennt.
-2. Die Datenbank wird gelöscht (`DROP DATABASE`).
-3. Eine neue, leere Datenbank wird angelegt (`CREATE DATABASE`).
-4. Der SQL-Dump wird eingespielt (`psql`).
+1. **Das Archiv wird geprüft** (`gunzip -t` plus mindestens ein
+   `CREATE TABLE` im Dump) — noch bevor irgendetwas gelöscht wird. Ist das
+   Archiv unbrauchbar, bricht das Skript mit Exit ≠ 0 ab und die Datenbank
+   bleibt **unangetastet**.
+2. **Rückfrage** `Datenbank '…' wirklich ersetzen? [j/N]`. Für Skripte und
+   Cronjobs mit `--yes` überspringbar; ohne Terminal und ohne `--yes` bricht
+   das Skript ab statt blind zu löschen.
+3. **Sicherheits-Dump** des aktuellen Stands nach `/backups/vor-restore/`
+   (Verzeichnis über `SICHERUNG_DIR` konfigurierbar). Erweist sich das
+   eingespielte Backup als das falsche, ist der bisherige Stand nicht verloren.
+4. Alle bestehenden Verbindungen zur Datenbank werden getrennt.
+5. Die Datenbank wird gelöscht (`DROP DATABASE`).
+6. Eine neue, leere Datenbank wird angelegt (`CREATE DATABASE`).
+7. Der SQL-Dump wird eingespielt (`psql -v ON_ERROR_STOP=1`).
+
+Vorher wurde ausschließlich geprüft, ob die Datei *existiert*. Bei einem
+korrupten Archiv war die Datenbank danach weg und der Restore scheiterte —
+Ergebnis: eine **leere** Datenbank.
 
 ---
 
@@ -168,18 +224,24 @@ spurlos zuzulassen.
 ## Backup-Strategie im Überblick
 
 ```
-Tag 1  ──► daily/backup_tag1.sql.gz
-Tag 2  ──► daily/backup_tag2.sql.gz
+Tag 1  ──► daily/goldregendb_<tag1>.sql.gz
+Tag 2  ──► daily/goldregendb_<tag2>.sql.gz
 ...
-Tag 7  ──► daily/backup_tag7.sql.gz  (+ weekly wenn Sonntag)
-Tag 8  ──► daily/backup_tag8.sql.gz  → Tag 1 wird gelöscht
+Tag 7  ──► daily/goldregendb_<tag7>.sql.gz  (+ weekly wenn Sonntag)
+Tag 9  ──► Rotation löscht das Backup von Tag 1 (älter als 7 volle Tage)
 ...
-Woche 4 ──► weekly/backup_woche4.sql.gz
-Woche 5 ──► weekly/backup_woche5.sql.gz → Woche 1 wird gelöscht
+Woche 5 ──► weekly/…  → Rotation löscht das Weekly von Woche 1
 ```
 
+Gelöscht wird nach **Alter**, nicht nach Anzahl: `find -mtime +7` trifft
+Dateien, deren Änderungszeit mehr als sieben volle 24-Stunden-Zeiträume
+zurückliegt. Im Verzeichnis liegen dadurch bis zu **acht** tägliche Dumps —
+mehrere Läufe am selben Tag verkürzen das Fenster nicht mehr. Verwaiste
+`.tmp.*`-Dateien abgebrochener Läufe (älter als ein Tag) räumt die Rotation
+mit weg.
+
 **Maximaler Datenverlust:** 1 Tag (bei täglichen Backups)
-**Aufbewahrungszeitraum:** 7 Tage täglich + 4 Wochen wöchentlich
+**Aufbewahrungszeitraum:** mindestens 7 Tage täglich + 4 Wochen wöchentlich
 
 ---
 

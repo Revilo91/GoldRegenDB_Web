@@ -20,13 +20,21 @@ echo "📥 Lade Seed-Daten..."
 
 # Seed-Daten importieren (Pfad je nach Mount)
 if [ -f /docker-entrypoint-initdb.d/02-seed.sql ]; then
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < /docker-entrypoint-initdb.d/02-seed.sql
+    SEED_FILE=/docker-entrypoint-initdb.d/02-seed.sql
 elif [ -f /db/seed.sql ]; then
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < /db/seed.sql
+    SEED_FILE=/db/seed.sql
 else
     echo "❌ Fehler: seed.sql nicht gefunden!"
     exit 1
 fi
+
+# ON_ERROR_STOP=1 ist hier nicht optional: ohne das Flag beendet sich psql mit
+# 0, auch wenn einzelne Statements scheitern – `set -e` greift dann nie und das
+# Skript meldet Erfolg auf einer leeren Datenbank (so blieb Befund A0 lange
+# unentdeckt). Kein --single-transaction: seed.sql bringt sein eigenes
+# BEGIN/COMMIT mit, das Flag erzeugte nur zwei Warnungen über eine bereits
+# laufende bzw. schon beendete Transaktion.
+psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -f "$SEED_FILE"
 
 echo "✅ Seed-Daten erfolgreich geladen"
 echo ""

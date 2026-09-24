@@ -3,25 +3,26 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
+import { useToast } from "../components/Toast";
 
 export default function AuditLog() {
+  const toast = useToast();
   const [data, setData] = useState({ data: [], pagination: {} });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: "change_timestamp",
-    direction: "desc",
-  });
+  // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
+  // also schon immer fest auf diesem Wert (Befund G14).
+  const sortConfig = { key: "change_timestamp", direction: "desc" };
 
   useEffect(() => {
     setLoading(true);
     api
       .getAuditLog({ page, limit: 100, search })
       .then(setData)
-      .catch((err) => alert("Fehler beim Laden des Audit-Logs: " + err.message))
+      .catch((err) => toast.fehler("Fehler beim Laden des Audit-Logs: " + err.message))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, toast]);
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];
@@ -37,18 +38,12 @@ export default function AuditLog() {
     return sortableData;
   }, [data.data, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) return "↕️";
-    return sortConfig.direction === "asc" ? "🔼" : "🔽";
-  };
+  // requestSort/getSortIcon waren nie verdrahtet – kein Header rief sie auf.
+  // Dadurch wird setSortConfig nirgends aufgerufen und die Sortierung unten
+  // steht dauerhaft auf ihrem Anfangswert; DataTable sortiert danach ohnehin
+  // ein zweites Mal clientseitig (Befund G14). Die tote Implementierung ist
+  // entfernt, das eingefrorene useMemo bleibt vorerst, weil es die
+  // Anfangsreihenfolge der Liste bestimmt.
 
   const p = data.pagination;
   const columns = [
