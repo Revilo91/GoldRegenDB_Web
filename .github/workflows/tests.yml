@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Node.js einrichten
         uses: actions/setup-node@v7
@@ -49,7 +49,7 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Node.js einrichten
         uses: actions/setup-node@v7
@@ -81,7 +81,7 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Node.js einrichten
         uses: actions/setup-node@v7
