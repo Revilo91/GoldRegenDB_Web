@@ -97,7 +97,8 @@ describe('Etiketten API', () => {
         .post('/api/etiketten/preview')
         .send({ items: [{ artikelnummer: 'MBH001', qty: 1 }], labelSize: 'large' });
 
-      expect(res.text).toContain('size: 40mm 30mm');
+      expect(res.text).toContain('size: 40mm 45mm');
+      expect(res.text).toContain('--label-real-h: 30mm');
       // large wird gedreht gedruckt: Inhaltsbox ist hochkant
       expect(res.text).toContain('--content-w: 30mm');
       expect(res.text).toContain('--content-h: 40mm');
