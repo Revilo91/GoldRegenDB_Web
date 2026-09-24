@@ -14,10 +14,10 @@ const PRODUCER = 'GoldRegenDB';
 const BOM = '\uFEFF'; // XMP-Paketkopf verlangt ein Byte-Order-Mark
 
 const A4 = [595.28, 841.89];
-const RAND = 56;
-const FUSS_HOEHE = 70;
-const GRAU = rgb(0.45, 0.45, 0.45);
-const LINIE = rgb(0.74, 0.74, 0.74);
+const SCHWARZ = rgb(0, 0, 0);
+const LINIE = rgb(0.737, 0.737, 0.737);
+const KOPF = rgb(0.949, 0.949, 0.949);
+const SUMME = rgb(0.737, 0.737, 0.737);
 
 const euro = (c) => {
   const [ganz, dez] = (Math.abs(c) / 100).toFixed(2).split('.');
@@ -128,8 +128,8 @@ async function erstelleZugferdPdf(m, xml) {
 
   const doc = await PDFDocument.create({ updateMetadata: false });
   doc.registerFontkit(fontkit);
-  const normal = await doc.embedFont(fs.readFileSync(path.join(ASSETS, 'DejaVuSans.ttf')), { subset: true });
-  const fett = await doc.embedFont(fs.readFileSync(path.join(ASSETS, 'DejaVuSans-Bold.ttf')), { subset: true });
+  const normal = await doc.embedFont(fs.readFileSync(path.join(ASSETS, 'NotoSans-Regular.ttf')), { subset: true });
+  const fett = await doc.embedFont(fs.readFileSync(path.join(ASSETS, 'NotoSans-Bold.ttf')), { subset: true });
   const logo = fs.existsSync(LOGO) ? await doc.embedPng(fs.readFileSync(LOGO)) : null;
 
   doc.setTitle(titel);
@@ -140,156 +140,160 @@ async function erstelleZugferdPdf(m, xml) {
   doc.setModificationDate(jetzt);
   doc.setLanguage('de-DE');
 
-  const breite = A4[0] - 2 * RAND;
+  // Layout folgt dem Excel-Rechnungsexport (Maße in pt, gemessen von oben wie im Original)
   let seite;
-  let y;
-
-  const text = (t, x, yPos, { font = normal, groesse = 9, farbe, rechts = false } = {}) => {
-    const xPos = rechts ? x - font.widthOfTextAtSize(String(t), groesse) : x;
-    seite.drawText(String(t), { x: xPos, y: yPos, size: groesse, font, color: farbe });
+  const text = (t, x, oben, { font = normal, groesse = 8.5, rechts = false, mitte = false } = {}) => {
+    const breite = font.widthOfTextAtSize(String(t), groesse);
+    const xPos = rechts ? x - breite : mitte ? x - breite / 2 : x;
+    seite.drawText(String(t), { x: xPos, y: A4[1] - oben - groesse * 1.07, size: groesse, font, color: SCHWARZ });
   };
-  const linie = (yPos, dicke = 0.5) =>
-    seite.drawLine({ start: { x: RAND, y: yPos }, end: { x: A4[0] - RAND, y: yPos }, thickness: dicke, color: LINIE });
+  const linie = (x1, x2, oben, farbe = LINIE) =>
+    seite.drawLine({ start: { x: x1, y: A4[1] - oben }, end: { x: x2, y: A4[1] - oben }, thickness: 0.64, color: farbe });
+  const senkrecht = (x, oben, unten) =>
+    seite.drawLine({ start: { x, y: A4[1] - oben }, end: { x, y: A4[1] - unten }, thickness: 0.64, color: LINIE });
+  const flaeche = (x1, x2, oben, hoehe, farbe) =>
+    seite.drawRectangle({ x: x1, y: A4[1] - oben - hoehe, width: x2 - x1, height: hoehe, color: farbe });
 
-  const spalten = [
-    { titel: 'Pos.', x: RAND },
-    { titel: 'Artikelnr.', x: RAND + 28 },
-    { titel: 'Bezeichnung', x: RAND + 95 },
-    { titel: 'Menge', x: RAND + 330, rechts: true },
-    { titel: 'Einzelpreis', x: RAND + 410, rechts: true },
-    { titel: 'Gesamt', x: RAND + breite, rechts: true },
-  ];
-  const bezeichnungBreite = 225;
+  // Spaltengrenzen der Positionstabelle
+  const X = [50.33, 99.75, 149.79, 367.32, 426.55, 479.87, 541.09];
+  const ZEILE = 12.77;
+  const INHALT_ENDE = 780; // darunter beginnt die Fußzeile
 
-  const tabellenkopf = () => {
-    spalten.forEach((s) => text(s.titel, s.x, y, { font: fett, rechts: s.rechts }));
-    y -= 5;
-    linie(y);
-    y -= 13;
-  };
-  const neueSeite = () => {
-    seite = doc.addPage(A4);
-    y = A4[1] - RAND;
-  };
-  const platzFuer = (hoehe, mitKopf = false) => {
-    if (y - hoehe < RAND + FUSS_HOEHE) {
-      neueSeite();
-      if (mitKopf) tabellenkopf();
-    }
-  };
-
-  // Kopf: Absender, Logo, Empfänger, Rechnungsdaten
   neueSeite();
-  if (logo) {
-    const s = logo.scaleToFit(110, 110);
-    seite.drawImage(logo, { x: A4[0] - RAND - s.width, y: A4[1] - RAND - s.height + 20, ...s });
-  }
-  text(v.firma, RAND, y, { font: fett, groesse: 16 });
-  y -= 90;
-  text(`${v.name} • ${v.strasse} • ${v.plz} ${v.ort}`, RAND, y, { groesse: 7, farbe: GRAU });
-  y -= 16;
-  for (const z of [k.name, k.strasse, `${k.plz} ${k.ort}`, k.land !== 'DE' ? k.land : null].filter(Boolean)) {
-    text(z, RAND, y, { groesse: 10 });
-    y -= 13;
+
+  function neueSeite() {
+    seite = doc.addPage(A4);
   }
 
-  const infos = [
-    ['Rechnungsnummer', m.nummer],
-    ['Rechnungsdatum', datumDe(m.datum)],
-    ['Kundennummer', k.kundennummer],
-    m.kaeuferReferenz !== k.kundennummer && ['Ihre Referenz', m.kaeuferReferenz],
-    m.leistungszeitraum
-      ? ['Leistungszeitraum', `${datumDe(m.leistungszeitraum.von)} – ${datumDe(m.leistungszeitraum.bis)}`]
-      : ['Leistungsdatum', datumDe(m.lieferdatum)],
-    k.ustIdNr && ['USt-IdNr. Kunde', k.ustIdNr],
+  // Kopf: Logo, Absenderzeile, Empfänger
+  if (logo) seite.drawImage(logo, { x: 313.06, y: A4[1] - 251.55, width: 197.6, height: 197.6 });
+  text(`${v.name} • ${v.strasse} • ${v.plz} ${v.ort}`, 51, 159, { groesse: 6.8 });
+  linie(50.33, 312.94, 168.66, SCHWARZ);
+  const empfaenger = [
+    k.name, k.strasse, `${k.plz} ${k.ort}`,
+    k.land !== 'DE' ? k.land : null,
+    k.ustIdNr && `USt-IdNr.: ${k.ustIdNr}`,
   ].filter(Boolean);
-  let yInfo = A4[1] - RAND - 124;
-  for (const [label, wert] of infos) {
-    text(label, RAND + 250, yInfo, { farbe: GRAU });
-    text(wert, RAND + breite, yInfo, { rechts: true });
-    yInfo -= 13;
-  }
+  empfaenger.forEach((z, i) => text(z, 51, 182 + i * 12.6));
 
-  y = Math.min(y, yInfo) - 24;
-  text('Rechnung', RAND, y, { font: fett, groesse: 20 });
-  y -= 24;
+  // Titel und Rechnungsdaten
+  text('Rechnung', 51, 242, { font: fett, groesse: 17 });
+  text('Rechnung Nr.', 51, 279);
+  text(m.nummer, 51, 292);
+  if (m.kaeuferReferenz !== k.kundennummer) {
+    text('Ihre Referenz', 200, 279);
+    text(m.kaeuferReferenz, 200, 292);
+  }
+  text('Datum', 368, 279);
+  text(datumDe(m.datum), 368, 292);
+  linie(50.33, 541.09, 304.15);
+
   const einleitung = m.leistungszeitraum
     ? `Für die verkauften Artikel im Zeitraum vom ${datumDe(m.leistungszeitraum.von)} bis `
       + `${datumDe(m.leistungszeitraum.bis)} stellen wir Ihnen folgende Positionen in Rechnung:`
-    : 'Wir stellen Ihnen folgende Positionen in Rechnung:';
-  for (const z of umbrechen(einleitung, normal, 9, breite)) {
-    text(z, RAND, y);
-    y -= 12;
+    : `Für die verkauften Artikel (Leistungsdatum ${datumDe(m.lieferdatum)}) stellen wir Ihnen folgende `
+      + 'Positionen in Rechnung:';
+  let oben = 317;
+  for (const z of umbrechen(einleitung, normal, 8.5, X[6] - 51)) {
+    text(z, 51, oben);
+    oben += 12.6;
   }
-  y -= 10;
+  oben += 0.4;
 
-  // Positionen
+  // Positionstabelle mit Gitter; Kopfzeile wird auf Folgeseiten wiederholt
+  let tabelleOben;
+  const tabellenkopf = () => {
+    tabelleOben = oben;
+    flaeche(X[0], X[6], oben, ZEILE, KOPF);
+    linie(X[0], X[6], oben);
+    ['Artikelnr.', 'Kategorie', 'Bezeichnung', 'Menge', 'Einzelpreis', 'Gesamtpreis']
+      .forEach((t, i) => text(t, (X[i] + X[i + 1]) / 2, oben + 0.6, { font: fett, mitte: true }));
+    oben += ZEILE;
+    linie(X[0], X[6], oben);
+  };
+  const tabelleSchliessen = () => X.forEach((x) => senkrecht(x, tabelleOben, oben));
+
   tabellenkopf();
   for (const p of m.positionen) {
-    const bezeichnung = p.rabattProzent > 0 ? `${p.bezeichnung} (Rabatt: ${p.rabattProzent} %)` : p.bezeichnung;
-    const zeilen = umbrechen(bezeichnung, normal, 9, bezeichnungBreite);
-    platzFuer(zeilen.length * 11 + 4, true);
-    text(p.id, spalten[0].x, y);
-    text(p.artikelnummer, spalten[1].x, y);
-    zeilen.forEach((z, i) => text(z, spalten[2].x, y - i * 11));
-    text(p.menge, spalten[3].x, y, { rechts: true });
-    text(euro(p.nettopreis), spalten[4].x, y, { rechts: true });
-    text(euro(p.nettobetrag), spalten[5].x, y, { rechts: true });
-    y -= zeilen.length * 11 + 4;
+    const bezeichnung = p.rabattProzent > 0 ? `${p.bezeichnung} (Rabatt: ${p.rabattProzent}%)` : p.bezeichnung;
+    const zeilen = umbrechen(bezeichnung, normal, 8.5, X[3] - X[2] - 3);
+    const hoehe = zeilen.length * ZEILE;
+    if (oben + hoehe > INHALT_ENDE) {
+      tabelleSchliessen();
+      neueSeite();
+      oben = 60;
+      tabellenkopf();
+    }
+    const t = oben + 0.6;
+    text(p.artikelnummer, X[0] + 1, t);
+    text(p.kategorie, X[1] + 1.5, t);
+    zeilen.forEach((z, i) => text(z, X[2] + 1.5, t + i * ZEILE));
+    text(p.menge, X[4] - 2, t, { rechts: true });
+    text(euro(p.nettopreis), X[5] - 2, t, { rechts: true });
+    text(euro(p.nettobetrag), X[6] - 2, t, { rechts: true });
+    oben += hoehe;
+    linie(X[0], X[6], oben);
   }
-  linie(y + 8);
+  tabelleSchliessen();
 
-  // Summen
-  const summen = [
-    ['Gesamtwert', euro(m.summen.positionen)],
-    ...m.nachlaesse.map((n) => [`- ${n.grund} ${n.prozent} %`, euro(-n.betrag)]),
-  ];
-  platzFuer(summen.length * 14 + 60);
-  y -= 8;
-  for (const [label, wert] of summen) {
-    text(label, RAND + 300, y);
-    text(wert, RAND + breite, y, { rechts: true });
-    y -= 14;
+  // Summenblock (Darstellung wie im Excel-Export: Gesamtrabatt negativ, Provision als Betrag)
+  const summen = [['Gesamtwert', null, m.summen.positionen]];
+  for (const n of m.nachlaesse) {
+    summen.push([`- ${n.grund}`, `${n.prozent} %`, n.grund === 'Provision' ? n.betrag : -n.betrag]);
   }
-  seite.drawRectangle({ x: RAND + 295, y: y - 5, width: breite - 295, height: 17, color: rgb(0.9, 0.9, 0.9) });
-  text('Überweisungsbetrag', RAND + 300, y, { font: fett });
-  text(euro(m.summen.zahlbetrag), RAND + breite, y, { font: fett, rechts: true });
-  y -= 34;
-
-  const hinweise = [
+  const abschluss = [
     ...m.hinweise,
-    `Bitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer ${m.nummer} `
-      + 'an die unten genannte Bankverbindung.',
+    'Bitte überweisen Sie den Rechnungsbetrag an u.g. Bankverbindung.',
     m.zahlung.bedingungen,
-    '',
     'Vielen Dank',
   ];
-  for (const h of hinweise) {
-    for (const z of umbrechen(h, normal, 9, breite)) {
-      platzFuer(12);
-      text(z, RAND, y);
-      y -= 12;
+  // Summen, Hinweise, Grußformel und Unterschrift bleiben zusammen auf einer Seite
+  const benoetigt = 11.5 + summen.length * 13 + 39 + abschluss.length * 12.8 + 13 + 64;
+  if (oben + benoetigt > INHALT_ENDE) {
+    neueSeite();
+    oben = 48;
+  }
+  oben += 11.5;
+  for (const [label, prozent, betrag] of summen) {
+    if (prozent) {
+      text(label, X[4] - 1, oben, { font: fett, groesse: 9.3, rechts: true });
+      text(prozent, X[4] + 1, oben, { font: fett, groesse: 9.3 });
+    } else {
+      text(label, 368, oben, { font: fett, groesse: 9.3 });
+    }
+    text(euro(betrag), X[6] - 2, oben + 0.8, { rechts: true });
+    oben += 13;
+  }
+  flaeche(X[3], X[6], oben + 0.5, ZEILE, SUMME);
+  text('Überweisungsbetrag', 368, oben, { font: fett, groesse: 9.3 });
+  text(euro(m.summen.zahlbetrag), X[6] - 2, oben + 0.8, { rechts: true });
+  linie(X[5], X[6], oben + 13.3, SCHWARZ);
+  linie(X[5], X[6], oben + 14.6, SCHWARZ);
+
+  oben += 39;
+  for (const h of abschluss) {
+    for (const z of umbrechen(h, normal, 8.5, X[6] - 51)) {
+      text(z, 51, oben);
+      oben += 12.8;
     }
   }
+  oben += 13;
+  text('Mit freundlichen Grüßen', 51, oben);
+  linie(50.33, 258, oben + 48);
+  text(v.name, 51, oben + 51);
 
-  // Fußzeile auf allen Seiten
+  // Fußzeile wie im Excel-Export: links Anschrift, Mitte Kontakt, rechts Bankverbindung
   const seiten = doc.getPages();
   const steuerangabe = v.ustIdNr ? `USt-IdNr.: ${v.ustIdNr}` : `Steuernummer: ${v.steuernummer}`;
-  const fuss = [
-    { x: RAND, zeilen: [v.firma, v.name, `${v.strasse}, ${v.plz} ${v.ort}`, steuerangabe] },
-    { x: RAND + 180, zeilen: [v.telefon, v.email, v.website].filter(Boolean) },
-    {
-      x: RAND + 340,
-      zeilen: [v.bank, `IBAN: ${formatIban(m.zahlung.iban)}`, m.zahlung.bic && `BIC: ${m.zahlung.bic}`].filter(Boolean),
-    },
-  ];
   seiten.forEach((s, i) => {
     seite = s;
-    linie(RAND + FUSS_HOEHE - 18);
-    for (const block of fuss) {
-      block.zeilen.forEach((z, j) => text(z, block.x, RAND + FUSS_HOEHE - 30 - j * 9, { groesse: 7, farbe: GRAU }));
-    }
-    text(`Seite ${i + 1} von ${seiten.length}`, A4[0] - RAND, RAND - 14, { groesse: 7, farbe: GRAU, rechts: true });
+    [v.firma, v.name, `${v.strasse} • ${v.plz} ${v.ort}`, steuerangabe]
+      .forEach((z, j) => text(z, 52, 792 + j * 9.5, { groesse: 6.8 }));
+    [v.telefon, v.email, v.website].filter(Boolean)
+      .forEach((z, j) => text(z, A4[0] / 2, 792 + j * 9.5, { groesse: 6.8, mitte: true }));
+    [v.bank, formatIban(m.zahlung.iban), m.zahlung.bic].filter(Boolean)
+      .forEach((z, j) => text(z, 543, 792 + j * 9.5, { groesse: 6.8, rechts: true }));
+    if (seiten.length > 1) text(`Seite ${i + 1} von ${seiten.length}`, 543, 822, { groesse: 6.8, rechts: true });
   });
 
   await doc.attach(Buffer.from(xml, 'utf8'), XML_DATEINAME, {
