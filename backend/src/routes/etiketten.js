@@ -13,13 +13,15 @@ const PRINT_CSS_PATH = path.resolve(__dirname, "../assets/etiketten-print.css");
 const QR_TARGET_URL = "https://goldregenschmuckdesign.de";
 const MAX_MATERIAL_HINTS = 6;
 const SAMPLE_ARTIKELNUMMER = "GR12345";
+const PORTRAIT_PAGE_PAD = 5;
 
 /**
  * Einzige Quelle für Etikettengrößen – das Frontend lädt sie über GET /sizes,
  * damit eine neue Größe nur hier eingetragen werden muss.
  *
  * w/h      physische Etikettmaße in mm (Querformat, wie im Drucker eingelegt)
- * rotate   Inhalt wird 90° gedreht gedruckt (Hängeetikett an der Schmuckkarte)
+ * rotate   Inhalt wird 90° gedreht gedruckt (Hängeetikett an der Schmuckkarte);
+ *          die Druckseite ist dann hochkant w × (w+5) mm (Papier w113h128)
  * showQr   QR-Code nur, wenn das Etikett groß genug zum Scannen ist
  * iconH    Kantenlänge von Warnsymbol und QR-Code – bestimmt die Scanbarkeit
  * brandH   Höhe des Logobereichs, artSize/hintSize Schriftgrößen – alles in mm
@@ -231,10 +233,15 @@ const getPrintCssTemplate = async () => {
 
 const buildPrintCss = async (sizeConfig) => {
   const template = await getPrintCssTemplate();
-  // Gedrehte Etiketten werden in einer um 90° getauschten Inhaltsbox gesetzt
+  // Gedrehte Etiketten: Chrome schickt bei Querformat eine Drehung an CUPS, die
+  // den Ausdruck abschneidet. Deshalb geht die Seite hochkant (Breite × Überlänge)
+  // an den Drucker; der Inhalt sitzt gedreht in den oberen h mm, den Rest
+  // schneidet der Drucker an der Etikettenlücke ab.
+  const pageH = sizeConfig.rotate ? sizeConfig.w + PORTRAIT_PAGE_PAD : sizeConfig.h;
   const replacements = {
     LABEL_W: sizeConfig.w,
-    LABEL_H: sizeConfig.h,
+    LABEL_H: pageH,
+    LABEL_REAL_H: sizeConfig.h,
     CONTENT_W: sizeConfig.rotate ? sizeConfig.h : sizeConfig.w,
     CONTENT_H: sizeConfig.rotate ? sizeConfig.w : sizeConfig.h,
     ICON_SIZE: sizeConfig.iconH,
