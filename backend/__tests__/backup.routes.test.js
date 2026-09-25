@@ -421,3 +421,324 @@ describe('POST /api/backup/import', () => {
     expect(client.release).toHaveBeenCalled();
   });
 });
+
+// ── Restore: Datenbereinigung, Formate, Batches, Constraints ───────────────
+describe('POST /api/backup/import – Daten und Constraints', () => {
+  let app;
+  let client;
+  let spaltenJeTabelle;
+  let nichtValidierteChecks;
+  let auditPruefung;
+
+  const backupMit = (tabellen) => ({
+    backupData: { version: '1.0', tables: tabellen },
+  });
+  const verlauf = () => client.query.mock.calls.map((c) => String(c[0]));
+  const inserts = (tabelle) =>
+    client.query.mock.calls.filter((c) =>
+      String(c[0]).startsWith(`INSERT INTO "${tabelle}"`),
+    );
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    spaltenJeTabelle = {
+      Schmuckstück: ['Artikelnummer', 'Verkauft', 'Ausschuss', 'Ausgelagert'],
+      Kunde: ['ID', 'Name'],
+      bestellung_kunde: ['id', 'name_enc'],
+    };
+    nichtValidierteChecks = [];
+    auditPruefung = [];
+    client = {
+      query: jest.fn(async (sql, params) => {
+        const text = String(sql);
+        if (text.includes('NOT c.convalidated')) {
+          return { rows: nichtValidierteChecks, rowCount: nichtValidierteChecks.length };
+        }
+        const katalog = katalogAntwort(text);
+        if (katalog) return katalog;
+        if (text.includes('FROM information_schema.columns')) {
+          const rows = (spaltenJeTabelle[params[0]] || []).map((column_name) => ({ column_name }));
+          return { rows, rowCount: rows.length };
+        }
+        if (text.includes('FROM pg_trigger')) return { rows: [{ x: 1 }], rowCount: 1 };
+        if (text.includes('FROM pg_proc')) return { rows: [{ x: 1 }], rowCount: 1 };
+        if (text.includes('verify_audit_chain()')) {
+          return { rows: auditPruefung, rowCount: auditPruefung.length };
+        }
+        return { rows: [], rowCount: 0 };
+      }),
+      release: jest.fn(),
+    };
+    db.connect.mockReset();
+    db.connect.mockResolvedValue(client);
+  });
+
+  describe('Statuswiderspruch Verkauft ∧ Ausschuss (schmuck_status_chk)', () => {
+    // Entscheidungstabelle: Verkauft × Ausschuss × Schreibweise
+    it.each([
+      ['boolean', true, true, false, true],
+      ['0/1-Zahl', 1, 1, false, 1],
+      ['Text "1"', '1', '1', false, '1'],
+    ])('Ausschuss gewinnt bei Verkauft ∧ Ausschuss (%s)', async (_n, verkauft, ausschuss, erwV, erwA) => {
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Schmuckstück: [{ Artikelnummer: 'A1', Verkauft: verkauft, Ausschuss: ausschuss, Ausgelagert: 0 }] }));
+
+      expect(res.status).toBe(200);
+      // Spaltenreihenfolge im INSERT: Artikelnummer, Verkauft, Ausschuss, Ausgelagert
+      expect(inserts('Schmuckstück')[0][1]).toEqual(['A1', erwV, erwA, 0]);
+    });
+
+    it.each([
+      ['nur verkauft', { Verkauft: true, Ausschuss: false }],
+      ['nur Ausschuss', { Verkauft: false, Ausschuss: true }],
+      ['weder noch', { Verkauft: false, Ausschuss: false }],
+    ])('lässt konsistente Zeilen unverändert (%s)', async (_n, status) => {
+      await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Schmuckstück: [{ Artikelnummer: 'A1', ...status, Ausgelagert: 0 }] }));
+
+      expect(inserts('Schmuckstück')[0][1]).toEqual(['A1', status.Verkauft, status.Ausschuss, 0]);
+    });
+
+    it('korrigiert nur die widersprüchlichen Zeilen eines Batches', async () => {
+      await request(app)
+        .post('/api/backup/import')
+        .send(
+          backupMit({
+            Schmuckstück: [
+              { Artikelnummer: 'A1', Verkauft: true, Ausschuss: true, Ausgelagert: 0 },
+              { Artikelnummer: 'A2', Verkauft: true, Ausschuss: false, Ausgelagert: 0 },
+            ],
+          }),
+        );
+
+      expect(inserts('Schmuckstück')[0][1]).toEqual([
+        'A1', false, true, 0,
+        'A2', true, false, 0,
+      ]);
+    });
+
+    it('fasst andere Tabellen nicht an', async () => {
+      spaltenJeTabelle.Kunde = ['ID', 'Name', 'Verkauft', 'Ausschuss'];
+      await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Kunde: [{ ID: 1, Name: 'A', Verkauft: true, Ausschuss: true }] }));
+
+      expect(inserts('Kunde')[0][1]).toEqual([1, 'A', true, true]);
+    });
+  });
+
+  describe('NOT-VALID-Constraints', () => {
+    const notValid = {
+      tabelle: '"Schmuckstück"',
+      name: 'schmuckstueck_ausschuss_grund_required_chk',
+      definition: 'CHECK ((NOT "Ausschuss") OR ("Ausschuss_Grund" IS NOT NULL)) NOT VALID',
+    };
+
+    it('löst sie vor den Inserts und legt sie danach wieder als NOT VALID an', async () => {
+      nichtValidierteChecks = [notValid];
+
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Schmuckstück: [{ Artikelnummer: 'A1', Verkauft: false, Ausschuss: false, Ausgelagert: 0 }] }));
+
+      const sqls = verlauf();
+      const drop = sqls.findIndex((s) => s.includes('DROP CONSTRAINT "schmuckstueck_ausschuss_grund_required_chk"'));
+      const insert = sqls.findIndex((s) => s.startsWith('INSERT INTO "Schmuckstück"'));
+      const add = sqls.findIndex((s) => s.includes('ADD CONSTRAINT "schmuckstueck_ausschuss_grund_required_chk"'));
+
+      expect(res.body.geloesteChecks).toEqual(['schmuckstueck_ausschuss_grund_required_chk']);
+      expect(drop).toBeGreaterThanOrEqual(0);
+      expect(drop).toBeLessThan(insert);
+      expect(insert).toBeLessThan(add);
+      expect(add).toBeLessThan(sqls.lastIndexOf('COMMIT'));
+      expect(sqls[add]).toMatch(/NOT VALID$/);
+    });
+
+    it('hängt NOT VALID an, wenn die Definition es nicht enthält', async () => {
+      nichtValidierteChecks = [{ ...notValid, definition: 'CHECK (("Ausschuss" IS NOT NULL))' }];
+
+      await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Schmuckstück: [{ Artikelnummer: 'A1', Verkauft: false, Ausschuss: false, Ausgelagert: 0 }] }));
+
+      const add = verlauf().find((s) => s.includes('ADD CONSTRAINT'));
+      expect(add).toMatch(/NOT VALID$/);
+    });
+
+    it('löst nichts, wenn keine NOT-VALID-Checks existieren', async () => {
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }] }));
+
+      expect(res.body.geloesteChecks).toEqual([]);
+      expect(verlauf().some((s) => s.includes('DROP CONSTRAINT'))).toBe(false);
+    });
+
+    it('lässt validierte Checks in Kraft (Abfrage filtert auf NOT convalidated)', async () => {
+      await request(app).post('/api/backup/import').send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }] }));
+
+      const abfrage = client.query.mock.calls.find((c) => String(c[0]).includes('NOT c.convalidated'));
+      expect(abfrage[1][0]).toEqual(['Kunde']);
+    });
+  });
+
+  describe('Insert-Mechanik', () => {
+    it('teilt große Tabellen in Batches zu je 100 Zeilen', async () => {
+      const zeilen = Array.from({ length: 250 }, (_, i) => ({ ID: i + 1, Name: `K${i}` }));
+
+      const res = await request(app).post('/api/backup/import').send(backupMit({ Kunde: zeilen }));
+
+      const batches = inserts('Kunde');
+      expect(batches.map((c) => c[1].length)).toEqual([200, 200, 100]); // 2 Spalten je Zeile
+      expect(res.body.counts.Kunde).toBe(250);
+    });
+
+    it('ignoriert Spalten, die das aktuelle Schema nicht kennt', async () => {
+      await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Kunde: [{ ID: 1, Name: 'A', alte_spalte: 'x' }] }));
+
+      const [sql, werte] = inserts('Kunde')[0];
+      expect(sql).not.toContain('alte_spalte');
+      expect(werte).toEqual([1, 'A']);
+    });
+
+    it('stellt JSON-serialisierte Buffer (bytea) wieder her', async () => {
+      await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ bestellung_kunde: [{ id: 1, name_enc: { type: 'Buffer', data: [1, 2, 3] } }] }));
+
+      const werte = inserts('bestellung_kunde')[0][1];
+      expect(Buffer.isBuffer(werte[1])).toBe(true);
+      expect([...werte[1]]).toEqual([1, 2, 3]);
+    });
+
+    it('leert und importiert nur die gewählten Tabellen', async () => {
+      await request(app)
+        .post('/api/backup/import')
+        .send({
+          backupData: { version: '1.0', tables: { Kunde: [{ ID: 1, Name: 'A' }], bestellung_kunde: [{ id: 1 }] } },
+          selectedTables: ['bestellung_kunde'],
+        });
+
+      expect(inserts('Kunde')).toHaveLength(0);
+      expect(inserts('bestellung_kunde')).toHaveLength(1);
+      const truncate = verlauf().find((s) => s.startsWith('TRUNCATE'));
+      expect(truncate).toContain('"bestellung_kunde"');
+      expect(truncate).not.toContain('"Kunde"');
+    });
+
+    it('TRUNCATE steht vor dem ersten INSERT, COMMIT als letztes', async () => {
+      await request(app).post('/api/backup/import').send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }] }));
+
+      const sqls = verlauf();
+      expect(sqls[0]).toBe('BEGIN');
+      expect(sqls.findIndex((s) => s.startsWith('TRUNCATE'))).toBeLessThan(
+        sqls.findIndex((s) => s.startsWith('INSERT INTO')),
+      );
+      expect(sqls[sqls.length - 1]).toBe('COMMIT');
+    });
+
+    it('importiert ein leeres Backup ohne TRUNCATE und ohne Fehler', async () => {
+      const res = await request(app).post('/api/backup/import').send(backupMit({}));
+
+      expect(res.status).toBe(200);
+      expect(res.body.counts).toEqual({});
+      expect(verlauf().some((s) => s.startsWith('TRUNCATE'))).toBe(false);
+    });
+  });
+
+  describe('Backup-Formate', () => {
+    // Befund: backupImportSchema verlangt `backupData` als String oder Objekt.
+    // Das direkte Format und das SQL-Export-Array, die normalizeBackupData noch
+    // versteht, scheitern damit schon an der Validierung und sind toter Code.
+    it('lehnt das direkte Format ohne backupData-Hülle an der Validierung ab', async () => {
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send({ version: '1.0', tables: { Kunde: [{ ID: 1, Name: 'A' }] } });
+
+      expect(res.status).toBe(400);
+      expect(db.connect).not.toHaveBeenCalled();
+    });
+
+    it('lehnt das SQL-Export-Array an der Validierung ab', async () => {
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send({ backupData: [{ type: 'table', name: 'Kunde', data: [{ ID: 1, Name: 'A' }] }] });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('lehnt backupData als JSON-String ab (wird nicht geparst)', async () => {
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send({ backupData: JSON.stringify({ version: '1.0', tables: {} }) });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Ungültiges Backup-Format/);
+    });
+
+    it.each([
+      ['ohne version', { backupData: { tables: { Kunde: [] } } }],
+      ['ohne tables', { backupData: { version: '1.0' } }],
+    ])('weist ein ungültiges Format ab (%s)', async (_n, body) => {
+      const res = await request(app).post('/api/backup/import').send(body);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Ungültiges Backup-Format/);
+      expect(db.connect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Audit-Kette und Fehlerpfade', () => {
+    it('meldet eine gebrochene Audit-Kette, ohne den Import abzubrechen', async () => {
+      auditPruefung = [{ id: 5, problem: 'hash_mismatch' }];
+
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ audit_log: [{ id: 1 }] }));
+
+      expect(res.status).toBe(200);
+      expect(res.body.auditKette).toEqual({ gueltig: false, kaputteEintraege: auditPruefung });
+    });
+
+    it('meldet eine intakte Audit-Kette als gültig', async () => {
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ audit_log: [{ id: 1 }] }));
+
+      expect(res.body.auditKette).toEqual({ gueltig: true, kaputteEintraege: [] });
+    });
+
+    it('liefert die ursprüngliche Meldung, wenn auch das ROLLBACK scheitert', async () => {
+      client.query.mockImplementation(async (sql) => {
+        const text = String(sql);
+        if (text.startsWith('INSERT INTO')) throw new Error('Insert kaputt');
+        if (text === 'ROLLBACK') throw new Error('Verbindung weg');
+        if (text.includes('FROM information_schema.columns')) {
+          return { rows: [{ column_name: 'ID' }, { column_name: 'Name' }], rowCount: 2 };
+        }
+        return katalogAntwort(text) || { rows: [], rowCount: 0 };
+      });
+
+      const res = await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }] }));
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toMatch(/Insert kaputt/);
+      expect(client.release).toHaveBeenCalled();
+    });
+
+    it('gibt die Verbindung auch bei Erfolg frei', async () => {
+      await request(app).post('/api/backup/import').send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }] }));
+
+      expect(client.release).toHaveBeenCalledTimes(1);
+    });
+  });
+});

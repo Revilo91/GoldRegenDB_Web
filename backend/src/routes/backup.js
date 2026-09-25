@@ -1035,6 +1035,25 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
 
       const BATCH_SIZE = 100; // Process 100 rows at a time (safe for tables with ~34 columns)
 
+      // Altbackups aus der Zeit vor schmuck_status_chk enthalten Stücke mit
+      // Verkauft UND Ausschuss. Ausschuss gewinnt, wie in statusVon() im Frontend.
+      if (tableName === "Schmuckstück") {
+        const istWahr = (v) => v === true || v === 1 || v === "1" || v === "t";
+        let korrigiert = 0;
+        rows = rows.map((row) => {
+          if (istWahr(row.Verkauft) && istWahr(row.Ausschuss)) {
+            korrigiert++;
+            return { ...row, Verkauft: false };
+          }
+          return row;
+        });
+        if (korrigiert > 0) {
+          logger.warn("BACKUP", "Widersprüchlichen Status beim Import korrigiert", {
+            anzahl: korrigiert,
+          });
+        }
+      }
+
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
 
