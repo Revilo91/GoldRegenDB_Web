@@ -258,7 +258,7 @@ const sumupImportSchema = z.object({
 });
 
 const backupImportSchema = z.object({
-  backupData: z.union([z.string(), z.record(z.string(), z.unknown())]),
+  backupData: z.record(z.string(), z.unknown()),
   selectedTables: z.array(z.string().max(100)).nullish(),
 });
 

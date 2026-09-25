@@ -719,9 +719,8 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
 
 ### Import
 - Endpunkt: `POST /api/backup/import`
-- **Unterstützt zwei Formate automatisch:**
-  1. **Standard-Backup-Format**: `{ "version": "...", "timestamp": "...", "tables": { "Kunde": [...], ... } }`
-  2. **SQL-Export-Array-Format**: `[{ "type": "header", ... }, { "type": "table", "name": "...", "data": [...] }, ...]`
+- **Format**: Standard-Backup `{ "backupData": { "version": "...", "timestamp": "...", "tables": { "Kunde": [...], ... } }, "selectedTables": [...] }`
+  (`backupData` ist Pflicht; ältere Formate – direkter Body, SQL-Export-Array, JSON-String – gibt es nicht mehr)
 - **Schema-Kompatibilität**: Ignoriert Spalten, die nicht im aktuellen Datenbankschema existieren
   - Importiert nur Spalten, die in **beiden** vorhanden sind (Backup-Daten + aktuelle DB)
   - Fehlende Spalten verwenden Datenbank-Standard-Werte

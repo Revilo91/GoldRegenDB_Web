@@ -823,50 +823,12 @@ router.post(
   },
 );
 
-// Helper function to normalize different backup formats
-function normalizeBackupData(data) {
-  // Format 1: Standard backup format { version, timestamp, tables: { Kunde: [...], ... } }
-  if (data.tables && typeof data.tables === "object" && data.version) {
-    return {
-      version: data.version,
-      tables: data.tables,
-      uploads: data.uploads,
-    };
-  }
-
-  // Format 2: SQL Export format [{ type: "header" }, { type: "table", name: "...", data: [...] }, ...]
-  if (Array.isArray(data)) {
-    const normalized = {
-      version: "1.0",
-      tables: {},
-    };
-
-    // Extract version from header if present
-    const header = data.find((item) => item.type === "header");
-    if (header && header.version) {
-      normalized.version = header.version;
-    }
-
-    // Extract table data from items with type: "table"
-    const tableItems = data.filter((item) => item.type === "table");
-    for (const item of tableItems) {
-      if (item.name && Array.isArray(item.data)) {
-        normalized.tables[item.name] = item.data;
-      }
-    }
-
-    return normalized;
-  }
-
-  return null;
-}
-
 /**
  * @swagger
  * /backup/import:
  *   post:
  *     summary: Datenbank aus einem zuvor exportierten JSON-Backup importieren
- *     description: 'Unterstützt zwei Formate automatisch (Standard-Backup-Format und SQL-Export-Array).
+ *     description: 'Erwartet das Standard-Backup-Format aus GET /backup/export ({ version, tables }).
  *       Ignoriert Spalten, die nicht im aktuellen Schema existieren. Truncatet die betroffenen
  *       Tabellen (RESTART IDENTITY CASCADE) vor dem Neuladen – transaktional, bei Fehler Rollback.
  *       Erfordert Rolle: admin.'
@@ -883,8 +845,8 @@ function normalizeBackupData(data) {
  *             type: object
  *             properties:
  *               backupData:
- *                 description: Backup-JSON (String oder Objekt) im Standard- oder SQL-Export-Format
- *                 oneOf: [{ type: string }, { type: object }]
+ *                 type: object
+ *                 description: Backup-JSON im Standard-Format ({ version, timestamp, tables })
  *               selectedTables:
  *                 type: array
  *                 nullable: true
@@ -924,43 +886,18 @@ function normalizeBackupData(data) {
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
 router.post("/import", validate(backupImportSchema), async (req, res) => {
-  let rawData;
-  let selectedTables;
-  let restoreUploads = false;
+  const { backupData, selectedTables: auswahl, restoreUploads: mitUploads } = req.body;
 
-  const body = req.body;
-
-  if (
-    body &&
-    typeof body === "object" &&
-    !Array.isArray(body) &&
-    "backupData" in body
-  ) {
-    // New wrapper format sent by the updated frontend:
-    // { backupData: <backup payload>, selectedTables: [...] | null }
-    rawData = body.backupData;
-    selectedTables = Array.isArray(body.selectedTables)
-      ? body.selectedTables
-      : null;
-    restoreUploads = Boolean(body.restoreUploads);
-  } else {
-    // Legacy direct format (backward compat for direct API calls)
-    rawData = body;
-    selectedTables = null;
-    restoreUploads = false;
-  }
-
-  // Try to normalize the incoming data (supports multiple formats)
-  const normalized = normalizeBackupData(rawData);
-
-  if (!normalized || !normalized.tables || !normalized.version) {
+  if (!backupData.version || !backupData.tables || typeof backupData.tables !== "object") {
     return res.status(400).json({
       error:
-        "Ungültiges Backup-Format. Unterstützte Formate: Standard-Backup oder SQL-Export-Array.",
+        "Ungültiges Backup-Format. Erwartet wird ein Backup aus dem Export mit version und tables.",
     });
   }
 
-  const { tables, version, uploads } = normalized;
+  const selectedTables = Array.isArray(auswahl) ? auswahl : null;
+  const restoreUploads = Boolean(mitUploads);
+  const { tables, version, uploads } = backupData;
 
   let client;
   try {

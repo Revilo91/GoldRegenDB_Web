@@ -654,38 +654,23 @@ describe('POST /api/backup/import – Daten und Constraints', () => {
   });
 
   describe('Backup-Formate', () => {
-    // Befund: backupImportSchema verlangt `backupData` als String oder Objekt.
-    // Das direkte Format und das SQL-Export-Array, die normalizeBackupData noch
-    // versteht, scheitern damit schon an der Validierung und sind toter Code.
-    it('lehnt das direkte Format ohne backupData-Hülle an der Validierung ab', async () => {
-      const res = await request(app)
-        .post('/api/backup/import')
-        .send({ version: '1.0', tables: { Kunde: [{ ID: 1, Name: 'A' }] } });
+    // Nur das Standard-Backup in der backupData-Hülle wird angenommen; das
+    // direkte Format, das SQL-Export-Array und JSON-Strings gibt es nicht mehr.
+    it.each([
+      ['direktes Format ohne backupData-Hülle', { version: '1.0', tables: { Kunde: [] } }],
+      ['SQL-Export-Array', { backupData: [{ type: 'table', name: 'Kunde', data: [] }] }],
+      ['JSON-String', { backupData: JSON.stringify({ version: '1.0', tables: {} }) }],
+    ])('lehnt %s an der Validierung ab', async (_n, body) => {
+      const res = await request(app).post('/api/backup/import').send(body);
 
       expect(res.status).toBe(400);
       expect(db.connect).not.toHaveBeenCalled();
     });
 
-    it('lehnt das SQL-Export-Array an der Validierung ab', async () => {
-      const res = await request(app)
-        .post('/api/backup/import')
-        .send({ backupData: [{ type: 'table', name: 'Kunde', data: [{ ID: 1, Name: 'A' }] }] });
-
-      expect(res.status).toBe(400);
-    });
-
-    it('lehnt backupData als JSON-String ab (wird nicht geparst)', async () => {
-      const res = await request(app)
-        .post('/api/backup/import')
-        .send({ backupData: JSON.stringify({ version: '1.0', tables: {} }) });
-
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/Ungültiges Backup-Format/);
-    });
-
     it.each([
       ['ohne version', { backupData: { tables: { Kunde: [] } } }],
       ['ohne tables', { backupData: { version: '1.0' } }],
+      ['tables kein Objekt', { backupData: { version: '1.0', tables: 'x' } }],
     ])('weist ein ungültiges Format ab (%s)', async (_n, body) => {
       const res = await request(app).post('/api/backup/import').send(body);
 
