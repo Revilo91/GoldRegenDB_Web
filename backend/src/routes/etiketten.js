@@ -44,7 +44,7 @@ const LABEL_SIZES = {
     brandH: 3.5,
     brandMaxH: 7,
     artSize: 4.6,
-    hintSize: 2.1,
+    hintSize: 2.7,
   },
   large: {
     id: "large",
