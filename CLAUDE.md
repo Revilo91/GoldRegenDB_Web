@@ -260,6 +260,11 @@ cd backend && npm test
 # Config: testEnvironment=node, timeout=10s
 ```
 
+Backup/Restore hat zusätzlich eine Integrationssuite gegen echtes Postgres
+(`__tests__/backup.integration.test.js`). Sie läuft nur mit `TEST_DATABASE_URL`
+und verweigert Datenbanken, deren Name nicht „test" enthält (der Import macht
+TRUNCATE). Einrichtung steht im Kopf der Testdatei.
+
 **Frontend** (Vitest):
 ```bash
 cd frontend && npm test
