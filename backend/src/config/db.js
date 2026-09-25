@@ -576,7 +576,29 @@ async function ensureAuditLogTamperProtection() {
     `);
 
     // Alt-Einträge ohne Hash nachverketten (No-Op, wenn bereits vollständig verkettet)
-    await pool.query('SELECT backfill_audit_chain()');
+    // Der Immutable-Trigger kann schon existieren (Restore/Import einer Tabelle
+    // mit unverketteten Zeilen), dann würde er das Backfill-UPDATE blockieren.
+    // DDL ist transaktional: bei Fehler bleibt der Trigger aktiv.
+    const { rows: [{ offen }] } = await pool.query('SELECT count(*)::int AS offen FROM audit_log WHERE hash IS NULL');
+    if (offen > 0) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows: [{ vorhanden }] } = await client.query(
+          "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'audit_log'::regclass AND tgname = 'trg_audit_log_immutable') AS vorhanden"
+        );
+        if (vorhanden) await client.query('ALTER TABLE audit_log DISABLE TRIGGER trg_audit_log_immutable');
+        await client.query('SELECT backfill_audit_chain()');
+        if (vorhanden) await client.query('ALTER TABLE audit_log ENABLE TRIGGER trg_audit_log_immutable');
+        await client.query('COMMIT');
+        logger.info('DB', `audit_log: ${offen} Alt-Einträge nachverkettet`);
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+    }
 
     await pool.query(`
       DO $$
