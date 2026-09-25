@@ -22,6 +22,10 @@ const PORTRAIT_PAGE_PAD = 5;
  * w/h      physische Etikettmaße in mm (Querformat, wie im Drucker eingelegt)
  * rotate   Inhalt wird 90° gedreht gedruckt (Hängeetikett an der Schmuckkarte);
  *          die Druckseite ist dann hochkant w × (w+5) mm (Papier w113h128)
+ * sheet    Druckseite {w,h} in mm, wenn sie größer ist als das Etikett: der Druckkopf schneidet
+ *          links ab, was über die Etikettbreite hinausragt, und unten an der Lücke. Der Inhalt
+ *          sitzt rechts oben; die Seite muss ein Papierformat des Druckers sein (Papier w113h128),
+ *          sonst ersetzt Chrome sie und skaliert
  * showQr   QR-Code nur, wenn das Etikett groß genug zum Scannen ist
  * iconH    Kantenlänge von Warnsymbol und QR-Code – bestimmt die Scanbarkeit
  * brandH   Mindesthöhe des Logobereichs, brandMaxH Obergrenze – das Logo wächst in den
@@ -34,6 +38,7 @@ const LABEL_SIZES = {
     w: 30,
     h: 20,
     rotate: false,
+    sheet: { w: 40, h: 45 },
     showQr: false,
     iconH: 6,
     brandH: 3.5,
@@ -194,7 +199,11 @@ const buildQrImgHtml = (qrDataUrl) =>
 
 const buildLabelMarkup = (artikelnummer, sizeConfig, parts) => {
   const artNrClass = artikelnummer.length > 7 ? "artnr compact" : "artnr";
-  const labelClass = sizeConfig.rotate ? "label label--rotated" : "label";
+  const labelClass = sizeConfig.rotate
+    ? "label label--rotated"
+    : sizeConfig.sheet
+      ? "label label--sheet"
+      : "label";
   const bottomRowClass = parts.qrImgHtml
     ? "bottom-row"
     : "bottom-row bottom-row--no-qr";
@@ -241,7 +250,10 @@ const buildPrintCss = async (sizeConfig) => {
   // an den Drucker; der Inhalt sitzt gedreht in den oberen h mm, den Rest
   // schneidet der Drucker an der Etikettenlücke ab.
   const pageH = sizeConfig.rotate ? sizeConfig.w + PORTRAIT_PAGE_PAD : sizeConfig.h;
+  const sheet = sizeConfig.sheet ?? { w: sizeConfig.w, h: pageH };
   const replacements = {
+    PAGE_W: sheet.w,
+    PAGE_H: sheet.h,
     LABEL_W: sizeConfig.w,
     LABEL_H: pageH,
     LABEL_REAL_H: sizeConfig.h,

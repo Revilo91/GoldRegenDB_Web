@@ -58,7 +58,7 @@ describe('Etiketten API', () => {
       expect(res.statusCode).toBe(200);
       expect(res.headers['content-type']).toMatch(/text\/html/);
       expect(res.text).toContain('mode-print');
-      expect((res.text.match(/class="label"/g) || []).length).toBe(3);
+      expect((res.text.match(/class="label label--sheet"/g) || []).length).toBe(3);
       // Basis-Artikelnummer ohne Positionssuffix
       expect(res.text).toContain('>MBH001<');
     });
@@ -76,7 +76,7 @@ describe('Etiketten API', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.text).toContain('mode-single');
-      expect((res.text.match(/class="label"/g) || []).length).toBe(1);
+      expect((res.text.match(/class="label label--sheet"/g) || []).length).toBe(1);
       expect(res.text).toContain('etikett-size-mode');
     });
 
@@ -143,7 +143,7 @@ describe('Etiketten API', () => {
         .post('/api/etiketten/preview')
         .send({ items: [{ artikelnummer: 'MBH001', qty: 1 }], labelSize: 'gibtsnicht' });
 
-      expect(res.text).toContain('size: 30mm 20mm');
+      expect(res.text).toContain('size: 40mm 45mm');
     });
 
     it('begrenzt Materialhinweise auf sechs Einträge und entfernt Duplikate', async () => {
