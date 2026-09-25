@@ -24,7 +24,8 @@ const PORTRAIT_PAGE_PAD = 5;
  *          die Druckseite ist dann hochkant w × (w+5) mm (Papier w113h128)
  * showQr   QR-Code nur, wenn das Etikett groß genug zum Scannen ist
  * iconH    Kantenlänge von Warnsymbol und QR-Code – bestimmt die Scanbarkeit
- * brandH   Höhe des Logobereichs, artSize/hintSize Schriftgrößen – alles in mm
+ * brandH   Mindesthöhe des Logobereichs, brandMaxH Obergrenze – das Logo wächst in den
+ *          Platz, den die Hinweise übrig lassen; artSize/hintSize Schriftgrößen – alles in mm
  */
 const LABEL_SIZES = {
   small: {
@@ -36,6 +37,7 @@ const LABEL_SIZES = {
     showQr: false,
     iconH: 6,
     brandH: 3.5,
+    brandMaxH: 7,
     artSize: 4.6,
     hintSize: 2.1,
   },
@@ -48,6 +50,7 @@ const LABEL_SIZES = {
     showQr: true,
     iconH: 12,
     brandH: 8,
+    brandMaxH: 8,
     artSize: 8,
     hintSize: 3.5,
   },
@@ -246,6 +249,7 @@ const buildPrintCss = async (sizeConfig) => {
     CONTENT_H: sizeConfig.rotate ? sizeConfig.w : sizeConfig.h,
     ICON_SIZE: sizeConfig.iconH,
     BRAND_H: sizeConfig.brandH,
+    BRAND_MAX_H: sizeConfig.brandMaxH,
     ART_SIZE: sizeConfig.artSize,
     HINT_SIZE: sizeConfig.hintSize,
   };

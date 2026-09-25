@@ -28,6 +28,7 @@
   --content-w: {{CONTENT_W}}mm;
   --content-h: {{CONTENT_H}}mm;
   --brand-h: {{BRAND_H}}mm;
+  --brand-max-h: {{BRAND_MAX_H}}mm;
   --art-size: {{ART_SIZE}}mm;
   --hint-size: {{HINT_SIZE}}mm;
   /* Warnsymbol und QR-Code werden je Größe fest vorgegeben (LABEL_SIZES.iconH),
@@ -83,7 +84,9 @@ body {
 .logo-container {
   width: 100%;
   margin-bottom: var(--gap);
-  flex: 0 0 var(--brand-h);
+  /* Logo nimmt freien Platz zuerst (Grow 100 vs. 1 im unteren Bereich), bis --brand-max-h */
+  flex: 100 0 var(--brand-h);
+  max-height: var(--brand-max-h);
   display: flex;
   align-items: center;
   justify-content: center;
