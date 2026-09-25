@@ -196,37 +196,6 @@ function createExportUploadsJob() {
   return job;
 }
 
-async function importUploads(uploads) {
-  if (!uploads || !Array.isArray(uploads.files)) {
-    return { restored: 0, skipped: 0 };
-  }
-
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
-
-  let restored = 0;
-  let skipped = 0;
-
-  for (const item of uploads.files) {
-    const safeName = sanitizeUploadFileName(item?.name);
-    const base64Data = item?.dataBase64;
-    if (!safeName || typeof base64Data !== "string" || base64Data.length === 0) {
-      skipped += 1;
-      continue;
-    }
-
-    try {
-      const filePath = path.join(UPLOADS_DIR, safeName);
-      const fileBuffer = Buffer.from(base64Data, "base64");
-      await fs.writeFile(filePath, fileBuffer);
-      restored += 1;
-    } catch (_err) {
-      skipped += 1;
-    }
-  }
-
-  return { restored, skipped };
-}
-
 async function importUploadsFromZipBuffer(zipBuffer) {
   if (!zipBuffer || zipBuffer.length === 0) {
     return { restored: 0, skipped: 0 };
@@ -863,7 +832,6 @@ router.post(
  *                 success: { type: boolean }
  *                 message: { type: string }
  *                 counts: { type: object, additionalProperties: { type: integer } }
- *                 uploads: { type: object, nullable: true }
  *                 auditKette:
  *                   type: object
  *                   nullable: true
@@ -886,7 +854,7 @@ router.post(
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
 router.post("/import", validate(backupImportSchema), async (req, res) => {
-  const { backupData, selectedTables: auswahl, restoreUploads: mitUploads } = req.body;
+  const { backupData, selectedTables: auswahl } = req.body;
 
   if (!backupData.version || !backupData.tables || typeof backupData.tables !== "object") {
     return res.status(400).json({
@@ -896,8 +864,7 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
   }
 
   const selectedTables = Array.isArray(auswahl) ? auswahl : null;
-  const restoreUploads = Boolean(mitUploads);
-  const { tables, version, uploads } = backupData;
+  const { tables, version } = backupData;
 
   let client;
   try {
@@ -1118,16 +1085,10 @@ router.post("/import", validate(backupImportSchema), async (req, res) => {
       counts[t] = (tables[t] || []).length;
     }
 
-    let uploadImportResult = null;
-    if (restoreUploads && uploads) {
-      uploadImportResult = await importUploads(uploads);
-    }
-
     res.json({
       success: true,
       message: "Import erfolgreich",
       counts,
-      uploads: uploadImportResult,
       auditKette,
       kaskadierteTabellen,
       ignorierteTabellen,
