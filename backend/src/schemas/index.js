@@ -56,7 +56,6 @@ const restockSelectiveSchema = z.object({
 // Freitext-Attribute des Schmuckstücks (alle TEXT-Spalten der Tabelle)
 const schmuckTextfelder = {
   Name: text(200),
-  Foto: text(255),
   Art: text(100),
   Form: text(100),
   Fassung: text(100),

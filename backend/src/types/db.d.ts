@@ -74,7 +74,6 @@ export interface RechnungRow {
 export interface SchmuckstueckRow {
   Artikelnummer: string;
   Name: string | null;
-  Foto: string | null;
   Art: string | null;
   Form: string | null;
   Länge: number;

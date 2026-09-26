@@ -69,9 +69,6 @@ services:
       VERKAEUFER_BANK: ${VERKAEUFER_BANK:-}
       VERKAEUFER_IBAN: ${VERKAEUFER_IBAN:-}
       VERKAEUFER_BIC: ${VERKAEUFER_BIC:-}
-    volumes:
-      # Hochgeladene Fotos dauerhaft speichern
-      - ${DATA_DIR:-/volume1/docker/goldregendb}/uploads:/app/src/assets/uploads
     ports:
       - "${APP_HOST_PORT:-3000}:${PORT}"
     networks:

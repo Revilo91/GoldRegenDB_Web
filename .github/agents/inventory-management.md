@@ -19,7 +19,7 @@ This skill covers managing jewelry items (Schmuckstücke) with 34+ attributes, c
 - **Pricing:** Herstellungskosten, Verkaufspreis
 - **Status:** Verkauft, Ausschuss, Ausgelagert
 - **Associations:** Lieferschein_ID, Rechnung_ID
-- **Photo:** Foto (filename)
+- **Photo:** keine Spalte; Listen/Detail liefern `hatFoto` (Bild in Tabelle `"Foto"` unter der Basis-Artikelnummer)
 - **Audit:** Erstelldatum, Letzte_Aenderung
 
 ### Business Rules
@@ -323,8 +323,7 @@ router.get('/filter-options', authenticate, requireBearbeiter, async (req, res) 
   "Farbe": "Blau",
   "Material": "Beton",
   "Herstellungskosten": 12.50,
-  "Verkaufspreis": 35.00,
-  "Foto": "MBH002_1.jpg"
+  "Verkaufspreis": 35.00
 }
 ```
 
@@ -362,13 +361,13 @@ router.post('/', authenticate, async (req, res) => {
   const result = await db.query(
     `INSERT INTO "Schmuckstück"
      ("Artikelnummer", "Name", "Art", "Farbe", "Material",
-      "Herstellungskosten", "Verkaufspreis", "Foto",
+      "Herstellungskosten", "Verkaufspreis",
       "Verkauft", "Ausschuss", "Ausgelagert", "tenant_id")
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING *`,
     [
       data.Artikelnummer, data.Name, data.Art, data.Farbe, data.Material,
-      data.Herstellungskosten, data.Verkaufspreis, data.Foto,
+      data.Herstellungskosten, data.Verkaufspreis,
       data.Verkauft ?? 0, data.Ausschuss ?? 0, data.Ausgelagert ?? 0,
       req.user.tenant_id ?? 1
     ]
@@ -646,9 +645,7 @@ function Schmuckstuecke() {
       <div className="items-grid">
         {items.map(item => (
           <div key={item.Artikelnummer} className="item-card">
-            {item.Foto && (
-              <img src={`/api/schmuckstuecke/foto/${item.Foto}`} alt={item.Name} />
-            )}
+            {item.hatFoto && <TablePhoto hatFoto artikelnummer={item.Artikelnummer} />}
             <h3>{item.Name}</h3>
             <p>{item.Artikelnummer}</p>
             <p>{item.Verkaufspreis} €</p>

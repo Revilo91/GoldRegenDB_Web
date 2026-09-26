@@ -13,7 +13,7 @@ import { api } from "../api";
 // als "alle Thumbnails werden bei jedem Tastendruck zu Platzhaltern", und beim
 // Öffnen eines Modals blieben sie leer, weil pauseLoading das Nachladen
 // unterdrückt (Befund G1).
-export default function TablePhoto({ foto, artikelnummer, pauseLoading = false }) {
+export default function TablePhoto({ hatFoto, artikelnummer, pauseLoading = false }) {
   const [photoSrc, setPhotoSrc] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [photoError, setPhotoError] = useState(null);
@@ -26,7 +26,7 @@ export default function TablePhoto({ foto, artikelnummer, pauseLoading = false }
       controller.abort();
     };
 
-    if (!foto) {
+    if (!hatFoto || !artikelnummer) {
       setPhotoSrc(null);
       setPhotoError(null);
       setIsLoading(false);
@@ -41,7 +41,7 @@ export default function TablePhoto({ foto, artikelnummer, pauseLoading = false }
     setIsLoading(true);
     setPhotoError(null);
     api
-      .loadPhotoAsDataUrl(foto, { signal: controller.signal })
+      .loadPhotoAsDataUrl(artikelnummer, { signal: controller.signal })
       .then((dataUrl) => {
         if (isCancelled) return;
         setPhotoSrc(dataUrl);
@@ -57,7 +57,7 @@ export default function TablePhoto({ foto, artikelnummer, pauseLoading = false }
       });
 
     return abbrechen;
-  }, [foto, pauseLoading]);
+  }, [hatFoto, artikelnummer, pauseLoading]);
 
   if (!photoSrc) {
     return (

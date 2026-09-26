@@ -91,7 +91,7 @@ const definition = {
         properties: {
           Artikelnummer: { type: 'string', example: 'MHO123_1' },
           Name: { type: 'string', nullable: true },
-          Foto: { type: 'string', nullable: true },
+          hatFoto: { type: 'boolean', description: 'Es gibt ein Foto zur Basis-Artikelnummer (nur lesend)' },
           Art: { type: 'string', nullable: true },
           Form: { type: 'string', nullable: true },
           Länge: { type: 'number', nullable: true },
@@ -153,22 +153,6 @@ const definition = {
           must_change_password: { type: 'boolean' },
           created_at: { type: 'string', format: 'date-time' },
           last_login: { type: 'string', format: 'date-time', nullable: true },
-        },
-      },
-      ExportUploadsJob: {
-        type: 'object',
-        description: 'Asynchroner Job zum ZIPen des Upload-Verzeichnisses (großer Datenbestand).',
-        properties: {
-          id: { type: 'string' },
-          status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed'] },
-          totalFiles: { type: 'integer' },
-          processedFiles: { type: 'integer' },
-          currentFileName: { type: 'string', nullable: true },
-          fileName: { type: 'string', nullable: true },
-          error: { type: 'string', nullable: true },
-          createdAt: { type: 'string', format: 'date-time' },
-          updatedAt: { type: 'string', format: 'date-time' },
-          progressPercent: { type: 'integer' },
         },
       },
       AuditLogEintrag: {

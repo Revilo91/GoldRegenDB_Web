@@ -4,7 +4,7 @@ import { api } from "../api";
 export default function PhotoUpload({
   artikelnummer,
   onPhotoSelected,
-  initialPhoto,
+  hatFoto,
   disabled = false,
 }) {
   const inputId = useId();
@@ -17,9 +17,9 @@ export default function PhotoUpload({
     let cancelled = false;
     const controller = new AbortController();
 
-    if (initialPhoto) {
+    if (hatFoto && artikelnummer) {
       api
-        .loadPhotoAsDataUrl(initialPhoto, { signal: controller.signal })
+        .loadPhotoAsDataUrl(artikelnummer, { signal: controller.signal })
         .then((dataUrl) => {
           if (cancelled) return;
           if (dataUrl) {
@@ -41,7 +41,7 @@ export default function PhotoUpload({
       cancelled = true;
       controller.abort();
     };
-  }, [initialPhoto]);
+  }, [hatFoto, artikelnummer]);
 
   const handleFile = async (file) => {
     if (!file) return;

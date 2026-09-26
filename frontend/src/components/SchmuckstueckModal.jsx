@@ -51,11 +51,11 @@ export default function SchmuckstueckModal({
   }, [artikelnummer, toast]);
 
   useEffect(() => {
-    if (item?.Foto) {
+    if (item?.hatFoto) {
       setPhotoLoading(true);
       setPhotoError(null);
       api
-        .loadPhotoAsDataUrl(item.Foto)
+        .loadPhotoAsDataUrl(item.Artikelnummer)
         .then(setPhoto)
         .catch((err) => {
           setPhoto(null);
@@ -151,12 +151,12 @@ export default function SchmuckstueckModal({
             <div className="schmuck-modal-photo">
               {photo ? (
                 <img src={photo} alt={item.Artikelnummer} />
-              ) : item.Foto && photoLoading ? (
+              ) : item.hatFoto && photoLoading ? (
                 <div className="schmuck-modal-photo-placeholder loading">
                   <span>⏳</span>
                   Bild wird geladen...
                 </div>
-              ) : item.Foto && photoError ? (
+              ) : item.hatFoto && photoError ? (
                 <div className="schmuck-modal-photo-placeholder empty">
                   <span className="photo-icon">⚠️</span>
                   Bild konnte nicht geladen werden

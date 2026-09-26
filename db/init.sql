@@ -219,7 +219,6 @@ CREATE INDEX idx_rechnung_datum ON "Rechnung" ("Datum" DESC);
 CREATE TABLE "Schmuckstück" (
     "Artikelnummer" VARCHAR(20) NOT NULL,
     "Name" TEXT DEFAULT NULL,
-    "Foto" TEXT DEFAULT NULL,
     "Art" TEXT DEFAULT NULL,
     "Form" TEXT DEFAULT NULL,
     "Länge" DOUBLE PRECISION DEFAULT 0,
@@ -285,7 +284,7 @@ CREATE INDEX idx_schmuck_artikelnummer_sort ON "Schmuckstück" (length("Artikeln
 -- Statusfilter aus dem whereClauseBuilder
 CREATE INDEX idx_schmuck_status ON "Schmuckstück" ("Verkauft", "Ausschuss", "Ausgelagert");
 
--- Fotos (Issue #208): Bilddaten in der Datenbank statt in assets/uploads.
+-- Fotos (Issue #208): Bilddaten in der Datenbank statt im Dateisystem.
 -- Eigene Tabelle, damit SELECT * auf "Schmuckstück" keine Bilddaten lädt.
 -- Schlüssel ist die Basis-Artikelnummer (MHO123 gilt für MHO123_1, MHO123_2, …),
 -- deshalb kein Fremdschlüssel auf "Schmuckstück".

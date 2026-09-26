@@ -52,7 +52,6 @@ erDiagram
     Schmuckstueck {
         varchar20 Artikelnummer PK
         text Name
-        text Foto
         text Art
         text Form
         double Laenge
@@ -138,7 +137,7 @@ erDiagram
 | `Kunde`        | Kunden / Händler / Lagerorte    | `Name` (UK: `ID`)   | ~25 Einträge       |
 | `Lieferschein` | Lieferscheine mit Artikellisten | `Nummer` (UK: `ID`) | ~180 Einträge      |
 | `Rechnung`     | Rechnungen mit Artikellisten    | `Nummer`            | ~200 Einträge      |
-| `Schmuckstück` | Schmuckstücke mit 34 Attributen | `Artikelnummer`     | ~4.000+ Einträge   |
+| `Schmuckstück` | Schmuckstücke mit 33 Attributen | `Artikelnummer`     | ~4.000+ Einträge   |
 | `audit_log`    | Änderungsprotokoll              | `id`                | ~4.000+ Einträge   |
 | `app_users`    | Anwendungsbenutzer              | `id` (UK: `username`) | Wenige Einträge  |
 | `lagerinventur` | Lager-Inventur-Entwürfe (gezählte Stückzahlen pro Benutzer) | `id` | Wenige Einträge |
@@ -202,7 +201,7 @@ erDiagram
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
 - **audit_log Tamper-Schutz** (Issue #139): `trg_audit_log_immutable` blockiert jedes UPDATE/DELETE auf `audit_log`; `trg_audit_log_hash_chain` verkettet jede Zeile per SHA-256 mit dem Hash der Vorgängerzeile (`previous_hash`/`hash`). Kette prüfen: `SELECT * FROM verify_audit_chain();` oder `GET /api/audit-log/verify` (admin). Details siehe `db/README.md`
-- **Foto / bestellung_foto** (Issue #208): Bilddaten als BYTEA in der Datenbank statt als Datei in `backend/src/assets/uploads/`. Eigene Tabellen, damit `SELECT *` auf `"Schmuckstück"` keine Bilddaten lädt. Schlüssel von `"Foto"` ist die **Basis-Artikelnummer** (`MHO123` gilt für `MHO123_1`, `MHO123_2`, …), deshalb kein FK auf `"Schmuckstück"`. Zugriff nur über `backend/src/utils/fotoService.js`. Die Spalte `"Schmuckstück"."Foto"` enthält nur noch den Verweis (Basisnummer bzw. alter Dateiname) und entfällt in einem Folge-Schritt
+- **Foto / bestellung_foto** (Issue #208): Bilddaten als BYTEA in der Datenbank statt als Datei im Dateisystem. Eigene Tabellen, damit `SELECT *` auf `"Schmuckstück"` keine Bilddaten lädt. Schlüssel von `"Foto"` ist die **Basis-Artikelnummer** (`MHO123` gilt für `MHO123_1`, `MHO123_2`, …), deshalb kein FK auf `"Schmuckstück"`. Zugriff nur über `backend/src/utils/fotoService.js`. Die frühere Spalte `"Schmuckstück"."Foto"` ist entfernt (#214, `DROP COLUMN IF EXISTS` in `db.js`); Liste, Detail und Inventur liefern stattdessen `hatFoto` (boolean, per `EXISTS` auf `"Foto"`)
 - **lagerinventur**: speichert Inventur-Entwürfe pro Benutzer; `data` ist JSONB (`{ [artikelnummer]: anzahl }`); `status` ist `entwurf` oder `abgeschlossen`; FK auf `app_users.id`; Index auf `(user_id, status)`; wird via `db.js`-Startup-Migration angelegt
 ## WHERE Clause Builder (PFLICHT!)
 
@@ -465,8 +464,7 @@ GoldRegenDB_Web/
 │   │   ├── whereClauseBuilder.test.js
 │   │   └── logger.test.js
 │   ├── scripts/
-│   │   ├── dev-start.sh            # Startskript für Entwicklungs-Container
-│   │   └── sync-photo-column.js    # Altlast bis zum Bilderimport (#209): Foto-Spalte mit Dateien in assets/uploads abgleichen
+│   │   └── dev-start.sh            # Startskript für Entwicklungs-Container
 │   └── src/
 │       ├── index.js                # Express Entry-Point
 │       ├── config/
@@ -749,6 +747,7 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
 - Upsert: Fotos im ZIP ersetzen vorhandene, alle anderen bleiben – ein abgebrochener Import lässt sich wiederholen
 - Übersprungen und im Job gemeldet (max. 100 Details, Rest im Log): unbekannter Pfad, > 5 MB, kein JPG/PNG/GIF. Datenbankfehler brechen den Job ab (`status: failed`)
 - Timeouts: Node beendet Requests nach `server.requestTimeout` (300 s), Reverse-Proxys oft früher – für große Uploads über langsame Leitungen dort anheben
+- Damit ist das Import-Limit aus #214 erledigt: Fotos gehen nicht durch den JSON-Import und sein Body-Limit von 100 MB
 
 ### Technische Details
 - Nutzt `information_schema.columns` um gültige Spalten zu ermitteln

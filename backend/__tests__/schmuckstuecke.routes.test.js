@@ -34,8 +34,8 @@ describe('GET /api/schmuckstuecke', () => {
   it('liest die Gesamtzahl aus der Fensterfunktion und braucht nur eine Abfrage', async () => {
     db.query.mockResolvedValueOnce({
       rows: [
-        { Artikelnummer: 'MPO001', Foto: 'MPO001.jpg', __total: '42' },
-        { Artikelnummer: 'MPO002', Foto: 'MPO002.jpg', __total: '42' },
+        { Artikelnummer: 'MPO001', __total: '42' },
+        { Artikelnummer: 'MPO002', __total: '42' },
       ],
     });
 
@@ -73,26 +73,26 @@ describe('GET /api/schmuckstuecke', () => {
     expect(res.body.pagination.total).toBe(42);
   });
 
-  it('setzt Foto aus der Tabelle "Foto", wenn die Spalte leer ist, ohne Bilddaten zu laden', async () => {
+  it('liefert hatFoto aus der Tabelle "Foto", ohne Bilddaten zu laden', async () => {
     db.query.mockResolvedValueOnce({
       rows: [
-        { Artikelnummer: 'MPO001_2', Foto: null, __hatFoto: true, __total: '2' },
-        { Artikelnummer: 'MPO777', Foto: 'eigen.jpg', __hatFoto: true, __total: '2' },
+        { Artikelnummer: 'MPO001_2', hatFoto: true, __total: '2' },
+        { Artikelnummer: 'MPO777', hatFoto: false, __total: '2' },
       ],
     });
 
     const res = await request(app).get('/api/schmuckstuecke?page=1&limit=50');
 
     const sql = db.query.mock.calls[0][0];
-    expect(sql).toContain('EXISTS');
+    expect(sql).toContain(`split_part("Schmuckstück"."Artikelnummer", '_', 1)`);
+    expect(sql).toContain('AS "hatFoto"');
     expect(sql).not.toContain('"Daten"');
-    expect(res.body.data[0].Foto).toBe('MPO001');
-    expect(res.body.data[1].Foto).toBe('eigen.jpg');
-    expect(res.body.data[0]).not.toHaveProperty('__hatFoto');
+    expect(res.body.data.map((s) => s.hatFoto)).toEqual([true, false]);
+    expect(res.body.data[0]).not.toHaveProperty('Foto');
   });
 
   it('lädt bei limit=-1 ohne LIMIT/OFFSET', async () => {
-    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001', Foto: 'x.jpg', __total: '1' }] });
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001', __total: '1' }] });
 
     const res = await request(app).get('/api/schmuckstuecke?limit=-1');
 
@@ -162,16 +162,14 @@ describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
   // keine Statusbedingung mehr und fiel aus Liste, Dashboard, Inventur und
   // SumUp-Export heraus.
   it('lässt Statusfelder unangetastet, wenn der Request sie nicht schickt', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [] }) // kein Eintrag in "Foto"
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001' }] });
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001' }] });
 
     const res = await request(app)
       .put('/api/schmuckstuecke/MPO001')
       .send({ Artikelnummer: 'MPO001', Name: 'Neuer Name' });
 
     expect(res.statusCode).toBe(200);
-    const sql = String(db.query.mock.calls[1][0]);
+    const sql = String(db.query.mock.calls[0][0]);
     const geschuetzt = [
       'Ausgelagert', 'Verkauft', 'Ausschuss', 'Lieferschein_ID', 'Rechnung_ID',
       // Die Geldspalten sind seit Befund B1 ebenfalls NOT NULL. Ohne COALESCE
@@ -185,9 +183,7 @@ describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
   });
 
   it('schreibt Verkauft/Ausschuss als boolean, nicht als 0/1', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [] }) // kein Eintrag in "Foto"
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001' }] });
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001' }] });
 
     await request(app)
       .put('/api/schmuckstuecke/MPO001')
@@ -195,13 +191,13 @@ describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
 
     // bool() in schemas/common.js nimmt 0/1 entgegen und macht daraus
     // true/false -- die Spalten sind boolean (Befund B6).
-    const params = db.query.mock.calls[1][1];
-    expect(params[26]).toBe(true);   // $27 Verkauft
-    expect(params[27]).toBe(false);  // $28 Ausschuss
+    const params = db.query.mock.calls[0][1];
+    expect(params[25]).toBe(true);   // $26 Verkauft
+    expect(params[26]).toBe(false);  // $27 Ausschuss
   });
 
   it('meldet 404 bei unbekannter Artikelnummer', async () => {
-    db.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] });
+    db.query.mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app)
       .put('/api/schmuckstuecke/MPO999')
@@ -210,17 +206,16 @@ describe('PUT /api/schmuckstuecke/:artikelnummer', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('verweist ohne Foto-Angabe auf das Foto der Basis-Artikelnummer', async () => {
-    db.query
-      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] })
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001_2' }] });
+  it('schreibt keine Spalte Foto, auch wenn der Client noch eine schickt', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MPO001_2' }] });
 
     await request(app)
       .put('/api/schmuckstuecke/MPO001_2')
-      .send({ Artikelnummer: 'MPO001_2', Name: 'x' });
+      .send({ Artikelnummer: 'MPO001_2', Name: 'x', Foto: 'alt.jpg' });
 
-    expect(db.query.mock.calls[0][1]).toEqual(['MPO001']);
-    expect(db.query.mock.calls[1][1][1]).toBe('MPO001'); // $2 Foto
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).not.toContain('"Foto"');
+    expect(db.query.mock.calls[0][1]).not.toContain('alt.jpg');
   });
 });
 

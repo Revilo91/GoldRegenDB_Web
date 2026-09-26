@@ -204,7 +204,7 @@ router.get('/:id', authenticate, requireBearbeiter, async (req, res) => {
     "Verkaufspreis": 35.00,
     "Ausgelagert": 1,
     "Verkauft": 0,
-    "Foto": "MBH001_1.jpg"
+    "hatFoto": true
   }
 ]
 ```

@@ -194,12 +194,12 @@ builder.field('Verkaufspreis', '>=', 20);
 builder.field('Verkaufspreis', '<=', 50);
 
 // ILIKE pattern
-builder.field('Foto', 'like', 'MBH%');
+builder.field('Name', 'like', 'Beton%');
 
 // Generated SQL examples:
 // "Name" = $1
 // "Verkaufspreis" >= $1 AND "Verkaufspreis" <= $2
-// "Foto" ILIKE $1
+// "Name" ILIKE $1
 ```
 
 ## Complex Filtering Examples

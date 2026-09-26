@@ -64,7 +64,6 @@ cd backend
 npm run dev        # Start with hot reload (node --watch)
 npm start          # Start production
 npm test           # Jest tests in __tests__/**/*.test.js
-npm run sync:fotos # Altlast bis #209: Foto-Spalte mit assets/uploads abgleichen
 npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
                    # Einmaliger Bestandsimport von Bildern in "Foto" (#209)
 ```
@@ -167,6 +166,10 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   `bestellung_foto` (Bestellformular, Schlüssel = `bestellung.foto_pfad`)
 - Lesen/Schreiben nur über `backend/src/utils/fotoService.js`; eigene Tabellen,
   damit Listenabfragen keine BYTEA-Daten laden – Listen prüfen per `EXISTS`
+- Liste, Detail und Inventur liefern je Stück `hatFoto` (boolean, aus
+  `hatFotoSql()` in `fotoService.js`); das Frontend lädt das Bild dann über die
+  Artikelnummer. Eine Spalte `"Schmuckstück"."Foto"` gibt es nicht mehr (#214) –
+  `db.js` entfernt sie beim Start per `DROP COLUMN IF EXISTS`
 - Max size: 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Endung
 - Upload: `multer.memoryStorage()` in schmuckstuecke.js; Auslieferung mit ETag
   aus `Geaendert` und `Cache-Control: private, max-age=60`
@@ -188,10 +191,12 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   und Fotos über 5 MB sind im Log mit „manuell“ markiert (`grep manuell <log>`):
   von Hand prüfen bzw. verkleinern, dann erneut importieren.
   Namensauswertung: `utils/fotoDateiname.js`
-- **Übergang bis zum Bilderimport (#209):** noch nicht importierte Dateien in
-  `backend/src/assets/uploads/` werden weiter ausgeliefert. Spalte
-  `"Schmuckstück"."Foto"`, Uploads-Volume und `npm run sync:fotos` entfallen in
-  einem eigenen Folge-Schritt
+- **Kein Datei-Fallback** (#214): Fotos kommen nur aus der Datenbank, ohne
+  Eintrag antwortet `GET /foto/:name` mit 404. Das frühere Upload-Verzeichnis
+  wird nicht mehr gelesen, und die compose-Dateien binden kein Uploads-Volume
+  mehr ein
+- Der in #214 offene Punkt **Import-Limit** ist erledigt: Fotos laufen nicht
+  durch den JSON-Import (globales Body-Limit 100 MB), sondern über das Foto-ZIP
 
 ---
 
@@ -351,7 +356,6 @@ verschluckte Fehler, und 68 `alert()` verteilt über 11 Dateien. Jetzt gilt:
 
 **Weitere abgeschlossene Aufräumarbeiten:**
 - **Shrinking excelService.js**: Extracted formatting utility `formatCell()` and sheet-creating helper `addInventurSheet()`. Saved 80+ lines of duplicate styles.
-- **Merging photo resolution logic**: Consolidated `findPhotoForArtikel()` and `resolvePhotoFile()` into a single, unified `resolvePhotoFile(identifier)` function in `schmuckstuecke.js` route, reducing duplication by 40+ lines.
 
 ---
 

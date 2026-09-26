@@ -10,5 +10,7 @@ e2e
 GoldRegenDB*.sql
 .serena
 graphify-out
+# Früheres Foto-Verzeichnis: ein lokaler Restbestand soll nicht ins Image
+backend/src/assets/uploads
 playwright-report
 test-results

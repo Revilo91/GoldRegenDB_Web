@@ -51,11 +51,11 @@ export default function SchmuckstueckDetail() {
   }, [artikelnummer, toast]);
 
   useEffect(() => {
-    if (item?.Foto) {
+    if (item?.hatFoto) {
       setPhotoLoading(true);
       setPhotoError(null);
       api
-        .loadPhotoAsDataUrl(item.Foto)
+        .loadPhotoAsDataUrl(item.Artikelnummer)
         .then(setPhoto)
         .catch((err) => {
           setPhoto(null);
@@ -167,7 +167,7 @@ export default function SchmuckstueckDetail() {
                   borderRadius: "8px",
                 }}
               />
-            ) : item.Foto && photoLoading ? (
+            ) : item.hatFoto && photoLoading ? (
               <div
                 style={{
                   width: "200px",
@@ -187,7 +187,7 @@ export default function SchmuckstueckDetail() {
                   Bild wird geladen...
                 </div>
               </div>
-            ) : item.Foto && photoError ? (
+            ) : item.hatFoto && photoError ? (
               <div
                 style={{
                   width: "200px",

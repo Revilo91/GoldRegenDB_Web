@@ -2,6 +2,8 @@ node_modules/
 dist/
 .env
 pgdata*/
+# Früheres Foto-Verzeichnis (vor #208/#214). Bleibt ignoriert, damit ein
+# noch vorhandener lokaler Bestand nicht versehentlich committet wird.
 backend/src/assets/uploads/
 # Docker-Secrets (Rotations-Werkzeug, siehe scripts/rotate-secret.sh) – nie committen
 secrets/

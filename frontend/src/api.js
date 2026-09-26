@@ -202,29 +202,28 @@ const FOTO_CACHE_MAX = 400;
 const fotoCache = new Map();
 const fotoRequests = new Map();
 
-function merkeFoto(fileName, dataUrl) {
+// MHO123_1 und MHO123_2 teilen sich das Foto MHO123 – und damit den Cache-Eintrag.
+function fotoSchluessel(artikelnummer) {
+  return String(artikelnummer || '').trim().split('_')[0].toUpperCase();
+}
+
+function merkeFoto(basis, dataUrl) {
   if (fotoCache.size >= FOTO_CACHE_MAX) {
     fotoCache.delete(fotoCache.keys().next().value);
   }
-  fotoCache.set(fileName, dataUrl);
+  fotoCache.set(basis, dataUrl);
 }
 
 function vergissFoto(artikelnummer) {
-  const basis = String(artikelnummer || '').split('_')[0];
-  if (!basis) return;
-  const gehoertDazu = (key) => key.split('.')[0].split('_')[0] === basis;
-  for (const key of [...fotoCache.keys()]) {
-    if (gehoertDazu(key)) fotoCache.delete(key);
-  }
-  for (const key of [...fotoRequests.keys()]) {
-    if (gehoertDazu(key)) fotoRequests.delete(key);
-  }
+  const basis = fotoSchluessel(artikelnummer);
+  fotoCache.delete(basis);
+  fotoRequests.delete(basis);
 }
 
 // Kein AbortSignal: Der Request wird geteilt, ein abbrechender Aufrufer würde
 // ihn sonst auch für alle anderen Wartenden beenden.
-async function ladeFotoAlsDataUrl(cleanFileName) {
-  const blob = await downloadBlob(`/schmuckstuecke/foto/${cleanFileName}`);
+async function ladeFotoAlsDataUrl(basis) {
+  const blob = await downloadBlob(`/schmuckstuecke/foto/${encodeURIComponent(basis)}`);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => resolve(e.target.result);
@@ -314,34 +313,33 @@ export const api = {
     vergissFoto(artikelnummer);
     return request(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
-  getPhotoUrl: (fileName) => fileName ? `${API_URL}/schmuckstuecke/foto/${fileName}` : null,
-  loadPhotoAsDataUrl: async (fileName, options = {}) => {
-    if (!fileName) return null;
-    const cleanFileName = fileName.replace(/^uploads[\\/]/, '');
+  loadPhotoAsDataUrl: async (artikelnummer, options = {}) => {
+    const basis = fotoSchluessel(artikelnummer);
+    if (!basis) return null;
 
-    const zwischengespeichert = fotoCache.get(cleanFileName);
+    const zwischengespeichert = fotoCache.get(basis);
     if (zwischengespeichert) return zwischengespeichert;
 
     // Beim Blättern und beim Wechsel zwischen Tabelle und Detailansicht werden
     // dieselben Fotos immer wieder angefragt. Laufende Requests werden geteilt,
     // fertige Data-URLs bleiben für die Sitzung im Speicher.
-    let laufend = fotoRequests.get(cleanFileName);
+    let laufend = fotoRequests.get(basis);
     if (!laufend) {
-      laufend = ladeFotoAlsDataUrl(cleanFileName)
+      laufend = ladeFotoAlsDataUrl(basis)
         .then((dataUrl) => {
-          if (dataUrl) merkeFoto(cleanFileName, dataUrl);
+          if (dataUrl) merkeFoto(basis, dataUrl);
           return dataUrl;
         })
-        .finally(() => fotoRequests.delete(cleanFileName));
-      fotoRequests.set(cleanFileName, laufend);
+        .finally(() => fotoRequests.delete(basis));
+      fotoRequests.set(basis, laufend);
     }
 
     try {
       return await laufend;
     } catch (err) {
       if (err?.name === 'AbortError' || options.signal?.aborted) return null;
-      const message = `Foto ${fileName} konnte nicht geladen werden: ${err.message}`;
-      console.error('❌ Fehler beim Laden des Fotos:', fileName, {
+      const message = `Foto ${basis} konnte nicht geladen werden: ${err.message}`;
+      console.error('❌ Fehler beim Laden des Fotos:', basis, {
         message,
         status: err.status,
         payload: err.payload,

@@ -65,13 +65,6 @@ services:
       VERKAEUFER_BANK: ${VERKAEUFER_BANK:-}
       VERKAEUFER_IBAN: ${VERKAEUFER_IBAN:-}
       VERKAEUFER_BIC: ${VERKAEUFER_BIC:-}
-    volumes:
-      # Fotos liegen in backend/src/assets/uploads und landen ohne dieses Volume
-      # IM Container: jedes `docker compose up --build` bzw. `down` erstellt ihn
-      # neu und alle Uploads waren weg (Befund E1). db/backup.sh sichert nur die
-      # Datenbank, die Foto-Spalte zeigte danach auf nicht mehr existierende
-      # Dateien. docker-compose.synology.yml:56 macht das schon richtig.
-      - uploads:/app/src/assets/uploads
     ports:
       - "3000:${PORT:-3001}"
     # Ohne eigenen Healthcheck sah ein Backend mit gescheiterter Migration für
@@ -112,4 +105,3 @@ services:
 volumes:
   pgdata:
   pgbackups:
-  uploads:
