@@ -618,6 +618,16 @@ describe('POST /api/backup/import – Daten und Constraints', () => {
       expect([...werte[1]]).toEqual([1, 2, 3]);
     });
 
+    it('stellt base64-kodierte Buffer (Fotos) wieder her', async () => {
+      await request(app)
+        .post('/api/backup/import')
+        .send(backupMit({ bestellung_kunde: [{ id: 1, name_enc: { type: 'Buffer', base64: 'AQID' } }] }));
+
+      const werte = inserts('bestellung_kunde')[0][1];
+      expect(Buffer.isBuffer(werte[1])).toBe(true);
+      expect([...werte[1]]).toEqual([1, 2, 3]);
+    });
+
     it('leert und importiert nur die gewählten Tabellen', async () => {
       await request(app)
         .post('/api/backup/import')

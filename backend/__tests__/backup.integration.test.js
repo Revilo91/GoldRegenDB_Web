@@ -57,6 +57,12 @@ const ALLE_TABELLEN =
   '"Kunde", "Lieferschein", "Rechnung", "Schmuckstück", app_users, audit_log, ' +
   'bestellung, bestellung_consent, bestellung_foto, bestellung_kunde, "Foto", lagerinventur';
 
+// Alle 256 Bytewerte: fängt Kodierungsfehler (UTF-8, Vorzeichen) beim Round-Trip.
+const FOTO = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.from(Array.from({ length: 256 }, (_, i) => i)),
+]);
+
 describeDb('Backup/Restore gegen echte Datenbank', () => {
   const pool = db._pool;
   let app;
@@ -110,6 +116,14 @@ describeDb('Backup/Restore gegen echte Datenbank', () => {
       `UPDATE "Schmuckstück" SET "Ausschuss" = TRUE, "Ausschuss_Grund" = 'Bruch'
         WHERE "Artikelnummer" = 'MA3'`,
     );
+    await sql(
+      `INSERT INTO "Foto" ("Artikelnummer", "Daten", "MimeType", "Groesse") VALUES ('MA1', $1, 'image/png', $2)`,
+      [FOTO, FOTO.length],
+    );
+    await sql(
+      `INSERT INTO bestellung_foto (datei_name, daten, mime_type, groesse) VALUES ('abc', $1, 'image/png', $2)`,
+      [FOTO, FOTO.length],
+    );
   });
 
   it('Round-Trip: Export → Import → Export liefert identische Daten', async () => {
@@ -121,6 +135,21 @@ describeDb('Backup/Restore gegen echte Datenbank', () => {
 
     expect(res.status).toBe(200);
     expect(ohneZeitstempel(await exportiere())).toEqual(ohneZeitstempel(vorher));
+  });
+
+  it('stellt Fotos byte-genau wieder her', async () => {
+    const backup = await exportiere();
+    expect(backup.tables.Foto[0].Daten).toEqual({ type: 'Buffer', base64: FOTO.toString('base64') });
+    await sql('TRUNCATE "Foto", bestellung_foto');
+
+    const res = await importiere(backup.tables);
+
+    expect(res.status).toBe(200);
+    const foto = await sql(`SELECT "Daten", "MimeType", "Groesse" FROM "Foto" WHERE "Artikelnummer" = 'MA1'`);
+    expect(foto.rows[0].Daten.equals(FOTO)).toBe(true);
+    expect(foto.rows[0]).toMatchObject({ MimeType: 'image/png', Groesse: FOTO.length });
+    const bestellFoto = await sql(`SELECT daten FROM bestellung_foto WHERE datei_name = 'abc'`);
+    expect(bestellFoto.rows[0].daten.equals(FOTO)).toBe(true);
   });
 
   it('erhält die Audit-Hash-Kette (verify_audit_chain meldet nichts)', async () => {
