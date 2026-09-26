@@ -23,7 +23,7 @@ erDiagram
         serial ID UK
         varchar100 Name PK
         text Strasse
-        int Hausnummer
+        text Hausnummer
         text Ort
         int PLZ
         text Email

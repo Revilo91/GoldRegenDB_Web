@@ -220,7 +220,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       // Erstelle Messe-Kunde falls nicht vorhanden
       const { rows: newKunde } = await client.query(
         `INSERT INTO "Kunde" ("Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Provision", "Aktiv")
-         VALUES ('Messe', '', 0, '', 0, 0, true)
+         VALUES ('Messe', '', '', '', 0, 0, true)
          RETURNING "ID", "Name"`,
       );
       messeKunde = newKunde[0];

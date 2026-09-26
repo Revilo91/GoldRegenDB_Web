@@ -224,7 +224,7 @@ async function ensureKundeTable() {
           "ID" SERIAL,
           "Name" VARCHAR(100) NOT NULL,
           "Strasse" TEXT NOT NULL,
-          "Hausnummer" INTEGER NOT NULL,
+          "Hausnummer" TEXT NOT NULL DEFAULT '',
           "Ort" TEXT NOT NULL,
           "PLZ" INTEGER NOT NULL,
           "Email" TEXT DEFAULT NULL,
@@ -246,6 +246,23 @@ async function ensureKundeTable() {
       ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "UStIdNr" VARCHAR(20) DEFAULT NULL;
       ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "Leitweg_ID" VARCHAR(50) DEFAULT NULL;
     `);
+
+    // Hausnummer INTEGER -> TEXT (Issue #211): "12a" war nicht speicherbar.
+    // 0 war der Platzhalter für "keine Hausnummer" (Messe, Online) und wird
+    // zum Leerstring -- Excel-Export und E-Rechnung ließen 0 schon bisher weg.
+    const { rows: hnr } = await pool.query(`
+      SELECT data_type FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'Kunde' AND column_name = 'Hausnummer'
+    `);
+    if (hnr.length > 0 && hnr[0].data_type !== 'text') {
+      await pool.query(`
+        ALTER TABLE "Kunde"
+          ALTER COLUMN "Hausnummer" TYPE TEXT
+            USING (CASE WHEN "Hausnummer" = 0 THEN '' ELSE "Hausnummer"::text END),
+          ALTER COLUMN "Hausnummer" SET DEFAULT '';
+      `);
+      logger.info('DB', '"Kunde"."Hausnummer" auf TEXT umgestellt');
+    }
     logger.info('DB', '"Kunde" Tabelle verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Kunde Tabelle', { message: err.message });
