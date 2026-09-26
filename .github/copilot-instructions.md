@@ -638,6 +638,9 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | ------- | ----------------- | -------------------------------------- |
 | GET     | `/api/backup/export`  | Alle Tabellen als JSON exportieren         |
 | POST    | `/api/backup/import`  | Backup-Daten importieren (2 Formate)      |
+| GET     | `/api/backup/export-fotos` | Alle Fotos als ZIP (gestreamt)        |
+| POST    | `/api/backup/import-fotos-zip` | Foto-ZIP importieren (Feld `fotosZip`, 202 + Job) |
+| GET     | `/api/backup/import-fotos-jobs/:jobId` | Fortschritt des Foto-Imports |
 | GET     | `/api/audit-log`  | Änderungsprotokoll anzeigen            |
 | GET     | `/api/audit-log/artikel/:artikelnummer` | Audit-Log für ein bestimmtes Schmuckstück |
 | GET     | `/api/audit-log/verify` | Hash-Ketten-Integrität prüfen (Issue #139) |
@@ -726,8 +729,8 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
 
 ### Export
 - Endpunkt: `GET /api/backup/export`
-- Erzeugt JSON-Datei mit allen Tabellen (aus `pg_class` ermittelt), inklusive der Fotos in `Foto`/`bestellung_foto`
-- BYTEA-Werte (Fotos, verschlüsselte Kundenfelder) als `{ "type": "Buffer", "base64": "..." }`; der Import liest auch die ältere Form `{ "type": "Buffer", "data": [...] }`
+- Erzeugt JSON-Datei mit allen Tabellen (aus `pg_class` ermittelt) **außer** `Foto`/`bestellung_foto` – die sichert das Foto-ZIP
+- BYTEA-Werte (verschlüsselte Kundenfelder) als `{ "type": "Buffer", "base64": "..." }`; der Import liest auch die ältere Form `{ "type": "Buffer", "data": [...] }`
 - Format: Standard-Backup mit `version`, `timestamp` und `tables`-Property
 
 ### Import
@@ -738,6 +741,14 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
   - Importiert nur Spalten, die in **beiden** vorhanden sind (Backup-Daten + aktuelle DB)
   - Fehlende Spalten verwenden Datenbank-Standard-Werte
   - Hilft bei Migrations- und Schema-Evolution-Szenarien
+
+### Foto-ZIP (`backend/src/utils/fotoZip.js`)
+- Export `GET /api/backup/export-fotos`: ZIP ohne Kompression (JPEG/PNG/GIF sind schon komprimiert), gestreamt mit `Content-Length`; Liste und Bilddaten aus einer `REPEATABLE READ READ ONLY`-Transaktion, im Speicher liegt immer nur ein Foto
+- Einträge: `schmuckstueck/<Basis-Artikelnummer>.<ext>` und `bestellung/<datei_name>.<ext>`; der Export hängt die Endung immer an, der Import schneidet sie immer ab
+- Import `POST /api/backup/import-fotos-zip` (Feld `fotosZip`, bis 10 GB, Zwischenablage in `os.tmpdir()`): antwortet sofort mit `202 { job }`, Fortschritt über `GET /api/backup/import-fotos-jobs/:jobId` (Job lebt 30 min)
+- Upsert: Fotos im ZIP ersetzen vorhandene, alle anderen bleiben – ein abgebrochener Import lässt sich wiederholen
+- Übersprungen und im Job gemeldet (max. 100 Details, Rest im Log): unbekannter Pfad, > 5 MB, kein JPG/PNG/GIF. Datenbankfehler brechen den Job ab (`status: failed`)
+- Timeouts: Node beendet Requests nach `server.requestTimeout` (300 s), Reverse-Proxys oft früher – für große Uploads über langsame Leitungen dort anheben
 
 ### Technische Details
 - Nutzt `information_schema.columns` um gültige Spalten zu ermitteln

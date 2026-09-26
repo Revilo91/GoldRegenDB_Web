@@ -109,6 +109,141 @@ describe('backup uploads zip routes', () => {
   });
 });
 
+const PNG = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.alloc(64, 1),
+]);
+
+const alsBinaer = (response, callback) => {
+  const teile = [];
+  response.on('data', (teil) => teile.push(teil));
+  response.on('end', () => callback(null, Buffer.concat(teile)));
+};
+
+describe('Foto-ZIP-Routen', () => {
+  let app;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  describe('GET /api/backup/export-fotos', () => {
+    let client;
+
+    beforeEach(() => {
+      client = {
+        query: jest.fn(async (sql) => {
+          const text = String(sql);
+          if (text.includes('octet_length') && text.includes('"Foto"')) {
+            return {
+              rows: [{ schluessel: 'MBH001', mimeType: 'image/png', groesse: PNG.length, geaendert: new Date() }],
+            };
+          }
+          if (text.includes('octet_length')) return { rows: [] };
+          if (text.includes('"Foto"')) return { rows: [{ daten: PNG }] };
+          return { rows: [] };
+        }),
+        release: jest.fn(),
+      };
+      db.connect.mockReset();
+      db.connect.mockResolvedValue(client);
+    });
+
+    it('streamt die Fotos als ZIP aus einem Snapshot und gibt die Verbindung frei', async () => {
+      const res = await request(app).get('/api/backup/export-fotos').buffer(true).parse(alsBinaer);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('application/zip');
+      expect(res.headers['content-disposition']).toContain('goldregendb_fotos_');
+      expect(Number(res.headers['content-length'])).toBe(res.body.length);
+
+      const eintraege = new AdmZip(res.body).getEntries();
+      expect(eintraege.map((e) => e.entryName)).toEqual(['schmuckstueck/MBH001.png']);
+      expect(eintraege[0].getData().equals(PNG)).toBe(true);
+
+      const verlauf = client.query.mock.calls.map((c) => String(c[0]));
+      expect(verlauf[0]).toMatch(/BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+      expect(verlauf.at(-1)).toBe('COMMIT');
+      expect(client.release).toHaveBeenCalledWith();
+    });
+
+    it('antwortet mit 500, wenn die Fotoliste nicht geladen werden kann', async () => {
+      client.query.mockImplementation(async (sql) => {
+        if (String(sql).includes('octet_length')) throw new Error('kaputt');
+        return { rows: [] };
+      });
+
+      const res = await request(app).get('/api/backup/export-fotos');
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toMatch(/Exportieren der Fotos/);
+      expect(client.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/backup/import-fotos-zip', () => {
+    beforeEach(() => {
+      db.query.mockReset();
+      db.query.mockResolvedValue({ rows: [], rowCount: 1 });
+    });
+
+    const warteAufJob = async (id) => {
+      for (let i = 0; i < 50; i += 1) {
+        const res = await request(app).get(`/api/backup/import-fotos-jobs/${id}`);
+        if (res.body.job.status !== 'running') return res.body.job;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      throw new Error('Job wurde nicht fertig');
+    };
+
+    it('antwortet mit 400 ohne Datei', async () => {
+      const res = await request(app).post('/api/backup/import-fotos-zip');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/fotosZip/);
+    });
+
+    it('startet einen Job und meldet Gespeicherte und Übersprungene', async () => {
+      const zip = new AdmZip();
+      zip.addFile('schmuckstueck/MBH001.png', PNG);
+      zip.addFile('bestellung/abc.png', PNG);
+      zip.addFile('fremd/datei.png', PNG);
+
+      const res = await request(app)
+        .post('/api/backup/import-fotos-zip')
+        .attach('fotosZip', zip.toBuffer(), { filename: 'fotos.zip', contentType: 'application/zip' });
+
+      expect(res.status).toBe(202);
+      const job = await warteAufJob(res.body.job.id);
+      expect(job).toMatchObject({
+        status: 'completed',
+        gesamt: 3,
+        verarbeitet: 3,
+        gespeichert: { schmuckstueck: 1, bestellung: 1 },
+        uebersprungen: 1,
+      });
+      const inserts = db.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT'));
+      expect(inserts.map(([, params]) => params[0]).sort()).toEqual(['MBH001', 'abc']);
+    });
+
+    it('markiert den Job als fehlgeschlagen, wenn die Datei kein ZIP ist', async () => {
+      const res = await request(app)
+        .post('/api/backup/import-fotos-zip')
+        .attach('fotosZip', Buffer.from('kein zip'), { filename: 'fotos.zip' });
+
+      const job = await warteAufJob(res.body.job.id);
+      expect(job.status).toBe('failed');
+      expect(job.fehler).toBeTruthy();
+    });
+  });
+
+  it('GET /api/backup/import-fotos-jobs/:jobId antwortet mit 404 für unbekannte Jobs', async () => {
+    const res = await request(app).get('/api/backup/import-fotos-jobs/gibt-es-nicht');
+
+    expect(res.status).toBe(404);
+  });
+});
+
 // ── Q10: Tabellenliste, Reihenfolge, Sequences, Hash-Trigger ───────────────
 //
 // Das Schema, das die Katalog-Abfragen im Test liefern: zehn Tabellen, sechs
@@ -126,6 +261,9 @@ const KATALOG_TABELLEN = [
   'bestellung_kunde',
   'lagerinventur',
 ];
+
+// Liegen ebenfalls im Katalog, gehören aber ins Foto-ZIP statt ins JSON.
+const FOTO_TABELLEN = ['Foto', 'bestellung_foto'];
 
 const KATALOG_FKS = [
   { kind: 'Lieferschein', eltern: 'Kunde' },
@@ -147,6 +285,8 @@ const KATALOG_PKS = [
   { tabelle: 'bestellung_consent', spalte: 'id' },
   { tabelle: 'bestellung_kunde', spalte: 'id' },
   { tabelle: 'lagerinventur', spalte: 'id' },
+  { tabelle: 'Foto', spalte: 'Artikelnummer' },
+  { tabelle: 'bestellung_foto', spalte: 'datei_name' },
 ];
 
 // Spalten je Tabelle – daraus leitet der Handler die Sequences (hat_sequenz)
@@ -179,6 +319,10 @@ const KATALOG_SPALTEN = [
   spalte('bestellung_kunde', 'id', 'integer', true),
   spalte('bestellung_kunde', 'name_enc', 'bytea'),
   spalte('lagerinventur', 'id', 'integer', true),
+  spalte('Foto', 'Artikelnummer'),
+  spalte('Foto', 'Daten', 'bytea'),
+  spalte('bestellung_foto', 'datei_name'),
+  spalte('bestellung_foto', 'daten', 'bytea'),
 ];
 
 // Antwortet auf die Katalogabfragen wie die echte Datenbank; alles andere
@@ -188,7 +332,8 @@ const KATALOG_SPALTEN = [
 function katalogAntwort(sql) {
   const text = String(sql);
   if (text.includes("c.relkind = 'r'")) {
-    return { rows: KATALOG_TABELLEN.map((name) => ({ name })), rowCount: KATALOG_TABELLEN.length };
+    const namen = [...KATALOG_TABELLEN, ...FOTO_TABELLEN].sort();
+    return { rows: namen.map((name) => ({ name })), rowCount: namen.length };
   }
   if (text.includes("k.contype = 'f'")) {
     return { rows: KATALOG_FKS, rowCount: KATALOG_FKS.length };
@@ -268,6 +413,14 @@ describe('GET /api/backup/export', () => {
     // Nicht-Zeitspalten bleiben unangetastet.
     expect(audit).toContain('"hash"');
     expect(audit).not.toContain('"hash"::text');
+  });
+
+  it('lässt die Foto-Tabellen weg – die sichert das Foto-ZIP', async () => {
+    const res = await request(app).get('/api/backup/export?tables=Kunde,Foto,bestellung_foto');
+
+    expect(Object.keys(res.body.tables)).toEqual(['Kunde']);
+    const selects = db.query.mock.calls.map((c) => String(c[0]));
+    expect(selects.some((sql) => /FROM "(Foto|bestellung_foto)"/.test(sql))).toBe(false);
   });
 
   it('beschränkt sich auf die angefragten Tabellen', async () => {
@@ -396,6 +549,16 @@ describe('POST /api/backup/import', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.ignorierteTabellen).toEqual(['alte_tabelle']);
+  });
+
+  it('fasst die Foto-Tabellen nicht an, auch wenn ein Backup sie enthält', async () => {
+    const res = await request(app)
+      .post('/api/backup/import')
+      .send(backupMit({ Kunde: [{ ID: 1, Name: 'A' }], Foto: [{ Artikelnummer: 'MA1' }] }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.ignorierteTabellen).toEqual(['Foto']);
+    expect(verlauf().some((sql) => sql.includes('"Foto"'))).toBe(false);
     expect(Object.keys(res.body.counts)).toEqual(['Kunde']);
   });
 

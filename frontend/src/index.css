@@ -2903,6 +2903,60 @@ select.form-control {
   line-height: 1.5;
 }
 
+/* Foto-ZIP: Export-Link und Import mit Fortschritt */
+.datensicherung-abschnitt {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+.datensicherung-abschnitt > p {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.datensicherung-abschnitt label.btn {
+  cursor: pointer;
+}
+
+.datensicherung-abschnitt label.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.datensicherung-datei {
+  margin: 8px 0 10px;
+}
+
+.visually-hidden-input {
+  display: none;
+}
+
+.datensicherung-fortschritt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.datensicherung-fortschritt progress {
+  width: 100%;
+  height: 10px;
+  accent-color: #2563eb;
+}
+
+.datensicherung-fortschritt ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
 /* ── Toasts (Befund G19: ersetzt die blockierenden alert()) ───────────────── */
 .toast-bereich {
   position: fixed;

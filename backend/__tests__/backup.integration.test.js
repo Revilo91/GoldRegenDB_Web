@@ -137,14 +137,39 @@ describeDb('Backup/Restore gegen echte Datenbank', () => {
     expect(ohneZeitstempel(await exportiere())).toEqual(ohneZeitstempel(vorher));
   });
 
-  it('stellt Fotos byte-genau wieder her', async () => {
+  it('lässt die Fotos im JSON weg und lässt sie beim Import stehen', async () => {
     const backup = await exportiere();
-    expect(backup.tables.Foto[0].Daten).toEqual({ type: 'Buffer', base64: FOTO.toString('base64') });
+    expect(Object.keys(backup.tables)).not.toContain('Foto');
+    expect(Object.keys(backup.tables)).not.toContain('bestellung_foto');
+
+    await importiere(backup.tables);
+
+    expect((await sql('SELECT 1 FROM "Foto"')).rowCount).toBe(1);
+    expect((await sql('SELECT 1 FROM bestellung_foto')).rowCount).toBe(1);
+  });
+
+  it('Foto-ZIP: Export → Import stellt Fotos byte-genau wieder her', async () => {
+    const zip = await request(app)
+      .get('/api/backup/export-fotos')
+      .buffer(true)
+      .parse((response, callback) => {
+        const teile = [];
+        response.on('data', (teil) => teile.push(teil));
+        response.on('end', () => callback(null, Buffer.concat(teile)));
+      });
+    expect(zip.status).toBe(200);
     await sql('TRUNCATE "Foto", bestellung_foto');
 
-    const res = await importiere(backup.tables);
+    const start = await request(app)
+      .post('/api/backup/import-fotos-zip')
+      .attach('fotosZip', zip.body, { filename: 'fotos.zip', contentType: 'application/zip' });
+    let job = start.body.job;
+    while (job.status === 'running') {
+      await new Promise((r) => setTimeout(r, 20));
+      job = (await request(app).get(`/api/backup/import-fotos-jobs/${job.id}`)).body.job;
+    }
 
-    expect(res.status).toBe(200);
+    expect(job).toMatchObject({ status: 'completed', gespeichert: { schmuckstueck: 1, bestellung: 1 } });
     const foto = await sql(`SELECT "Daten", "MimeType", "Groesse" FROM "Foto" WHERE "Artikelnummer" = 'MA1'`);
     expect(foto.rows[0].Daten.equals(FOTO)).toBe(true);
     expect(foto.rows[0]).toMatchObject({ MimeType: 'image/png', Groesse: FOTO.length });
