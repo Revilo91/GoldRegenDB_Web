@@ -1,5 +1,8 @@
 name: Release für Synology
 
+# tests → build + package → smoke-test → push → create-release.
+# Nach GHCR (inkl. latest) geht das Image erst, wenn das ZIP damit läuft.
+
 on:
   push:
     tags:
@@ -10,27 +13,27 @@ env:
   IMAGE_OWNER: ${{ github.repository_owner }}
 
 jobs:
-  build-and-push:
-    name: Docker Images bauen und veröffentlichen
-    runs-on: ubuntu-latest
+  tests:
+    name: Tests
+    uses: ./.github/workflows/tests.yml
     permissions:
       contents: read
-      packages: write
+
+  build:
+    name: Docker Image bauen
+    runs-on: ubuntu-latest
+    needs: tests
+    permissions:
+      contents: read
 
     # Tags aus metadata-action tragen kein führendes "v" (v1.2.3 -> 1.2.3).
     outputs:
       image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+      tags: ${{ join(fromJSON(steps.meta.outputs.json).tags, ' ') }}
 
     steps:
       - name: Code auschecken
         uses: actions/checkout@v4
-
-      - name: Bei GHCR anmelden
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker Buildx einrichten
         uses: docker/setup-buildx-action@v3
@@ -45,12 +48,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Image bauen und veröffentlichen
+      - name: Image bauen
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: false
+          outputs: type=docker,dest=${{ runner.temp }}/image.tar
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -59,19 +63,111 @@ jobs:
             VITE_API_URL=/api
             APP_VERSION=${{ github.ref_name }}
 
-  create-release:
-    name: GitHub Release erstellen
+      - name: Image als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: ${{ runner.temp }}/image.tar
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: Synology-Paket bauen
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: tests
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Code auschecken
         uses: actions/checkout@v4
 
       - name: Synology-Deployment-Paket erstellen
-        run: scripts/build-release-package.sh "$GITHUB_REF_NAME" .
+        run: scripts/build-release-package.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/paket"
+
+      # Das ZIP selbst hochladen: Verzeichnis-Artefakte verlieren die
+      # Ausführungsrechte von db/backup.sh und db/restore.sh.
+      - name: Paket als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: synology-paket
+          path: ${{ runner.temp }}/paket/goldregendb-synology-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+  smoke-test:
+    name: Smoke-Test des Pakets
+    runs-on: ubuntu-latest
+    needs: [build, package]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Image laden
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: ${{ runner.temp }}
+
+      - name: Image in Docker importieren
+        run: docker load -i "$RUNNER_TEMP/image.tar"
+
+      - name: Paket laden
+        uses: actions/download-artifact@v4
+        with:
+          name: synology-paket
+          path: ${{ runner.temp }}/paket
+
+      # Zeigt bei Fehlern selbst die Compose-Logs und räumt mit down -v auf.
+      - name: Paket starten und prüfen
+        run: scripts/release-smoke-test.sh "$RUNNER_TEMP/paket/goldregendb-synology-$GITHUB_REF_NAME.zip"
+
+  push:
+    name: Image nach GHCR veröffentlichen
+    runs-on: ubuntu-latest
+    needs: [build, smoke-test]
+    permissions:
+      packages: write
+
+    steps:
+      - name: Image laden
+        uses: actions/download-artifact@v4
+        with:
+          name: image
+          path: ${{ runner.temp }}
+
+      - name: Image in Docker importieren
+        run: docker load -i "$RUNNER_TEMP/image.tar"
+
+      - name: Bei GHCR anmelden
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Alle Tags veröffentlichen
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          for tag in $TAGS; do
+            docker push "$tag"
+          done
+
+  create-release:
+    name: GitHub Release erstellen
+    runs-on: ubuntu-latest
+    needs: [build, push]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Paket laden
+        uses: actions/download-artifact@v4
+        with:
+          name: synology-paket
 
       - name: GitHub Release erstellen
         uses: softprops/action-gh-release@v2
@@ -82,7 +178,7 @@ jobs:
 
             ### Docker Image
             Das fertige Image ist im GitHub Container Registry verfügbar:
-            - **Image:** `${{ needs.build-and-push.outputs.image }}`
+            - **Image:** `${{ needs.build.outputs.image }}`
 
             ### Synology Deployment
             Das Deployment-Paket (`goldregendb-synology-*.zip`) enthält alle benötigten Dateien.

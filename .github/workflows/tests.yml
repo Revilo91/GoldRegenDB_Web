@@ -3,6 +3,8 @@ name: Tests
 on:
   pull_request:
     branches: [ "**" ]
+  # release.yml ruft die Suite vor dem Image-Bau auf.
+  workflow_call:
 
 jobs:
   backend-tests:
