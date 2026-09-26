@@ -117,6 +117,6 @@ Migrationsschritte für diesen Fall (nicht Teil dieses Issues):
    → `import` erst dort, wo ohnehin migriert wird – CommonJS-Interop
    (`esModuleInterop`) bleibt so lange nötig, wie noch `.js`-Dateien per
    `require()` eingebunden werden.
-6. `npm run sync:fotos` & Co. (eigenständige Scripts unter `backend/scripts/`)
+6. `npm run import:fotos` & Co. (eigenständige Scripts unter `backend/scripts/`)
    separat migrieren oder bewusst als `.js` belassen – sie laufen nicht über
    den Server-Build.

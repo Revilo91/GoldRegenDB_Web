@@ -2,8 +2,6 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
 const {
@@ -14,10 +12,6 @@ const {
 const { requireBearbeiter } = require("../middleware/auth");
 const { where } = require("../utils/whereClauseBuilder");
 const { GRUNDMATERIAL, PRODUKTART } = require("../utils/constants");
-const {
-  resolvePhotoFile,
-  invalidate: invalidatePhotoIndex,
-} = require("../utils/photoIndex");
 const {
   MAX_FOTO_BYTES,
   FotoFehler,
@@ -46,19 +40,11 @@ const upload = multer({
 });
 
 
-// Übergang bis zum Bilderimport (Issue #209): Stücke ohne Eintrag in der Spalte
-// "Foto" finden ihr Bild über die Tabelle "Foto" oder – solange noch nicht
-// importiert – über eine Datei in assets/uploads.
+// Stücke ohne Eintrag in der Spalte "Foto" finden ihr Bild über die Tabelle "Foto".
 const HAT_FOTO_SQL = `EXISTS (
   SELECT 1 FROM "Foto" f
    WHERE f."Artikelnummer" = split_part("Schmuckstück"."Artikelnummer", '_', 1)
 ) AS "__hatFoto"`;
-
-function fotoOhneSpalte(artikelnummer, hatDbFoto) {
-  if (hatDbFoto) return basisArtikelnummer(artikelnummer);
-  const legacy = resolvePhotoFile(artikelnummer);
-  return legacy.error ? null : legacy.resolvedFileName;
-}
 
 const SEARCHABLE_FIELDS = [
   "Artikelnummer",
@@ -291,8 +277,7 @@ router.post("/upload", (req, res, next) => {
  *   get:
  *     summary: Foto abrufen
  *     description: 'Liefert das Foto der Basis-Artikelnummer (MHO123_1 und MHO123.jpg → MHO123) aus der
- *       Tabelle "Foto", mit ETag; bei passendem If-None-Match 304. Noch nicht importierte Dateien aus
- *       assets/uploads werden als Übergang weiter ausgeliefert. Erfordert eine gültige Anmeldung (jede Rolle).'
+ *       Tabelle "Foto", mit ETag; bei passendem If-None-Match 304. Erfordert eine gültige Anmeldung (jede Rolle).'
  *     tags: [Schmuckstücke]
  *     parameters:
  *       - { name: fileName, in: path, required: true, schema: { type: string } }
@@ -317,43 +302,7 @@ router.get("/foto/:fileName", async (req, res) => {
       return res.status(400).json({ error: "Ungültiger Dateiname" });
     }
     if (await sendeFoto(req, res, db, "schmuckstueck", basis)) return;
-
-    const lookup = resolvePhotoFile(req.params.fileName);
-
-    if (lookup.error) {
-      return res.status(lookup.error === "Ungültiger Dateiname" ? 400 : 404).json({
-        error: lookup.error,
-        requestedFileName: lookup.requestedFileName,
-        baseName: lookup.baseName,
-        matchingFiles: lookup.matchingFiles,
-      });
-    }
-
-    // Ohne Cache-Header lädt jede Tabellenseite dieselben Fotos erneut.
-    // max-age=60 hält die Anzeige nach einem Neu-Upload trotzdem aktuell,
-    // danach beantwortet der ETag-Abgleich die meisten Anfragen mit 304.
-    res.set("Cache-Control", "private, max-age=60");
-
-    res.sendFile(lookup.filePath, { lastModified: true }, (err) => {
-      if (!err) return;
-
-      logger.error("SCHMUCK", "Fehler beim Abrufen des Fotos", {
-        fileName: req.params.fileName,
-        message: err.message,
-        code: err.code,
-        resolvedFileName: lookup.resolvedFileName,
-        resolvedBy: lookup.resolvedBy,
-      });
-
-      if (!res.headersSent) {
-        res.status(err.code === "ENOENT" ? 404 : 500).json({
-          error: err.code === "ENOENT" ? "Foto nicht gefunden" : "Fehler beim Abrufen des Fotos",
-          requestedFileName: path.basename(String(req.params.fileName || "").trim()),
-          resolvedFileName: lookup.resolvedFileName,
-          resolvedBy: lookup.resolvedBy,
-        });
-      }
-    });
+    res.status(404).json({ error: "Foto nicht gefunden" });
   } catch (err) {
     logger.error(
       "SCHMUCK",
@@ -394,17 +343,7 @@ router.delete("/foto/:fileName", requireBearbeiter, async (req, res) => {
     if (!basis) {
       return res.status(400).json({ error: "Ungültiger Dateiname" });
     }
-    const ausDb = await loescheFoto(db, "schmuckstueck", basis);
-
-    // Eine noch nicht importierte Datei gleichen Namens würde sonst als
-    // Übergangs-Fallback wieder angezeigt.
-    const legacy = resolvePhotoFile(basis);
-    if (!legacy.error) {
-      fs.unlinkSync(legacy.filePath);
-      invalidatePhotoIndex();
-    }
-
-    if (ausDb || !legacy.error) {
+    if (await loescheFoto(db, "schmuckstueck", basis)) {
       res.json({ message: "Foto gelöscht" });
     } else {
       res.status(404).json({ error: "Foto nicht gefunden" });
@@ -853,7 +792,7 @@ router.get("/", async (req, res) => {
 
     const processedRows = rows.map(({ __total, __hatFoto, ...row }) => {
       if (!row.Foto || row.Foto.trim() === "") {
-        row.Foto = fotoOhneSpalte(row.Artikelnummer, __hatFoto) || row.Foto;
+        row.Foto = __hatFoto ? basisArtikelnummer(row.Artikelnummer) : row.Foto;
       }
       return {
         ...row,
@@ -1094,7 +1033,7 @@ router.get("/:artikelnummer", async (req, res) => {
     const { __hatFoto, ...result } = rows[0];
 
     if (!result.Foto || result.Foto.trim() === "") {
-      result.Foto = fotoOhneSpalte(result.Artikelnummer, __hatFoto) || result.Foto;
+      result.Foto = __hatFoto ? basisArtikelnummer(result.Artikelnummer) : result.Foto;
     }
 
     res.json(result);
@@ -1393,7 +1332,7 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
         'SELECT 1 FROM "Foto" WHERE "Artikelnummer" = $1',
         [basisArtikelnummer(req.params.artikelnummer)],
       );
-      fotoValue = fotoOhneSpalte(req.params.artikelnummer, fotoRows.length > 0) || "";
+      fotoValue = fotoRows.length > 0 ? basisArtikelnummer(req.params.artikelnummer) : "";
     }
 
     const { rows } = await db.query(

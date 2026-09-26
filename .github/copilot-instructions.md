@@ -465,8 +465,7 @@ GoldRegenDB_Web/
 │   │   ├── whereClauseBuilder.test.js
 │   │   └── logger.test.js
 │   ├── scripts/
-│   │   ├── dev-start.sh            # Startskript für Entwicklungs-Container
-│   │   └── sync-photo-column.js    # Altlast bis zum Bilderimport (#209): Foto-Spalte mit Dateien in assets/uploads abgleichen
+│   │   └── dev-start.sh            # Startskript für Entwicklungs-Container
 │   └── src/
 │       ├── index.js                # Express Entry-Point
 │       ├── config/

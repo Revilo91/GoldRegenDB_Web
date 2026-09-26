@@ -207,7 +207,7 @@ describe('Bestellübersicht API', () => {
     expect(db.query.mock.calls[0][0]).toMatch(/FROM bestellung_foto/);
   });
 
-  it('GET /foto/:fileName meldet 404 ohne Datenbank-Eintrag und ohne Altdatei', async () => {
+  it('GET /foto/:fileName meldet 404 ohne Datenbank-Eintrag', async () => {
     db.query.mockResolvedValueOnce({ rows: [] });
 
     const res = await request(buildApp()).get('/api/bestelluebersicht/foto/gibtsnicht');

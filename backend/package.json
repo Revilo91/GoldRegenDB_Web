@@ -10,8 +10,6 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "sync:fotos": "node scripts/sync-photo-column.js",
-    "sync:fotos:dry": "node scripts/sync-photo-column.js --dry-run",
     "import:fotos": "node scripts/import-fotos.js",
     "dsgvo:retention": "node scripts/dsgvo-retention.js",
     "dsgvo:retention:dry": "node scripts/dsgvo-retention.js --dry-run",

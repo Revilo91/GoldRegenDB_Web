@@ -2,18 +2,13 @@
 
 // Deckt den Foto-Upload ab (siehe CLAUDE.md: max. 5 MB, nur jpg/png/gif):
 // Grenzwertanalyse der Größengrenze und Entscheidungstabelle für erlaubte/
-// verweigerte Typen über den echten Upload-Endpunkt. Seit Issue #208 landen
-// die Bilddaten in der Tabelle "Foto"; das Upload-Verzeichnis bleibt leer.
+// verweigerte Typen über den echten Upload-Endpunkt. Die Bilddaten landen in
+// der Tabelle "Foto".
 
 process.env.JWT_SECRET = 'test-secret-do-not-use-in-prod';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const request = require('supertest');
 const express = require('express');
-
-const mockUploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'photoupload-test-'));
 
 jest.mock('../src/config/db', () => ({
   query: jest.fn(async () => ({ rows: [], rowCount: 1 })),
@@ -29,14 +24,7 @@ jest.mock('../src/utils/logger', () => ({
   debug: jest.fn(),
 }));
 
-jest.mock('../src/utils/photoIndex', () => ({
-  uploadsDir: mockUploadsDir,
-  resolvePhotoFile: jest.fn(() => ({ error: 'Nicht gefunden' })),
-  invalidate: jest.fn(),
-}));
-
 const db = require('../src/config/db');
-const photoIndex = require('../src/utils/photoIndex');
 const schmuckstueckeRoutes = require('../src/routes/schmuckstuecke');
 
 const app = express();
@@ -53,13 +41,6 @@ app.use((err, req, res, _next) => {
 
 afterEach(() => {
   jest.clearAllMocks();
-  for (const file of fs.readdirSync(mockUploadsDir)) {
-    fs.rmSync(path.join(mockUploadsDir, file), { force: true });
-  }
-});
-
-afterAll(() => {
-  fs.rmSync(mockUploadsDir, { recursive: true, force: true });
 });
 
 const ONE_MB = 1024 * 1024;
@@ -90,7 +71,6 @@ describe('POST /api/schmuckstuecke/upload – Grenzwertanalyse 5-MB-Limit', () =
     expect(res.body.success).toBe(true);
     expect(res.body.fileName).toBe('MPO001');
     expect(fotoInserts()).toHaveLength(1);
-    expect(fs.readdirSync(mockUploadsDir)).toHaveLength(0);
   });
 
   it('akzeptiert eine Datei exakt auf dem 5-MB-Limit', async () => {
@@ -194,19 +174,7 @@ describe('GET /api/schmuckstuecke/foto/:fileName', () => {
     expect(db.query.mock.calls[0][1][0]).toBe('MPO001');
   });
 
-  it('fällt auf eine noch nicht importierte Datei zurück', async () => {
-    fs.writeFileSync(path.join(mockUploadsDir, 'MPO002.jpg'), 'alt');
-    photoIndex.resolvePhotoFile.mockReturnValueOnce({
-      filePath: path.join(mockUploadsDir, 'MPO002.jpg'),
-      resolvedFileName: 'MPO002.jpg',
-    });
-
-    const res = await request(app).get('/api/schmuckstuecke/foto/MPO002.jpg');
-
-    expect(res.statusCode).toBe(200);
-  });
-
-  it('meldet 404, wenn es weder Datenbank-Foto noch Datei gibt', async () => {
+  it('meldet 404 ohne Datenbank-Foto', async () => {
     const res = await request(app).get('/api/schmuckstuecke/foto/MPO003');
 
     expect(res.statusCode).toBe(404);

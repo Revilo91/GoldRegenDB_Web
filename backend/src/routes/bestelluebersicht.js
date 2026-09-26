@@ -18,9 +18,6 @@ const {
   sendeFoto,
 } = require('../utils/fotoService');
 
-// Übergang bis zum Bilderimport (Issue #209): Referenzfotos aus der Zeit vor
-// Issue #208 liegen noch als Datei hier.
-const LEGACY_FOTO_DIR = path.join(__dirname, '../assets/uploads/bestellungen');
 const { encryptField } = require('../utils/encryptionService');
 const { validate } = require('../middleware/validate');
 const { bestellungBasisSchema, bestellungUpdateSchema } = require('../schemas');
@@ -110,17 +107,11 @@ router.get('/foto/:fileName', async (req, res) => {
   }
   try {
     if (await sendeFoto(req, res, db, 'bestellung', fileName)) return;
+    res.status(404).json({ error: 'Foto nicht gefunden' });
   } catch (err) {
     logger.error('BESTELLUEBERSICHT', 'Fehler beim Abrufen des Referenzfotos', { fileName, message: err.message });
-    return res.status(500).json({ error: 'Fehler beim Abrufen des Fotos' });
+    res.status(500).json({ error: 'Fehler beim Abrufen des Fotos' });
   }
-  res.sendFile(path.join(LEGACY_FOTO_DIR, fileName), { lastModified: true }, (err) => {
-    if (!err || res.headersSent) return;
-    if (err.code !== 'ENOENT') {
-      logger.error('BESTELLUEBERSICHT', 'Fehler beim Abrufen des Referenzfotos', { fileName: req.params.fileName, message: err.message });
-    }
-    res.status(err.code === 'ENOENT' ? 404 : 500).json({ error: err.code === 'ENOENT' ? 'Foto nicht gefunden' : 'Fehler beim Abrufen des Fotos' });
-  });
 });
 
 /**
