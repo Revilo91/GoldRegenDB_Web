@@ -80,8 +80,29 @@ describe('kundeSchema', () => {
   it('akzeptiert Zahlenfelder als String (HTML-Formular)', async () => {
     const res = await post(schemas.kundeSchema, { ...gueltig, Hausnummer: '12', PLZ: '20095', Provision: '15' });
     expect(res.status).toBe(200);
-    expect(res.body.Hausnummer).toBe(12);
+    expect(res.body.Hausnummer).toBe('12');
     expect(res.body.PLZ).toBe(20095);
+  });
+
+  it('akzeptiert Hausnummern mit Buchstaben-Zusatz (Issue #211)', async () => {
+    for (const nr of ['12a', '3-5b', '104 1/2']) {
+      const res = await post(schemas.kundeSchema, { ...gueltig, Hausnummer: nr });
+      expect(res.status).toBe(200);
+      expect(res.body.Hausnummer).toBe(nr);
+    }
+  });
+
+  it('macht aus fehlender Hausnummer einen Leerstring (Spalte ist NOT NULL)', async () => {
+    const { Hausnummer: _weg, ...ohne } = gueltig;
+    const res = await post(schemas.kundeSchema, ohne);
+    expect(res.status).toBe(200);
+    expect(res.body.Hausnummer).toBe('');
+  });
+
+  it('lehnt eine Hausnummer über 20 Zeichen ab', async () => {
+    const res = await post(schemas.kundeSchema, { ...gueltig, Hausnummer: 'x'.repeat(21) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Hausnummer/);
   });
 
   it('wandelt leere optionale Felder in null', async () => {

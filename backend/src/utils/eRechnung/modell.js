@@ -105,7 +105,7 @@ function buildRechnungsModell({ rechnung, kunde, schmuckstuecke, leistungszeitra
       name: kunde.Name,
       strasse: leer(kunde.Strasse)
         ? ''
-        : [kunde.Strasse.trim(), Number(kunde.Hausnummer) > 0 ? kunde.Hausnummer : null].filter(Boolean).join(' '),
+        : [kunde.Strasse.trim(), String(kunde.Hausnummer ?? '').trim()].filter(Boolean).join(' '),
       // PLZ ist in der DB ein INTEGER (0 = nicht gepflegt) – führende Nullen deutscher PLZ (01067) wiederherstellen
       plz: !(Number(kunde.PLZ) > 0) ? '' : land === 'DE' ? String(kunde.PLZ).padStart(5, '0') : String(kunde.PLZ),
       ort: kunde.Ort,

@@ -17,7 +17,12 @@ const {
 const kundeSchema = z.object({
   Name: pflichttext(100),
   Strasse: pflichttext(200),
-  Hausnummer: ganzzahl({ min: 0, max: 99999 }),
+  // Freitext wie "12a" oder "3-5b" (Issue #211). Die Spalte ist NOT NULL,
+  // fehlend/leer wird daher zum Leerstring statt zu null.
+  Hausnummer: z.preprocess(
+    (v) => (typeof v === 'number' ? String(v) : v ?? ''),
+    z.string().trim().max(20, 'darf maximal 20 Zeichen lang sein'),
+  ),
   Ort: pflichttext(100),
   PLZ: ganzzahl({ min: 0, max: 99999 }),
   Email: z.preprocess(

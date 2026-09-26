@@ -93,6 +93,11 @@ describe('buildRechnungsModell', () => {
     expect(m.kaeuferReferenz).toBe('4');
   });
 
+  it('übernimmt Hausnummern mit Buchstaben-Zusatz und lässt leere weg (Issue #211)', () => {
+    expect(modell('xrechnung', { kunde: { Hausnummer: '12a' } }).kaeufer.strasse).toBe('Hauptstraße 12a');
+    expect(modell('xrechnung', { kunde: { Hausnummer: '' } }).kaeufer.strasse).toBe('Hauptstraße');
+  });
+
   it('verwendet eine hinterlegte Leitweg-ID als Käuferreferenz (BT-10)', () => {
     expect(modell('xrechnung', { kunde: { Leitweg_ID: ' 991-12345-67 ' } }).kaeuferReferenz).toBe('991-12345-67');
   });

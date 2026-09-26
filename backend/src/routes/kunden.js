@@ -120,11 +120,11 @@ router.get('/:id/schmuckstuecke', async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [Name, Strasse, Hausnummer, Ort, PLZ]
+ *             required: [Name, Strasse, Ort, PLZ]
  *             properties:
  *               Name: { type: string, maxLength: 100 }
  *               Strasse: { type: string, maxLength: 200 }
- *               Hausnummer: { type: integer, minimum: 0, maximum: 99999 }
+ *               Hausnummer: { type: string, maxLength: 20, example: '12a' }
  *               Ort: { type: string, maxLength: 100 }
  *               PLZ: { type: integer, minimum: 0, maximum: 99999 }
  *               Email: { type: string, nullable: true }

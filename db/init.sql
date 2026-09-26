@@ -161,7 +161,9 @@ CREATE TABLE "Kunde" (
     "ID" SERIAL,
     "Name" VARCHAR(100) NOT NULL,
     "Strasse" TEXT NOT NULL,
-    "Hausnummer" INTEGER NOT NULL,
+    -- Text statt INTEGER (Issue #211): "12a", "3-5b" sind echte Hausnummern.
+    -- Leerstring = nicht gepflegt (Messe, Online).
+    "Hausnummer" TEXT NOT NULL DEFAULT '',
     "Ort" TEXT NOT NULL,
     "PLZ" INTEGER NOT NULL,
     "Email" TEXT DEFAULT NULL,
