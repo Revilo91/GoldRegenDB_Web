@@ -121,7 +121,10 @@ docker compose up --build -d
 
 ### Synology NAS
 
-Das einfachste Deployment nutzt das fertige Release-Paket.
+Das einfachste Deployment nutzt das fertige Release-Paket. Es enthält `docker-compose.yml`
+(= `docker-compose.synology.yml`), eine `.env.example` mit der passenden `IMAGE_TAG`-Version,
+`synology-update.sh` sowie `db/init.sql`, `db/backup.sh` und `db/restore.sh`, die die Compose-Datei relativ zu sich
+selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
 
 1. Neueste Version von der [Releases-Seite](https://github.com/Revilo91/GoldRegenDB_Web/releases) herunterladen: `goldregendb-synology-*.zip`
 
@@ -136,22 +139,39 @@ Das einfachste Deployment nutzt das fertige Release-Paket.
 
 3. `.env`-Datei anlegen und Passwörter/Secrets setzen:
    ```bash
-   cp /volume1/docker/goldregendb/.env.example /volume1/docker/goldregendb/.env
-   nano /volume1/docker/goldregendb/.env
-   ```
-
-4. Uploads-Ordner erstellen (für Fotos):
-   ```bash
-   mkdir -p /volume1/docker/goldregendb/uploads
-   ```
-
-5. Container starten:
-   ```bash
    cd /volume1/docker/goldregendb
+   cp .env.example .env
+   nano .env
+   ```
+   | Variable | Bedeutung | Standard |
+   |----------|-----------|----------|
+   | `DATA_DIR` | Wurzel für `data/` (Datenbank), `backups/` und `uploads/` (Fotos); fehlende Ordner legt Docker an | `/volume1/docker/goldregendb` |
+   | `IMAGE_TAG` | Version von `ghcr.io/revilo91/goldregendb` (ohne führendes `v`), Pflicht | Version des Pakets |
+   | `APP_HOST_PORT` / `DB_HOST_PORT` | Ports auf der Synology | `3000` / `15432` |
+
+4. Container starten:
+   ```bash
    docker compose up -d
    ```
 
-6. Frontend aufrufen: `http://<synology-ip>:3000`
+5. Frontend aufrufen: `http://<synology-ip>:3000`, erster Login `admin` / `admin`
+   (das Passwort muss danach geändert werden).
+
+**Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
+Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen
+(z. B. `./synology-update.sh 0.3.0`). Das Skript trägt die Version als `IMAGE_TAG` in die
+`.env` ein, zieht das Image und startet die Container neu.
+
+**Migration bestehender Installationen** (Pakete bis v0.2.0 mit fest verdrahteten
+`/volume1/docker/goldregendb/...`-Pfaden): Neue `docker-compose.yml` und `db/` über die alten
+Dateien kopieren, die `.env` bleibt, und `./synology-update.sh <version>` ausführen – ohne
+`IMAGE_TAG` in der `.env` startet Compose nicht mehr, einen Rückfall auf `latest` gibt es
+nicht. Ohne `DATA_DIR` gilt `/volume1/docker/goldregendb`, Datenbank, Backups und Fotos
+werden also am bisherigen Ort weiterverwendet. Liegt die Compose-Datei nicht in
+`/volume1/docker/goldregendb`, `DATA_DIR` auf den bisherigen Ordner setzen und `db/`
+neben die Compose-Datei legen. Alte Pakete verwiesen außerdem auf einen Image-Tag mit
+führendem `v` (`:v0.2.0`), der Release-Workflow pusht die Tags aber ohne `v` (`0.2.0`) –
+auch das ist mit `IMAGE_TAG` behoben.
 
 > **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet. Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
 

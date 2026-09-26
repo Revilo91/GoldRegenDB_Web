@@ -46,7 +46,7 @@ Die Dateinamen enthalten einen Zeitstempel (`YYYYMMDD_HHMMSS`).
 | `BACKUP_DIR`   | `/backups`      | Zielverzeichnis im Container               |
 | `KEEP_DAILY`   | `7`             | Aufbewahrung täglicher Backups in **Tagen**|
 | `KEEP_WEEKLY`  | `4`             | Aufbewahrung wöchentlicher Backups in **Wochen**|
-| `MIN_BACKUP_BYTES` | `10240`     | Mindestgröße, unter der ein Dump verworfen wird|
+| `MIN_BACKUP_BYTES` | `1024`      | Mindestgröße, unter der ein Dump verworfen wird|
 
 > `KEEP_DAILY`/`KEEP_WEEKLY` sind **Zeiträume, keine Dateizahlen.** Die
 > Rotation läuft über `find -mtime`, löscht also nach Alter. Vorher behielt sie
