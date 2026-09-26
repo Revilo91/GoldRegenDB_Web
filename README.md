@@ -173,6 +173,16 @@ neben die Compose-Datei legen. Alte Pakete verwiesen außerdem auf einen Image-T
 führendem `v` (`:v0.2.0`), der Release-Workflow pusht die Tags aber ohne `v` (`0.2.0`) –
 auch das ist mit `IMAGE_TAG` behoben.
 
+**Release bauen:** Ein Tag `vX.Y.Z` startet `.github/workflows/release.yml`: Tests, dann
+Image und ZIP bauen, das ZIP mit dem frischen Image starten und prüfen (Smoke-Test), erst
+danach das Image mit allen Tags inkl. `latest` nach GHCR pushen und das Release anlegen.
+Den Smoke-Test lokal nachstellen:
+```bash
+docker build -t ghcr.io/revilo91/goldregendb:X.Y.Z --build-arg VITE_API_URL=/api .
+scripts/build-release-package.sh vX.Y.Z
+SMOKE_APP_PORT=13000 SMOKE_DB_PORT=25432 scripts/release-smoke-test.sh dist/goldregendb-synology-vX.Y.Z.zip
+```
+
 > **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet. Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
 
 > ⚠️ **Ohne die folgenden Schritte läuft dieses Deployment nur über HTTP** – Login,
