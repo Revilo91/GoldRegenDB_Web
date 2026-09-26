@@ -155,22 +155,6 @@ const definition = {
           last_login: { type: 'string', format: 'date-time', nullable: true },
         },
       },
-      ExportUploadsJob: {
-        type: 'object',
-        description: 'Asynchroner Job zum ZIPen des Upload-Verzeichnisses (großer Datenbestand).',
-        properties: {
-          id: { type: 'string' },
-          status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed'] },
-          totalFiles: { type: 'integer' },
-          processedFiles: { type: 'integer' },
-          currentFileName: { type: 'string', nullable: true },
-          fileName: { type: 'string', nullable: true },
-          error: { type: 'string', nullable: true },
-          createdAt: { type: 'string', format: 'date-time' },
-          updatedAt: { type: 'string', format: 'date-time' },
-          progressPercent: { type: 'integer' },
-        },
-      },
       AuditLogEintrag: {
         type: 'object',
         properties: {
