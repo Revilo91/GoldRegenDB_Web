@@ -29,8 +29,8 @@ aufraeumen() {
       compose logs --no-color || true
     fi
     compose down -v --remove-orphans || true
-    # data/ gehört dem postgres-Benutzer im Container, daher dort löschen.
-    docker run --rm -v "$ARBEIT:/arbeit" postgres:16-alpine rm -rf /arbeit/daten || true
+    # data/ gehört dem postgres-Benutzer, das Import-Log root – daher im Container löschen.
+    docker run --rm -v "$ARBEIT:/arbeit" postgres:16-alpine rm -rf /arbeit/daten /arbeit/import || true
   fi
   rm -rf "$ARBEIT"
 }
@@ -98,6 +98,18 @@ fi
 anzahl="$(api "$BASE/api/schmuckstuecke" | jq -r '.data | length')"
 [ "$anzahl" -ge 1 ] || fehler "GET /api/schmuckstuecke liefert keine Daten"
 echo "ok   GET /api/schmuckstuecke ($anzahl Einträge)"
+
+# Bestandsimport (#209) wie in der README: Skript liegt im Image, liest einen
+# eingebundenen Ordner und schreibt das Foto in die Datenbank.
+nummer="$(api "$BASE/api/schmuckstuecke?limit=1" | jq -er '.data[0].Artikelnummer')"
+mkdir -p "$ARBEIT/import"
+printf '\xff\xd8\xff\xe0\x00\x10JFIF\x00' > "$ARBEIT/import/${nummer%%_*}.jpg"
+compose run --rm -T -v "$ARBEIT/import:/import" app \
+  node scripts/import-fotos.js --dir /import --log /import/import-fotos.log \
+  || fehler "import-fotos.js im Image fehlgeschlagen"
+api "$BASE/api/schmuckstuecke/foto/$nummer" -o /dev/null \
+  || fehler "Foto für $nummer nach dem Import nicht abrufbar"
+echo "ok   import-fotos.js importiert Foto für $nummer"
 
 compose exec -T db /backup.sh || fehler "backup.sh fehlgeschlagen"
 ls "$DATA_DIR"/backups/daily/*.sql.gz >/dev/null 2>&1 \
