@@ -158,6 +158,20 @@ describe('GET /api/inventur/:kundeId', () => {
     expect(String(db.query.mock.calls[2][0])).toContain('s."Verkauft" IS TRUE AND s."Ausschuss" IS FALSE');
   });
 
+  it('liefert je Position hatFoto aus der Tabelle "Foto"', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ID: 4, Name: 'Bea' }] })
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001_2', hatFoto: true }] })
+      .mockResolvedValueOnce({ rows: [{ gesamt: 1 }] });
+
+    const res = await request(buildApp()).get('/api/inventur/4');
+
+    expect(res.body.items[0].hatFoto).toBe(true);
+    const sql = String(db.query.mock.calls[1][0]);
+    expect(sql).toContain(`split_part(s."Artikelnummer", '_', 1)`);
+    expect(sql).toContain('AS "hatFoto"');
+  });
+
   it('meldet 400 statt 500 bei nicht-numerischer Kundennummer (C25)', async () => {
     // Vorher ging der Pfadteil ungeprueft als $1 in "ID" = $1: Postgres
     // antwortete mit 22P02 ("invalid input syntax for type integer") und der

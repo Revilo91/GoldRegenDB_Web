@@ -91,7 +91,7 @@ const definition = {
         properties: {
           Artikelnummer: { type: 'string', example: 'MHO123_1' },
           Name: { type: 'string', nullable: true },
-          Foto: { type: 'string', nullable: true },
+          hatFoto: { type: 'boolean', description: 'Es gibt ein Foto zur Basis-Artikelnummer (nur lesend)' },
           Art: { type: 'string', nullable: true },
           Form: { type: 'string', nullable: true },
           Länge: { type: 'number', nullable: true },

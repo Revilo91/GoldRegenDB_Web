@@ -147,12 +147,12 @@ function ItemsTable({
             ),
           },
           {
-            key: "Foto",
+            key: "foto",
             label: "Foto",
             className: "photo-col",
             render: (item) => (
               <TablePhoto
-                foto={item.Foto}
+                hatFoto={item.hatFoto}
                 artikelnummer={item.Artikelnummer}
                 pauseLoading={pausePhotoLoading}
               />

@@ -18,7 +18,7 @@ const artikel = {
   Verkauft: false,
   Ausschuss: false,
   Ausgelagert: 0,
-  Foto: null,
+  hatFoto: false,
   Grundmaterial: 'Gold',
   Verkaufspreis: '120.00',
 };
@@ -50,6 +50,25 @@ describe('SchmuckstueckModal', () => {
     // formatEur statt `${wert}€`: deutsche Schreibweise mit zwei
     // Nachkommastellen, einheitlich im ganzen Projekt (Befund G21).
     expect(screen.getByText(/120,00/)).toBeInTheDocument();
+  });
+
+  it('lädt das Foto über die Artikelnummer, wenn hatFoto gesetzt ist', async () => {
+    api.getSchmuckstueck.mockResolvedValue({ ...artikel, Artikelnummer: 'MHO001_2', hatFoto: true });
+    api.loadPhotoAsDataUrl.mockResolvedValue('data:image/png;base64,AAAA');
+
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001_2" onClose={() => {}} />);
+
+    expect(await screen.findByAltText('MHO001_2')).toHaveAttribute('src', 'data:image/png;base64,AAAA');
+    expect(api.loadPhotoAsDataUrl).toHaveBeenCalledWith('MHO001_2');
+  });
+
+  it('fragt ohne hatFoto kein Foto an', async () => {
+    api.getSchmuckstueck.mockResolvedValue(artikel);
+
+    rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001" onClose={() => {}} />);
+
+    expect(await screen.findByText('Kein Bild vorhanden')).toBeInTheDocument();
+    expect(api.loadPhotoAsDataUrl).not.toHaveBeenCalled();
   });
 
   it('zeigt den Ausgelagert-Status mit Kundennamen', async () => {

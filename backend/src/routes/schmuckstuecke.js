@@ -16,6 +16,7 @@ const {
   MAX_FOTO_BYTES,
   FotoFehler,
   basisArtikelnummer,
+  hatFotoSql,
   speichereFoto,
   loescheFoto,
   sendeFoto,
@@ -40,16 +41,11 @@ const upload = multer({
 });
 
 
-// Stücke ohne Eintrag in der Spalte "Foto" finden ihr Bild über die Tabelle "Foto".
-const HAT_FOTO_SQL = `EXISTS (
-  SELECT 1 FROM "Foto" f
-   WHERE f."Artikelnummer" = split_part("Schmuckstück"."Artikelnummer", '_', 1)
-) AS "__hatFoto"`;
+const HAT_FOTO_SQL = hatFotoSql('"Schmuckstück"');
 
 const SEARCHABLE_FIELDS = [
   "Artikelnummer",
   "Name",
-  "Foto",
   "Art",
   "Form",
   "Länge",
@@ -216,7 +212,7 @@ function parseBulkItemsFromPayload(payload) {
  *               type: object
  *               properties:
  *                 success: { type: boolean }
- *                 fileName: { type: string, description: Basis-Artikelnummer, Wert für die Spalte Foto }
+ *                 fileName: { type: string, description: Basis-Artikelnummer }
  *                 path: { type: string }
  *                 originalName: { type: string }
  *       400:
@@ -581,19 +577,18 @@ router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async
       );
       const { rows } = await client.query(
         `INSERT INTO "Schmuckstück" (
-            "Artikelnummer", "Name", "Foto", "Art", "Form", "Länge", "Fassung", "Farbe",
+            "Artikelnummer", "Name", "Art", "Form", "Länge", "Fassung", "Farbe",
             "Inhalt_Material", "Inhalt_Farbe", "Inhalt_Farbakzent", "Inhalt_Zusatzmaterial",
             "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
             "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
             "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
             "Herstellungskosten", "Verkaufspreis", "Ausgelagert", "Verkauft", "Ausschuss", "Ausschuss_Grund"
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
           ) RETURNING *`,
         [
           item.Artikelnummer,
           item.Name || "",
-          item.Foto || "",
           item.Art || "",
           item.Form || "",
           item.Länge || 0,
@@ -790,10 +785,7 @@ router.get("/", async (req, res) => {
       total = parseInt(countResult.rows[0].count);
     }
 
-    const processedRows = rows.map(({ __total, __hatFoto, ...row }) => {
-      if (!row.Foto || row.Foto.trim() === "") {
-        row.Foto = __hatFoto ? basisArtikelnummer(row.Artikelnummer) : row.Foto;
-      }
+    const processedRows = rows.map(({ __total, ...row }) => {
       return {
         ...row,
         Grundmaterial: row.Artikelnummer
@@ -852,7 +844,6 @@ const FILTER_OPTION_FIELDS = [
   "fassungen",
   "laengen",
   "groessen",
-  "fotos",
   "namen",
   "verkaufspreise",
   "herstellungskosten",
@@ -903,7 +894,6 @@ router.get("/filter-options", async (req, res) => {
          array_agg(DISTINCT "Fassung") FILTER (WHERE "Fassung" IS NOT NULL AND "Fassung" <> '') AS fassungen,
          array_agg(DISTINCT "Länge") FILTER (WHERE "Länge" IS NOT NULL) AS laengen,
          array_agg(DISTINCT "Grösse") FILTER (WHERE "Grösse" IS NOT NULL) AS groessen,
-         array_agg(DISTINCT "Foto") FILTER (WHERE "Foto" IS NOT NULL AND "Foto" <> '') AS fotos,
          array_agg(DISTINCT "Name") FILTER (WHERE "Name" IS NOT NULL AND "Name" <> '') AS namen,
          array_agg(DISTINCT "Verkaufspreis") FILTER (WHERE "Verkaufspreis" IS NOT NULL) AS verkaufspreise,
          array_agg(DISTINCT "Herstellungskosten") FILTER (WHERE "Herstellungskosten" IS NOT NULL) AS herstellungskosten,
@@ -1030,13 +1020,7 @@ router.get("/:artikelnummer", async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: "Schmuckstück nicht gefunden" });
     }
-    const { __hatFoto, ...result } = rows[0];
-
-    if (!result.Foto || result.Foto.trim() === "") {
-      result.Foto = __hatFoto ? basisArtikelnummer(result.Artikelnummer) : result.Foto;
-    }
-
-    res.json(result);
+    res.json(rows[0]);
   } catch (err) {
     logger.error(
       "SCHMUCK",
@@ -1163,7 +1147,7 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
     // Client NICHT geschickt hat. Wer nichts vorgeben will, bekommt wie bisher
     // die Werte des Vorgängers; wer etwas eingibt, behält es.
     const UEBERNEHMBARE_FELDER = [
-      'Name', 'Foto', 'Art', 'Material', 'Farbe', 'Verkaufspreis',
+      'Name', 'Art', 'Material', 'Farbe', 'Verkaufspreis',
       'Herstellungskosten', 'Länge', 'Fassung', 'Inhalt_Material',
       'Inhalt_Farbe', 'Inhalt_Farbakzent', 'Inhalt_Zusatzmaterial',
       'Anhänger_Fassung', 'Anhänger_Form', 'Anhänger_Farbe', 'Anhänger_Grösse',
@@ -1200,19 +1184,18 @@ router.post("/", validate(schmuckstueckCreateSchema), async (req, res) => {
       const fullArtNr = `${baseArtikelnummer}_${startSuffix + i}`;
       const { rows } = await client.query(
         `INSERT INTO "Schmuckstück" (
-            "Artikelnummer", "Name", "Foto", "Art", "Form", "Länge", "Fassung", "Farbe",
+            "Artikelnummer", "Name", "Art", "Form", "Länge", "Fassung", "Farbe",
             "Inhalt_Material", "Inhalt_Farbe", "Inhalt_Farbakzent", "Inhalt_Zusatzmaterial",
             "Anhänger_Fassung", "Anhänger_Form", "Anhänger_Farbe", "Anhänger_Grösse",
             "Anhänger_Inhalt_Material", "Anhänger_Inhalt_Farbe", "Anhänger_Inhalt_Farbakzente",
             "Anhänger_Inhalt_Zusatzmaterial", "Material", "Grösse", "Anhänger", "Zwischenstück",
             "Herstellungskosten", "Verkaufspreis", "Ausgelagert", "Verkauft", "Ausschuss", "Ausschuss_Grund"
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
           ) RETURNING *`,
         [
           fullArtNr,
           b.Name,
-          b.Foto,
           b.Art,
           b.Form,
           b.Länge || 0,
@@ -1325,47 +1308,36 @@ router.put("/:artikelnummer", requireBearbeiter, validate(schmuckstueckUpdateSch
       b.Ausschuss_Grund,
     );
 
-    // Ohne Foto-Angabe im Formular den Verweis auf ein vorhandenes Foto setzen.
-    let fotoValue = b.Foto || "";
-    if (!fotoValue || fotoValue.trim() === "") {
-      const { rows: fotoRows } = await db.query(
-        'SELECT 1 FROM "Foto" WHERE "Artikelnummer" = $1',
-        [basisArtikelnummer(req.params.artikelnummer)],
-      );
-      fotoValue = fotoRows.length > 0 ? basisArtikelnummer(req.params.artikelnummer) : "";
-    }
-
     const { rows } = await db.query(
       `UPDATE "Schmuckstück" SET
-        "Name" = $1, "Foto" = $2, "Art" = $3, "Form" = $4, "Länge" = $5,
-        "Fassung" = $6, "Farbe" = $7, "Inhalt_Material" = $8, "Inhalt_Farbe" = $9,
-        "Inhalt_Farbakzent" = $10, "Inhalt_Zusatzmaterial" = $11,
-        "Anhänger_Fassung" = $12, "Anhänger_Form" = $13, "Anhänger_Farbe" = $14,
-        "Anhänger_Grösse" = $15, "Anhänger_Inhalt_Material" = $16,
-        "Anhänger_Inhalt_Farbe" = $17, "Anhänger_Inhalt_Farbakzente" = $18,
-        "Anhänger_Inhalt_Zusatzmaterial" = $19, "Material" = $20, "Grösse" = $21,
-        "Anhänger" = $22, "Zwischenstück" = $23,
+        "Name" = $1, "Art" = $2, "Form" = $3, "Länge" = $4,
+        "Fassung" = $5, "Farbe" = $6, "Inhalt_Material" = $7, "Inhalt_Farbe" = $8,
+        "Inhalt_Farbakzent" = $9, "Inhalt_Zusatzmaterial" = $10,
+        "Anhänger_Fassung" = $11, "Anhänger_Form" = $12, "Anhänger_Farbe" = $13,
+        "Anhänger_Grösse" = $14, "Anhänger_Inhalt_Material" = $15,
+        "Anhänger_Inhalt_Farbe" = $16, "Anhänger_Inhalt_Farbakzente" = $17,
+        "Anhänger_Inhalt_Zusatzmaterial" = $18, "Material" = $19, "Grösse" = $20,
+        "Anhänger" = $21, "Zwischenstück" = $22,
         -- Auch die Geldspalten sind NOT NULL (Befund B1). Ohne COALESCE
         -- schrieb ein PUT ohne Preis frueher still NULL -- der Preis war weg,
         -- und der Audit-Trigger protokolliert Preisaenderungen nicht, die
         -- Spur fehlte also auch. Seit NOT NULL waere es stattdessen ein 500.
-        "Herstellungskosten" = COALESCE($24, "Herstellungskosten"),
-        "Verkaufspreis" = COALESCE($25, "Verkaufspreis"),
+        "Herstellungskosten" = COALESCE($23, "Herstellungskosten"),
+        "Verkaufspreis" = COALESCE($24, "Verkaufspreis"),
         -- COALESCE fuer die fuenf Statusfelder (Befund C8): sie stehen im
         -- Schema als .nullish(), ein PUT ohne diese Felder schrieb also NULL.
         -- Danach passte das Stueck auf keine Statusbedingung mehr -- weder
         -- verfuegbar (= 0) noch aktivAusgelagert (> 0) -- und fiel aus Liste,
         -- Dashboard, Inventur und SumUp-Export heraus.
-        "Ausgelagert" = COALESCE($26, "Ausgelagert"),
-        "Verkauft" = COALESCE($27, "Verkauft"),
-        "Ausschuss" = COALESCE($28, "Ausschuss"),
-        "Ausschuss_Grund" = $29,
-        "Lieferschein_ID" = COALESCE($30, "Lieferschein_ID"),
-        "Rechnung_ID" = COALESCE($31, "Rechnung_ID")
-             WHERE "Artikelnummer" = $32 RETURNING *`,
+        "Ausgelagert" = COALESCE($25, "Ausgelagert"),
+        "Verkauft" = COALESCE($26, "Verkauft"),
+        "Ausschuss" = COALESCE($27, "Ausschuss"),
+        "Ausschuss_Grund" = $28,
+        "Lieferschein_ID" = COALESCE($29, "Lieferschein_ID"),
+        "Rechnung_ID" = COALESCE($30, "Rechnung_ID")
+             WHERE "Artikelnummer" = $31 RETURNING *`,
       [
         b.Name,
-        fotoValue,
         b.Art,
         b.Form,
         b.Länge,

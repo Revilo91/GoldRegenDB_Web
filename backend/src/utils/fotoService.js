@@ -47,11 +47,20 @@ function pruefeBild(buffer) {
   return mimeType;
 }
 
-// "MHO123_2", "MHO123.jpg" und "uploads/MHO123_1.png" teilen sich das Foto "MHO123".
+// "MHO123_2", "MHO123.jpg" und "ordner/MHO123_1.png" teilen sich das Foto "MHO123".
 function basisArtikelnummer(identifier) {
   const name = path.basename(String(identifier || '').trim());
   const basis = path.parse(name.split('_')[0]).name.toUpperCase();
   return basis.length > 0 && basis.length <= 20 ? basis : null;
+}
+
+// Spalte "hatFoto" für Schmuckstück-Abfragen: Listen prüfen nur, ob es ein Foto
+// gibt, statt die Bilddaten mitzuladen.
+function hatFotoSql(tabelle) {
+  return `EXISTS (
+  SELECT 1 FROM "Foto" f
+   WHERE f."Artikelnummer" = split_part(${tabelle}."Artikelnummer", '_', 1)
+) AS "hatFoto"`;
 }
 
 // Referenzfoto aus dem Bestellformular: Data-URL prüfen, bevor die Transaktion beginnt.
@@ -153,6 +162,7 @@ module.exports = {
   erkenneBildtyp,
   pruefeBild,
   basisArtikelnummer,
+  hatFotoSql,
   leseDataUrl,
   neuerBestellungFotoName,
   speichereFoto,

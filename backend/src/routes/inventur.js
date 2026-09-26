@@ -4,6 +4,7 @@ const db = require('../config/db');
 const { generateInventurExcel } = require('../utils/excelService');
 const { where } = require('../utils/whereClauseBuilder');
 const { preisNachAllenRabattenSql } = require('../utils/rabatt');
+const { hatFotoSql } = require('../utils/fotoService');
 const { idParam } = require('../schemas/common');
 const logger = require('../utils/logger');
 
@@ -142,6 +143,7 @@ router.get('/:kundeId', async (req, res) => {
     const { rows: items } = await db.query(
       `SELECT
          s.*,
+         ${hatFotoSql('s')},
          l."Datum" AS "Lieferschein_Datum",
          r."Datum" AS "Rechnung_Datum"
        FROM "Schmuckstück" s

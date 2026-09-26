@@ -29,7 +29,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 
 ## Features
 
-- **Schmuckstückverwaltung** – Erstellen, Bearbeiten, Filtern und Suchen mit 34 Attributen (Art, Material, Farbe, Maße, Foto, Preise …)
+- **Schmuckstückverwaltung** – Erstellen, Bearbeiten, Filtern und Suchen mit 33 Attributen (Art, Material, Farbe, Maße, Preise …)
 - **Foto-Upload** – Drag & Drop mit Vorschau; gespeichert in `backend/src/assets/uploads/`
 - **Kundenverwaltung** – Einzelhandelspartner mit Provision und Auslagerungsstatus
 - **Lieferscheine & Rechnungen** – Erstellen und Verknüpfen mit Schmuckstücken

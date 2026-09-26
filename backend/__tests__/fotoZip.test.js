@@ -89,7 +89,7 @@ describe('Eintragsnamen', () => {
 
   it.each([
     'MBH001.jpg',
-    'uploads/MBH001.jpg',
+    'ordner/MBH001.jpg',
     'schmuckstueck/sub/MBH001.jpg',
     'schmuckstueck/MBH001_2.jpg',
     'schmuckstueck/.jpg',

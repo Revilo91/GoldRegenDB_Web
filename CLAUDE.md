@@ -166,6 +166,10 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   `bestellung_foto` (Bestellformular, Schlüssel = `bestellung.foto_pfad`)
 - Lesen/Schreiben nur über `backend/src/utils/fotoService.js`; eigene Tabellen,
   damit Listenabfragen keine BYTEA-Daten laden – Listen prüfen per `EXISTS`
+- Liste, Detail und Inventur liefern je Stück `hatFoto` (boolean, aus
+  `hatFotoSql()` in `fotoService.js`); das Frontend lädt das Bild dann über die
+  Artikelnummer. Eine Spalte `"Schmuckstück"."Foto"` gibt es nicht mehr (#214) –
+  `db.js` entfernt sie beim Start per `DROP COLUMN IF EXISTS`
 - Max size: 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Endung
 - Upload: `multer.memoryStorage()` in schmuckstuecke.js; Auslieferung mit ETag
   aus `Geaendert` und `Cache-Control: private, max-age=60`

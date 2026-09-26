@@ -57,7 +57,7 @@ describe('basisArtikelnummer', () => {
     ['MHO123_2', 'MHO123'],
     ['MHO123.jpg', 'MHO123'],
     ['MHO123_1.png', 'MHO123'],
-    ['uploads/MHO123.jpg', 'MHO123'],
+    ['ordner/MHO123.jpg', 'MHO123'],
     ['../../etc/passwd', 'PASSWD'],
     ['mho123', 'MHO123'],
     ['', null],

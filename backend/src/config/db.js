@@ -410,7 +410,6 @@ async function ensureSchmuckstueckTable() {
       CREATE TABLE IF NOT EXISTS "Schmuckstück" (
           "Artikelnummer" VARCHAR(20) NOT NULL,
           "Name" TEXT DEFAULT NULL,
-          "Foto" TEXT DEFAULT NULL,
           "Art" TEXT DEFAULT NULL,
           "Form" TEXT DEFAULT NULL,
           "Länge" DOUBLE PRECISION DEFAULT 0,
@@ -748,7 +747,7 @@ async function ensureLagerinventurEntwurfTable() {
   }
 }
 
-// ---- Fotos (Issue #208): Bilddaten in der Datenbank statt in assets/uploads ----
+// ---- Fotos (Issue #208): Bilddaten in der Datenbank statt im Dateisystem ----
 // Eigene Tabellen statt BYTEA-Spalte, damit Listenabfragen (SELECT *) keine
 // Bilddaten mitschleppen. Kein Fremdschlüssel auf "Schmuckstück": ein Foto gilt
 // für alle Stücke einer Basis-Artikelnummer (MHO123 für MHO123_1, MHO123_2, …),
@@ -773,6 +772,9 @@ async function ensureFotoTables() {
           geaendert  TIMESTAMPTZ NOT NULL DEFAULT now()
       );
     `);
+    // Die Spalte "Schmuckstück"."Foto" hielt Dateinamen aus der Zeit vor #208.
+    // Ob ein Stück ein Foto hat, entscheidet seit #214 allein die Tabelle "Foto".
+    await pool.query('ALTER TABLE "Schmuckstück" DROP COLUMN IF EXISTS "Foto"');
     logger.info('DB', 'Foto-Tabellen verifiziert');
   } catch (err) {
     logger.error('DB', 'Fehler beim Verifizieren der Foto-Tabellen', { message: err.message });

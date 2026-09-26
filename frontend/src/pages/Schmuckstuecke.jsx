@@ -173,7 +173,7 @@ export default function Schmuckstuecke() {
       if (editing === "new") {
         await api.createSchmuckstueck(dataToSave);
         if (!closeAfterSave) {
-          setForm((prev) => ({ ...prev, Foto: "" }));
+          setForm((prev) => ({ ...prev, hatFoto: false }));
           setNextArtikelnummerRefreshKey((prev) => prev + 1);
           toast.erfolg(`${dataToSave.Artikelnummer} wurde erstellt.`);
         }
@@ -404,7 +404,7 @@ export default function Schmuckstuecke() {
       Lieferschein_ID,
       Rechnung_ID,
       Grundmaterial,
-      Foto,
+      hatFoto,
       ...copyData
     } = s;
     const baseArtikelnummer = String(s.Artikelnummer || "").split("_")[0];
@@ -416,7 +416,7 @@ export default function Schmuckstuecke() {
       GrundmaterialCode: baseArtikelnummer[1] || "",
       ProduktartCode: baseArtikelnummer[2] || "",
       Anzahl: 1,
-      Foto: "",
+      hatFoto: false,
       Ausgelagert: 0,
       Verkauft: false,
       Ausschuss: false,
@@ -701,7 +701,7 @@ export default function Schmuckstuecke() {
                   className: "photo-col",
                   render: (r) => (
                     <TablePhoto
-                      foto={r.Foto}
+                      hatFoto={r.hatFoto}
                       artikelnummer={r.Artikelnummer}
                       pauseLoading={isForegroundModalOpen}
                     />
@@ -1380,9 +1380,9 @@ export default function Schmuckstuecke() {
                       : form.Artikelnummer
                   }
                   disabled={editing === "new" && !nextArtikelnummerPreview}
-                  initialPhoto={form.Foto}
-                  onPhotoSelected={(photoPath) => {
-                    setForm({ ...form, Foto: photoPath });
+                  hatFoto={form.hatFoto}
+                  onPhotoSelected={() => {
+                    setForm({ ...form, hatFoto: true });
                   }}
                 />
               </div>
