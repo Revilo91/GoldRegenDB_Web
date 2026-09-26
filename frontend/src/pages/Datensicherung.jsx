@@ -8,8 +8,10 @@ import {
   faCheckCircle,
   faDownload,
   faFolderOpen,
+  faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import { useToast } from "../components/Toast";
 
 // Nur die deutschen Beschriftungen stehen hier – welche Tabellen es gibt,
 // liefert GET /api/backup/tables aus dem Systemkatalog (Befund B18). Die
@@ -38,38 +40,6 @@ const TABELLEN_FALLBACK = Object.keys(TABLE_LABELS);
 
 const alsAuswahl = (namen) =>
   namen.map((name) => ({ key: name, label: beschriftung(name) }));
-
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes < 0) return "–";
-  if (bytes === 0) return "0 B";
-
-  const units = ["B", "KB", "MB", "GB"];
-  const exponent = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  );
-  const value = bytes / 1024 ** exponent;
-  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
-}
-
-function buildUploadsExportErrorMessage(error) {
-  if (!error) return "Fehler beim Exportieren der Upload-Bilder";
-  if (typeof error === "string") return error;
-
-  return [
-    error.message,
-    error.fileName ? `Datei: ${error.fileName}` : null,
-    error.cause ? `Ursache: ${error.cause}` : null,
-  ]
-    .filter(Boolean)
-    .join(" | ");
-}
-
-function isNotFoundError(error) {
-  if (!error) return false;
-  const message = typeof error === "string" ? error : error.message || "";
-  return error?.status === 404 || /\bnot found\b/i.test(message);
-}
 
 function TableCheckboxList({ tables, selected, onChange, disabled }) {
   const allChecked = tables.every((t) => selected.includes(t.key));
@@ -132,15 +102,52 @@ function TableCheckboxList({ tables, selected, onChange, disabled }) {
   );
 }
 
+function FotoImportStand({ job }) {
+  const { gesamt, verarbeitet, gespeichert, uebersprungen, uebersprungenDetails } = job;
+  const titel = {
+    running: "Fotos werden importiert…",
+    completed: "Foto-Import abgeschlossen",
+    failed: "Foto-Import abgebrochen",
+  }[job.status];
+  return (
+    <div className="datensicherung-fortschritt" role="status">
+      <strong>{titel}</strong>
+      <progress value={verarbeitet} max={gesamt || 1} />
+      <div>
+        {verarbeitet} von {gesamt} Dateien verarbeitet ·{" "}
+        {gespeichert.schmuckstueck} Schmuckstück-Fotos,{" "}
+        {gespeichert.bestellung} Bestellfotos gespeichert
+        {uebersprungen > 0 && ` · ${uebersprungen} übersprungen`}
+      </div>
+      {job.fehler && <div>Ursache: {job.fehler}</div>}
+      {uebersprungenDetails.length > 0 && (
+        <details>
+          <summary>
+            Übersprungene Dateien
+            {uebersprungen > uebersprungenDetails.length &&
+              ` (die ersten ${uebersprungenDetails.length}, alle im Server-Log)`}
+          </summary>
+          <ul>
+            {uebersprungenDetails.map(({ datei, grund }, i) => (
+              <li key={`${i}-${datei}`}>
+                <code>{datei}</code>: {grund}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export default function Datensicherung() {
+  const toast = useToast();
+
   // --- Export state ---
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
-  const [exportUploadsError, setExportUploadsError] = useState(null);
-  const [exportUploadsProgress, setExportUploadsProgress] = useState(null);
   const [tabellen, setTabellen] = useState(TABELLEN_FALLBACK);
   const [exportSelected, setExportSelected] = useState(TABELLEN_FALLBACK);
-  const [exportIncludeUploads, setExportIncludeUploads] = useState(false);
 
   // --- Import state ---
   const [importing, setImporting] = useState(false);
@@ -149,22 +156,20 @@ export default function Datensicherung() {
   // Parsed backup waiting for user confirmation
   const [pendingImport, setPendingImport] = useState(null); // { data, fileName, availableTables }
   const [importSelected, setImportSelected] = useState([]);
-  const [importRestoreUploadsZip, setImportRestoreUploadsZip] =
-    useState(false);
-  const [pendingUploadsZipFile, setPendingUploadsZipFile] = useState(null);
-  const [pendingUploadsZipName, setPendingUploadsZipName] = useState("");
-  const [uploadsOnlyFile, setUploadsOnlyFile] = useState(null);
-  const [uploadsOnlyName, setUploadsOnlyName] = useState("");
-  const [uploadsOnlyUploading, setUploadsOnlyUploading] = useState(false);
-  const [uploadsOnlyError, setUploadsOnlyError] = useState(null);
-  const [uploadsOnlyResult, setUploadsOnlyResult] = useState(null);
+
+  // --- Foto-ZIP ---
+  const [fotoZipDatei, setFotoZipDatei] = useState(null);
+  const [fotoImportLaeuft, setFotoImportLaeuft] = useState(false);
+  const [fotoImportJob, setFotoImportJob] = useState(null);
 
   const fileInputRef = useRef(null);
-  const uploadsZipInputRef = useRef(null);
-  const uploadsOnlyInputRef = useRef(null);
+  const fotoZipInputRef = useRef(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
+    // StrictMode baut die Komponente in der Entwicklung zweimal auf – ohne das
+    // Zurücksetzen bliebe die Ref nach dem ersten Abbau dauerhaft false.
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
@@ -201,203 +206,20 @@ export default function Datensicherung() {
     URL.revokeObjectURL(url);
   };
 
-  const uploadsActionButtonStyle = {
-    height: "40px",
-    boxSizing: "border-box",
-  };
-
-  const setUploadsProgressSafe = (updater) => {
-    if (!isMountedRef.current) return;
-    setExportUploadsProgress(updater);
-  };
-
-  const waitForUploadsExportJob = async (jobId) => {
-    while (true) {
-      const result = await api.getBackupUploadsExportJob(jobId);
-      const job = result?.job;
-
-      setUploadsProgressSafe((prev) => ({
-        ...prev,
-        phase: job?.status === "completed" ? "preparing-complete" : "preparing",
-        jobId,
-        totalFiles: job?.totalFiles ?? 0,
-        processedFiles: job?.processedFiles ?? 0,
-        currentFileName: job?.currentFileName ?? null,
-        progressPercent: job?.progressPercent ?? 0,
-        fileName: job?.fileName ?? prev?.fileName ?? null,
-      }));
-
-      if (job?.status === "completed") {
-        return job;
-      }
-
-      if (job?.status === "failed") {
-        throw new Error(buildUploadsExportErrorMessage(job.error));
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  };
-
-  const downloadUploadsZipDirectly = async (formattedDate) => {
-    setUploadsProgressSafe((prev) => ({
-      ...prev,
-      phase: "downloading",
-      jobId: null,
-      totalFiles: prev?.totalFiles || 0,
-      processedFiles: prev?.processedFiles || 0,
-      currentFileName: null,
-      progressPercent: 0,
-      loadedBytes: 0,
-      totalBytes: null,
-      fileName: prev?.fileName || `goldregendb_uploads_${formattedDate}.zip`,
-    }));
-
-    const { blob, metadata } = await api.exportBackupUploadsZip({
-      returnMetadata: true,
-      onProgress: ({ loadedBytes, totalBytes, progressPercent, uploadFileCount }) => {
-        setUploadsProgressSafe((prev) => ({
-          ...prev,
-          phase: "downloading",
-          totalFiles: prev?.totalFiles || uploadFileCount || 0,
-          processedFiles: prev?.processedFiles || uploadFileCount || 0,
-          currentFileName: null,
-          progressPercent: progressPercent ?? prev?.progressPercent ?? 0,
-          loadedBytes,
-          totalBytes,
-        }));
-      },
-    });
-
-    const fileName = `goldregendb_uploads_${formattedDate}.zip`;
-    triggerDownload(blob, fileName);
-
-    setUploadsProgressSafe((prev) => ({
-      ...prev,
-      phase: "completed",
-      progressPercent: 100,
-      totalFiles: prev?.totalFiles || metadata?.uploadFileCount || 0,
-      processedFiles: prev?.processedFiles || metadata?.uploadFileCount || 0,
-      loadedBytes: metadata?.totalBytes ?? blob.size,
-      totalBytes: metadata?.totalBytes ?? blob.size,
-      fileName,
-    }));
-  };
-
   // --- Export ---
   const handleExport = async () => {
-    if (exportSelected.length === 0 && !exportIncludeUploads) {
-      setExportError(
-        "Bitte mindestens eine Tabelle oder die Bildsicherung auswählen.",
-      );
+    if (exportSelected.length === 0) {
+      setExportError("Bitte mindestens eine Tabelle auswählen.");
       return;
     }
     setExporting(true);
     setExportError(null);
-    setExportUploadsError(null);
-    setExportUploadsProgress(null);
     try {
       const formattedDate = new Date().toISOString().slice(0, 10);
-
-      if (exportSelected.length > 0) {
-        const blob = await api.exportBackup(exportSelected);
-        const filename = `goldregendb_backup_${formattedDate}.json`;
-        triggerDownload(blob, filename);
-      }
-
-      if (exportIncludeUploads) {
-        try {
-          const startResult = await api.startBackupUploadsExportJob();
-          const uploadJob = startResult?.job;
-
-          setUploadsProgressSafe({
-            phase: "preparing",
-            jobId: uploadJob?.id ?? null,
-            totalFiles: uploadJob?.totalFiles ?? 0,
-            processedFiles: uploadJob?.processedFiles ?? 0,
-            currentFileName: null,
-            progressPercent: 0,
-            loadedBytes: 0,
-            totalBytes: null,
-            fileName: uploadJob?.fileName ?? `goldregendb_uploads_${formattedDate}.zip`,
-          });
-
-          const completedJob = await waitForUploadsExportJob(uploadJob.id);
-
-          setUploadsProgressSafe((prev) => ({
-            ...prev,
-            phase: "downloading",
-            totalFiles: completedJob.totalFiles,
-            processedFiles: completedJob.totalFiles,
-            currentFileName: null,
-            progressPercent: 0,
-            loadedBytes: 0,
-            totalBytes: null,
-            fileName: completedJob.fileName,
-          }));
-
-          const { blob, metadata } = await api.downloadBackupUploadsExportJob(
-            uploadJob.id,
-            {
-              returnMetadata: true,
-              onProgress: ({ loadedBytes, totalBytes, progressPercent, uploadFileCount }) => {
-                setUploadsProgressSafe((prev) => ({
-                  ...prev,
-                  phase: "downloading",
-                  totalFiles: prev?.totalFiles || uploadFileCount || completedJob.totalFiles,
-                  processedFiles: completedJob.totalFiles,
-                  currentFileName: null,
-                  progressPercent: progressPercent ?? prev?.progressPercent ?? 0,
-                  loadedBytes,
-                  totalBytes,
-                }));
-              },
-            },
-          );
-
-          triggerDownload(blob, completedJob.fileName || `goldregendb_uploads_${formattedDate}.zip`);
-
-          setUploadsProgressSafe((prev) => ({
-            ...prev,
-            phase: "completed",
-            progressPercent: 100,
-            loadedBytes: metadata?.totalBytes ?? blob.size,
-            totalBytes: metadata?.totalBytes ?? blob.size,
-          }));
-        } catch (uploadExportError) {
-          if (!isNotFoundError(uploadExportError)) {
-            throw uploadExportError;
-          }
-
-          setUploadsProgressSafe({
-            phase: "downloading",
-            jobId: null,
-            totalFiles: 0,
-            processedFiles: 0,
-            currentFileName: null,
-            progressPercent: 0,
-            loadedBytes: 0,
-            totalBytes: null,
-            fileName: `goldregendb_uploads_${formattedDate}.zip`,
-          });
-
-          await downloadUploadsZipDirectly(formattedDate);
-        }
-      }
+      const blob = await api.exportBackup(exportSelected);
+      triggerDownload(blob, `goldregendb_backup_${formattedDate}.json`);
     } catch (err) {
-      if (exportIncludeUploads) {
-        setExportUploadsError(err.message);
-        setUploadsProgressSafe((prev) => ({
-          ...prev,
-          phase: "failed",
-        }));
-      }
-      setExportError((current) => {
-        if (exportIncludeUploads && current === err.message) {
-          return current;
-        }
-        return err.message;
-      });
+      setExportError(err.message);
     } finally {
       setExporting(false);
     }
@@ -454,67 +276,52 @@ export default function Datensicherung() {
       availableTables,
     });
     setImportSelected(availableTables.map((t) => t.key));
-    setImportRestoreUploadsZip(false);
-    setPendingUploadsZipFile(null);
-    setPendingUploadsZipName("");
   };
 
-  const handleUploadsZipChange = (e) => {
+  const handleFotoZipChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (uploadsZipInputRef.current) uploadsZipInputRef.current.value = "";
-
-    setPendingUploadsZipFile(file);
-    setPendingUploadsZipName(file.name);
-    setImportRestoreUploadsZip(true);
+    if (fotoZipInputRef.current) fotoZipInputRef.current.value = "";
+    setFotoZipDatei(file);
+    setFotoImportJob(null);
   };
 
-  const handleUploadsOnlyFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (uploadsOnlyInputRef.current) uploadsOnlyInputRef.current.value = "";
-
-    setUploadsOnlyFile(file);
-    setUploadsOnlyName(file.name);
-    setUploadsOnlyError(null);
-    setUploadsOnlyResult(null);
-  };
-
-  const handleUploadsOnlyImport = async () => {
-    if (!uploadsOnlyFile) {
-      setUploadsOnlyError("Bitte zuerst eine Upload-ZIP-Datei auswählen.");
-      return;
-    }
-
-    setUploadsOnlyUploading(true);
-    setUploadsOnlyError(null);
-    setUploadsOnlyResult(null);
+  // Der Server antwortet nach dem Upload sofort mit einem Job und importiert im
+  // Hintergrund – ein Request über den ganzen Import liefe in Proxy-Timeouts.
+  const handleFotoImport = async () => {
+    if (!fotoZipDatei) return;
+    setFotoImportLaeuft(true);
+    setFotoImportJob(null);
     try {
-      const result = await api.importBackupUploadsZip(uploadsOnlyFile);
-      setUploadsOnlyResult(result?.uploads || { restored: 0, skipped: 0 });
-      setUploadsOnlyFile(null);
-      setUploadsOnlyName("");
+      let { job } = await api.importBackupFotosZip(fotoZipDatei);
+      while (job.status === "running") {
+        if (!isMountedRef.current) return;
+        setFotoImportJob(job);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        ({ job } = await api.getBackupFotosImportJob(job.id));
+      }
+      if (!isMountedRef.current) return;
+      setFotoImportJob(job);
+      if (job.status === "failed") {
+        toast.fehler(`Foto-Import abgebrochen: ${job.fehler}`);
+      } else {
+        setFotoZipDatei(null);
+        toast.erfolg("Foto-Import abgeschlossen");
+      }
     } catch (err) {
-      setUploadsOnlyError(err.message || "Fehler beim Bild-Upload");
+      if (isMountedRef.current) {
+        toast.fehler(err.message || "Fehler beim Foto-Import");
+      }
     } finally {
-      setUploadsOnlyUploading(false);
+      if (isMountedRef.current) setFotoImportLaeuft(false);
     }
   };
 
   // --- Import: step 2 – confirm and run ---
   const handleImportConfirm = async () => {
     if (!pendingImport) return;
-    if (importSelected.length === 0 && !importRestoreUploadsZip) {
-      setImportError(
-        "Bitte mindestens eine Tabelle oder die Bildwiederherstellung auswählen.",
-      );
-      return;
-    }
-
-    if (importRestoreUploadsZip && !pendingUploadsZipFile) {
-      setImportError(
-        "Bitte zusätzlich eine Upload-ZIP-Datei auswählen, um Bilder wiederherzustellen.",
-      );
+    if (importSelected.length === 0) {
+      setImportError("Bitte mindestens eine Tabelle auswählen.");
       return;
     }
 
@@ -523,27 +330,10 @@ export default function Datensicherung() {
     setImportError(null);
 
     try {
-      let dbResult = null;
-      let uploadsResult = null;
-
-      if (importSelected.length > 0) {
-        dbResult = await api.importBackup(pendingImport.data, importSelected);
-      }
-
-      if (importRestoreUploadsZip && pendingUploadsZipFile) {
-        uploadsResult = await api.importBackupUploadsZip(pendingUploadsZipFile);
-      }
-
-      const result = {
-        counts: dbResult?.counts || {},
-        uploads: uploadsResult?.uploads || null,
-      };
-
-      setImportResult(result);
+      // Das ganze Ergebnis übernehmen: kaskadierteTabellen, ignorierteTabellen
+      // und auditKette gingen vorher beim Umkopieren verloren.
+      setImportResult(await api.importBackup(pendingImport.data, importSelected));
       setPendingImport(null);
-      setImportRestoreUploadsZip(false);
-      setPendingUploadsZipFile(null);
-      setPendingUploadsZipName("");
     } catch (err) {
       setImportError(err.message);
     } finally {
@@ -554,9 +344,6 @@ export default function Datensicherung() {
   const handleImportCancel = () => {
     setPendingImport(null);
     setImportSelected([]);
-    setImportRestoreUploadsZip(false);
-    setPendingUploadsZipFile(null);
-    setPendingUploadsZipName("");
     setImportError(null);
   };
 
@@ -565,7 +352,8 @@ export default function Datensicherung() {
       <h2>Datensicherung</h2>
       <p style={{ marginBottom: "32px", fontSize: "1rem", lineHeight: "1.5" }}>
         Exportieren Sie ausgewählte Tabellen als JSON-Backup oder stellen Sie
-        einen früheren Stand aus einer Backup-Datei wieder her.
+        einen früheren Stand aus einer Backup-Datei wieder her. Die Fotos
+        stehen nicht im JSON, sie werden als eigenes ZIP gesichert.
       </p>
 
       {/* Warning Card */}
@@ -634,89 +422,7 @@ export default function Datensicherung() {
             onChange={setExportSelected}
             disabled={exporting}
           />
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginBottom: "16px",
-              cursor: exporting ? "not-allowed" : "pointer",
-            }}>
-            <input
-              type="checkbox"
-              className="form-checkbox"
-              checked={exportIncludeUploads}
-              onChange={(e) => setExportIncludeUploads(e.target.checked)}
-              disabled={exporting}
-            />
-            Upload-Bilder als separate ZIP sichern
-          </label>
-          {exportIncludeUploads && (
-            <div style={{ marginBottom: "16px" }}>
-              <p style={{ marginBottom: "10px", color: "#b45309" }}>
-                Hinweis: Es werden zwei Dateien heruntergeladen (JSON + ZIP).
-              </p>
-              {exportUploadsProgress && (
-                <div
-                  style={{
-                    padding: "12px",
-                    borderRadius: "8px",
-                    backgroundColor: "#eff6ff",
-                    border: "1px solid #bfdbfe",
-                    color: "#1d4ed8",
-                  }}>
-                  <div style={{ fontWeight: 600, marginBottom: "6px" }}>
-                    {exportUploadsProgress.phase === "preparing" && "ZIP wird erstellt"}
-                    {exportUploadsProgress.phase === "preparing-complete" && "ZIP-Erstellung abgeschlossen"}
-                    {exportUploadsProgress.phase === "downloading" && "ZIP wird heruntergeladen"}
-                    {exportUploadsProgress.phase === "completed" && "Bild-Export abgeschlossen"}
-                    {exportUploadsProgress.phase === "failed" && "Bild-Export fehlgeschlagen"}
-                  </div>
-                  <div style={{ marginBottom: "8px", fontSize: "0.95rem" }}>
-                    {exportUploadsProgress.phase === "preparing" || exportUploadsProgress.phase === "preparing-complete"
-                      ? `${exportUploadsProgress.processedFiles || 0} von ${exportUploadsProgress.totalFiles || 0} Bildern verarbeitet`
-                      : `${formatBytes(exportUploadsProgress.loadedBytes || 0)} von ${formatBytes(exportUploadsProgress.totalBytes || 0)} geladen`}
-                  </div>
-                  {exportUploadsProgress.currentFileName && (
-                    <div style={{ marginBottom: "8px", fontSize: "0.9rem", color: "#1e40af" }}>
-                      Aktuelle Datei: {exportUploadsProgress.currentFileName}
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      height: "10px",
-                      width: "100%",
-                      backgroundColor: "#dbeafe",
-                      borderRadius: "999px",
-                      overflow: "hidden",
-                    }}>
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.max(0, Math.min(100, exportUploadsProgress.progressPercent || 0))}%`,
-                        backgroundColor: "#2563eb",
-                        transition: "width 0.2s ease",
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {exportUploadsError && (
-            <div
-              style={{
-                marginBottom: "16px",
-                padding: "10px 12px",
-                borderRadius: "8px",
-                backgroundColor: "#fff4e5",
-                color: "#7a4b00",
-                border: "1px solid #f0c36d",
-              }}>
-              <strong>Bild-Export fehlgeschlagen:</strong> {exportUploadsError}
-            </div>
-          )}
-          {exportError && (!exportUploadsError || exportError !== exportUploadsError) && (
+          {exportError && (
             <div className="badge danger" style={{ marginBottom: "20px" }}>
               {exportError}
             </div>
@@ -724,10 +430,7 @@ export default function Datensicherung() {
           <button
             className="btn btn-primary"
             onClick={handleExport}
-            disabled={
-              exporting ||
-              (exportSelected.length === 0 && !exportIncludeUploads)
-            }>
+            disabled={exporting || exportSelected.length === 0}>
             {exporting ? (
               "Exportiere…"
             ) : (
@@ -736,6 +439,19 @@ export default function Datensicherung() {
               </>
             )}
           </button>
+
+          <div className="datensicherung-abschnitt">
+            <p>
+              Alle Fotos (Schmuckstücke und Bestellungen) als ZIP. Der Browser
+              lädt die Datei direkt herunter, den Fortschritt zeigt seine
+              Download-Anzeige.
+            </p>
+            {/* Nativer Download statt fetch: das ZIP kann über 1 GB groß sein
+                und landet so direkt auf der Platte statt als Blob im Speicher. */}
+            <a className="btn btn-secondary" href={api.fotoBackupUrl} download>
+              <FontAwesomeIcon icon={faImages} /> Fotos als ZIP herunterladen
+            </a>
+          </div>
         </div>
       </div>
 
@@ -760,18 +476,9 @@ export default function Datensicherung() {
                   style={{ marginBottom: "20px", padding: "12px 16px" }}>
                   <FontAwesomeIcon icon={faCheckCircle} /> Import erfolgreich!
                   Importiert:{" "}
-                  {[
-                    ...Object.entries(importResult.counts || {}).map(
-                      ([t, n]) => `${n} ${beschriftung(t)}`,
-                    ),
-                    importResult.uploads
-                      ? `${importResult.uploads.restored} Upload-Bilder`
-                      : null,
-                  ]
-                    .filter(Boolean)
+                  {Object.entries(importResult.counts || {})
+                    .map(([t, n]) => `${n} ${beschriftung(t)}`)
                     .join(", ")}
-                  {importResult.uploads?.skipped > 0 &&
-                    ` (${importResult.uploads.skipped} übersprungen)`}
                 </div>
               )}
               {importResult?.kaskadierteTabellen?.length > 0 && (
@@ -824,67 +531,43 @@ export default function Datensicherung() {
                 style={{ display: "none" }}
               />
 
-              <div
-                style={{
-                  marginTop: "24px",
-                  paddingTop: "20px",
-                  borderTop: "1px solid #e5e7eb",
-                }}>
-                <p style={{ marginBottom: "10px", lineHeight: "1.6" }}>
-                  Upload-Bilder können auch separat aus einer ZIP-Datei
-                  wiederhergestellt werden (ohne Tabellen-Import).
+              <div className="datensicherung-abschnitt">
+                <p>
+                  Fotos aus einem Foto-ZIP wiederherstellen. Fotos im ZIP
+                  ersetzen vorhandene mit gleicher Nummer, alle anderen bleiben
+                  erhalten.
                 </p>
                 <label
-                  htmlFor="uploads-only-file"
+                  htmlFor="foto-zip-file"
                   className="btn btn-secondary"
-                  style={{
-                    ...uploadsActionButtonStyle,
-                    cursor: uploadsOnlyUploading ? "not-allowed" : "pointer",
-                  }}>
-                  <FontAwesomeIcon icon={faFolderOpen} /> Upload-ZIP wählen
+                  aria-disabled={fotoImportLaeuft}>
+                  <FontAwesomeIcon icon={faFolderOpen} /> Foto-ZIP wählen
                 </label>
                 <input
-                  id="uploads-only-file"
-                  ref={uploadsOnlyInputRef}
+                  id="foto-zip-file"
+                  ref={fotoZipInputRef}
                   type="file"
                   accept=".zip,application/zip"
-                  onChange={handleUploadsOnlyFileChange}
-                  style={{ display: "none" }}
-                  disabled={uploadsOnlyUploading}
+                  onChange={handleFotoZipChange}
+                  className="visually-hidden-input"
+                  disabled={fotoImportLaeuft}
                 />
-                {uploadsOnlyName && (
-                  <p style={{ marginTop: "8px", marginBottom: "10px" }}>
-                    Gewählte ZIP: <strong>{uploadsOnlyName}</strong>
+                {fotoZipDatei && (
+                  <p className="datensicherung-datei">
+                    Gewählte ZIP: <strong>{fotoZipDatei.name}</strong>
                   </p>
                 )}
-                {uploadsOnlyError && (
-                  <div
-                    className="badge danger"
-                    style={{ marginBottom: "10px", padding: "12px 16px" }}>
-                    {uploadsOnlyError}
-                  </div>
-                )}
-                {uploadsOnlyResult && (
-                  <div
-                    className="badge success"
-                    style={{ marginBottom: "10px", padding: "12px 16px" }}>
-                    <FontAwesomeIcon icon={faCheckCircle} /> Bilder importiert: {uploadsOnlyResult.restored}
-                    {uploadsOnlyResult.skipped > 0
-                      ? ` (${uploadsOnlyResult.skipped} übersprungen)`
-                      : ""}
-                  </div>
-                )}
-                {uploadsOnlyFile && (
+                {fotoZipDatei && !fotoImportJob && (
                   <button
                     className="btn btn-primary"
-                    onClick={handleUploadsOnlyImport}
-                    style={uploadsActionButtonStyle}
-                    disabled={uploadsOnlyUploading}>
-                    {uploadsOnlyUploading
-                      ? "Lade Bilder hoch…"
-                      : "Bilder jetzt importieren"}
+                    onClick={handleFotoImport}
+                    disabled={fotoImportLaeuft}>
+                    {fotoImportLaeuft
+                      ? "ZIP wird hochgeladen…"
+                      : "Fotos jetzt importieren"}
                   </button>
                 )}
+                {fotoImportJob && <FotoImportStand job={fotoImportJob} />}
               </div>
             </>
           ) : (
@@ -906,48 +589,6 @@ export default function Datensicherung() {
                 onChange={setImportSelected}
                 disabled={importing}
               />
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: "12px",
-                  cursor: importing ? "not-allowed" : "pointer",
-                }}>
-                <input
-                  type="checkbox"
-                  className="form-checkbox"
-                  checked={importRestoreUploadsZip}
-                  onChange={(e) => setImportRestoreUploadsZip(e.target.checked)}
-                  disabled={importing}
-                />
-                Upload-Bilder aus separater ZIP wiederherstellen
-              </label>
-              <div style={{ marginBottom: "16px" }}>
-                <label
-                  htmlFor="import-uploads-zip"
-                  className="btn btn-secondary"
-                  style={{
-                    cursor: importing ? "not-allowed" : "pointer",
-                    opacity: importing ? 0.6 : 1,
-                  }}>
-                  <FontAwesomeIcon icon={faFolderOpen} /> Upload-ZIP wählen
-                </label>
-                <input
-                  id="import-uploads-zip"
-                  ref={uploadsZipInputRef}
-                  type="file"
-                  accept=".zip,application/zip"
-                  onChange={handleUploadsZipChange}
-                  style={{ display: "none" }}
-                  disabled={importing}
-                />
-                {pendingUploadsZipName && (
-                  <p style={{ marginTop: "8px", marginBottom: 0 }}>
-                    Gewählte ZIP: <strong>{pendingUploadsZipName}</strong>
-                  </p>
-                )}
-              </div>
               {importError && (
                 <div
                   className="badge danger"
@@ -959,10 +600,7 @@ export default function Datensicherung() {
                 <button
                   className="btn btn-primary"
                   onClick={handleImportConfirm}
-                  disabled={
-                    importing ||
-                    (importSelected.length === 0 && !importRestoreUploadsZip)
-                  }>
+                  disabled={importing || importSelected.length === 0}>
                   {importing ? (
                     "Importiere…"
                   ) : (

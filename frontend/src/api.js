@@ -431,11 +431,7 @@ export const api = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return downloadBlob(`/backup/export${query}`);
   },
-  exportBackupUploadsZip: (options = {}) => downloadBlob('/backup/export-uploads', options),
-  startBackupUploadsExportJob: () => request('/backup/export-uploads-jobs', { method: 'POST' }),
-  getBackupUploadsExportJob: (jobId) => request(`/backup/export-uploads-jobs/${jobId}`),
-  downloadBackupUploadsExportJob: (jobId, options = {}) =>
-    downloadBlob(`/backup/export-uploads-jobs/${jobId}/download`, options),
+  fotoBackupUrl: `${API_URL}/backup/export-fotos`,
   importBackup: (data, selectedTables) => {
     const payload = {
       backupData: data,
@@ -443,12 +439,13 @@ export const api = {
     };
     return request('/backup/import', { method: 'POST', body: JSON.stringify(payload) });
   },
-  importBackupUploadsZip: (file) => {
+  importBackupFotosZip: (file) => {
     const formData = new FormData();
-    formData.append('uploadsZip', file);
+    formData.append('fotosZip', file);
     // request() erkennt FormData selbst und setzt dann keinen Content-Type
-    return request('/backup/import-uploads-zip', { method: 'POST', body: formData });
+    return request('/backup/import-fotos-zip', { method: 'POST', body: formData });
   },
+  getBackupFotosImportJob: (jobId) => request(`/backup/import-fotos-jobs/${jobId}`),
 
   // Inventur
   getInventur: () => request('/inventur'),
