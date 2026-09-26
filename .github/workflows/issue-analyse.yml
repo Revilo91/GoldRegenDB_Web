@@ -35,5 +35,6 @@ jobs:
             5. Poste einen strukturierten Kommentar auf Deutsch mit den Abschnitten: "Einordnung", "Betroffene Bereiche", "Einschätzung", "Offene Fragen" (falls Angaben fehlen).
 
             Nimm KEINE Code-Änderungen vor und erstelle KEINE Pull Requests. Poste ausschließlich einen Analyse-Kommentar auf dem Issue.
+            Gib deine Antwort bitte tabellarisch zurück, halte dich kurz. Falls es nicht kurz geht, erstelle eine TLDR; Sektion oben hinzu.
           claude_args: |
             --allowedTools "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh pr list:*),Bash(gh issue comment:*)"
