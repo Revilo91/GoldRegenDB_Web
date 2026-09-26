@@ -15,7 +15,7 @@
 #   BACKUP_DIR        Backup dir      (default: /backups)
 #   KEEP_DAILY        Days to keep daily backups   (default: 7)
 #   KEEP_WEEKLY       Weeks to keep weekly backups (default: 4)
-#   MIN_BACKUP_BYTES  Plausibility floor           (default: 10240)
+#   MIN_BACKUP_BYTES  Plausibility floor           (default: 1024)
 # ---------------------------------------------------------------------------
 # Befund E2 – vier Logikfehler, die hier behoben sind:
 #
@@ -46,7 +46,7 @@ POSTGRES_USER="${POSTGRES_USER:-goldregen}"
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 KEEP_DAILY="${KEEP_DAILY:-7}"
 KEEP_WEEKLY="${KEEP_WEEKLY:-4}"
-MIN_BACKUP_BYTES="${MIN_BACKUP_BYTES:-10240}"
+MIN_BACKUP_BYTES="${MIN_BACKUP_BYTES:-1024}"
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 DOW=$(date +"%u")   # 1=Monday … 7=Sunday
