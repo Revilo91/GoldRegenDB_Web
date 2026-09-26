@@ -168,7 +168,15 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
 - Max size: 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Endung
 - Upload: `multer.memoryStorage()` in schmuckstuecke.js; Auslieferung mit ETag
   aus `Geaendert` und `Cache-Control: private, max-age=60`
-- Backup/Restore enthält die Fotos (JSON-Export, BYTEA base64-kodiert)
+- Fotos sichert ein **eigenes Foto-ZIP** (`utils/fotoZip.js`), nicht die
+  JSON-Sicherung – base64 im JSON sprengt bei ~1,6 GB jedes Body-Limit.
+  `GET /api/backup/export-fotos` streamt aus einem REPEATABLE-READ-Snapshot,
+  `POST /api/backup/import-fotos-zip` übernimmt per Upsert als Hintergrund-Job
+  (Fortschritt: `GET /api/backup/import-fotos-jobs/:id`). Der JSON-Export
+  überspringt `"Foto"`/`bestellung_foto`, der JSON-Import fasst sie nicht an
+- Großer ZIP-Upload über langsame Leitung: Node bricht Requests nach
+  `server.requestTimeout` (Standard 300 s) ab, ein Reverse-Proxy oft früher –
+  dort ggf. Timeout und Body-Limit anheben
 - **Übergang bis zum Bilderimport (#209):** noch nicht importierte Dateien in
   `backend/src/assets/uploads/` werden weiter ausgeliefert. Spalte
   `"Schmuckstück"."Foto"`, Uploads-Volume und `npm run sync:fotos` entfallen in

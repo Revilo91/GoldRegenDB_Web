@@ -18,6 +18,9 @@ const TABELLEN = {
   },
 };
 
+// Katalognamen, unter denen die JSON-Sicherung die Tabellen findet.
+const FOTO_TABELLEN = Object.values(TABELLEN).map((t) => t.tabelle.replace(/"/g, ''));
+
 class FotoFehler extends Error {}
 
 // Typ aus den ersten Bytes, nicht aus Endung oder vom Client gemeldetem MIME-Typ.
@@ -88,6 +91,27 @@ async function loescheFoto(queryable, art, schluessel) {
   return rowCount > 0;
 }
 
+// Für das Foto-ZIP: alles außer den Bilddaten. octet_length liest bei
+// ausgelagerten Werten nur den TOAST-Zeiger, nicht das Bild.
+async function listeFotos(queryable, art) {
+  const t = TABELLEN[art];
+  const { rows } = await queryable.query(
+    `SELECT ${t.schluessel} AS schluessel, ${t.mimeType} AS "mimeType",
+            octet_length(${t.daten}) AS groesse, ${t.geaendert} AS geaendert
+       FROM ${t.tabelle} ORDER BY ${t.schluessel}`,
+  );
+  return rows;
+}
+
+async function ladeFotoDaten(queryable, art, schluessel) {
+  const t = TABELLEN[art];
+  const { rows } = await queryable.query(
+    `SELECT ${t.daten} AS daten FROM ${t.tabelle} WHERE ${t.schluessel} = $1`,
+    [schluessel],
+  );
+  return rows.length > 0 ? rows[0].daten : null;
+}
+
 // Ein Tag aus If-None-Match ('"123"', 'W/"123"', Liste) ohne Anführungszeichen.
 function ersterEtag(ifNoneMatch) {
   if (!ifNoneMatch) return null;
@@ -124,6 +148,7 @@ async function sendeFoto(req, res, queryable, art, schluessel) {
 
 module.exports = {
   MAX_FOTO_BYTES,
+  FOTO_TABELLEN,
   FotoFehler,
   erkenneBildtyp,
   pruefeBild,
@@ -132,5 +157,7 @@ module.exports = {
   neuerBestellungFotoName,
   speichereFoto,
   loescheFoto,
+  listeFotos,
+  ladeFotoDaten,
   sendeFoto,
 };
