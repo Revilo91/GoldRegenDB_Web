@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
@@ -9,7 +10,17 @@ const {
   validateDatenminimierung,
   insertBestellung,
 } = require('../utils/bestellungService');
-const { speichereBestellungFoto, bestellungFotoPfad } = require('../utils/bestellungFotoService');
+const {
+  leseDataUrl,
+  neuerBestellungFotoName,
+  speichereFoto,
+  loescheFoto,
+  sendeFoto,
+} = require('../utils/fotoService');
+
+// Übergang bis zum Bilderimport (Issue #209): Referenzfotos aus der Zeit vor
+// Issue #208 liegen noch als Datei hier.
+const LEGACY_FOTO_DIR = path.join(__dirname, '../assets/uploads/bestellungen');
 const { encryptField } = require('../utils/encryptionService');
 const { validate } = require('../middleware/validate');
 const { bestellungBasisSchema, bestellungUpdateSchema } = require('../schemas');
@@ -92,12 +103,18 @@ router.get('/next-number', async (_req, res) => {
  *       403: { $ref: '#/components/responses/Forbidden' }
  *       404: { $ref: '#/components/responses/NotFound' }
  */
-router.get('/foto/:fileName', (req, res) => {
-  const filePath = bestellungFotoPfad(req.params.fileName);
-  if (!filePath) {
+router.get('/foto/:fileName', async (req, res) => {
+  const fileName = path.basename(String(req.params.fileName || '').trim());
+  if (!fileName) {
     return res.status(400).json({ error: 'Ungültiger Dateiname' });
   }
-  res.sendFile(filePath, { lastModified: true }, (err) => {
+  try {
+    if (await sendeFoto(req, res, db, 'bestellung', fileName)) return;
+  } catch (err) {
+    logger.error('BESTELLUEBERSICHT', 'Fehler beim Abrufen des Referenzfotos', { fileName, message: err.message });
+    return res.status(500).json({ error: 'Fehler beim Abrufen des Fotos' });
+  }
+  res.sendFile(path.join(LEGACY_FOTO_DIR, fileName), { lastModified: true }, (err) => {
     if (!err || res.headersSent) return;
     if (err.code !== 'ENOENT') {
       logger.error('BESTELLUEBERSICHT', 'Fehler beim Abrufen des Referenzfotos', { fileName: req.params.fileName, message: err.message });
@@ -217,10 +234,10 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
       return res.status(400).json({ error: 'Einwilligung zur Datenverarbeitung ist erforderlich' });
     }
 
-    let fotoPfad = null;
+    let fotoDaten = null;
     if (foto) {
       try {
-        fotoPfad = speichereBestellungFoto(foto);
+        fotoDaten = leseDataUrl(foto);
       } catch (fotoErr) {
         return res.status(400).json({ error: fotoErr.message });
       }
@@ -229,6 +246,10 @@ router.post('/', validate(bestellungBasisSchema), async (req, res) => {
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE bestellung IN SHARE ROW EXCLUSIVE MODE');
+
+    // In derselben Transaktion wie die Bestellung: ein Rollback hinterlässt kein verwaistes Foto.
+    const fotoPfad = fotoDaten ? neuerBestellungFotoName() : null;
+    if (fotoDaten) await speichereFoto(client, 'bestellung', fotoPfad, fotoDaten.buffer);
 
     const { bestellungRow, kundeId, kundePseudonym } = await insertBestellung(client, {
       versandart,
@@ -337,14 +358,14 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
     }
 
     const { rows: existingRows } = await db.query(
-      `SELECT b.kunde_id, k.anonymisiert FROM bestellung b
+      `SELECT b.kunde_id, b.foto_pfad, k.anonymisiert FROM bestellung b
        JOIN bestellung_kunde k ON k.id = b.kunde_id WHERE b.id = $1`,
       [req.params.id]
     );
     if (existingRows.length === 0) {
       return res.status(404).json({ error: 'Bestellung nicht gefunden' });
     }
-    const { kunde_id: kundeId, anonymisiert } = existingRows[0];
+    const { kunde_id: kundeId, foto_pfad: alterFotoPfad, anonymisiert } = existingRows[0];
 
     if (!anonymisiert) {
       const minimierungsFehler = validateDatenminimierung(versandart, kunde);
@@ -353,10 +374,10 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
       }
     }
 
-    let fotoPfad;
+    let fotoDaten = null;
     if (foto) {
       try {
-        fotoPfad = speichereBestellungFoto(foto);
+        fotoDaten = leseDataUrl(foto);
       } catch (fotoErr) {
         return res.status(400).json({ error: fotoErr.message });
       }
@@ -364,6 +385,13 @@ router.put('/:id', validate(bestellungUpdateSchema), async (req, res) => {
 
     client = await db.connect();
     await client.query('BEGIN');
+
+    // Ein neues Foto ersetzt das alte; beides in der Transaktion der Bestellung.
+    const fotoPfad = fotoDaten ? neuerBestellungFotoName() : null;
+    if (fotoDaten) {
+      await speichereFoto(client, 'bestellung', fotoPfad, fotoDaten.buffer);
+      if (alterFotoPfad) await loescheFoto(client, 'bestellung', alterFotoPfad);
+    }
 
     if (!anonymisiert && kunde) {
       await client.query(

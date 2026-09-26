@@ -78,6 +78,53 @@ describe('Öffentliches Bestellformular (kein Login)', () => {
     expect(res.body.kundeId).toBeUndefined();
   });
 
+  it('POST / speichert das Referenzfoto in bestellung_foto, innerhalb der Transaktion', async () => {
+    const client = makeClient();
+    db.connect.mockResolvedValue(client);
+    client.query.mockImplementation(async (sql) => {
+      if (/INSERT INTO bestellung_kunde/.test(sql)) return { rows: [{ id: 1 }] };
+      if (/max_num/.test(sql)) return { rows: [{ max_num: 0 }] };
+      if (/INSERT INTO bestellung \(/.test(sql)) return { rows: [{ id: 1, bestellnummer: 'BE-2026-001' }] };
+      return { rows: [] };
+    });
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01]);
+
+    const res = await request(buildApp())
+      .post('/api/public/bestellung')
+      .send({
+        versandart: 'abholung',
+        beschreibung: 'Mit Foto',
+        kunde: { name: 'Erika Mustermann', telefonnummer: '0123456789' },
+        consent: { erteilt: true },
+        foto: `data:image/png;base64,${png.toString('base64')}`,
+      });
+
+    expect(res.status).toBe(201);
+    const sqls = client.query.mock.calls.map(([sql]) => String(sql));
+    const fotoIdx = sqls.findIndex((sql) => /INSERT INTO bestellung_foto/.test(sql));
+    expect(fotoIdx).toBeGreaterThan(sqls.indexOf('BEGIN'));
+    expect(fotoIdx).toBeLessThan(sqls.indexOf('COMMIT'));
+    const fotoParams = client.query.mock.calls[fotoIdx][1];
+    expect(fotoParams[2]).toBe('image/png');
+    const bestellungParams = client.query.mock.calls.find(([sql]) => /INSERT INTO bestellung \(/.test(sql))[1];
+    expect(bestellungParams[6]).toBe(fotoParams[0]); // foto_pfad = Schlüssel in bestellung_foto
+  });
+
+  it('POST / lehnt ein Foto ab, dessen Inhalt kein Bild ist', async () => {
+    const res = await request(buildApp())
+      .post('/api/public/bestellung')
+      .send({
+        versandart: 'abholung',
+        beschreibung: 'Mit Foto',
+        kunde: { name: 'Erika Mustermann', telefonnummer: '0123456789' },
+        consent: { erteilt: true },
+        foto: `data:image/png;base64,${Buffer.from('<svg/> kein Bild').toString('base64')}`,
+      });
+
+    expect(res.status).toBe(400);
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
   it('POST / lehnt Anfragen mit ausgefülltem Honeypot-Feld ab', async () => {
     const res = await request(buildApp())
       .post('/api/public/bestellung')

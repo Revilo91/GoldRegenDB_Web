@@ -172,4 +172,46 @@ describe('Bestellübersicht API', () => {
     expect(res.status).toBe(200);
     expect(db.query).toHaveBeenCalledWith('SELECT anonymisiere_bestellung_kunde($1)', [1]);
   });
+  it('PUT /:id ersetzt das Referenzfoto und löscht das alte', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ kunde_id: 1, foto_pfad: 'altesfoto', anonymisiert: true }] })
+      .mockResolvedValueOnce({ rows: [{ id: 1, kunde_id: 1, anonymisiert: true }] });
+    const client = makeClient();
+    db.connect.mockResolvedValue(client);
+    client.query.mockResolvedValue({ rows: [], rowCount: 1 });
+    const gif = Buffer.from('GIF89a\x01\x00', 'latin1');
+
+    const res = await request(buildApp())
+      .put('/api/bestelluebersicht/1')
+      .send({ versandart: 'abholung', beschreibung: 'x', foto: `data:image/gif;base64,${gif.toString('base64')}` });
+
+    expect(res.status).toBe(200);
+    const calls = client.query.mock.calls;
+    const insert = calls.find(([sql]) => /INSERT INTO bestellung_foto/.test(sql));
+    expect(insert[1][2]).toBe('image/gif');
+    const loeschen = calls.find(([sql]) => /DELETE FROM bestellung_foto/.test(sql));
+    expect(loeschen[1]).toEqual(['altesfoto']);
+    const update = calls.find(([sql]) => /UPDATE bestellung SET/.test(sql));
+    expect(update[1]).toContain(insert[1][0]);
+  });
+
+  it('GET /foto/:fileName liefert das Referenzfoto aus der Datenbank', async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01]);
+    db.query.mockResolvedValueOnce({ rows: [{ mimeType: 'image/png', version: '5', daten: png }] });
+
+    const res = await request(buildApp()).get('/api/bestelluebersicht/foto/abc123');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.headers.etag).toBe('"5"');
+    expect(db.query.mock.calls[0][0]).toMatch(/FROM bestellung_foto/);
+  });
+
+  it('GET /foto/:fileName meldet 404 ohne Datenbank-Eintrag und ohne Altdatei', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/bestelluebersicht/foto/gibtsnicht');
+
+    expect(res.status).toBe(404);
+  });
 });
