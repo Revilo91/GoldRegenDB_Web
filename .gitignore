@@ -22,3 +22,6 @@ graphify-out
 
 # Coverage-Reports (jest --coverage / vitest --coverage)
 coverage/
+
+# Protokolle des Foto-Bestandsimports (npm run import:fotos)
+import-fotos-*.log

@@ -65,6 +65,8 @@ npm run dev        # Start with hot reload (node --watch)
 npm start          # Start production
 npm test           # Jest tests in __tests__/**/*.test.js
 npm run sync:fotos # Altlast bis #209: Foto-Spalte mit assets/uploads abgleichen
+npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
+                   # Einmaliger Bestandsimport von Bildern in "Foto" (#209)
 ```
 
 ### Frontend (React + Vite)
@@ -177,6 +179,15 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
 - Großer ZIP-Upload über langsame Leitung: Node bricht Requests nach
   `server.requestTimeout` (Standard 300 s) ab, ein Reverse-Proxy oft früher –
   dort ggf. Timeout und Body-Limit anheben
+- **Bestandsimport** (`scripts/import-fotos.js`, #209): Dateiname = Artikelnummer,
+  `_` plus Ziffern ist eine Variante (`MBH004_2.jpg` → `MBH004`). Übersprungen und
+  in `import-fotos-<datum>.log` gelistet werden: mehrere Nummern im Namen, keine
+  Nummer, sonstiger Rest im Namen (`MBH004-2`), mehrere Dateien je Nummer, unbekannte Nummer, vorhandenes Foto (außer
+  `--overwrite`), > 5 MB, kein gültiges Bild. Unterordner werden nicht gelesen;
+  ein zweiter Lauf ändert nichts. Uneindeutige Namen, mehrere Dateien je Nummer
+  und Fotos über 5 MB sind im Log mit „manuell“ markiert (`grep manuell <log>`):
+  von Hand prüfen bzw. verkleinern, dann erneut importieren.
+  Namensauswertung: `utils/fotoDateiname.js`
 - **Übergang bis zum Bilderimport (#209):** noch nicht importierte Dateien in
   `backend/src/assets/uploads/` werden weiter ausgeliefert. Spalte
   `"Schmuckstück"."Foto"`, Uploads-Volume und `npm run sync:fotos` entfallen in
