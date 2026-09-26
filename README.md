@@ -145,7 +145,7 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
    ```
    | Variable | Bedeutung | Standard |
    |----------|-----------|----------|
-   | `DATA_DIR` | Wurzel für `data/` (Datenbank) und `backups/`; fehlende Ordner legt Docker an | `/volume1/docker/goldregendb` |
+   | `DATA_DIR` | Wurzel für `data/` (Datenbank), `backups/` und `uploads/` (Foto-Import). Das Paket bringt die Ordner mit; bei anderem Pfad vorher anlegen, Container Manager tut es nicht | `/volume1/docker/goldregendb` |
    | `IMAGE_TAG` | Version von `ghcr.io/revilo91/goldregendb` (ohne führendes `v`), Pflicht | Version des Pakets |
    | `APP_HOST_PORT` / `DB_HOST_PORT` | Ports auf der Synology | `3000` / `15432` |
 
@@ -175,7 +175,7 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
 **Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
 Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen
 (z. B. `./synology-update.sh 0.3.0`). Das Skript trägt die Version als `IMAGE_TAG` in die
-`.env` ein, zieht das Image und startet die Container neu.
+`.env` ein, legt fehlende Ordner unter `DATA_DIR` an, zieht das Image und startet die Container neu.
 
 **Migration bestehender Installationen** (Pakete bis v0.2.0 mit fest verdrahteten
 `/volume1/docker/goldregendb/...`-Pfaden): Neue `docker-compose.yml` und `db/` über die alten
