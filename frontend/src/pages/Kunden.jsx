@@ -55,7 +55,7 @@ export default function Kunden() {
     setForm({
       Name: "",
       Strasse: "",
-      Hausnummer: 0,
+      Hausnummer: "",
       Ort: "",
       PLZ: 0,
       Email: "",
@@ -219,13 +219,10 @@ export default function Kunden() {
                   <label>Hausnummer</label>
                   <input
                     className="form-control"
-                    type="number"
-                    value={form.Hausnummer || 0}
+                    maxLength={20}
+                    value={form.Hausnummer ?? ""}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        Hausnummer: parseInt(e.target.value),
-                      })
+                      setForm({ ...form, Hausnummer: e.target.value })
                     }
                   />
                 </div>
