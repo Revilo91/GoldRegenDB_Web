@@ -30,8 +30,9 @@ services:
     # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
     # Kompatibel mit Synology Container Manager (DSM). VITE_API_URL=/api ist bereits
     # im Image eingebettet; Express liefert Frontend und API same-origin aus.
-    # IMAGE_TAG trägt das Release-Paket in seine .env.example ein.
-    image: ghcr.io/revilo91/goldregendb:${IMAGE_TAG:-latest}
+    # IMAGE_TAG trägt das Release-Paket in seine .env.example ein. Bewusst kein
+    # Default wie "latest": ein Neustart darf nicht still eine andere Version ziehen.
+    image: ghcr.io/revilo91/goldregendb:${IMAGE_TAG:?IMAGE_TAG in der .env setzen, z. B. 0.3.0}
     restart: always
     depends_on:
       db:

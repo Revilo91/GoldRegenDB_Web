@@ -31,13 +31,15 @@
 
 ## Aktualisieren
 
-`docker-compose.yml` und `db/` aus dem neuen Paket über die alten Dateien kopieren,
-die `.env` behalten und darin `IMAGE_TAG` auf die neue Version setzen:
+`docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen Paket über die
+alten Dateien kopieren, die `.env` behalten und das Update mit der neuen Version starten:
 
 ```bash
-docker compose pull
-docker compose up -d
+./synology-update.sh 0.3.0
 ```
+
+Das Skript setzt `IMAGE_TAG` in der `.env`, zieht das Image und startet die Container
+neu. `IMAGE_TAG` ist Pflicht – ohne startet Compose nicht.
 
 ## Hinweise
 
