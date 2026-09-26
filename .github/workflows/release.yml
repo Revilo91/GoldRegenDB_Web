@@ -17,17 +17,13 @@ jobs:
       contents: read
       packages: write
 
+    # Tags aus metadata-action tragen kein führendes "v" (v1.2.3 -> 1.2.3).
     outputs:
-      image: ${{ steps.meta.outputs.tags }}
-      version: ${{ steps.get_version.outputs.version }}
+      image: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
 
     steps:
       - name: Code auschecken
         uses: actions/checkout@v4
-
-      - name: Version ermitteln
-        id: get_version
-        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Bei GHCR anmelden
         uses: docker/login-action@v4
@@ -74,175 +70,24 @@ jobs:
       - name: Code auschecken
         uses: actions/checkout@v4
 
-      - name: Version und Owner ermitteln
-        id: get_version
-        run: |
-          echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "owner_lower=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-
       - name: Synology-Deployment-Paket erstellen
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          OWNER_LOWER=$(echo "${{ env.IMAGE_OWNER }}" | tr '[:upper:]' '[:lower:]')
-          PACKAGE_DIR="goldregendb-synology-${VERSION}"
-
-          mkdir -p "${PACKAGE_DIR}/db"
-
-          # docker-compose für Synology mit fertigen Images generieren
-          cat > "${PACKAGE_DIR}/docker-compose.yml" <<EOF
-          services:
-            db:
-              image: postgres:16-alpine
-              restart: always
-              environment:
-                POSTGRES_DB: \${POSTGRES_DB}
-                POSTGRES_USER: \${POSTGRES_USER}
-                POSTGRES_PASSWORD: \${DB_PASSWORD}
-              volumes:
-                - /volume1/docker/goldregendb/data:/var/lib/postgresql/data
-                - /volume1/docker/goldregendb/backups:/backups
-                - /volume1/docker/goldregendb/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
-                - /volume1/docker/goldregendb/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
-                - /volume1/docker/goldregendb/db/backup.sh:/backup.sh
-                - /volume1/docker/goldregendb/db/restore.sh:/restore.sh
-                - /volume1/docker/goldregendb/db/load_seed.sh:/load_seed.sh
-              ports:
-                - "15432:5432"
-              healthcheck:
-                test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER} -d \${POSTGRES_DB}"]
-                interval: 5s
-                timeout: 5s
-                retries: 5
-                start_period: 1m
-              networks:
-                - goldregendb_net
-
-            app:
-              image: ${{ env.REGISTRY }}/${OWNER_LOWER}/goldregendb:${VERSION}
-              restart: always
-              depends_on:
-                db:
-                  condition: service_healthy
-              environment:
-                DATABASE_URL: postgresql://\${POSTGRES_USER}:\${DB_PASSWORD}@db:5432/\${POSTGRES_DB}
-                NODE_ENV: production
-                PORT: \${PORT}
-                JWT_SECRET: \${JWT_SECRET}
-                BESTELLUNG_ENCRYPTION_KEY: \${BESTELLUNG_ENCRYPTION_KEY}
-                PRIVACY_POLICY_VERSION: \${PRIVACY_POLICY_VERSION}
-                BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: \${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
-                BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: \${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
-              volumes:
-                - /volume1/docker/goldregendb/uploads:/app/src/assets/uploads
-              ports:
-                - "3000:\${PORT}"
-              networks:
-                - goldregendb_net
-
-          networks:
-            goldregendb_net:
-              driver: bridge
-          EOF
-
-          # DB-Skripte kopieren
-          cp db/init.sql "${PACKAGE_DIR}/db/"
-          cp db/seed.sql "${PACKAGE_DIR}/db/"
-          cp db/backup.sh "${PACKAGE_DIR}/db/"
-          cp db/restore.sh "${PACKAGE_DIR}/db/"
-          cp db/load_seed.sh "${PACKAGE_DIR}/db/"
-
-          # .env für Synology erstellen (ohne VITE_API_URL, das ist ins Image eingebettet)
-          cat > "${PACKAGE_DIR}/.env.example" <<'ENVEOF'
-          # Datenbank
-          DB_PASSWORD=changeme
-          POSTGRES_DB=goldregendb
-          POSTGRES_USER=goldregen
-
-          # Backend
-          NODE_ENV=production
-          PORT=3001
-          DATABASE_URL=postgresql://goldregen:changeme@db:5432/goldregendb
-          JWT_SECRET=change-this-to-a-long-random-secret
-
-          # Bestellübersicht (DSGVO) – AES-256-GCM-Schlüssel für Kundendaten-Verschlüsselung.
-          # Erzeugen mit: openssl rand -hex 32
-          BESTELLUNG_ENCRYPTION_KEY=change-this-to-a-64-char-hex-key
-          PRIVACY_POLICY_VERSION=2026-01-v1
-          BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG=90
-          BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG=10
-          ENVEOF
-
-          # README für Synology-Deployment erstellen
-          cat > "${PACKAGE_DIR}/README.md" <<'README'
-          # GoldRegenDB – Synology Deployment
-
-          ## Voraussetzungen
-          - Synology NAS mit Docker/Container Manager (DSM 7+)
-          - SSH-Zugang zur Synology
-
-          ## Installation
-
-          1. Dieses Paket nach `/volume1/docker/goldregendb/` entpacken:
-             ```
-             mkdir -p /volume1/docker/goldregendb
-             unzip goldregendb-synology-*.zip -d /tmp/goldregendb_pkg
-             cp -r /tmp/goldregendb_pkg/goldregendb-synology-*/. /volume1/docker/goldregendb/
-             ```
-          2. `.env.example` nach `.env` kopieren und **alle Passwörter/Secrets anpassen**:
-             ```
-             cp /volume1/docker/goldregendb/.env.example /volume1/docker/goldregendb/.env
-             nano /volume1/docker/goldregendb/.env
-             ```
-             Wichtig: `DB_PASSWORD` und `JWT_SECRET` auf sichere Werte setzen.
-             `DATABASE_URL` muss denselben Wert wie `DB_PASSWORD` enthalten.
-
-          3. Uploads-Ordner anlegen (für Fotos):
-             ```
-             mkdir -p /volume1/docker/goldregendb/uploads
-             ```
-
-          4. Container starten:
-             ```
-             cd /volume1/docker/goldregendb
-             docker compose up -d
-             ```
-
-          5. Logs prüfen (optional):
-             ```
-             docker compose logs -f
-             ```
-
-          ## Zugriff
-          - Frontend: http://<synology-ip>:3000
-          - Standard-Login: admin / admin123 (bitte nach dem ersten Login ändern!)
-
-          ## Hinweise
-          - VITE_API_URL muss **nicht** gesetzt werden – ist bereits ins Image eingebettet.
-          - Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
-          - Das Image wird automatisch aus GitHub Container Registry (ghcr.io) gezogen.
-          - Datenbankdaten liegen unter `/volume1/docker/goldregendb/data/`.
-          - Backups liegen unter `/volume1/docker/goldregendb/backups/`.
-          - Hochgeladene Fotos liegen unter `/volume1/docker/goldregendb/uploads/`.
-          README
-
-          zip -r "${PACKAGE_DIR}.zip" "${PACKAGE_DIR}/"
+        run: scripts/build-release-package.sh "$GITHUB_REF_NAME" .
 
       - name: GitHub Release erstellen
         uses: softprops/action-gh-release@v2
         with:
-          name: GoldRegenDB ${{ steps.get_version.outputs.version }}
+          name: GoldRegenDB ${{ github.ref_name }}
           body: |
-            ## GoldRegenDB ${{ steps.get_version.outputs.version }}
+            ## GoldRegenDB ${{ github.ref_name }}
 
             ### Docker Image
             Das fertige Image ist im GitHub Container Registry verfügbar:
-            - **Image:** `${{ env.REGISTRY }}/${{ steps.get_version.outputs.owner_lower }}/goldregendb:${{ steps.get_version.outputs.version }}`
+            - **Image:** `${{ needs.build-and-push.outputs.image }}`
 
             ### Synology Deployment
             Das Deployment-Paket (`goldregendb-synology-*.zip`) enthält alle benötigten Dateien.
             Siehe `README.md` im Paket für die Installationsanleitung.
-          files: goldregendb-synology-${{ steps.get_version.outputs.version }}.zip
+          files: goldregendb-synology-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
           generate_release_notes: true
-
