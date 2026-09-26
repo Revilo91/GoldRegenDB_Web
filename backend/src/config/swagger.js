@@ -69,7 +69,7 @@ const definition = {
           ID: { type: 'integer', example: 12 },
           Name: { type: 'string', example: 'Beispiel-Laden' },
           Strasse: { type: 'string', example: 'Musterweg' },
-          Hausnummer: { type: 'integer', example: 5 },
+          Hausnummer: { type: 'string', example: '12a' },
           Ort: { type: 'string', example: 'Musterstadt' },
           PLZ: { type: 'integer', example: 12345 },
           Email: { type: 'string', nullable: true, example: 'kontakt@beispiel.invalid' },
