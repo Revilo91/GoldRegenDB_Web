@@ -55,7 +55,7 @@ function buildApp() {
 
 const ALLE_TABELLEN =
   '"Kunde", "Lieferschein", "Rechnung", "Schmuckstück", app_users, audit_log, ' +
-  'bestellung, bestellung_consent, bestellung_kunde, lagerinventur';
+  'bestellung, bestellung_consent, bestellung_foto, bestellung_kunde, "Foto", lagerinventur';
 
 describeDb('Backup/Restore gegen echte Datenbank', () => {
   const pool = db._pool;

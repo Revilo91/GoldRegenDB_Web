@@ -285,6 +285,18 @@ CREATE INDEX idx_schmuck_artikelnummer_sort ON "Schmuckstück" (length("Artikeln
 -- Statusfilter aus dem whereClauseBuilder
 CREATE INDEX idx_schmuck_status ON "Schmuckstück" ("Verkauft", "Ausschuss", "Ausgelagert");
 
+-- Fotos (Issue #208): Bilddaten in der Datenbank statt in assets/uploads.
+-- Eigene Tabelle, damit SELECT * auf "Schmuckstück" keine Bilddaten lädt.
+-- Schlüssel ist die Basis-Artikelnummer (MHO123 gilt für MHO123_1, MHO123_2, …),
+-- deshalb kein Fremdschlüssel auf "Schmuckstück".
+CREATE TABLE "Foto" (
+    "Artikelnummer" VARCHAR(20) PRIMARY KEY,
+    "Daten"         BYTEA NOT NULL,
+    "MimeType"      TEXT NOT NULL,
+    "Groesse"       INTEGER NOT NULL,
+    "Geaendert"     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE audit_log (
     id SERIAL PRIMARY KEY,
     table_name VARCHAR(255) NOT NULL,
@@ -434,7 +446,7 @@ CREATE TABLE bestellung (
     erstellt_von    VARCHAR(100) NOT NULL,
     erstellt_am     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     aktualisiert_am TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    -- Vom Kunden übermitteltes Referenzfoto (Dateiname in assets/uploads/bestellungen/), optional.
+    -- Vom Kunden übermitteltes Referenzfoto (Schlüssel in bestellung_foto), optional.
     foto_pfad       VARCHAR(255) DEFAULT NULL,
     CONSTRAINT bestellung_wunschdatum_check
         CHECK (wunschdatum IS NULL OR wunschdatum >= erfassungsdatum::date)
@@ -455,6 +467,15 @@ CREATE TABLE bestellung_consent (
 );
 
 CREATE INDEX idx_bestellung_consent_kunde ON bestellung_consent(kunde_id);
+
+-- Referenzfotos aus dem Bestellformular, Schlüssel = bestellung.foto_pfad.
+CREATE TABLE bestellung_foto (
+    datei_name VARCHAR(255) PRIMARY KEY,
+    daten      BYTEA NOT NULL,
+    mime_type  TEXT NOT NULL,
+    groesse    INTEGER NOT NULL,
+    geaendert  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- Datenminimierung: "lieferung" erfordert Adresse + Telefon, "abholung" nicht.
 -- Greift nur bei nicht-anonymisierten Kunden (sonst würde die Anonymisierung

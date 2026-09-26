@@ -748,6 +748,38 @@ async function ensureLagerinventurEntwurfTable() {
   }
 }
 
+// ---- Fotos (Issue #208): Bilddaten in der Datenbank statt in assets/uploads ----
+// Eigene Tabellen statt BYTEA-Spalte, damit Listenabfragen (SELECT *) keine
+// Bilddaten mitschleppen. Kein Fremdschlüssel auf "Schmuckstück": ein Foto gilt
+// für alle Stücke einer Basis-Artikelnummer (MHO123 für MHO123_1, MHO123_2, …),
+// und diese Basisnummer existiert selbst meist nicht als Zeile. Außerdem lädt
+// das Anlage-Formular das Foto hoch, bevor das Stück gespeichert ist.
+
+async function ensureFotoTables() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "Foto" (
+          "Artikelnummer" VARCHAR(20) PRIMARY KEY,
+          "Daten"         BYTEA NOT NULL,
+          "MimeType"      TEXT NOT NULL,
+          "Groesse"       INTEGER NOT NULL,
+          "Geaendert"     TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE IF NOT EXISTS bestellung_foto (
+          datei_name VARCHAR(255) PRIMARY KEY,
+          daten      BYTEA NOT NULL,
+          mime_type  TEXT NOT NULL,
+          groesse    INTEGER NOT NULL,
+          geaendert  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    logger.info('DB', 'Foto-Tabellen verifiziert');
+  } catch (err) {
+    logger.error('DB', 'Fehler beim Verifizieren der Foto-Tabellen', { message: err.message });
+    throw err;
+  }
+}
+
 // ---- Bestellübersicht (DSGVO): bestellung_kunde, bestellung, bestellung_consent ----
 
 async function ensureBestelluebersichtSchema() {
@@ -1223,6 +1255,7 @@ async function initializeDatabase() {
   await ensureAppUsersTable();
   await ensureBestelluebersichtSchema();
   await ensureLagerinventurEntwurfTable();
+  await ensureFotoTables();
   await ensureStatusBooleans();
   await ensureGeldNumeric();
   await ensureArtikelnummerGrossschreibung();
