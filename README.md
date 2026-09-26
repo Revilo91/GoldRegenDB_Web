@@ -158,11 +158,19 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
    (das Passwort muss danach geändert werden).
 
 > **Update von einer Version mit Uploads-Ordner:** Fotos liegen seit #208 in der
-> Datenbank; der Ordner `uploads/` wird nicht mehr eingebunden. Seine Fotos übernimmt
-> der Bestandsimport (`npm run import:fotos -- --dir <ordner>`, #209), bis dahin zeigt
-> die Oberfläche keine Fotos. Beim ersten Start entfernt das Backend die alte Spalte
-> `"Schmuckstück"."Foto"` – der Import braucht sie nicht, er liest die Artikelnummer
-> aus dem Dateinamen. Den Ordner erst nach geprüftem Import löschen.
+> Datenbank; der Ordner `uploads/` wird nicht mehr eingebunden, bis zum Bestandsimport
+> (#209) zeigt die Oberfläche keine Fotos. Beim ersten Start entfernt das Backend die
+> alte Spalte `"Schmuckstück"."Foto"` – der Import braucht sie nicht, er liest die
+> Artikelnummer aus dem Dateinamen. Import nach dem Update, im Ordner der Compose-Datei
+> (Pfad anpassen, falls `DATA_DIR` abweicht):
+> ```bash
+> # 1. Probelauf: schreibt nichts, listet Übersprungenes in uploads/import-fotos.log
+> docker compose run --rm -v /volume1/docker/goldregendb/uploads:/import app \
+>   node scripts/import-fotos.js --dir /import --log /import/import-fotos.log --dry-run
+> # 2. Echter Lauf: derselbe Befehl ohne --dry-run
+> ```
+> `grep manuell uploads/import-fotos.log` zeigt Dateien zum Nacharbeiten; ein zweiter Lauf
+> überspringt bereits importierte Fotos. Den Ordner erst nach geprüftem Import löschen.
 
 **Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
 Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen

@@ -39,6 +39,9 @@ WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY backend/package.json ./
 COPY backend/src ./src
+# Wartungsskripte (import:fotos, dsgvo:retention) laufen per
+# `docker compose run` im selben Image, siehe README.
+COPY backend/scripts ./scripts
 COPY --from=frontend-builder /app/frontend/dist ./src/public
 EXPOSE 3001
 # /api/health meldet erst "ok", wenn die Schema-Migration durch ist (Befund A3).
