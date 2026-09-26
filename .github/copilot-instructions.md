@@ -112,6 +112,14 @@ erDiagram
         timestamp last_login
     }
 
+    Foto {
+        varchar20 Artikelnummer PK
+        bytea Daten
+        text MimeType
+        integer Groesse
+        timestamptz Geaendert
+    }
+
     lagerinventur {
         serial id PK
         integer user_id FK
@@ -134,6 +142,8 @@ erDiagram
 | `audit_log`    | Änderungsprotokoll              | `id`                | ~4.000+ Einträge   |
 | `app_users`    | Anwendungsbenutzer              | `id` (UK: `username`) | Wenige Einträge  |
 | `lagerinventur` | Lager-Inventur-Entwürfe (gezählte Stückzahlen pro Benutzer) | `id` | Wenige Einträge |
+| `Foto`         | Bilddaten der Schmuckstück-Fotos | `Artikelnummer` (Basisnummer) | ein Foto je Basis-Artikelnummer |
+| `bestellung_foto` | Referenzfotos aus dem Bestellformular | `datei_name` (= `bestellung.foto_pfad`) | wenige |
 
 ### Beziehungen (Foreign Keys)
 
@@ -192,6 +202,7 @@ erDiagram
 - **Ausschuss**: SMALLINT (0 = kein Ausschuss, 1 = aussortiert); bei Ausschuss=1 muss `Ausschuss_Grund` gesetzt sein
 - **audit_log**: automatisches Änderungsprotokoll via DB-Trigger (überwacht: Verkauft, Ausgelagert, Ausschuss, Ausschuss_Grund, Lieferschein_ID, Rechnung_ID)
 - **audit_log Tamper-Schutz** (Issue #139): `trg_audit_log_immutable` blockiert jedes UPDATE/DELETE auf `audit_log`; `trg_audit_log_hash_chain` verkettet jede Zeile per SHA-256 mit dem Hash der Vorgängerzeile (`previous_hash`/`hash`). Kette prüfen: `SELECT * FROM verify_audit_chain();` oder `GET /api/audit-log/verify` (admin). Details siehe `db/README.md`
+- **Foto / bestellung_foto** (Issue #208): Bilddaten als BYTEA in der Datenbank statt als Datei in `backend/src/assets/uploads/`. Eigene Tabellen, damit `SELECT *` auf `"Schmuckstück"` keine Bilddaten lädt. Schlüssel von `"Foto"` ist die **Basis-Artikelnummer** (`MHO123` gilt für `MHO123_1`, `MHO123_2`, …), deshalb kein FK auf `"Schmuckstück"`. Zugriff nur über `backend/src/utils/fotoService.js`. Die Spalte `"Schmuckstück"."Foto"` enthält nur noch den Verweis (Basisnummer bzw. alter Dateiname) und entfällt in einem Folge-Schritt
 - **lagerinventur**: speichert Inventur-Entwürfe pro Benutzer; `data` ist JSONB (`{ [artikelnummer]: anzahl }`); `status` ist `entwurf` oder `abgeschlossen`; FK auf `app_users.id`; Index auf `(user_id, status)`; wird via `db.js`-Startup-Migration angelegt
 ## WHERE Clause Builder (PFLICHT!)
 
@@ -455,7 +466,7 @@ GoldRegenDB_Web/
 │   │   └── logger.test.js
 │   ├── scripts/
 │   │   ├── dev-start.sh            # Startskript für Entwicklungs-Container
-│   │   └── sync-photo-column.js    # Hilfsskript: Foto-Spalte mit vorhandenen Dateien synchronisieren
+│   │   └── sync-photo-column.js    # Altlast bis zum Bilderimport (#209): Foto-Spalte mit Dateien in assets/uploads abgleichen
 │   └── src/
 │       ├── index.js                # Express Entry-Point
 │       ├── config/
@@ -482,6 +493,7 @@ GoldRegenDB_Web/
 │           ├── artikelBezeichnung.js  # Positionstexte/Kategorie für Excel und E-Rechnung
 │           ├── eRechnung/          # EN 16931: modell.js (DB → BT-Modell, Pflichtfelder), cii.js (XML),
 │           │                       #   validator.js (XSD + Schematron), zugferdPdf.js (PDF/A-3), verkaeufer.js
+│           ├── fotoService.js      # Fotos in der DB (Tabellen Foto, bestellung_foto): Magic Bytes, Upsert, ETag
 │           ├── whereClauseBuilder.js  # WHERE-Clause-Builder für konsistente Schmuckstück-Queries
 │           ├── WHERE_BUILDER.md    # Dokumentation des WHERE-Clause-Builders
 │           └── logger.js           # Strukturiertes Logging mit Zeitstempel und Komponenten-Prefix
@@ -598,8 +610,8 @@ Siehe vollständige Liste in `index.css` (Abschnitt "DOCUMENTMANAGER STYLES" und
 | GET     | `/api/schmuckstuecke/filter-options` | Verfügbare Filter-Optionen (Art, Farbe usw.) |
 | GET     | `/api/schmuckstuecke/unique-artikelnummern` | Eindeutige Basis-Artikelnummern (ohne Suffix, für Inventur-Zählung) |
 | GET/PUT/DELETE | `/api/schmuckstuecke/:artikelnummer` | Schmuckstück-Detail, bearbeiten, löschen |
-| POST    | `/api/schmuckstuecke/upload` | Foto hochladen (multer, max. 5 MB, jpg/png/gif) |
-| GET     | `/api/schmuckstuecke/foto/:fileName` | Foto abrufen                |
+| POST    | `/api/schmuckstuecke/upload?artikelnummer=` | Foto hochladen (max. 5 MB, jpg/png/gif per Magic Bytes) – speichert in Tabelle `Foto` unter der Basis-Artikelnummer |
+| GET     | `/api/schmuckstuecke/foto/:fileName` | Foto der Basis-Artikelnummer abrufen (ETag aus `Geaendert`, 304 bei `If-None-Match`) |
 | DELETE  | `/api/schmuckstuecke/foto/:fileName` | Foto löschen                |
 | GET/POST | `/api/lieferscheine`   | Lieferscheine abrufen / anlegen       |
 | GET/PUT/DELETE | `/api/lieferscheine/:id` | Lieferschein-Detail, bearbeiten, löschen |
@@ -714,7 +726,8 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
 
 ### Export
 - Endpunkt: `GET /api/backup/export`
-- Erzeugt JSON-Datei mit alle Tabellen (Kunde, Lieferschein, Rechnung, Schmuckstück)
+- Erzeugt JSON-Datei mit allen Tabellen (aus `pg_class` ermittelt), inklusive der Fotos in `Foto`/`bestellung_foto`
+- BYTEA-Werte (Fotos, verschlüsselte Kundenfelder) als `{ "type": "Buffer", "base64": "..." }`; der Import liest auch die ältere Form `{ "type": "Buffer", "data": [...] }`
 - Format: Standard-Backup mit `version`, `timestamp` und `tables`-Property
 
 ### Import
@@ -971,7 +984,7 @@ Siehe auch: `/frontend/src/pages/DocumentManager.jsx`
 - [x] Export-Funktionen (Excel via exceljs)
 - [x] SumUp CSV-Export verfügbarer Schmuckstücke
 - [x] SumUp CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
-- [x] Foto-Upload für Schmuckstücke (Drag & Drop, Vorschau; gespeichert in `backend/src/assets/uploads/`)
+- [x] Foto-Upload für Schmuckstücke (Drag & Drop, Vorschau; gespeichert in der Tabelle `Foto`)
 - [x] Inventur-Übersicht: ausgelagerte Stücke pro Kunde mit Statistiken und Excel-Export
 - [x] Lager-Inventur-Entwürfe: Stückzahlen erfassen, speichern, abschließen und mit Lagerbestand vergleichen (bearbeiter)
 - [x] Datensicherung: Datenbank-Backup als JSON exportieren und importieren (Admin)
