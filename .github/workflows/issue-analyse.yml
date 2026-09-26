@@ -13,6 +13,8 @@ jobs:
     permissions:
       contents: read
       issues: write
+      pull-requests: read
+      id-token: write
 
     steps:
       - name: Repository auschecken
@@ -22,8 +24,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          trigger_phrase: ""
-          direct_prompt: |
+          prompt: |
             Analysiere das GitHub-Issue #${{ github.event.issue.number }} ("${{ github.event.issue.title }}") in diesem Repository.
 
             Gehe wie folgt vor:
@@ -34,4 +35,5 @@ jobs:
             5. Poste einen strukturierten Kommentar auf Deutsch mit den Abschnitten: "Einordnung", "Betroffene Bereiche", "Einschätzung", "Offene Fragen" (falls Angaben fehlen).
 
             Nimm KEINE Code-Änderungen vor und erstelle KEINE Pull Requests. Poste ausschließlich einen Analyse-Kommentar auf dem Issue.
-          allowed_tools: "Read,Grep,Glob"
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh pr list:*),Bash(gh issue comment:*)"
