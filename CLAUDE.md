@@ -193,7 +193,10 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   Namensauswertung: `utils/fotoDateiname.js`
 - **Kein Datei-Fallback** (#214): Fotos kommen nur aus der Datenbank, ohne
   Eintrag antwortet `GET /foto/:name` mit 404. Das frühere Upload-Verzeichnis
-  wird nicht mehr gelesen
+  wird nicht mehr gelesen, und die compose-Dateien binden kein Uploads-Volume
+  mehr ein
+- Der in #214 offene Punkt **Import-Limit** ist erledigt: Fotos laufen nicht
+  durch den JSON-Import (globales Body-Limit 100 MB), sondern über das Foto-ZIP
 
 ---
 

@@ -22,5 +22,5 @@
   // __tests__/ bewusst ausgeschlossen: die Tests haben kein @types/jest
   // (nicht Teil dieses Issues) und laufen unverändert über Jest/Babel, nicht tsc.
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/assets/uploads"]
+  "exclude": ["node_modules", "dist"]
 }

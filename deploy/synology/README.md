@@ -21,7 +21,7 @@
    ```
    `DB_PASSWORD`, `JWT_SECRET` und `BESTELLUNG_ENCRYPTION_KEY` erzeugen, z. B. mit
    `openssl rand -hex 32`. Solange ein Platzhalter drinsteht, startet das Backend nicht.
-   Sollen Daten, Backups und Fotos woanders liegen, `DATA_DIR` anpassen.
+   Sollen Daten und Backups woanders liegen, `DATA_DIR` anpassen.
 3. Starten:
    ```bash
    docker compose up -d
@@ -43,7 +43,7 @@ neu. `IMAGE_TAG` ist Pflicht – ohne startet Compose nicht.
 
 ## Hinweise
 
-- Datenbank, Backups und Fotos liegen unter `DATA_DIR` (`data/`, `backups/`, `uploads/`).
+- Datenbank und Backups liegen unter `DATA_DIR` (`data/`, `backups/`), die Fotos in der Datenbank.
 - Backup: `docker compose exec db /backup.sh`, Wiederherstellen siehe `db/restore.sh`.
 - Ohne vorgeschalteten Reverse Proxy läuft alles über unverschlüsseltes HTTP.
   HTTPS-Einrichtung: README.md im Repository, Abschnitt „HTTPS auf Synology“.

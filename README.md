@@ -30,7 +30,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 ## Features
 
 - **Schmuckstückverwaltung** – Erstellen, Bearbeiten, Filtern und Suchen mit 33 Attributen (Art, Material, Farbe, Maße, Preise …)
-- **Foto-Upload** – Drag & Drop mit Vorschau; gespeichert in `backend/src/assets/uploads/`
+- **Foto-Upload** – Drag & Drop mit Vorschau; gespeichert in der Datenbank, gesichert per Foto-ZIP (Datensicherung)
 - **Kundenverwaltung** – Einzelhandelspartner mit Provision und Auslagerungsstatus
 - **Lieferscheine & Rechnungen** – Erstellen und Verknüpfen mit Schmuckstücken
 - **Inventurübersicht** – ausgelagerte Stücke pro Kunde mit Excel-Export
@@ -145,7 +145,7 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
    ```
    | Variable | Bedeutung | Standard |
    |----------|-----------|----------|
-   | `DATA_DIR` | Wurzel für `data/` (Datenbank), `backups/` und `uploads/` (Fotos); fehlende Ordner legt Docker an | `/volume1/docker/goldregendb` |
+   | `DATA_DIR` | Wurzel für `data/` (Datenbank) und `backups/`; fehlende Ordner legt Docker an | `/volume1/docker/goldregendb` |
    | `IMAGE_TAG` | Version von `ghcr.io/revilo91/goldregendb` (ohne führendes `v`), Pflicht | Version des Pakets |
    | `APP_HOST_PORT` / `DB_HOST_PORT` | Ports auf der Synology | `3000` / `15432` |
 
@@ -157,6 +157,13 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
 5. Frontend aufrufen: `http://<synology-ip>:3000`, erster Login `admin` / `admin`
    (das Passwort muss danach geändert werden).
 
+> **Update von einer Version mit Uploads-Ordner:** Fotos liegen seit #208 in der
+> Datenbank; der Ordner `uploads/` wird nicht mehr eingebunden. Seine Fotos übernimmt
+> der Bestandsimport (`npm run import:fotos -- --dir <ordner>`, #209), bis dahin zeigt
+> die Oberfläche keine Fotos. Beim ersten Start entfernt das Backend die alte Spalte
+> `"Schmuckstück"."Foto"` – der Import braucht sie nicht, er liest die Artikelnummer
+> aus dem Dateinamen. Den Ordner erst nach geprüftem Import löschen.
+
 **Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
 Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen
 (z. B. `./synology-update.sh 0.3.0`). Das Skript trägt die Version als `IMAGE_TAG` in die
@@ -166,7 +173,7 @@ Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausf
 `/volume1/docker/goldregendb/...`-Pfaden): Neue `docker-compose.yml` und `db/` über die alten
 Dateien kopieren, die `.env` bleibt, und `./synology-update.sh <version>` ausführen – ohne
 `IMAGE_TAG` in der `.env` startet Compose nicht mehr, einen Rückfall auf `latest` gibt es
-nicht. Ohne `DATA_DIR` gilt `/volume1/docker/goldregendb`, Datenbank, Backups und Fotos
+nicht. Ohne `DATA_DIR` gilt `/volume1/docker/goldregendb`, Datenbank und Backups
 werden also am bisherigen Ort weiterverwendet. Liegt die Compose-Datei nicht in
 `/volume1/docker/goldregendb`, `DATA_DIR` auf den bisherigen Ordner setzen und `db/`
 neben die Compose-Datei legen. Alte Pakete verwiesen außerdem auf einen Image-Tag mit

@@ -747,6 +747,7 @@ Die Backup-/Import-Funktionen in `backend/src/routes/backup.js` ermöglichen den
 - Upsert: Fotos im ZIP ersetzen vorhandene, alle anderen bleiben – ein abgebrochener Import lässt sich wiederholen
 - Übersprungen und im Job gemeldet (max. 100 Details, Rest im Log): unbekannter Pfad, > 5 MB, kein JPG/PNG/GIF. Datenbankfehler brechen den Job ab (`status: failed`)
 - Timeouts: Node beendet Requests nach `server.requestTimeout` (300 s), Reverse-Proxys oft früher – für große Uploads über langsame Leitungen dort anheben
+- Damit ist das Import-Limit aus #214 erledigt: Fotos gehen nicht durch den JSON-Import und sein Body-Limit von 100 MB
 
 ### Technische Details
 - Nutzt `information_schema.columns` um gültige Spalten zu ermitteln
