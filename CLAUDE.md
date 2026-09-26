@@ -190,7 +190,9 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   ein zweiter Lauf ändert nichts. Uneindeutige Namen, mehrere Dateien je Nummer
   und Fotos über 5 MB sind im Log mit „manuell“ markiert (`grep manuell <log>`):
   von Hand prüfen bzw. verkleinern, dann erneut importieren.
-  Namensauswertung: `utils/fotoDateiname.js`
+  Namensauswertung: `utils/fotoDateiname.js`. In Produktion läuft das Skript
+  per `docker compose run` im App-Image mit eingebundenem `uploads/`-Ordner
+  (Befehl im README, Update-Hinweis); der Release-Smoke-Test prüft genau das
 - **Kein Datei-Fallback** (#214): Fotos kommen nur aus der Datenbank, ohne
   Eintrag antwortet `GET /foto/:name` mit 404. Das frühere Upload-Verzeichnis
   wird nicht mehr gelesen, und die compose-Dateien binden kein Uploads-Volume
@@ -365,5 +367,5 @@ verschluckte Fehler, und 68 `alert()` verteilt über 11 Dateien. Jetzt gilt:
 - **Frontend logs**: Browser DevTools console
 - **DB logs**: `docker compose -f docker-compose.dev.yml logs db`
 - **Health checks**: Backend has `/api/health` endpoint; frontend loads once backend is healthy
-- **JWT issues**: Middleware logs rejection reason; check localStorage for token in browser
+- **JWT issues**: Middleware logs rejection reason; im Browser das httpOnly-Cookie `jwt` prüfen (DevTools → Application → Cookies), nicht localStorage
 - **Photo upload fails**: 400 kommt aus der Magic-Byte-/Größenprüfung in `utils/fotoService.js`; Bilddaten stehen in der Tabelle `"Foto"`
