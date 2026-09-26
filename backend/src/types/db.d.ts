@@ -203,6 +203,25 @@ export interface BestellungRow {
   aktualisiert_am: Date;
 }
 
+// ── Foto / bestellung_foto (Issue #208) ──────────────────────────────────────
+
+// Schlüssel ist die Basis-Artikelnummer (ohne _Suffix).
+export interface FotoRow {
+  Artikelnummer: string;
+  Daten: Buffer;
+  MimeType: string;
+  Groesse: number;
+  Geaendert: Date;
+}
+
+export interface BestellungFotoRow {
+  datei_name: string;
+  daten: Buffer;
+  mime_type: string;
+  groesse: number;
+  geaendert: Date;
+}
+
 export interface BestellungConsentRow {
   id: number;
   kunde_id: number;

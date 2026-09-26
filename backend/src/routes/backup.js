@@ -357,18 +357,24 @@ function ermittleKaskade(kanten, ausgewaehlt) {
   return [...betroffen].filter((t) => !ausgewaehlt.includes(t)).sort();
 }
 
-// `bytea` kommt aus pg als Buffer und landet in JSON als
-// {"type":"Buffer","data":[...]}. Beim Import ist das ein Objekt, kein Puffer –
-// die verschlüsselten Bestellkunden-Felder (name_enc, telefonnummer_enc, …)
-// kämen als JSON-Text in der Spalte an. Hier zurück in einen Buffer.
+// `bytea` kommt aus pg als Buffer. Buffer.toJSON() ergibt
+// {"type":"Buffer","data":[...]} – eine Zahl samt Komma je Byte, für die Fotos
+// in "Foto"/bestellung_foto (Issue #208) rund das Vierfache der Bildgröße.
+// Der Export schreibt deshalb {"type":"Buffer","base64":"..."}.
+function dbWertZuJson(wert) {
+  return Buffer.isBuffer(wert)
+    ? { type: "Buffer", base64: wert.toString("base64") }
+    : wert;
+}
+
+// Beim Import ist ein Buffer ein Objekt, kein Puffer – die verschlüsselten
+// Bestellkunden-Felder (name_enc, telefonnummer_enc, …) und Fotos kämen als
+// JSON-Text in der Spalte an. Hier zurück in einen Buffer; ältere Backups
+// enthalten noch die data-Form.
 function jsonWertZuDb(wert) {
-  if (
-    wert &&
-    typeof wert === "object" &&
-    wert.type === "Buffer" &&
-    Array.isArray(wert.data)
-  ) {
-    return Buffer.from(wert.data);
+  if (wert && typeof wert === "object" && wert.type === "Buffer") {
+    if (typeof wert.base64 === "string") return Buffer.from(wert.base64, "base64");
+    if (Array.isArray(wert.data)) return Buffer.from(wert.data);
   }
   return wert;
 }
@@ -555,7 +561,11 @@ router.get("/export", async (req, res) => {
         `SELECT ${selectListe(table, spalten)} FROM "${table}"` +
           orderByPk(table, primaerschluessel),
       );
-      exportData.tables[table] = result.rows;
+      exportData.tables[table] = result.rows.map((row) =>
+        Object.fromEntries(
+          Object.entries(row).map(([k, v]) => [k, dbWertZuJson(v)]),
+        ),
+      );
     }
 
     const formattedTimestamp = new Date()

@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validateDatenminimierung, insertBestellung } = require('../utils/bestellungService');
-const { speichereBestellungFoto } = require('../utils/bestellungFotoService');
+const { leseDataUrl, neuerBestellungFotoName, speichereFoto } = require('../utils/fotoService');
 const { validate } = require('../middleware/validate');
 const { bestellungPublicSchema } = require('../schemas');
 
@@ -110,10 +110,10 @@ router.post('/', validate(bestellungPublicSchema), async (req, res) => {
       return res.status(400).json({ error: 'Einwilligung zur Datenverarbeitung ist erforderlich' });
     }
 
-    let fotoPfad = null;
+    let fotoDaten = null;
     if (foto) {
       try {
-        fotoPfad = speichereBestellungFoto(foto);
+        fotoDaten = leseDataUrl(foto);
       } catch (fotoErr) {
         return res.status(400).json({ error: fotoErr.message });
       }
@@ -122,6 +122,10 @@ router.post('/', validate(bestellungPublicSchema), async (req, res) => {
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE bestellung IN SHARE ROW EXCLUSIVE MODE');
+
+    // In derselben Transaktion wie die Bestellung: ein Rollback hinterlässt kein verwaistes Foto.
+    const fotoPfad = fotoDaten ? neuerBestellungFotoName() : null;
+    if (fotoDaten) await speichereFoto(client, 'bestellung', fotoPfad, fotoDaten.buffer);
 
     const { bestellungRow } = await insertBestellung(client, {
       versandart,

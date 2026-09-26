@@ -309,8 +309,8 @@ export const api = {
     const formData = new FormData();
     formData.append('foto', file);
     const qs = new URLSearchParams({ artikelnummer }).toString();
-    // Das Backend legt die Datei unter der Basis-Artikelnummer ab, überschreibt
-    // also den bisherigen Dateinamen – der Cache-Eintrag muss deshalb weg.
+    // Das Backend speichert das Foto unter der Basis-Artikelnummer und ersetzt
+    // damit ein vorhandenes – der Cache-Eintrag muss deshalb weg.
     vergissFoto(artikelnummer);
     return request(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },

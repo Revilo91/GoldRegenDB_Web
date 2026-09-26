@@ -64,7 +64,7 @@ cd backend
 npm run dev        # Start with hot reload (node --watch)
 npm start          # Start production
 npm test           # Jest tests in __tests__/**/*.test.js
-npm run sync:fotos # Sync photo column with filesystem
+npm run sync:fotos # Altlast bis #209: Foto-Spalte mit assets/uploads abgleichen
 ```
 
 ### Frontend (React + Vite)
@@ -160,10 +160,19 @@ See `backend/src/utils/WHERE_BUILDER.md` for full API.
 All styles go in `frontend/src/index.css` as class definitions. Avoid style props entirely.
 
 ### 3. Photo Upload & Assets
-- Photos stored in: `backend/src/assets/uploads/`
-- Max size: 5 MB (jpg/png/gif)
-- Multer configured in schmuckstuecke.js route
-- Sync script: `npm run sync:fotos` (updates photo paths if files move)
+- Fotos liegen **in PostgreSQL** (Issue #208): Tabelle `"Foto"` (Schmuckstücke,
+  Schlüssel = Basis-Artikelnummer, `MHO123` gilt für `MHO123_1`, `MHO123_2`) und
+  `bestellung_foto` (Bestellformular, Schlüssel = `bestellung.foto_pfad`)
+- Lesen/Schreiben nur über `backend/src/utils/fotoService.js`; eigene Tabellen,
+  damit Listenabfragen keine BYTEA-Daten laden – Listen prüfen per `EXISTS`
+- Max size: 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Endung
+- Upload: `multer.memoryStorage()` in schmuckstuecke.js; Auslieferung mit ETag
+  aus `Geaendert` und `Cache-Control: private, max-age=60`
+- Backup/Restore enthält die Fotos (JSON-Export, BYTEA base64-kodiert)
+- **Übergang bis zum Bilderimport (#209):** noch nicht importierte Dateien in
+  `backend/src/assets/uploads/` werden weiter ausgeliefert. Spalte
+  `"Schmuckstück"."Foto"`, Uploads-Volume und `npm run sync:fotos` entfallen in
+  einem eigenen Folge-Schritt
 
 ---
 
@@ -246,6 +255,7 @@ is written to the backend log for an admin to hand over.
 | **Excel export** | `backend/src/utils/excelService.js` (generateExcel, generateInventurExcel) |
 | **Logging** | `backend/src/utils/logger.js` (structured logs with timestamp & component prefix) |
 | **Password hashing** | `backend/src/utils/passwordService.js` (bcrypt; legacy-hash migration) |
+| **Fotos** | `backend/src/utils/fotoService.js` (Tabellen `"Foto"`, `bestellung_foto`) |
 | **Comprehensive docs** | `.github/copilot-instructions.md` (schema, API endpoints, docker details, migrations) |
 
 ---
@@ -333,4 +343,4 @@ verschluckte Fehler, und 68 `alert()` verteilt über 11 Dateien. Jetzt gilt:
 - **DB logs**: `docker compose -f docker-compose.dev.yml logs db`
 - **Health checks**: Backend has `/api/health` endpoint; frontend loads once backend is healthy
 - **JWT issues**: Middleware logs rejection reason; check localStorage for token in browser
-- **Photo upload fails**: Check permissions on `backend/src/assets/uploads/` and `image-size` validation
+- **Photo upload fails**: 400 kommt aus der Magic-Byte-/Größenprüfung in `utils/fotoService.js`; Bilddaten stehen in der Tabelle `"Foto"`
