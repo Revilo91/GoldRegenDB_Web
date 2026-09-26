@@ -129,4 +129,13 @@ describe('importiereFotos', () => {
     expect(zeilen[0]).toBe('MBH004_MBH005.jpg\tmehrere Artikelnummern im Namen\tMBH004, MBH005');
     expect(zeilen[1]).toBe('MEH.jpg\tkeine Artikelnummer im Namen\t');
   });
+
+  it('markiert Varianten, Duplikate und zu große Fotos als manuell nachzubearbeiten', async () => {
+    const client = mockClient({ schmuckstuecke: bekannt });
+    const manuell = logZeilen(await importiereFotos({ client, dir }))
+      .filter((z) => z.includes('manuell'))
+      .map((z) => z.split('\t')[0]);
+    expect(manuell).toEqual(expect.arrayContaining(['MBH002_2.jpg', 'MBH003.png', 'MBH008.jpg']));
+    expect(manuell).not.toContain('MEH.jpg');
+  });
 });

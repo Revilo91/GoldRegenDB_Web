@@ -184,7 +184,10 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   in `import-fotos-<datum>.log` gelistet werden: mehrere Nummern im Namen, keine
   Nummer, sonstiger Rest im Namen (`MBH004-2`), mehrere Dateien je Nummer, unbekannte Nummer, vorhandenes Foto (außer
   `--overwrite`), > 5 MB, kein gültiges Bild. Unterordner werden nicht gelesen;
-  ein zweiter Lauf ändert nichts. Namensauswertung: `utils/fotoDateiname.js`
+  ein zweiter Lauf ändert nichts. Uneindeutige Namen, mehrere Dateien je Nummer
+  und Fotos über 5 MB sind im Log mit „manuell“ markiert (`grep manuell <log>`):
+  von Hand prüfen bzw. verkleinern, dann erneut importieren.
+  Namensauswertung: `utils/fotoDateiname.js`
 - **Übergang bis zum Bilderimport (#209):** noch nicht importierte Dateien in
   `backend/src/assets/uploads/` werden weiter ausgeliefert. Spalte
   `"Schmuckstück"."Foto"`, Uploads-Volume und `npm run sync:fotos` entfallen in

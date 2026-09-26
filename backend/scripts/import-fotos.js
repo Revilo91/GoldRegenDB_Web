@@ -16,16 +16,17 @@ const { analysiereDateiname } = require("../src/utils/fotoDateiname");
 const KOMPONENTE = "IMPORT-FOTOS";
 const AUFRUF = "npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]";
 
-// Reihenfolge = Reihenfolge in Zusammenfassung und Log-Datei.
+// Reihenfolge = Reihenfolge in Zusammenfassung und Log-Datei. "manuell" markiert
+// Dateien, die jemand von Hand nachbearbeitet (grep manuell <log>).
 const GRUENDE = {
   mehrere: "mehrere Artikelnummern im Namen",
   ohneNummer: "keine Artikelnummer im Namen",
-  unklar: "Name nicht eindeutig",
+  unklar: "Name nicht eindeutig – manuell prüfen",
   endung: "unerlaubte Endung",
-  duplikat: "mehrere Dateien für dieselbe Artikelnummer",
+  duplikat: "mehrere Dateien für dieselbe Artikelnummer – manuell prüfen",
   existiertNicht: "Artikelnummer existiert nicht",
   vorhanden: "Foto bereits vorhanden",
-  zuGross: "größer als 5 MB",
+  zuGross: "größer als 5 MB – manuell verkleinern, dann erneut importieren",
   keinBild: "keine gültigen Bilddaten",
 };
 
