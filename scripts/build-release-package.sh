@@ -35,6 +35,7 @@ mkdir -p "$AUSGABE/$NAME/db"
 cp "$COMPOSE" "$AUSGABE/$NAME/docker-compose.yml"
 sed "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" "$VORLAGE/.env.example" > "$AUSGABE/$NAME/.env.example"
 cp "$VORLAGE/README.md" "$AUSGABE/$NAME/README.md"
+cp "$REPO/scripts/synology-update.sh" "$AUSGABE/$NAME/"
 cp "$REPO/db/init.sql" "$REPO/db/backup.sh" "$REPO/db/restore.sh" "$AUSGABE/$NAME/db/"
 
 (cd "$AUSGABE" && zip -qr "$NAME.zip" "$NAME")
