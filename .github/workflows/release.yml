@@ -106,7 +106,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Image laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: image
           path: ${{ runner.temp }}
@@ -115,7 +115,7 @@ jobs:
         run: docker load -i "$RUNNER_TEMP/image.tar"
 
       - name: Paket laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: synology-paket
           path: ${{ runner.temp }}/paket
@@ -133,7 +133,7 @@ jobs:
 
     steps:
       - name: Image laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: image
           path: ${{ runner.temp }}
@@ -165,7 +165,7 @@ jobs:
 
     steps:
       - name: Paket laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: synology-paket
 
