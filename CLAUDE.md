@@ -179,6 +179,11 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   `POST /api/backup/import-fotos-zip` übernimmt per Upsert als Hintergrund-Job
   (Fortschritt: `GET /api/backup/import-fotos-jobs/:id`). Der JSON-Export
   überspringt `"Foto"`/`bestellung_foto`, der JSON-Import fasst sie nicht an
+- **SQL-Dump:** `GET /api/backup/export-sql` schreibt dieselben Tabellen wie der
+  JSON-Export als COPY-Blöcke (alle Spalten `::text`, ein REPEATABLE-READ-Snapshot).
+  Beim Import liest `frontend/src/utils/sqlDump.js` nur die COPY-Blöcke eines
+  pg_dump/pg_dumpall in das JSON-Format und schickt sie an `POST /api/backup/import`
+  – aus der Datei wird nie SQL ausgeführt
 - Großer ZIP-Upload über langsame Leitung: Node bricht Requests nach
   `server.requestTimeout` (Standard 300 s) ab, ein Reverse-Proxy oft früher –
   dort ggf. Timeout und Body-Limit anheben
