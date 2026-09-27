@@ -9,6 +9,7 @@ import {
   faDownload,
   faFolderOpen,
   faImages,
+  faDatabase,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
@@ -208,7 +209,7 @@ export default function Datensicherung() {
   };
 
   // --- Export ---
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     if (exportSelected.length === 0) {
       setExportError("Bitte mindestens eine Tabelle auswählen.");
       return;
@@ -217,6 +218,11 @@ export default function Datensicherung() {
     setExportError(null);
     try {
       const formattedDate = new Date().toISOString().slice(0, 10);
+      if (format === "sql") {
+        const blob = await api.exportBackupSql(exportSelected);
+        triggerDownload(blob, `goldregendb_dump_${formattedDate}.sql`);
+        return;
+      }
       const blob = await api.exportBackup(exportSelected);
       triggerDownload(blob, `goldregendb_backup_${formattedDate}.json`);
     } catch (err) {
@@ -436,18 +442,26 @@ export default function Datensicherung() {
               {exportError}
             </div>
           )}
-          <button
-            className="btn btn-primary"
-            onClick={handleExport}
-            disabled={exporting || exportSelected.length === 0}>
-            {exporting ? (
-              "Exportiere…"
-            ) : (
-              <>
-                <FontAwesomeIcon icon={faDownload} /> Backup herunterladen
-              </>
-            )}
-          </button>
+          <div className="datensicherung-knoepfe">
+            <button
+              className="btn btn-primary"
+              onClick={() => handleExport("json")}
+              disabled={exporting || exportSelected.length === 0}>
+              {exporting ? (
+                "Exportiere…"
+              ) : (
+                <>
+                  <FontAwesomeIcon icon={faDownload} /> Backup herunterladen
+                </>
+              )}
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => handleExport("sql")}
+              disabled={exporting || exportSelected.length === 0}>
+              <FontAwesomeIcon icon={faDatabase} /> Als SQL-Dump herunterladen
+            </button>
+          </div>
 
           <div className="datensicherung-abschnitt">
             <p>

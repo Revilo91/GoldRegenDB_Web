@@ -37,7 +37,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 - **SumUp-Integration** – CSV-Export verfügbarer Stücke; CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
 - **Dashboard** – Statistiken zu Gesamtbestand, Auslagerungen, Verkäufen und Umsatz
 - **Audit-Log** – automatisches Änderungsprotokoll über DB-Trigger
-- **Datensicherung** – JSON-Export und -Import aller Tabellen, Import auch aus SQL-Dumps (Admin)
+- **Datensicherung** – Export und Import aller Tabellen als JSON oder SQL-Dump (Admin)
 - **Benutzerverwaltung** – JWT-Authentifizierung mit drei Rollen (Admin)
 - **API-Dokumentation** – Swagger-UI unter `/api-docs` (nur Admin; standardmäßig außerhalb Produktion aktiv, siehe `ENABLE_API_DOCS`)
 
@@ -437,7 +437,11 @@ Unter **Einstellungen → Datensicherung** können alle Tabellen als JSON export
 (Standardformat mit `COPY`, nicht `--inserts`). Gelesen werden nur die Daten;
 Rollen, Passwörter und Schema-Anweisungen im Dump werden ignoriert, Spalten, die
 es im aktuellen Schema nicht mehr gibt (z. B. das alte `"Schmuckstück"."Foto"`),
-ebenfalls. Fotos stehen nicht im Dump, dafür gibt es das Foto-ZIP.
+ebenfalls. Der Export bietet zusätzlich **„Als SQL-Dump herunterladen“**: eine
+reine Daten-Datei (TRUNCATE, COPY, setval in einer Transaktion), die sich über
+die Oberfläche oder per `psql -v ON_ERROR_STOP=1 -d <datenbank> -f <datei>` in
+eine Datenbank mit aktuellem Schema einspielen lässt. Fotos stehen weder im
+JSON noch im SQL-Dump, dafür gibt es das Foto-ZIP.
 
 ---
 
