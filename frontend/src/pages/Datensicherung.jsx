@@ -12,6 +12,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
+import { parseSqlDump } from "../utils/sqlDump";
 
 // Nur die deutschen Beschriftungen stehen hier – welche Tabellen es gibt,
 // liefert GET /api/backup/tables aus dem Systemkatalog (Befund B18). Die
@@ -236,12 +237,20 @@ export default function Datensicherung() {
     setImportError(null);
 
     let data;
-    try {
-      const text = await file.text();
-      data = JSON.parse(text);
-    } catch {
-      setImportError("Datei ist kein gültiges JSON");
-      return;
+    if (/\.sql$/i.test(file.name)) {
+      try {
+        data = parseSqlDump(await file.text());
+      } catch (err) {
+        setImportError(`SQL-Dump nicht lesbar: ${err.message}`);
+        return;
+      }
+    } else {
+      try {
+        data = JSON.parse(await file.text());
+      } catch {
+        setImportError("Datei ist kein gültiges JSON");
+        return;
+      }
     }
 
     // Detect which tables are present in the backup
@@ -466,8 +475,11 @@ export default function Datensicherung() {
           {!pendingImport ? (
             <>
               <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
-                Wählen Sie eine Backup-Datei aus. Sie können danach auswählen,
-                welche Tabellen wiederhergestellt werden sollen.
+                Wählen Sie eine Backup-Datei aus (JSON-Backup oder SQL-Dump
+                aus <code>pg_dump</code>/<code>pg_dumpall</code>). Sie können
+                danach auswählen, welche Tabellen wiederhergestellt werden
+                sollen. Aus einem SQL-Dump werden nur die Daten übernommen,
+                keine Schema-Anweisungen.
               </p>
 
               {importResult && (
@@ -520,13 +532,14 @@ export default function Datensicherung() {
                 htmlFor="import-file"
                 className="btn btn-secondary"
                 style={{ cursor: "pointer" }}>
-                <FontAwesomeIcon icon={faFolderOpen} /> Backup-Datei wählen
+                <FontAwesomeIcon icon={faFolderOpen} /> Backup-Datei oder
+                SQL-Dump wählen
               </label>
               <input
                 id="import-file"
                 ref={fileInputRef}
                 type="file"
-                accept=".json,application/json"
+                accept=".json,application/json,.sql,application/sql"
                 onChange={handleFileChange}
                 style={{ display: "none" }}
               />
