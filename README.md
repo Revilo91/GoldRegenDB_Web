@@ -171,6 +171,12 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
 > ```
 > `grep manuell uploads/import-fotos.log` zeigt Dateien zum Nacharbeiten; ein zweiter Lauf
 > überspringt bereits importierte Fotos. Den Ordner erst nach geprüftem Import löschen.
+>
+> Liegen die Bilder verstreut in Unterordnern (z. B. auf dem Drive), sammelt
+> `npm run sammle:fotos -- --quelle <pfad|smb://…> --ziel <ordner> [--dry-run]` (im
+> Ordner `backend/`) sie vorher ein: Dateien direkt in der Quelle und in allen Ordnern
+> mit `_` am Anfang, nur Namen der Form `ABC123`. Uneindeutige Namen und gleichnamige
+> Dateien mit anderem Inhalt landen in `<ordner>/_manuell/`, das der Import nicht liest.
 
 **Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
 Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen

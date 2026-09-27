@@ -66,6 +66,8 @@ npm start          # Start production
 npm test           # Jest tests in __tests__/**/*.test.js
 npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
                    # Einmaliger Bestandsimport von Bildern in "Foto" (#209)
+npm run sammle:fotos -- --quelle <pfad|smb://…> --ziel <pfad> [--dry-run]
+                   # Sammelt Bilder mit Artikelnummer (Wurzel + _-Ordner) für den Import
 ```
 
 ### Frontend (React + Vite)
