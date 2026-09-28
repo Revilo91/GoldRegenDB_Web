@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
+const { belegSummen } = require('../utils/rabatt');
 const { validate } = require('../middleware/validate');
 const { lieferscheinSchema } = require('../schemas');
 
@@ -142,7 +143,11 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
-    res.json({ ...rows[0], schmuckstuecke: pieces.rows });
+    // #241: das Modal liest die Aufteilung aus summen (Befund G7), ohne sie
+    // blieb sie beim Lieferschein leer
+    const summen = await belegSummen(db, 'Lieferschein', req.params.id);
+
+    res.json({ ...rows[0], schmuckstuecke: pieces.rows, summen });
   } catch (err) {
     logger.error('LIEFERSCHEINE', 'Fehler beim Laden des Lieferscheins', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden des Lieferscheins' });

@@ -71,7 +71,10 @@ async function erstelleFotoZip(queryable, signal) {
     }
   }
 
-  const groesse = await new Promise((resolve) => zip.end(resolve));
+  // forceZip64Format: yazl 3.3.1 rechnet ab 64 KB Zentralverzeichnis den
+  // Zip64-Abschluss in die Größe ein, schreibt ihn aber nur bei > 4 GB. Die
+  // Content-Length war dann 76 Bytes zu groß und der Proxy lief in den Timeout.
+  const groesse = await new Promise((resolve) => zip.end({ forceZip64Format: true }, resolve));
   return { stream: zip.outputStream, anzahl, groesse };
 }
 

@@ -110,7 +110,7 @@ describe('GET /api/rechnungen/:id/excel', () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ gesamtwert: '0.00' }] }); // rechnungsSummen
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '0.00' }] }); // belegSummen
 
     const res = await request(buildApp()).get('/api/rechnungen/1/excel');
 

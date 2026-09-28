@@ -46,6 +46,9 @@ setze() {
 unzip -q "$ZIP" -d "$ARBEIT"
 PAKET="$(find "$ARBEIT" -mindepth 1 -maxdepth 1 -type d -name 'goldregendb-synology-*')"
 [ -f "$PAKET/docker-compose.yml" ] || fehler "kein goldregendb-synology-*/docker-compose.yml in $ZIP"
+for ordner in data backups uploads; do
+  [ -d "$PAKET/$ordner" ] || fehler "Ordner $ordner/ fehlt im Paket"
+done
 
 # Einmal-Secrets wie bei einer echten Installation. Hex, weil Compose das
 # Passwort unkodiert in DATABASE_URL einsetzt.
