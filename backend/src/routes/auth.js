@@ -384,7 +384,7 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res)
       return res.json(antwort);
     }
 
-    const { token, tokenHash, expiry } = erzeugeResetToken();
+    const { tokenHash, expiry } = erzeugeResetToken();
     await db.query(
       "UPDATE app_users SET reset_token_hash = $1, reset_token_expiry = $2 WHERE id = $3",
       [tokenHash, expiry, user.id],
