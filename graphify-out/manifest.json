@@ -75,7 +75,7 @@
     "semantic_hash": ""
   },
   "backend/src/index.js": {
-    "mtime": 1790539170.2299266,
+    "mtime": 1790621085.9634254,
     "ast_hash": "0b262fcc1a95a69167e8a330fe6d48df",
     "semantic_hash": "0b262fcc1a95a69167e8a330fe6d48df"
   },
@@ -165,8 +165,8 @@
     "semantic_hash": "507c803fdb5a61d47eeb7beaf8d3f341"
   },
   "backend/src/utils/whereClauseBuilder.js": {
-    "mtime": 1790619609.8175442,
-    "ast_hash": "ed396b1b1ba5208f7ef96d7f78da9088",
+    "mtime": 1790621711.1386032,
+    "ast_hash": "e0943e2696d9cfb193f9d3359c2491e0",
     "semantic_hash": ""
   },
   "db/backup.sh": {
@@ -230,9 +230,9 @@
     "semantic_hash": "66b1e9764dec184a643e366bfebdfe27"
   },
   "frontend/src/components/PhotoUpload.jsx": {
-    "mtime": 1790539170.3973362,
-    "ast_hash": "87331a939283a344d324a6c803b4debe",
-    "semantic_hash": "87331a939283a344d324a6c803b4debe"
+    "mtime": 1790621869.1919575,
+    "ast_hash": "31a54d6e979ec664a03da1f534b7e93f",
+    "semantic_hash": ""
   },
   "frontend/src/components/ProtectedRoute.jsx": {
     "mtime": 1774980026.6895766,
@@ -240,9 +240,9 @@
     "semantic_hash": "2bbe90f1c40137170fc4759955dd287a"
   },
   "frontend/src/components/SchmuckstueckModal.jsx": {
-    "mtime": 1790539170.402408,
-    "ast_hash": "78ed332a51fad798b376e9edd97ff1c5",
-    "semantic_hash": "78ed332a51fad798b376e9edd97ff1c5"
+    "mtime": 1790621893.9748502,
+    "ast_hash": "2e2840225402061fd2efac063200eaea",
+    "semantic_hash": ""
   },
   "frontend/src/components/TableToolbar.jsx": {
     "mtime": 1774980277.065885,
@@ -260,13 +260,13 @@
     "semantic_hash": "46a2701c38411a133f04851ca6e85788"
   },
   "frontend/src/pages/AuditLog.jsx": {
-    "mtime": 1790539170.4174078,
-    "ast_hash": "6e3ec66dc7dadb5e53ed991a4814511d",
-    "semantic_hash": "6e3ec66dc7dadb5e53ed991a4814511d"
+    "mtime": 1790621945.3593748,
+    "ast_hash": "de3fae9425858db19af26e769522403d",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Benutzerverwaltung.jsx": {
-    "mtime": 1790619280.7755828,
-    "ast_hash": "7823c0ca4d64f3da6ac19c1cc6136d72",
+    "mtime": 1790621911.5642908,
+    "ast_hash": "011a84459aa8f82b0e77a5a424f2716d",
     "semantic_hash": ""
   },
   "frontend/src/pages/Dashboard.jsx": {
@@ -280,23 +280,23 @@
     "semantic_hash": "4ea00faeea5edc016219d38710702dbd"
   },
   "frontend/src/pages/Debug.jsx": {
-    "mtime": 1790539170.4404078,
-    "ast_hash": "8c7366a5b98aa2fa298408e11a9a865f",
-    "semantic_hash": "8c7366a5b98aa2fa298408e11a9a865f"
+    "mtime": 1790621997.611009,
+    "ast_hash": "197a491ecb40a2bcffcee44702ee2787",
+    "semantic_hash": ""
   },
   "frontend/src/pages/DocumentManager.jsx": {
-    "mtime": 1790619829.3904822,
-    "ast_hash": "a2164fbac80f64d25ce4bf1efae1ed5d",
+    "mtime": 1790622020.481649,
+    "ast_hash": "3eeb961c5e47d39d5c38e19dc92a2154",
     "semantic_hash": ""
   },
   "frontend/src/pages/Inventur.jsx": {
-    "mtime": 1790539170.4524076,
-    "ast_hash": "c4e8d4689561abd9c67c339ae0276319",
-    "semantic_hash": "c4e8d4689561abd9c67c339ae0276319"
+    "mtime": 1790621918.6023967,
+    "ast_hash": "767fe652f760bfb3b9c3ad26f8052b35",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Kunden.jsx": {
-    "mtime": 1790619609.8375442,
-    "ast_hash": "b4b225189acd40634dfa7ddf5858cc2f",
+    "mtime": 1790621911.5624342,
+    "ast_hash": "0a53a5d3c379e3f3f738e1203325ad65",
     "semantic_hash": ""
   },
   "frontend/src/pages/Lieferscheine.jsx": {
@@ -315,14 +315,14 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/SchmuckstueckDetail.jsx": {
-    "mtime": 1790539170.4626608,
-    "ast_hash": "8a3421704977d3aed70aee166cd9b7d2",
-    "semantic_hash": "8a3421704977d3aed70aee166cd9b7d2"
+    "mtime": 1790621893.9753227,
+    "ast_hash": "7d071841afd44f67a7e5cc87c781e60d",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Schmuckstuecke.jsx": {
-    "mtime": 1790539170.4633842,
-    "ast_hash": "e80c99079206412b0b9e38862bffce59",
-    "semantic_hash": "e80c99079206412b0b9e38862bffce59"
+    "mtime": 1790621970.8889406,
+    "ast_hash": "1ecc1d5e60991f506b061d2da3a3d0a7",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Sumup.jsx": {
     "mtime": 1790539170.4633842,
@@ -730,9 +730,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Bestelluebersicht.jsx": {
-    "mtime": 1790539170.4274077,
-    "ast_hash": "f6eabf3f66aebe7114403cc29cf26e34",
-    "semantic_hash": "f6eabf3f66aebe7114403cc29cf26e34"
+    "mtime": 1790621911.567571,
+    "ast_hash": "6bd6d33b35ec68a45eeaab5478133291",
+    "semantic_hash": ""
   },
   "frontend/src/pages/BestellungPublic.jsx": {
     "mtime": 1789324086.7083251,
@@ -885,9 +885,9 @@
     "semantic_hash": ""
   },
   "frontend/src/__tests__/SchmuckstueckModal.test.jsx": {
-    "mtime": 1790539170.3620014,
-    "ast_hash": "385a932886ab1dc0075f9a32c09464d7",
-    "semantic_hash": "385a932886ab1dc0075f9a32c09464d7"
+    "mtime": 1790622067.7942955,
+    "ast_hash": "2a40a06341ed190865e2d1267a072ef1",
+    "semantic_hash": ""
   },
   ".github/ISSUE_TEMPLATE/bug_report.yml": {
     "mtime": 1790539170.1194096,
@@ -985,9 +985,9 @@
     "semantic_hash": "0e99b510b5110a16d69425e16db1dfdb"
   },
   "frontend/src/components/TablePhoto.jsx": {
-    "mtime": 1790539170.403408,
-    "ast_hash": "433ae238c4d719b975df835c0c879af7",
-    "semantic_hash": "433ae238c4d719b975df835c0c879af7"
+    "mtime": 1790621857.8023276,
+    "ast_hash": "29cf4756cf87c77eee1c7c6fadfb8be3",
+    "semantic_hash": ""
   },
   "frontend/src/components/Toast.jsx": {
     "mtime": 1790539170.403408,
@@ -8850,8 +8850,13 @@
     "semantic_hash": ""
   },
   "docs/ARCHITEKTUR.md": {
-    "mtime": 1790619990.2064352,
-    "ast_hash": "644cdba5b7cb8c9961da2dc4867ea3c3",
+    "mtime": 1790622110.940416,
+    "ast_hash": "e556a31d15c198967781f44c8a8aa673",
+    "semantic_hash": ""
+  },
+  "frontend/src/hooks/useFoto.js": {
+    "mtime": 1790621849.9150243,
+    "ast_hash": "510a1963c0d7705dd102bf242c5f58cc",
     "semantic_hash": ""
   }
 }
