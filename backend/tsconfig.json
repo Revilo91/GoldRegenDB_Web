@@ -3,8 +3,8 @@
     // Laufzeit ist Node 22 (siehe .nvmrc, Dockerfile: node:22-alpine).
     "target": "ES2023",
     "lib": ["ES2023"],
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "node16",
+    "moduleResolution": "node16",
 
     // Typprüfung ohne Build: der Produktions-Start bleibt `node src/index.js`
     // (kein tsc-Kompilierschritt, kein dist/). Siehe TYPESCRIPT.md.
