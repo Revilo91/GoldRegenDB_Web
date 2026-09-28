@@ -23,9 +23,77 @@ Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Re
 
 ## Projektübersicht
 
-**GoldRegenDB** ist ein webbasiertes Lagerverwaltungssystem für handgefertigten Schmuck. Stack: PostgreSQL, Node.js/Express (Backend), React 19 (Frontend), alles containerisiert mit Docker.
+**GoldRegenDB** ist ein webbasiertes Warenwirtschaftssystem für zwei Schmuckhandwerkerinnen (Marina `M` und Saskia `S`). Stack: PostgreSQL, Node.js/Express (Backend), React 19 (Frontend), alles containerisiert mit Docker.
 
-**Detaillierte Architektur, Schema, API-Endpunkte und Styling-Regeln**: Siehe `.github/copilot-instructions.md`.
+**Detaillierte Architektur, Schema, API-Endpunkte und Styling-Regeln**: Siehe `.github/copilot-instructions.md`.  
+**Vollständige Architekturdokumentation** (Schema, alle Routes, Sicherheit, Befunde): Siehe `docs/ARCHITEKTUR.md`.
+
+---
+
+## Geschäftslogik
+
+### Kernprozess
+
+Die Handwerkerinnen fertigen Schmuck, lagern ihn bei Einzelhandelspartnern (Läden, Messen, Online) aus und rechnen verkaufte Stücke per Rechnung ab:
+
+```
+Stück anlegen → Lieferschein (an Händler übergeben) → Inventur → Rechnung (Abrechnung) → Stück als verkauft markiert
+                                                                                         ↗
+                                                        oder: Stück zurücklagern (restock) → wieder verfügbar
+```
+
+### Artikelnummern-Format
+
+```
+[Hersteller][Grundmaterial][Produktart][Laufnummer][_Suffix]
+
+Hersteller:    M = Marina,  S = Saskia
+Grundmaterial: A=Alkoholtinte  B=Beton  C=Cucio  E=Edelstahl  F=Fimo  H=Harz
+               I=Phiole  J=Papier  K=Kordel  L=Leder  M=Makramee  N=Naturstein
+               P=Perle  S=Schrumpffolie  W=Holz  X=3D-Druck  Y=Cabochon
+Produktart:    A=Armband  H=Halskette  O=Ohrring  S=Schlüsselanhänger
+
+MHO123_1  →  Marina, Harz, Ohrring, Nr. 123, Exemplar 1
+MBA234_2  →  Marina, Beton, Armband, Nr. 234, Exemplar 2
+```
+
+Fotos werden unter der **Basis-Artikelnummer** gespeichert (`MHO123` gilt für `MHO123_1`, `MHO123_2`, …).
+
+### Status-System (kritische Geschäftslogik)
+
+Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammengesetzt:
+
+| Status | Bedingung | Bedeutung |
+|--------|-----------|-----------|
+| **Im Lager** | `Ausgelagert=0, Verkauft=F, Ausschuss=F` | Bereit zum Auslagern/Verkauf |
+| **Aktiv ausgelagert** | `Ausgelagert>0, Verkauft=F, Ausschuss=F` | Physisch bei Kunde X |
+| **Verkauft** | `Verkauft=T, Ausschuss=F` | Verkauft, Rechnung zugeordnet |
+| **Ausschuss** | `Ausschuss=T` | Aussortiert (Grund in `Ausschuss_Grund`) |
+
+`Ausgelagert` ist keine Boolean, sondern die **Kunden-ID** (`0` = Lager, `>0` = bei diesem Kunden).
+
+**Pflicht:** Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden — niemals WHERE-Klauseln für Status manuell schreiben.
+
+### Rabatt-Formel (zentral in `utils/rabatt.js`)
+
+```
+Gesamtwert       = Σ( Einzelpreis × (1 − Positionsrabatt%) )
+− Gesamtrabatt   = Gesamtwert × Gesamtrabatt%
+− Provision      = (Gesamtwert − Gesamtrabatt) × Provision%
+= Überweisung
+```
+
+Positionsrabatt (`rabatt_positionen` JSONB) gilt je **Basis-Artikelnummer**; Gesamtrabatt (`rabatt_gesamt` NUMERIC) gilt für den ganzen Beleg. Provision ist eine Eigenschaft des Kunden.
+
+**Immer `preisNachAllenRabattenSql()` / `belegSummen()` aus `rabatt.js` nutzen** — nie eigene Berechnungen schreiben. Dashboard, Inventur und DocumentManager verwenden dieselbe Formel.
+
+### Besondere Features
+
+- **E-Rechnung** (XRechnung 3.0 / ZUGFeRD 2.0): EU-konforme Rechnungen, Offline-Validierung, Kleinunternehmer §19 UStG (0 % MwSt.)
+- **Audit-Log mit Hash-Kette**: Jede Statusänderung wird per SHA-256 unveränderbar verkettet (Trigger blockiert DELETE/UPDATE auf `audit_log`)
+- **DSGVO-Bestellformular**: Öffentliches Formular, Kundendaten AES-256-GCM verschlüsselt, Anonymisierung auf Anfrage
+- **SumUp-Import**: CSV aus SumUp-Kartenlesegerät kann als Lieferschein/Rechnung importiert werden
+- **Foto-Backup als ZIP**: Fotos (~1,6 GB) laufen über eigene Route (`/api/backup/export-fotos`), nicht den JSON-Export
 
 ---
 
