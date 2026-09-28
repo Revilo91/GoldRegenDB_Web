@@ -64,12 +64,6 @@ const DebugTable = ({ tableName }) => {
   // Track which cell is currently being edited: { rowIndex, columnName }
   const [editingCell, setEditingCell] = useState(null);
 
-  useEffect(() => {
-    if (expanded && !hasFetched) {
-      fetchTableData();
-    }
-  }, [expanded, tableName, hasFetched]);
-
   const fetchTableData = async () => {
     setLoading(true);
     setError(null);
@@ -194,16 +188,21 @@ const DebugTable = ({ tableName }) => {
     [columns, data, editingCell, primaryKeys],
   );
 
-  useEffect(() => {
-    setPage(0);
-  }, [search]);
+  const totalPages = Math.ceil(filteredData.length / pageSize);
+  // Schrumpft die Trefferliste, bleibt die Seite gültig, ohne dass ein Effekt
+  // page nachträglich korrigieren muss
+  const aktuelleSeite = Math.min(page, Math.max(totalPages - 1, 0));
 
-  useEffect(() => {
-    const totalPages = Math.ceil(filteredData.length / pageSize);
-    if (page > 0 && page >= totalPages) {
-      setPage(Math.max(totalPages - 1, 0));
-    }
-  }, [filteredData.length, page]);
+  const toggleExpanded = () => {
+    // Beim ersten Aufklappen laden – im Handler statt in einem Effekt
+    if (!expanded && !hasFetched && !loading) fetchTableData();
+    setExpanded(!expanded);
+  };
+
+  const handleSearchChange = (wert) => {
+    setSearch(wert);
+    setPage(0);
+  };
 
   const renderContent = () => {
     if (loading)
@@ -227,17 +226,16 @@ const DebugTable = ({ tableName }) => {
 
     if (!hasFetched) return null;
 
-    const totalPages = Math.ceil(filteredData.length / pageSize);
     const paginatedData = filteredData.slice(
-      page * pageSize,
-      (page + 1) * pageSize,
+      aktuelleSeite * pageSize,
+      (aktuelleSeite + 1) * pageSize,
     );
 
     return (
       <div className="card-body" style={{ overflowX: "auto" }}>
         <TableToolbar
           search={search}
-          onSearchChange={setSearch}
+          onSearchChange={handleSearchChange}
           placeholder={`Suche in ${tableName}...`}
           style={{ marginBottom: "12px" }}
         />
@@ -261,16 +259,16 @@ const DebugTable = ({ tableName }) => {
 
         {totalPages > 1 && (
           <div className="pagination">
-            <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+            <button disabled={aktuelleSeite === 0} onClick={() => setPage(aktuelleSeite - 1)}>
               Previous
             </button>
             <span className="page-info">
-              Page {page + 1} of {totalPages} (Gefilterte Zeilen:{" "}
+              Page {aktuelleSeite + 1} of {totalPages} (Gefilterte Zeilen:{" "}
               {filteredData.length})
             </span>
             <button
-              disabled={page >= totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}>
+              disabled={aktuelleSeite >= totalPages - 1}
+              onClick={() => setPage(aktuelleSeite + 1)}>
               Next
             </button>
           </div>
@@ -281,7 +279,7 @@ const DebugTable = ({ tableName }) => {
 
   return (
     <div className="debug-table-container">
-      <h3 onClick={() => setExpanded(!expanded)} className="debug-table-header">
+      <h3 onClick={toggleExpanded} className="debug-table-header">
         <span>{tableName}</span>
         <span>{expanded ? "▲" : "▼"}</span>
       </h3>

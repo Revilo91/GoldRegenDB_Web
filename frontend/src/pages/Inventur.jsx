@@ -246,7 +246,9 @@ function ItemsTable({
 function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const toast = useToast();
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Kunde, zu dem zuletzt fertig geladen wurde; daraus ergibt sich "lädt"
+  const [geladenFuer, setGeladenFuer] = useState(null);
+  const loading = geladenFuer !== kundeId;
   const [tab, setTab] = useState("aktiv");
   const [exporting, setExporting] = useState(false);
   const [restocking, setRestocking] = useState(false);
@@ -257,12 +259,11 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   const isForegroundModalOpen = schmuckstueckOverlay !== null;
 
   useEffect(() => {
-    setLoading(true);
     api
       .getInventurKunde(kundeId)
       .then(setData)
       .catch((err) => toast.fehler(err.message))
-      .finally(() => setLoading(false));
+      .finally(() => setGeladenFuer(kundeId));
   }, [kundeId, toast]);
 
   const tabItems = useMemo(() => {
@@ -1349,7 +1350,6 @@ function LagerInventurUI() {
   const [activeDraftId, setActiveDraftId] = useState(null);
 
   const loadDrafts = useCallback(() => {
-    setLoading(true);
     api
       .getInventurDrafts()
       .then(setDrafts)
@@ -1455,7 +1455,6 @@ export default function Inventur() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const load = useCallback(() => {
-    setLoading(true);
     api
       .getInventur()
       .then(setSummary)

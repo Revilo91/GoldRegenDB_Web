@@ -15,7 +15,6 @@ export default function Kunden() {
   // Default sorting handled by DataTable via defaultSort prop
 
   const load = useCallback(() => {
-    setLoading(true);
     api
       .getKunden()
       .then(setKunden)

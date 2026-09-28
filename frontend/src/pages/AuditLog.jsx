@@ -8,21 +8,24 @@ import { useToast } from "../components/Toast";
 export default function AuditLog() {
   const toast = useToast();
   const [data, setData] = useState({ data: [], pagination: {} });
-  const [loading, setLoading] = useState(true);
+  // Anfrage, zu der zuletzt fertig geladen wurde; daraus ergibt sich "lädt"
+  const [geladenFuer, setGeladenFuer] = useState(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
   // also schon immer fest auf diesem Wert (Befund G14).
   const sortConfig = { key: "change_timestamp", direction: "desc" };
 
+  const anfrage = `${page}|${search}`;
+  const loading = geladenFuer !== anfrage;
+
   useEffect(() => {
-    setLoading(true);
     api
       .getAuditLog({ page, limit: 100, search })
       .then(setData)
       .catch((err) => toast.fehler("Fehler beim Laden des Audit-Logs: " + err.message))
-      .finally(() => setLoading(false));
-  }, [page, search, toast]);
+      .finally(() => setGeladenFuer(anfrage));
+  }, [anfrage, page, search, toast]);
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];

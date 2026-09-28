@@ -86,7 +86,8 @@ export default function Schmuckstuecke() {
   const { user } = useAuth();
   const canEdit = user && (user.role === "admin" || user.role === "bearbeiter");
   const [data, setData] = useState({ data: [], pagination: {} });
-  const [loading, setLoading] = useState(true);
+  // Anfrage, zu der zuletzt fertig geladen wurde; daraus ergibt sich "lädt"
+  const [geladenFuer, setGeladenFuer] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
@@ -105,12 +106,26 @@ export default function Schmuckstuecke() {
   // Konstant: setSortConfig wurde nie aufgerufen, die Sortierung stand also
   // schon immer fest auf diesem Wert (Befund G14).
   const sortConfig = { key: "Artikelnummer", direction: "asc" };
-  const [nextArtikelnummerPreview, setNextArtikelnummerPreview] = useState("");
-  const [nextArtikelnummerLoading, setNextArtikelnummerLoading] =
-    useState(false);
-  const [nextArtikelnummerError, setNextArtikelnummerError] = useState("");
+  // Vorschau der nächsten freien Artikelnummer, gespeichert mit dem Präfix,
+  // für das sie geladen wurde
+  const [artikelnummerVorschau, setArtikelnummerVorschau] = useState({
+    prefix: "",
+    artikelnummer: "",
+  });
   const [nextArtikelnummerRefreshKey, setNextArtikelnummerRefreshKey] =
     useState(0);
+  // Nur beim Anlegen und nur mit vollständigem Präfix (z. B. "MHO"); sonst
+  // gibt es keine Vorschau. Abgeleitet statt im Effekt zurückgesetzt.
+  const vorschauPrefix =
+    editing === "new"
+      ? String(form.Artikelnummer || "").trim().toUpperCase()
+      : "";
+  const vorschauAktiv = /^[A-Z]{3}$/.test(vorschauPrefix);
+  const nextArtikelnummerPreview =
+    vorschauAktiv && artikelnummerVorschau.prefix === vorschauPrefix
+      ? artikelnummerVorschau.artikelnummer
+      : "";
+
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkTemplateArtikelnummer, setBulkTemplateArtikelnummer] =
     useState("");
@@ -435,10 +450,12 @@ export default function Schmuckstuecke() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const anfrage = JSON.stringify([page, gebremsteSuche, filters, ladeZaehler]);
+  const loading = geladenFuer !== anfrage;
+
   useEffect(() => {
     const abbruch = new AbortController();
     let verworfen = false;
-    setLoading(true);
     api
       .getSchmuckstuecke(
         { page, limit: 50, search: gebremsteSuche, ...filters },
@@ -453,58 +470,35 @@ export default function Schmuckstuecke() {
         toast.fehler("Fehler beim Laden der Schmuckstücke: " + err.message);
       })
       .finally(() => {
-        if (!verworfen) setLoading(false);
+        if (!verworfen) setGeladenFuer(anfrage);
       });
     return () => {
       verworfen = true;
       abbruch.abort();
     };
-  }, [page, gebremsteSuche, filters, ladeZaehler, toast]);
+  }, [anfrage, page, gebremsteSuche, filters, ladeZaehler, toast]);
 
   useEffect(() => {
-    if (editing !== "new") {
-      setNextArtikelnummerPreview("");
-      setNextArtikelnummerError("");
-      setNextArtikelnummerLoading(false);
-      return;
-    }
-
-    const prefix = String(form.Artikelnummer || "")
-      .trim()
-      .toUpperCase();
-    if (!/^[A-Z]{3}$/.test(prefix)) {
-      setNextArtikelnummerPreview("");
-      setNextArtikelnummerError("");
-      setNextArtikelnummerLoading(false);
-      return;
-    }
-
+    if (!vorschauAktiv) return undefined;
     let isCancelled = false;
-    setNextArtikelnummerLoading(true);
-    setNextArtikelnummerError("");
-
     api
-      .getNextArtikelnummer(prefix)
+      .getNextArtikelnummer(vorschauPrefix)
       .then((result) => {
         if (isCancelled) return;
-        setNextArtikelnummerPreview(result.artikelnummer || "");
+        setArtikelnummerVorschau({
+          prefix: vorschauPrefix,
+          artikelnummer: result.artikelnummer || "",
+        });
       })
-      .catch((err) => {
+      .catch(() => {
         if (isCancelled) return;
-        setNextArtikelnummerPreview("");
-        setNextArtikelnummerError(
-          err.message || "Nächste Artikelnummer konnte nicht geladen werden.",
-        );
-      })
-      .finally(() => {
-        if (isCancelled) return;
-        setNextArtikelnummerLoading(false);
+        setArtikelnummerVorschau({ prefix: vorschauPrefix, artikelnummer: "" });
       });
 
     return () => {
       isCancelled = true;
     };
-  }, [editing, form.Artikelnummer, nextArtikelnummerRefreshKey]);
+  }, [vorschauAktiv, vorschauPrefix, nextArtikelnummerRefreshKey]);
 
   useEffect(() => {
     const openEditArtikelnummer = location.state?.openEdit;

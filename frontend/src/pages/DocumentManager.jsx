@@ -39,7 +39,7 @@ export default function DocumentManager({
     empfaenger: null,
     versandkosten: "",
   });
-  const [availablePieces, setAvailablePieces] = useState([]);
+  const [geladenePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
   const [artikelnummerInput, setArtikelnummerInput] = useState("");
   // Konstant: setSortConfig wird nirgends aufgerufen, die Sortierung stand
@@ -238,10 +238,15 @@ export default function DocumentManager({
     }
     if (editing && form.Kundennummer) {
       loadAvailablePieces(form, editing);
-    } else {
-      setAvailablePieces([]);
     }
   }, [form.Kundennummer, editing, kunden]);
+
+  // Rechnung ohne Kunde: keine Stückliste. Abgeleitet statt im Effekt geleert,
+  // damit nach dem Abwählen des Kunden nicht die Stücke des vorigen bleiben.
+  const availablePieces =
+    pieceSelectMode === "byKunde" && !(editing && form.Kundennummer)
+      ? []
+      : geladenePieces;
 
   const handleSave = async (status = 'final') => {
     if (!form.Kundennummer) {
