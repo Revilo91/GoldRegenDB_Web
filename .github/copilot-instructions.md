@@ -976,6 +976,7 @@ Platzhalter aus `.env.example` oder ein zu kurzes Secret gesetzt ist.
 - [x] Schmuckstücke: Liste, Filter, Suche, Erstellen, Bearbeiten
 - [x] Kunden: Liste, Erstellen, Bearbeiten, Detailansicht mit zugehörigen Stücken
 - [x] Lieferscheine & Rechnungen: Gemeinsame Verwaltung über DocumentManager.jsx (maximaler Code- und UI-Reuse)
+  - **Regel:** Änderungen an Rechnung immer auch an Lieferschein prüfen und umgekehrt (Routen, `belegSummen()` in `utils/rabatt.js`, Excel, Modal, Tests) – siehe CLAUDE.md, „DocumentManager Pattern“ (#241)
 - [x] Lieferscheine: Liste, Erstellen (nutzt DocumentManager)
 - [x] Rechnungen: Liste, Erstellen (nutzt DocumentManager)
 - [x] Audit-Log: Anzeige der letzten Änderungen (Admin)

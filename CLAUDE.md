@@ -240,6 +240,19 @@ db/
 
 → If modifying document-list logic (filtering, grouping, modals), edit `DocumentManager.jsx` first.
 
+**Rechnung und Lieferschein sind eng verwandt – Änderungen immer an beiden
+prüfen.** Wer am einen Beleg etwas ändert (Route, Summen, Excel, Modal, Tests),
+zieht es beim anderen nach oder hält im Commit fest, warum nicht. Geteilte Stellen:
+- Frontend: `DocumentManager.jsx` (Unterschiede nur über `type === "rechnung"` / `"lieferschein"`)
+- Backend: `routes/rechnungen.js` ↔ `routes/lieferscheine.js` (gleiche Endpunkte,
+  gleiche Antwortform), Summen über `belegSummen()` in `utils/rabatt.js`,
+  Excel über `utils/excelService.js`
+- Fachlicher Unterschied: Der Lieferschein zeigt, was **an den Kunden gesendet**
+  wurde (brutto/netto nach Provision, kein Rabatt); abgerechnet wird erst per
+  Rechnung. Rabattspalten gibt es nur in `"Rechnung"`
+- Warnbeispiel #241: Befund G7 stellte die Summenbox auf `detail.summen` um, aber
+  nur die Rechnungs-Route lieferte das Objekt – beim Lieferschein blieb die Box leer
+
 ### Database Queries
 - No ORM: queries use `pg` (node-postgres) directly
 - **All** row insertion/update uses prepared statements to prevent SQL injection
