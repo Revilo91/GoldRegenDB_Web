@@ -162,6 +162,10 @@ const userUpdateSchema = userCreateSchema.omit({ password: true });
 
 const resetPasswordSchema = z.object({ newPassword: neuesPasswort });
 
+const adminGenerateResetLinkSchema = z.object({
+  userId: ganzzahl({ min: 1 }),
+});
+
 // Beim Login gilt bewusst keine Mindestlänge: Altkonten mit kürzerem Passwort
 // sollen sich weiterhin anmelden können (danach greift must_change_password).
 const loginSchema = z.object({
@@ -278,6 +282,7 @@ module.exports = {
   userCreateSchema,
   userUpdateSchema,
   resetPasswordSchema,
+  adminGenerateResetLinkSchema,
   loginSchema,
   changePasswordSchema,
   forgotPasswordSchema,

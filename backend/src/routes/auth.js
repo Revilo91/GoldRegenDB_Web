@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
-const { authenticate, JWT_SECRET } = require("../middleware/auth");
+const { authenticate, requireAdmin, JWT_SECRET } = require("../middleware/auth");
 const logger = require("../utils/logger");
 const { validate } = require("../middleware/validate");
 const {
@@ -10,6 +10,7 @@ const {
   changePasswordSchema,
   forgotPasswordSchema,
   resetPasswordWithTokenSchema,
+  adminGenerateResetLinkSchema,
 } = require("../schemas");
 const { hashPassword, verifyPassword } = require("../utils/passwordService");
 const { setAuthCookie, clearAuthCookie } = require("../utils/authCookie");
@@ -389,12 +390,9 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res)
       [tokenHash, expiry, user.id],
     );
 
-    // Der Reset-Link landet bewusst in der lesbaren Message (nicht in meta): es ist
-    // kein SMTP konfiguriert, ein Administrator muss ihn hier abholen und weiterreichen.
     logger.warn(
       "AUTH",
-      `Passwort-Reset-Token für ${user.username} erzeugt (gültig ${RESET_TOKEN_GUELTIGKEIT_MINUTEN} Minuten). ` +
-        `Reset-Link: /reset-password?token=${token}`,
+      `Passwort-Reset-Token für ${user.username} erzeugt (gültig ${RESET_TOKEN_GUELTIGKEIT_MINUTEN} Minuten). Reset-Link über Admin-UI abrufen.`,
       { user: user.username },
     );
 
@@ -435,6 +433,85 @@ router.post("/forgot-password", validate(forgotPasswordSchema), async (req, res)
  *       429:
  *         description: Zu viele Anfragen von dieser IP
  */
+/**
+ * @swagger
+ * /auth/admin/generate-reset-link:
+ *   post:
+ *     summary: Reset-Link für einen Benutzer generieren (Admin)
+ *     description: >
+ *       Erstellt ein Reset-Token und gibt den vollständigen Pfad zurück.
+ *       Der Admin leitet den Link an den Benutzer weiter; das Token selbst
+ *       landet nie im Log.
+ *     tags: [Auth]
+ *     security: [{ cookieAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId]
+ *             properties:
+ *               userId: { type: integer, description: 'ID des Benutzers' }
+ *     responses:
+ *       200:
+ *         description: Reset-Link erzeugt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 resetPath: { type: string, example: '/reset-password?token=abc123' }
+ *                 expiresInMinutes: { type: integer, example: 30 }
+ *                 username: { type: string }
+ *       403:
+ *         description: Nicht autorisiert (kein Admin)
+ *       404:
+ *         description: Benutzer nicht gefunden
+ */
+router.post(
+  "/admin/generate-reset-link",
+  authenticate,
+  requireAdmin,
+  validate(adminGenerateResetLinkSchema),
+  async (req, res) => {
+    const { userId } = req.body;
+
+    try {
+      const { rows } = await db.query(
+        "SELECT id, username, active FROM app_users WHERE id = $1",
+        [userId],
+      );
+      const user = rows[0];
+      if (!user) {
+        return res.status(404).json({ error: "Benutzer nicht gefunden" });
+      }
+
+      const { token, tokenHash, expiry } = erzeugeResetToken();
+      await db.query(
+        "UPDATE app_users SET reset_token_hash = $1, reset_token_expiry = $2 WHERE id = $3",
+        [tokenHash, expiry, user.id],
+      );
+
+      logger.warn("AUTH", `Admin ${req.user.username} hat Reset-Link für Benutzer ${user.username} generiert`, {
+        admin: req.user.username,
+        targetUser: user.username,
+      });
+
+      res.json({
+        resetPath: `/reset-password?token=${token}`,
+        expiresInMinutes: RESET_TOKEN_GUELTIGKEIT_MINUTEN,
+        username: user.username,
+      });
+    } catch (err) {
+      logger.error("AUTH", "Fehler beim Generieren des Admin-Reset-Links", {
+        message: err.message,
+      });
+      res.status(500).json({ error: "Fehler beim Generieren des Reset-Links" });
+    }
+  },
+);
+
 router.post("/reset-password", validate(resetPasswordWithTokenSchema), async (req, res) => {
   const { token, newPassword } = req.body;
 

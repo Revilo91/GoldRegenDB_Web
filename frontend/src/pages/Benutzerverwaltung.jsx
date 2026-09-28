@@ -9,8 +9,10 @@ import {
   faTimesCircle,
   faTrash,
   faTimes,
+  faKey,
+  faCopy,
 } from "@fortawesome/free-solid-svg-icons";
-import { api } from "../api";
+import { api, authApi } from "../api";
 import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
 import { useToast } from "../components/Toast";
@@ -62,6 +64,9 @@ export default function Benutzerverwaltung() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [resetLink, setResetLink] = useState(null);
+  const [resetLinkLoading, setResetLinkLoading] = useState(false);
+  const [resetLinkCopied, setResetLinkCopied] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -90,6 +95,29 @@ export default function Benutzerverwaltung() {
     setEditing(null);
     setNewPassword("");
     setShowNewPassword(false);
+    setResetLink(null);
+    setResetLinkCopied(false);
+  };
+
+  const handleGenerateResetLink = async () => {
+    setResetLinkLoading(true);
+    setResetLink(null);
+    setResetLinkCopied(false);
+    try {
+      const { resetPath, expiresInMinutes, username } = await authApi.generateAdminResetLink(selected.id);
+      setResetLink({ url: window.location.origin + resetPath, expiresInMinutes, username });
+    } catch (err) {
+      toast.fehler(err.message || "Fehler beim Generieren des Reset-Links");
+    } finally {
+      setResetLinkLoading(false);
+    }
+  };
+
+  const handleCopyResetLink = () => {
+    navigator.clipboard.writeText(resetLink.url).then(() => {
+      setResetLinkCopied(true);
+      setTimeout(() => setResetLinkCopied(false), 3000);
+    });
   };
 
   const handleSave = async () => {
@@ -209,7 +237,7 @@ export default function Benutzerverwaltung() {
             <div className="modal-content">
               <div className="modal-header">
                 <h3 style={{ margin: 0 }}>{editing === "new" || editing === selected.id ? (editing === "new" ? "Neuer Benutzer" : `Bearbeite: ${selected.username}`) : selected.username}</h3>
-                <button className="btn btn-ghost" onClick={() => { setSelected(null); setEditing(null); }}><FontAwesomeIcon icon={faTimes} /></button>
+                <button className="btn btn-ghost" onClick={() => { setSelected(null); setEditing(null); setResetLink(null); setResetLinkCopied(false); }}><FontAwesomeIcon icon={faTimes} /></button>
               </div>
               <div className="modal-body">
                 {editing === "new" || editing === selected.id ? (
@@ -258,6 +286,35 @@ export default function Benutzerverwaltung() {
                       <strong>Erstellt:</strong><span>{selected.created_at ? new Date(selected.created_at).toLocaleString("de-DE") : "–"}</span>
                       <strong>Letzter Login:</strong><span>{selected.last_login ? new Date(selected.last_login).toLocaleString("de-DE") : "Noch nicht angemeldet"}</span>
                     </div>
+                    <h4 style={{ marginTop: 16, marginBottom: 8, color: "var(--text-secondary)" }}>Passwort-Reset</h4>
+                    <p style={{ marginBottom: 8, fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                      Generiert einen Einmal-Link, den Sie an den Benutzer weitergeben. Der Benutzer setzt sein Passwort selbst.
+                    </p>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleGenerateResetLink}
+                      disabled={resetLinkLoading}
+                    >
+                      <FontAwesomeIcon icon={faKey} /> {resetLinkLoading ? "Generiere…" : "Reset-Link generieren"}
+                    </button>
+                    {resetLink && (
+                      <div className="reset-link-box">
+                        <p className="reset-link-hint">
+                          Gültig {resetLink.expiresInMinutes} Minuten. Link direkt an <strong>{resetLink.username}</strong> weitergeben.
+                        </p>
+                        <div className="reset-link-row">
+                          <input
+                            readOnly
+                            className="form-control reset-link-input"
+                            value={resetLink.url}
+                            onFocus={(e) => e.target.select()}
+                          />
+                          <button className="btn btn-secondary" onClick={handleCopyResetLink}>
+                            <FontAwesomeIcon icon={faCopy} /> {resetLinkCopied ? "Kopiert!" : "Kopieren"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div style={{ marginTop: 12 }} />
                   </>
                 )}
@@ -270,7 +327,7 @@ export default function Benutzerverwaltung() {
                   {selected.id !== "new" && editing === null && (
                     <button className="btn btn-secondary" onClick={() => setEditing(selected.id)}><FontAwesomeIcon icon={faPen} /> Bearbeiten</button>
                   )}
-                  <button className="btn btn-secondary" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowNewPassword(false); }}>
+                  <button className="btn btn-secondary" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowNewPassword(false); setResetLink(null); setResetLinkCopied(false); }}>
                     {editing === "new" || editing === selected.id ? "Abbrechen" : "Schließen"}
                   </button>
                   {(editing === "new" || editing === selected.id) && (

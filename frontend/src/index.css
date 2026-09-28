@@ -2817,6 +2817,33 @@ select.form-control {
   margin: 0;
 }
 
+.reset-link-box {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.reset-link-hint {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.reset-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reset-link-input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  min-width: 0;
+}
+
 .data-table-status-badge {
   background-color: var(--warning);
   color: white;
