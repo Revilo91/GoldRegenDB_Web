@@ -351,8 +351,9 @@ POST   /auth/login               Login, setzt httpOnly-Cookie jwt
 GET    /auth/me                  Aktuelle Benutzer-Info (Token validieren)
 POST   /auth/logout              Cookie löschen
 PUT    /auth/change-password     Eigenes Passwort ändern
-POST   /auth/forgot-password     Reset-Token anfordern (Link ins Backend-Log)
-POST   /auth/reset-password      Passwort mit Token neu setzen
+POST   /auth/forgot-password                Reset-Token anfordern (ohne Link-Ausgabe)
+POST   /auth/reset-password                 Passwort mit Token neu setzen
+POST   /auth/admin/generate-reset-link      Reset-Link generieren und zurückgeben (admin)
 ```
 
 ### Schmuckstücke (bearbeiter+)
@@ -541,8 +542,9 @@ PUT    /debug/tables/:name          Datensatz direkt bearbeiten
 
 - 5 fehlgeschlagene Logins → Konto 30 Minuten gesperrt
 - Unbekannte Benutzernamen laufen gegen Dummy-Hash (timing-sicher)
-- Reset-Link wird ins Backend-Log geschrieben (kein SMTP konfiguriert)
-- Nur SHA-256-Hash des Reset-Tokens wird gespeichert
+- Reset-Link wird über `POST /api/auth/admin/generate-reset-link` (admin-only) erzeugt und direkt im Response zurückgegeben — das Token erscheint nicht im Log
+- Admin kopiert den Link und gibt ihn an den Benutzer weiter; kein SMTP konfiguriert
+- Nur SHA-256-Hash des Reset-Tokens wird in der DB gespeichert
 
 ### Passwort-Migration
 
