@@ -1,69 +1,67 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Repository.
 
 ---
 
 ## Graphify Knowledge Graph
 
-**Graphify data is stored in this project** (`graphify-out/` directory). When you ask ANY question about this project (codebase, architecture, files, relationships, features, business logic, or context), **immediately invoke `/graphify` before answering**, even if you think you know the answer already. This ensures:
+**Die Graphify-Daten liegen im Projekt** (Verzeichnis `graphify-out/`). Bei **jeder** Frage zu diesem Projekt — Codebase, Architektur, Dateien, Abhängigkeiten, Features, Geschäftslogik — **sofort `/graphify` aufrufen, bevor geantwortet wird**, auch wenn die Antwort vermeintlich bekannt ist. Das stellt sicher:
 
-- Complete, up-to-date context from the knowledge graph
-- Accurate file references and relationships
-- Comprehensive architecture understanding
-- Consistent answers across sessions
+- Vollständiger, aktueller Kontext aus dem Knowledge Graph
+- Korrekte Dateireferenzen und Abhängigkeiten
+- Konsistente Antworten über Sessions hinweg
 
-**Trigger conditions for automatic graphify use:**
-- "Where is..." / "What does..." / "How does..." (code/architecture questions)
-- Feature requests or modifications (understand dependencies first)
-- Bug reports or investigations
-- API/schema questions
-- Any file or cross-file logic question
+**Auslösebedingungen für automatische Graphify-Nutzung:**
+- „Wo ist..." / „Was macht..." / „Wie funktioniert..." (Code-/Architektur-Fragen)
+- Feature-Anfragen oder Änderungen (erst Abhängigkeiten verstehen)
+- Bug-Untersuchungen
+- API-/Schema-Fragen
+- Jede datei- oder dateiübergreifende Logikfrage
 
 ---
 
-## Project Overview
+## Projektübersicht
 
-**GoldRegenDB** is a web-based inventory management system for handcrafted jewelry. It runs on PostgreSQL, Node.js/Express backend, and React 19 frontend, all containerized with Docker.
+**GoldRegenDB** ist ein webbasiertes Lagerverwaltungssystem für handgefertigten Schmuck. Stack: PostgreSQL, Node.js/Express (Backend), React 19 (Frontend), alles containerisiert mit Docker.
 
-**Detailed architecture, schema, API endpoints, and styling rules**: See `.github/copilot-instructions.md` (comprehensive reference).
+**Detaillierte Architektur, Schema, API-Endpunkte und Styling-Regeln**: Siehe `.github/copilot-instructions.md`.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Development (native, hot reload) — recommended
+# Entwicklung (nativ, Hot Reload) — empfohlen
 cp .env.example .env
-npm install                # installs root + backend + frontend workspaces
-npm run dev                # starts db (Docker) + backend (node --watch) + frontend (vite) concurrently
+npm install                # installiert root + backend + frontend workspaces
+npm run dev                # startet db (Docker) + backend (node --watch) + frontend (vite) parallel
 
-# Services available at:
-# Frontend: http://localhost:5173
+# Dienste:
+# Frontend:    http://localhost:5173
 # Backend API: http://localhost:3001/api
-# Database: localhost:5432
+# Datenbank:   localhost:5432
 
-# Development (fully containerized alternative — 2 containers: db + app)
+# Entwicklung (vollständig containerisiert — 2 Container: db + app)
 docker compose -f docker-compose.dev.yml up --build
-# Frontend: http://localhost:3000 (Vite :5173) / Backend: http://localhost:3001
-# Backend & Frontend run together in one container with hot-reload via concurrently
+# Frontend: http://localhost:3000 / Backend: http://localhost:3001
 
-# Production — single image, Express serves API + built frontend on one port
+# Produktion — ein Image, Express liefert API + Frontend auf einem Port
 docker compose up --build -d
-# Frontend + API: http://localhost:3000 (no Nginx)
+# Frontend + API: http://localhost:3000
 ```
 
 ---
 
-## Commands
+## Befehle
 
 ### Backend (Node.js + Express)
 ```bash
 cd backend
 
-npm run dev        # Start with hot reload (node --watch)
-npm start          # Start production
-npm test           # Jest tests in __tests__/**/*.test.js
+npm run dev        # Mit Hot Reload starten (node --watch)
+npm start          # Produktion
+npm test           # Jest-Tests in __tests__/**/*.test.js
 npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
                    # Einmaliger Bestandsimport von Bildern in "Foto" (#209)
 npm run sammle:fotos -- --quelle <pfad|smb://…> --ziel <pfad> [--dry-run]
@@ -74,252 +72,177 @@ npm run sammle:fotos -- --quelle <pfad|smb://…> --ziel <pfad> [--dry-run]
 ```bash
 cd frontend
 
-npm run dev        # Vite dev server (port 5173)
-npm run build      # Build optimized bundle
-npm run lint       # ESLint check
-npm test           # Vitest run (in __tests__/)
+npm run dev        # Vite Dev-Server (Port 5173)
+npm run build      # Optimierten Bundle bauen
+npm run lint       # ESLint-Prüfung
+npm test           # Vitest (in __tests__/)
 ```
 
-### Database (Docker)
+### Datenbank (Docker)
 ```bash
-# Backup (daily/weekly volumes in pgbackups_dev)
+# Backup (tägliche/wöchentliche Volumes in pgbackups_dev)
 docker compose -f docker-compose.dev.yml exec db /backup.sh
 
-# Restore from backup
+# Backup wiederherstellen
 docker compose -f docker-compose.dev.yml exec db /restore.sh
 ```
 
 ---
 
-## Code Standards & Cleanup (2026-06-30)
+## Code-Konventionen
 
-**Recent AI-Slop Cleanup:**
-- Removed 280+ lines of excessive docstrings/comments from whereClauseBuilder
-- Consolidated GRUNDMATERIAL & PRODUKTART constants → `utils/constants.js`
-- Merged duplicate request() + requestFormData() in api.js (90% code duplication)
-- Removed inline debug logging (console.log emoji-comments in api.js)
-- Set real rate limits in index.js (später auf unauthentifizierte Endpunkte beschränkt, siehe unten)
-- Deleted boilerplate JSDoc in DocumentManager.jsx
-
-**Code Conventions (to prevent future slop):**
-- **No function wrappers:** `hersteller_Marina()` → use `hersteller("M")` directly
-- **No verbose docstrings:** Method names are self-documenting; one-liner comments only if WHY is non-obvious
-- **Merge duplicates:** If constants/logic exists in 2+ files, move to shared utils/
-- **Delete dead logging:** console.log/error only for errors; remove debug traces after use
-- **Rate limiters:** Nur für unauthentifizierte Endpunkte (Login, Passwort-Reset,
-  öffentliches Bestellformular) – dort mit echten Limits, kein "10000 = praktisch
-  unbegrenzt". Die angemeldete Anwendung bleibt bewusst ungedrosselt: die
-  Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
-- **Kein `alert()`:** Fehler und Erfolgsmeldungen laufen über `useToast()` aus
-  `frontend/src/components/Toast.jsx`. `alert()` blockiert den Tab, und zwei
-  Fehler kurz hintereinander ergaben zwei Dialoge zum Wegklicken. ESLint
-  erzwingt das per `no-restricted-globals` — `confirm()` bleibt für
-  Löschabfragen erlaubt
-- **No JSDoc boilerplate:** Describe props via code comments inline, not at-the-top blocks
+- **Keine Funktions-Wrapper:** `hersteller_Marina()` → direkt `hersteller("M")` verwenden
+- **Keine ausführlichen Docstrings:** Methodennamen sind selbsterklärend; ein einzeiliger Kommentar nur, wenn das WARUM nicht offensichtlich ist
+- **Duplikate zusammenführen:** Wenn Konstanten/Logik in 2+ Dateien existieren, in `utils/` auslagern
+- **Kein Debug-Logging:** `console.log/error` nur für echte Fehler; Debug-Traces nach Gebrauch löschen
+- **Rate-Limiter nur für unauthentifizierte Endpunkte** (Login, Passwort-Reset, öffentliches Bestellformular) mit echten Limits. Die angemeldete Anwendung bleibt bewusst ungedrosselt: die Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
+- **Kein `alert()`:** Fehler- und Erfolgsmeldungen laufen über `useToast()` aus `frontend/src/components/Toast.jsx`. ESLint erzwingt das per `no-restricted-globals` — `confirm()` bleibt für Löschabfragen erlaubt
+- **Kein JSDoc-Boilerplate:** Props per Inline-Kommentar beschreiben, kein Header-Block
 
 **Commit-Stil (bisect-freundlich):**
 - Kleine, atomare Commits: eine logische Änderung pro Commit
-- Jeder Commit ist für sich lauffähig – Tests grün, App startet –, damit `git bisect` an jedem Punkt eindeutig gut/schlecht liefert
-- Code, zugehörige Tests und Doku einer Änderung gehören in denselben Commit; unabhängige Änderungen (Skripte, Doku, Refactoring) in eigene Commits
-- Regeländerungen wie diese (CLAUDE.md) vorab und getrennt von der Code-Änderung committen
+- Jeder Commit ist für sich lauffähig (Tests grün, App startet), damit `git bisect` eindeutig gut/schlecht liefert
+- Code, zugehörige Tests und Doku einer Änderung gehören in denselben Commit; unabhängige Änderungen in eigene Commits
+- Regeländerungen (CLAUDE.md) vorab und getrennt von der Code-Änderung committen
 
 ---
 
-## Critical Project Rules
+## Kritische Projektregeln
 
-### 1. WHERE Clause Builder (Backend)
-**All schmuckstück (jewelry) queries must use `whereClauseBuilder`** for consistent filtering logic across the app.
+### 1. WHERE-Clause-Builder (Backend)
+**Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden** für konsistente Filterlogik in der gesamten App.
 
 ```javascript
 const { where } = require('../utils/whereClauseBuilder');
 
 const builder = where();
-builder.verfuegbar();  // Available: not sold, not defective, not consigned
-builder.aktivAusgelagert(kundeId);  // Consigned to specific customer
+builder.verfuegbar();              // Verfügbar: nicht verkauft, kein Ausschuss, nicht ausgelagert
+builder.aktivAusgelagert(kundeId); // Aktiv ausgelagert an bestimmten Kunden
 const { rows } = await db.query(
   `SELECT * FROM "Schmuckstück" ${builder.build()}`,
   builder.getParams()
 );
 ```
 
-**Status mappings** (critical business logic):
-- **Verfügbar** (available): `Verkauft=0 AND Ausschuss=0 AND Ausgelagert=0`
-- **Verkauft** (sold): `Verkauft=1 AND Ausschuss=0`
-- **Ausschuss** (defective): `Ausschuss=1`
-- **Aktiv Ausgelagert** (consigned): `Ausgelagert>0 AND Verkauft=0 AND Ausschuss=0`
+**Status-Mappings** (kritische Geschäftslogik):
+- **Verfügbar**: `Verkauft=0 AND Ausschuss=0 AND Ausgelagert=0`
+- **Verkauft**: `Verkauft=1 AND Ausschuss=0`
+- **Ausschuss**: `Ausschuss=1`
+- **Aktiv Ausgelagert**: `Ausgelagert>0 AND Verkauft=0 AND Ausschuss=0`
 
-See `backend/src/utils/WHERE_BUILDER.md` for full API.
+Vollständige API: `backend/src/utils/WHERE_BUILDER.md`
 
-### 2. Frontend Styling (React)
-**STRICT RULE: No inline styles**
+### 2. Frontend-Styling (React)
+**Strikte Regel: Keine Inline-Styles**
 ```jsx
-// ❌ FORBIDDEN
+// ❌ VERBOTEN
 <div style={{ marginTop: 24, display: "flex" }}>
 
-// ✅ REQUIRED
+// ✅ ERFORDERLICH
 <div className="my-container">
 ```
 
-All styles go in `frontend/src/index.css` as class definitions. Avoid style props entirely.
+Alle Styles gehören als Klassendefinitionen in `frontend/src/index.css`.
 
-### 3. Photo Upload & Assets
-- Fotos liegen **in PostgreSQL** (Issue #208): Tabelle `"Foto"` (Schmuckstücke,
-  Schlüssel = Basis-Artikelnummer, `MHO123` gilt für `MHO123_1`, `MHO123_2`) und
-  `bestellung_foto` (Bestellformular, Schlüssel = `bestellung.foto_pfad`)
-- Lesen/Schreiben nur über `backend/src/utils/fotoService.js`; eigene Tabellen,
-  damit Listenabfragen keine BYTEA-Daten laden – Listen prüfen per `EXISTS`
-- Liste, Detail und Inventur liefern je Stück `hatFoto` (boolean, aus
-  `hatFotoSql()` in `fotoService.js`); das Frontend lädt das Bild dann über die
-  Artikelnummer. Eine Spalte `"Schmuckstück"."Foto"` gibt es nicht mehr (#214) –
-  `db.js` entfernt sie beim Start per `DROP COLUMN IF EXISTS`
-- Max size: 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Endung
-- Upload: `multer.memoryStorage()` in schmuckstuecke.js; Auslieferung mit ETag
-  aus `Geaendert` und `Cache-Control: private, max-age=60`
-- Fotos sichert ein **eigenes Foto-ZIP** (`utils/fotoZip.js`), nicht die
-  JSON-Sicherung – base64 im JSON sprengt bei ~1,6 GB jedes Body-Limit.
-  `GET /api/backup/export-fotos` streamt aus einem REPEATABLE-READ-Snapshot,
-  `POST /api/backup/import-fotos-zip` übernimmt per Upsert als Hintergrund-Job
-  (Fortschritt: `GET /api/backup/import-fotos-jobs/:id`). Der JSON-Export
-  überspringt `"Foto"`/`bestellung_foto`, der JSON-Import fasst sie nicht an
-- **SQL-Dump:** `GET /api/backup/export-sql` schreibt dieselben Tabellen wie der
-  JSON-Export als COPY-Blöcke (alle Spalten `::text`, ein REPEATABLE-READ-Snapshot).
-  Beim Import liest `frontend/src/utils/sqlDump.js` nur die COPY-Blöcke eines
-  pg_dump/pg_dumpall in das JSON-Format und schickt sie an `POST /api/backup/import`
-  – aus der Datei wird nie SQL ausgeführt
-- Großer ZIP-Upload über langsame Leitung: Node bricht Requests nach
-  `server.requestTimeout` (Standard 300 s) ab, ein Reverse-Proxy oft früher –
-  dort ggf. Timeout und Body-Limit anheben
-- **Bestandsimport** (`scripts/import-fotos.js`, #209): Dateiname = Artikelnummer,
-  `_` plus Ziffern ist eine Variante (`MBH004_2.jpg` → `MBH004`). Übersprungen und
-  in `import-fotos-<datum>.log` gelistet werden: mehrere Nummern im Namen, keine
-  Nummer, sonstiger Rest im Namen (`MBH004-2`), mehrere Dateien je Nummer, unbekannte Nummer, vorhandenes Foto (außer
-  `--overwrite`), > 5 MB, kein gültiges Bild. Unterordner werden nicht gelesen;
-  ein zweiter Lauf ändert nichts. Uneindeutige Namen, mehrere Dateien je Nummer
-  und Fotos über 5 MB sind im Log mit „manuell“ markiert (`grep manuell <log>`):
-  von Hand prüfen bzw. verkleinern, dann erneut importieren.
-  Namensauswertung: `utils/fotoDateiname.js`. In Produktion läuft das Skript
-  per `docker compose run` im App-Image mit eingebundenem `uploads/`-Ordner
-  (Befehl im README, Update-Hinweis); der Release-Smoke-Test prüft genau das
-- **Kein Datei-Fallback** (#214): Fotos kommen nur aus der Datenbank, ohne
-  Eintrag antwortet `GET /foto/:name` mit 404. Das frühere Upload-Verzeichnis
-  wird nicht mehr gelesen, und die compose-Dateien binden kein Uploads-Volume
-  mehr ein
-- Der in #214 offene Punkt **Import-Limit** ist erledigt: Fotos laufen nicht
-  durch den JSON-Import (globales Body-Limit 100 MB), sondern über das Foto-ZIP
+### 3. Fotos
+- Fotos liegen **in PostgreSQL**: Tabelle `"Foto"` (Schmuckstücke, Schlüssel = Basis-Artikelnummer, `MHO123` gilt für `MHO123_1`, `MHO123_2`) und `bestellung_foto` (Bestellformular)
+- Lesen/Schreiben nur über `backend/src/utils/fotoService.js`; Listen prüfen per `EXISTS`, damit keine BYTEA-Daten geladen werden
+- Liste, Detail und Inventur liefern je Stück `hatFoto` (boolean via `hatFotoSql()`); das Frontend lädt das Bild über die Artikelnummer
+- Max. 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Dateiendung
+- Upload: `multer.memoryStorage()` in `schmuckstuecke.js`; Auslieferung mit ETag aus `Geaendert` und `Cache-Control: private, max-age=60`
+- Fotos werden per **eigenem Foto-ZIP** gesichert (`utils/fotoZip.js`), nicht über den JSON-Export: `GET /api/backup/export-fotos` (REPEATABLE-READ-Snapshot), `POST /api/backup/import-fotos-zip` (Hintergrund-Job, Fortschritt: `GET /api/backup/import-fotos-jobs/:id`)
+- **SQL-Dump:** `GET /api/backup/export-sql` exportiert als COPY-Blöcke. `frontend/src/utils/sqlDump.js` liest beim Import nur COPY-Blöcke und schickt sie an `POST /api/backup/import` — SQL wird nie direkt ausgeführt
+- **Kein Datei-Fallback:** Fotos kommen nur aus der Datenbank; ohne Eintrag antwortet `GET /foto/:name` mit 404
 
 ---
 
-## High-Level Architecture
+## Architektur
 
 ```
 frontend/src/
-├── pages/                 # Page components (role-based route protection)
-├── components/            # Shared: DataTable, TableToolbar, PhotoUpload, ProtectedRoute
-├── context/AuthContext    # JWT auth state + user roles
-└── api.js                 # Centralized API client (all backend calls)
+├── pages/                 # Seitenkomponenten (rollenbasierter Routenschutz)
+├── components/            # Geteilt: DataTable, TableToolbar, PhotoUpload, ProtectedRoute
+├── context/AuthContext    # JWT-Auth-Zustand + Benutzerrollen
+└── api.js                 # Zentraler API-Client (alle Backend-Aufrufe)
 
 backend/src/
-├── routes/                # 10+ REST endpoints (auth, kunden, schmuckstuecke, etc.)
-├── middleware/auth.js     # JWT validation, role checks (authenticate, requireAdmin)
-├── config/db.js           # PostgreSQL pool + request-scoped client + startup migrations
+├── routes/                # 10+ REST-Endpunkte (auth, kunden, schmuckstuecke usw.)
+├── middleware/auth.js     # JWT-Validierung, Rollenprüfung (authenticate, requireAdmin)
+├── config/db.js           # PostgreSQL-Pool + request-scoped Client + Startup-Migrationen
 └── utils/                 # whereClauseBuilder, excelService, logger, passwordService
 
 db/
-├── init.sql               # Schema: 7 tables + audit triggers
-├── seed.sql               # Demo data
-├── backup.sh / restore.sh # Automated backups (daily/weekly)
-└── README.md              # Detailed backup/restore docs
+├── init.sql               # Schema: 7 Tabellen + Audit-Trigger
+├── seed.sql               # Demo-Daten
+├── backup.sh / restore.sh # Automatische Backups (täglich/wöchentlich)
+└── README.md              # Backup/Restore-Dokumentation
 ```
 
 ---
 
-## Key Patterns & Architecture Decisions
+## Zentrale Muster & Architekturentscheidungen
 
-### DocumentManager Pattern
-**Lieferscheine (delivery notes) and Rechnungen (invoices)** share 95% identical UI/logic. Both use a parameterized **DocumentManager.jsx** component that accepts type-specific props (labels, API endpoints, piece-selection logic). Lieferscheine.jsx and Rechnungen.jsx are thin wrappers around it.
+### DocumentManager-Muster
+**Lieferscheine und Rechnungen** teilen sich 95 % der UI/Logik. Beide nutzen die parametrisierte Komponente **DocumentManager.jsx**; `Lieferscheine.jsx` und `Rechnungen.jsx` sind dünne Wrapper.
 
-→ If modifying document-list logic (filtering, grouping, modals), edit `DocumentManager.jsx` first.
+→ Änderungen an Listen-Logik (Filterung, Gruppierung, Modals) immer in `DocumentManager.jsx` durchführen.
 
-**Rechnung und Lieferschein sind eng verwandt – Änderungen immer an beiden
-prüfen.** Wer am einen Beleg etwas ändert (Route, Summen, Excel, Modal, Tests),
-zieht es beim anderen nach oder hält im Commit fest, warum nicht. Geteilte Stellen:
+**Änderungen immer an beiden Belegen prüfen.** Geteilte Stellen:
 - Frontend: `DocumentManager.jsx` (Unterschiede nur über `type === "rechnung"` / `"lieferschein"`)
-- Backend: `routes/rechnungen.js` ↔ `routes/lieferscheine.js` (gleiche Endpunkte,
-  gleiche Antwortform), Summen über `belegSummen()` in `utils/rabatt.js`,
-  Excel über `utils/excelService.js`
-- Fachlicher Unterschied: Der Lieferschein zeigt, was **an den Kunden gesendet**
-  wurde (brutto/netto nach Provision, kein Rabatt); abgerechnet wird erst per
-  Rechnung. Rabattspalten gibt es nur in `"Rechnung"`
-- Warnbeispiel #241: Befund G7 stellte die Summenbox auf `detail.summen` um, aber
-  nur die Rechnungs-Route lieferte das Objekt – beim Lieferschein blieb die Box leer
+- Backend: `routes/rechnungen.js` ↔ `routes/lieferscheine.js` (gleiche Endpunkte, gleiche Antwortstruktur), Summen über `belegSummen()` in `utils/rabatt.js`, Excel über `utils/excelService.js`
+- Fachlicher Unterschied: Der Lieferschein zeigt, was **an den Kunden gesendet** wurde (brutto/netto nach Provision, kein Rabatt); abgerechnet wird erst per Rechnung
 
-### Database Queries
-- No ORM: queries use `pg` (node-postgres) directly
-- **All** row insertion/update uses prepared statements to prevent SQL injection
-- Session user tracked via `SET app.current_user = 'username'` in authenticate middleware (feeds into audit triggers)
-- Startup migrations in `db.js` ensure schema consistency (lagerinventur table auto-created if missing)
+### Datenbankabfragen
+- Kein ORM: Abfragen direkt mit `pg` (node-postgres)
+- Alle Einfüge-/Update-Operationen verwenden Prepared Statements gegen SQL-Injection
+- Session-Benutzer wird per `SET app.current_user = 'username'` im `authenticate`-Middleware gesetzt (fließt in Audit-Trigger)
+- Startup-Migrationen in `db.js` stellen Schema-Konsistenz sicher
 
-### Authentication Flow
-1. Frontend sends the password in plaintext over TLS — no client-side hashing
-2. Backend hashes/verifies with `bcryptjs` (10 rounds) via `utils/passwordService.js`;
-   legacy `bcrypt(sha256(pw))` hashes are accepted once and transparently upgraded on login
-3. JWT issued and set as an **httpOnly cookie** (`jwt`); the browser sends it
-   automatically because `api.js` uses `credentials: 'include'`. No token is
-   kept in localStorage. `Authorization: Bearer <token>` still works as a
-   fallback for scripts and E2E tests
-4. Middleware validates JWT, sets `req.user = { username, role, ... }`
-5. Routes check roles: `requireAdmin`, `requireBearbeiter` middleware
+### Authentifizierung
+1. Frontend sendet Passwort im Klartext über TLS — kein clientseitiges Hashing
+2. Backend hasht/prüft mit `bcryptjs` (10 Runden) via `utils/passwordService.js`; Legacy-Hashes (`bcrypt(sha256(pw))`) werden beim Login einmalig akzeptiert und transparent migriert
+3. JWT wird als **httpOnly-Cookie** (`jwt`) gesetzt; `api.js` sendet es automatisch via `credentials: 'include'`. Kein Token in localStorage. `Authorization: Bearer <token>` funktioniert als Fallback für Skripte und E2E-Tests
+4. Middleware validiert JWT, setzt `req.user = { username, role, ... }`
+5. Routen prüfen Rollen: `requireAdmin`, `requireBearbeiter`
 
-**CSRF** (`backend/src/middleware/csrf.js`): double-submit cookie pattern (not
-`csurf`, which is deprecated). `GET /api/csrf-token` issues a readable
-`csrfToken` cookie; `api.js` mirrors it into the `X-CSRF-Token` header on
-POST/PUT/PATCH/DELETE. Only enforced for cookie-authenticated requests —
-Bearer-token clients and public endpoints are exempt.
+**CSRF** (`backend/src/middleware/csrf.js`): Double-Submit-Cookie-Muster. `GET /api/csrf-token` setzt ein lesbares `csrfToken`-Cookie; `api.js` spiegelt es als `X-CSRF-Token`-Header bei POST/PUT/PATCH/DELETE. Nur für cookie-authentifizierte Anfragen erzwungen.
 
-**Account lockout & password reset** (`backend/src/utils/accountSecurity.js`):
-5 consecutive failed logins lock the account for 30 minutes. Self-service reset
-runs via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`;
-only the token's SHA-256 hash is stored. No SMTP is configured — the reset link
-is written to the backend log for an admin to hand over.
+**Kontosperrung & Passwort-Reset** (`backend/src/utils/accountSecurity.js`): 5 aufeinanderfolgende fehlgeschlagene Logins sperren das Konto für 30 Minuten. Reset via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`; nur der SHA-256-Hash des Tokens wird gespeichert. Kein SMTP konfiguriert — der Reset-Link wird ins Backend-Log geschrieben.
 
-### Roles & Permissions
-| Role | Access |
-|------|--------|
-| `user` | Create schmuckstücke only |
-| `bearbeiter` | All pages except admin section |
-| `admin` | Full access + audit-log, users, backup, debug |
+### Rollen & Berechtigungen
+| Rolle | Zugriff |
+|-------|---------|
+| `user` | Nur Schmuckstücke anlegen |
+| `bearbeiter` | Alle Seiten außer Admin-Bereich |
+| `admin` | Vollzugriff + Audit-Log, Benutzer, Backup, Debug |
 
 ---
 
-## Important Files & Locations
+## Wichtige Dateien
 
-| Purpose | Path |
-|---------|------|
-| **Database schema** | `db/init.sql` (7 tables, audit triggers) |
-| **Environment vars** | `.env.example` (copy to `.env`, set JWT_SECRET & DB_PASSWORD) |
-| **WHERE builder docs** | `backend/src/utils/WHERE_BUILDER.md` |
-| **Excel export** | `backend/src/utils/excelService.js` (generateExcel, generateInventurExcel) |
-| **Logging** | `backend/src/utils/logger.js` (structured logs with timestamp & component prefix) |
-| **Password hashing** | `backend/src/utils/passwordService.js` (bcrypt; legacy-hash migration) |
-| **Fotos** | `backend/src/utils/fotoService.js` (Tabellen `"Foto"`, `bestellung_foto`) |
-| **Comprehensive docs** | `.github/copilot-instructions.md` (schema, API endpoints, docker details, migrations) |
+| Zweck | Pfad |
+|-------|------|
+| **Datenbankschema** | `db/init.sql` (7 Tabellen, Audit-Trigger) |
+| **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & DB_PASSWORD setzen) |
+| **WHERE-Builder-Doku** | `backend/src/utils/WHERE_BUILDER.md` |
+| **Excel-Export** | `backend/src/utils/excelService.js` |
+| **Logging** | `backend/src/utils/logger.js` |
+| **Passwort-Hashing** | `backend/src/utils/passwordService.js` |
+| **Fotos** | `backend/src/utils/fotoService.js` |
+| **Ausführliche Doku** | `.github/copilot-instructions.md` |
 
 ---
 
-## Testing
+## Tests
 
 **Backend** (Jest):
 ```bash
 cd backend && npm test
 # Tests in: __tests__/**/*.test.js
 # Mocks: db.js, logger.js via jest.mock()
-# Config: testEnvironment=node, timeout=10s
 ```
 
-Backup/Restore hat zusätzlich eine Integrationssuite gegen echtes Postgres
-(`__tests__/backup.integration.test.js`). Sie läuft nur mit `TEST_DATABASE_URL`
-und verweigert Datenbanken, deren Name nicht „test" enthält (der Import macht
-TRUNCATE). Einrichtung steht im Kopf der Testdatei.
+Für Backup/Restore gibt es eine Integrationssuite gegen echtes Postgres (`__tests__/backup.integration.test.js`), die nur mit `TEST_DATABASE_URL` läuft und Datenbanken ohne „test" im Namen ablehnt.
 
 **Frontend** (Vitest):
 ```bash
@@ -327,65 +250,41 @@ cd frontend && npm test
 # Tests in: src/__tests__/**/*.test.js
 ```
 
-Tests run automatically on every PR via GitHub Actions (`.github/workflows/tests.yml`).
+Tests laufen automatisch bei jedem PR über GitHub Actions (`.github/workflows/tests.yml`).
 
 ---
 
-## Common Tasks
+## Häufige Aufgaben
 
-### Add a new API endpoint
-1. Create route handler in `backend/src/routes/[feature].js`
-2. Use `whereClauseBuilder` if filtering schmuckstücke
-3. Add middleware checks: `authenticate`, `requireAdmin`, etc.
-4. Add test in `backend/__tests__/`
-5. Wire up in `backend/src/index.js` with `app.use('/api/[feature]', require(...))`
-6. Call from frontend via `api.js`
+### Neuen API-Endpunkt hinzufügen
+1. Route in `backend/src/routes/[feature].js` anlegen
+2. `whereClauseBuilder` verwenden, wenn Schmuckstücke gefiltert werden
+3. Middleware einbinden: `authenticate`, `requireAdmin` usw.
+4. Test in `backend/__tests__/` ergänzen
+5. In `backend/src/index.js` mit `app.use('/api/[feature]', require(...))` registrieren
+6. Vom Frontend über `api.js` aufrufen
 
-### Add a new page
-1. Create component in `frontend/src/pages/[Feature].jsx`
-2. Add route in `App.jsx` with `<ProtectedRoute>` if role-restricted
-3. Create API calls in `frontend/src/api.js`
-4. Use existing `DataTable` / `TableToolbar` components for lists
+### Neue Seite hinzufügen
+1. Komponente in `frontend/src/pages/[Feature].jsx` anlegen
+2. Route in `App.jsx` mit `<ProtectedRoute>` registrieren, falls rollengeschützt
+3. API-Aufrufe in `frontend/src/api.js` ergänzen
+4. Vorhandene `DataTable`/`TableToolbar`-Komponenten für Listen verwenden
 
-### Modify filters or list logic
-1. For schmuckstücke: extend `whereClauseBuilder` in `backend/src/utils/whereClauseBuilder.js`
-2. For document lists (Lieferscheine/Rechnungen): edit `DocumentManager.jsx` (shared component)
-3. Update filter-options endpoint if adding new filter dimensions
+### Filter oder Listen-Logik ändern
+1. Für Schmuckstücke: `whereClauseBuilder` in `backend/src/utils/whereClauseBuilder.js` erweitern
+2. Für Dokumentenlisten (Lieferscheine/Rechnungen): `DocumentManager.jsx` bearbeiten
+3. Filter-Options-Endpunkt aktualisieren, wenn neue Filter-Dimensionen hinzukommen
 
-### Deploy to Synology NAS
-See `README.md` section "Synology NAS" for full step-by-step (copy release zip, set `.env`, run `docker compose up -d`).
-
----
-
-## Cleanup Tasks Status
-
-**Fehlermeldungen im Frontend** (korrigierte Fassung): Hier stand, die
-unbehandelten `.catch(console.error)` seien „durch benutzerfreundliche
-Fehlerdialoge und Alerts" ersetzt. Das war **verfrüht** — zum Zeitpunkt der
-Aussage lagen in `Dashboard.jsx`, `Bestelluebersicht.jsx`,
-`SchmuckstueckDetail.jsx`, `Benutzerverwaltung.jsx` und `api.js` weiter
-verschluckte Fehler, und 68 `alert()` verteilt über 11 Dateien. Jetzt gilt:
-- Meldungen laufen über `useToast()` (`components/Toast.jsx`), nicht über
-  `alert()`; gleiche Meldungen werden zusammengefasst statt gestapelt.
-- Die fünf verschluckten Fehler führen ihre Meldung mit: `Dashboard.jsx` zeigt
-  sie an, `Bestelluebersicht.jsx` setzt `fotoError`, `SchmuckstueckDetail.jsx`
-  und `Benutzerverwaltung.jsx` melden per Toast, und `api.js` lässt einen
-  fehlgeschlagenen CSRF-Token-Abruf laut scheitern statt alle folgenden
-  Schreibzugriffe stumm in einen 403 laufen zu lassen.
-- Die Schmuckstückliste entprellt ihre Suche (250 ms) und bricht überholte
-  Requests per `AbortController` ab — vorher überschrieb eine späte Antwort
-  die neueren Treffer.
-
-**Weitere abgeschlossene Aufräumarbeiten:**
-- **Shrinking excelService.js**: Extracted formatting utility `formatCell()` and sheet-creating helper `addInventurSheet()`. Saved 80+ lines of duplicate styles.
+### Auf Synology NAS deployen
+Siehe `README.md`, Abschnitt „Synology NAS".
 
 ---
 
-## Debugging Tips
+## Debugging
 
-- **Backend logs**: Check container output (`docker compose -f docker-compose.dev.yml logs backend`)
-- **Frontend logs**: Browser DevTools console
-- **DB logs**: `docker compose -f docker-compose.dev.yml logs db`
-- **Health checks**: Backend has `/api/health` endpoint; frontend loads once backend is healthy
-- **JWT issues**: Middleware logs rejection reason; im Browser das httpOnly-Cookie `jwt` prüfen (DevTools → Application → Cookies), nicht localStorage
-- **Photo upload fails**: 400 kommt aus der Magic-Byte-/Größenprüfung in `utils/fotoService.js`; Bilddaten stehen in der Tabelle `"Foto"`
+- **Backend-Logs**: `docker compose -f docker-compose.dev.yml logs backend`
+- **Frontend-Logs**: Browser-DevTools-Konsole
+- **DB-Logs**: `docker compose -f docker-compose.dev.yml logs db`
+- **Health-Check**: `GET /api/health`
+- **JWT-Probleme**: Middleware loggt den Ablehnungsgrund; httpOnly-Cookie `jwt` im Browser prüfen (DevTools → Application → Cookies)
+- **Foto-Upload schlägt fehl**: 400 kommt aus der Magic-Byte-/Größenprüfung in `utils/fotoService.js`
