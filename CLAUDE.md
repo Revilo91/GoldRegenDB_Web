@@ -173,6 +173,10 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 - Code, zugehörige Tests und Doku einer Änderung gehören in denselben Commit; unabhängige Änderungen in eigene Commits
 - Regeländerungen (CLAUDE.md) vorab und getrennt von der Code-Änderung committen
 
+**Branches:**
+- Nach GitHub wird **nur über eigene Branches** gepusht (`feat/…`, `fix/…`, `docs/…`), nie direkt auf `main`
+- `main` ändert sich ausschließlich über Pull Requests; lokale Commits auf `main` vor dem Push auf einen Branch verschieben
+
 ---
 
 ## Kritische Projektregeln
