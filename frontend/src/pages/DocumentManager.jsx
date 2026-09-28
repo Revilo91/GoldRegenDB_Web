@@ -4,6 +4,14 @@ import DataTable from "../components/DataTable";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { formatEur } from "../utils/zahlen";
 import { useToast } from "../components/Toast";
+import EmpfaengerModal from "../components/EmpfaengerModal";
+import { empfaengerZeile } from "../utils/empfaenger";
+
+// Bei Einmalkunden (Onlineshop) steht der Empfänger hinter dem Sammelkunden: "Online · Erika Mustermann"
+const kundenAnzeige = (d) => {
+  const kunde = d.KundenName || `Kunde ${d.Kundennummer}`;
+  return d.empfaenger?.Name ? `${kunde} · ${d.empfaenger.Name}` : kunde;
+};
 
 export default function DocumentManager({
   type,
@@ -28,6 +36,7 @@ export default function DocumentManager({
     Artikelnummern: [],
     rabatt_gesamt: 0,
     rabatt_positionen: {},
+    empfaenger: null,
   });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
@@ -39,6 +48,7 @@ export default function DocumentManager({
   const [saving, setSaving] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
+  const [empfaengerOffen, setEmpfaengerOffen] = useState(false);
 
   // Entwurf bearbeiten
   const openEditDraft = async (doc) => {
@@ -50,6 +60,7 @@ export default function DocumentManager({
         Artikelnummern: d.schmuckstuecke?.map(s => s.Artikelnummer) || [],
         rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
         rabatt_positionen: d.rabatt_positionen || {},
+        empfaenger: d.empfaenger || null,
       };
       setForm(neuesForm);
       setPieceSearch("");
@@ -76,6 +87,7 @@ export default function DocumentManager({
         status: 'final',
         rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
         rabatt_positionen: d.rabatt_positionen || {},
+        empfaenger: d.empfaenger ?? null,
       });
       setDetail(null);
       load();
@@ -190,6 +202,7 @@ export default function DocumentManager({
       Artikelnummern: [],
       rabatt_gesamt: 0,
       rabatt_positionen: {},
+      empfaenger: null,
     };
     setForm(neuesForm);
     setPieceSearch("");
@@ -309,6 +322,7 @@ export default function DocumentManager({
         const match =
           d.Nummer?.toUpperCase().includes(s) ||
           d.KundenName?.toUpperCase().includes(s) ||
+          d.empfaenger?.Name?.toUpperCase().includes(s) ||
           String(d.ID).includes(s);
         if (!match) return false;
       }
@@ -331,8 +345,8 @@ export default function DocumentManager({
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         if (sortConfig.key === "KundenName") {
-          aValue = (a.KundenName || `Kunde ${a.Kundennummer}`).toUpperCase();
-          bValue = (b.KundenName || `Kunde ${b.Kundennummer}`).toUpperCase();
+          aValue = kundenAnzeige(a).toUpperCase();
+          bValue = kundenAnzeige(b).toUpperCase();
         }
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
@@ -498,7 +512,7 @@ export default function DocumentManager({
                             }}
                             style={{ cursor: "pointer" }}>
                             <td>{d.Nummer}</td>
-                            <td>{d.KundenName || `Kunde ${d.Kundennummer}`}</td>
+                            <td>{kundenAnzeige(d)}</td>
                             <td className="hide-on-mobile">
                               {d.Datum
                                 ? new Date(d.Datum).toLocaleDateString(
@@ -529,7 +543,7 @@ export default function DocumentManager({
                   key: "KundenName",
                   label: "Kunde",
                   sortable: true,
-                  render: (r) => r.KundenName || `Kunde ${r.Kundennummer}`,
+                  render: kundenAnzeige,
                 },
                 {
                   key: "Datum",
@@ -640,6 +654,12 @@ export default function DocumentManager({
                     })}
                   </div>
                 </div>
+                {detail.empfaenger && (
+                  <div className="detail-item">
+                    <label>Rechnungsempfänger</label>
+                    <div className="detail-value">{empfaengerZeile(detail.empfaenger)}</div>
+                  </div>
+                )}
                 {type === "rechnung" && Number(detail.rabatt_gesamt) > 0 && (
                   <div className="detail-item">
                     <label>Gesamtrabatt</label>
@@ -905,6 +925,37 @@ export default function DocumentManager({
                     ))}
                   </select>
                 </div>
+                {type === "rechnung" && (
+                  <div className="form-group">
+                    <label>Rechnungsempfänger (Onlineshop)</label>
+                    {form.empfaenger ? (
+                      <div className="empfaenger-summary">
+                        <span>{empfaengerZeile(form.empfaenger)}</span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setEmpfaengerOffen(true)}>
+                          Bearbeiten
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          title="Rechnungsempfänger entfernen"
+                          aria-label="Rechnungsempfänger entfernen"
+                          onClick={() => setForm({ ...form, empfaenger: null })}>
+                          <FontAwesomeIcon icon={icons.times} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setEmpfaengerOffen(true)}>
+                        Einmalkunde erfassen…
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="piece-selection piece-selection-wrapper">
@@ -1121,6 +1172,18 @@ export default function DocumentManager({
             </div>
           </div>
         </div>
+      )}
+      {/* Außerhalb des Bearbeiten-Modals: dessen transform-Animation und
+          overflow: hidden würden das fixierte Overlay sonst beschneiden */}
+      {editing && empfaengerOffen && (
+        <EmpfaengerModal
+          empfaenger={form.empfaenger}
+          onClose={() => setEmpfaengerOffen(false)}
+          onSave={(empfaenger) => {
+            setForm({ ...form, empfaenger });
+            setEmpfaengerOffen(false);
+          }}
+        />
       )}
       {schmuckstueckOverlay && (
         <SchmuckstueckModal

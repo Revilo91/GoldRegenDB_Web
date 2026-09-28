@@ -185,4 +185,108 @@ describe('DocumentManager', () => {
     );
     expect(meldung).toHaveTextContent('E-Mail-Adresse des Kunden fehlt. (BT-49)');
   });
+
+  describe('Einmalkunde (Onlineshop)', () => {
+    const rechnungProps = {
+      type: 'rechnung',
+      pieceSelectMode: 'byKunde',
+      pieceFilter: (form) => ({ ausgelagert: form.Kundennummer }),
+    };
+
+    async function oeffneNeueRechnung(apiOverrides = {}) {
+      const api = renderManager(apiOverrides, rechnungProps);
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+      fireEvent.change(screen.getByDisplayValue('Bitte wählen...'), { target: { value: '1' } });
+      return api;
+    }
+
+    function fuelleEmpfaenger(werte) {
+      for (const [label, wert] of Object.entries(werte)) {
+        fireEvent.change(screen.getByLabelText(label), { target: { value: wert } });
+      }
+    }
+
+    it('sendet die erfasste Anschrift beim Speichern mit', async () => {
+      const api = await oeffneNeueRechnung();
+
+      fireEvent.click(screen.getByText('Einmalkunde erfassen…'));
+      fuelleEmpfaenger({
+        'Name*': '  Erika Mustermann ',
+        'Straße*': 'Heidestraße',
+        Hausnummer: '17',
+        'PLZ*': '01067',
+        'Ort*': 'Dresden',
+      });
+      fireEvent.click(screen.getByText('Übernehmen'));
+
+      expect(screen.getByText('Erika Mustermann, Heidestraße 17, 01067 Dresden')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Speichern & Abschließen'));
+      await waitFor(() => expect(api.createItem).toHaveBeenCalled());
+      expect(api.createItem.mock.calls[0][0].empfaenger).toEqual({
+        Name: 'Erika Mustermann',
+        Strasse: 'Heidestraße',
+        Hausnummer: '17',
+        PLZ: '01067',
+        Ort: 'Dresden',
+        Land: 'DE',
+        Email: '',
+      });
+    });
+
+    it('meldet fehlende Pflichtfelder und übernimmt nichts', async () => {
+      await oeffneNeueRechnung();
+
+      fireEvent.click(screen.getByText('Einmalkunde erfassen…'));
+      fuelleEmpfaenger({ 'Name*': 'Erika Mustermann' });
+      fireEvent.click(screen.getByText('Übernehmen'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Bitte ausfüllen: Straße, PLZ, Ort');
+      expect(screen.getByText('Rechnungsempfänger (Einmalkunde)')).toBeInTheDocument();
+    });
+
+    it('entfernt einen erfassten Empfänger wieder', async () => {
+      const api = await oeffneNeueRechnung();
+
+      fireEvent.click(screen.getByText('Einmalkunde erfassen…'));
+      fuelleEmpfaenger({ 'Name*': 'Erika', 'Straße*': 'Weg', 'PLZ*': '12345', 'Ort*': 'Ort' });
+      fireEvent.click(screen.getByText('Übernehmen'));
+      fireEvent.click(screen.getByLabelText('Rechnungsempfänger entfernen'));
+      fireEvent.click(screen.getByText('Speichern & Abschließen'));
+
+      await waitFor(() => expect(api.createItem).toHaveBeenCalled());
+      expect(api.createItem.mock.calls[0][0].empfaenger).toBeNull();
+    });
+
+    it('zeigt den Empfänger in der Liste und findet ihn über die Suche', async () => {
+      renderManager(
+        {
+          getList: vi.fn().mockResolvedValue([
+            { ID: 1, Nummer: '2026-001', Kundennummer: 15, KundenName: 'Online', status: 'final', Datum: '2026-01-01', empfaenger: { Name: 'Erika Mustermann' } },
+            { ID: 2, Nummer: '2026-002', Kundennummer: 2, KundenName: 'Bernd', status: 'final', Datum: '2026-02-01' },
+          ]),
+        },
+        rechnungProps,
+      );
+
+      expect(await screen.findByText('Online · Erika Mustermann')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Suche nach Nummer, Kunde, ID...'), {
+        target: { value: 'erika' },
+      });
+      expect(screen.getByText('2026-001')).toBeInTheDocument();
+      expect(screen.queryByText('2026-002')).not.toBeInTheDocument();
+    });
+
+    it('bietet die Erfassung bei Lieferscheinen nicht an', async () => {
+      renderManager();
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+
+      expect(screen.queryByText('Einmalkunde erfassen…')).not.toBeInTheDocument();
+    });
+  });
 });

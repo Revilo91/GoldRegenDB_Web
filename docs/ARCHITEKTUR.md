@@ -120,6 +120,7 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `status` | TEXT | `entwurf` oder `final` |
 | `rabatt_positionen` | JSONB | `{ "MHO123": 10, "MBA456": 5 }` – Rabatt je Basis-Artikelnummer (%) |
 | `rabatt_gesamt` | NUMERIC | Gesamtrabatt auf den Beleg (%) |
+| `empfaenger` | JSONB | Anschrift eines Einmalkunden (Onlineshop), NULL = Kundenanschrift |
 
 #### `Foto`
 
@@ -625,6 +626,11 @@ Details: `docs/E-RECHNUNG.md`
 | `.env` | Verkäuferdaten: `VERKAEUFER_NAME`, `VERKAEUFER_STRASSE`, `VERKAEUFER_PLZ`, `VERKAEUFER_ORT`, `VERKAEUFER_STEUERNUMMER`, SEPA-Konto |
 | `Kunde` | `Name`, `Strasse`, `Hausnummer`, `PLZ`, `Ort`, `Land`, `UStIdNr`, `Leitweg_ID` |
 | `Rechnung` + `Schmuckstück` | Positionen, Rabatte, Umsatzsteuer |
+
+**Einmalkunden (Onlineshop):** Die Rechnung läuft auf den Sammelkunden „Online“, die Anschrift des Käufers
+steht in `Rechnung.empfaenger` (Name, Strasse, Hausnummer, PLZ als Text, Ort, Land, Email). Excel und
+E-Rechnung überschreiben damit die Kundenanschrift (`mitEmpfaenger()` in `rechnungen.js`, USt-IdNr entfällt).
+Erfasst wird sie im Rechnungsdialog über `components/EmpfaengerModal.jsx`; es entsteht kein Eintrag in `Kunde`.
 
 ---
 
