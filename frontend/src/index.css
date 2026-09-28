@@ -2903,6 +2903,12 @@ select.form-control {
   line-height: 1.5;
 }
 
+.datensicherung-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 /* Foto-ZIP: Export-Link und Import mit Fortschritt */
 .datensicherung-abschnitt {
   margin-top: 24px;

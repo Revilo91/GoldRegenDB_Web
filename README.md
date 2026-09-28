@@ -37,7 +37,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 - **SumUp-Integration** – CSV-Export verfügbarer Stücke; CSV-Import mit automatischer Lieferschein-/Rechnungserstellung
 - **Dashboard** – Statistiken zu Gesamtbestand, Auslagerungen, Verkäufen und Umsatz
 - **Audit-Log** – automatisches Änderungsprotokoll über DB-Trigger
-- **Datensicherung** – JSON-Export und -Import aller Tabellen (Admin)
+- **Datensicherung** – Export und Import aller Tabellen als JSON oder SQL-Dump (Admin)
 - **Benutzerverwaltung** – JWT-Authentifizierung mit drei Rollen (Admin)
 - **API-Dokumentation** – Swagger-UI unter `/api-docs` (nur Admin; standardmäßig außerhalb Produktion aktiv, siehe `ENABLE_API_DOCS`)
 
@@ -145,7 +145,7 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
    ```
    | Variable | Bedeutung | Standard |
    |----------|-----------|----------|
-   | `DATA_DIR` | Wurzel für `data/` (Datenbank) und `backups/`; fehlende Ordner legt Docker an | `/volume1/docker/goldregendb` |
+   | `DATA_DIR` | Wurzel für `data/` (Datenbank), `backups/` und `uploads/` (Foto-Import). Das Paket bringt die Ordner mit; bei anderem Pfad vorher anlegen, Container Manager tut es nicht | `/volume1/docker/goldregendb` |
    | `IMAGE_TAG` | Version von `ghcr.io/revilo91/goldregendb` (ohne führendes `v`), Pflicht | Version des Pakets |
    | `APP_HOST_PORT` / `DB_HOST_PORT` | Ports auf der Synology | `3000` / `15432` |
 
@@ -171,11 +171,17 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
 > ```
 > `grep manuell uploads/import-fotos.log` zeigt Dateien zum Nacharbeiten; ein zweiter Lauf
 > überspringt bereits importierte Fotos. Den Ordner erst nach geprüftem Import löschen.
+>
+> Liegen die Bilder verstreut in Unterordnern (z. B. auf dem Drive), sammelt
+> `npm run sammle:fotos -- --quelle <pfad|smb://…> --ziel <ordner> [--dry-run]` (im
+> Ordner `backend/`) sie vorher ein: Dateien direkt in der Quelle und in allen Ordnern
+> mit `_` am Anfang, nur Namen der Form `ABC123`. Uneindeutige Namen und gleichnamige
+> Dateien mit anderem Inhalt landen in `<ordner>/_manuell/`, das der Import nicht liest.
 
 **Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
 Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen
 (z. B. `./synology-update.sh 0.3.0`). Das Skript trägt die Version als `IMAGE_TAG` in die
-`.env` ein, zieht das Image und startet die Container neu.
+`.env` ein, legt fehlende Ordner unter `DATA_DIR` an, zieht das Image und startet die Container neu.
 
 **Migration bestehender Installationen** (Pakete bis v0.2.0 mit fest verdrahteten
 `/volume1/docker/goldregendb/...`-Pfaden): Neue `docker-compose.yml` und `db/` über die alten
@@ -432,6 +438,16 @@ Backups werden im Docker-Volume `pgbackups` unter `/backups/daily/` und `/backup
 ### JSON-Backup über die Web-Oberfläche (Admin)
 
 Unter **Einstellungen → Datensicherung** können alle Tabellen als JSON exportiert und wieder importiert werden.
+
+**SQL-Dump:** Der Import nimmt auch `.sql`-Dateien aus `pg_dump` oder `pg_dumpall`
+(Standardformat mit `COPY`, nicht `--inserts`). Gelesen werden nur die Daten;
+Rollen, Passwörter und Schema-Anweisungen im Dump werden ignoriert, Spalten, die
+es im aktuellen Schema nicht mehr gibt (z. B. das alte `"Schmuckstück"."Foto"`),
+ebenfalls. Der Export bietet zusätzlich **„Als SQL-Dump herunterladen“**: eine
+reine Daten-Datei (TRUNCATE, COPY, setval in einer Transaktion), die sich über
+die Oberfläche oder per `psql -v ON_ERROR_STOP=1 -d <datenbank> -f <datei>` in
+eine Datenbank mit aktuellem Schema einspielen lässt. Fotos stehen weder im
+JSON noch im SQL-Dump, dafür gibt es das Foto-ZIP.
 
 ---
 

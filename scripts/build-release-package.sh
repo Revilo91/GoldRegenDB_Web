@@ -31,6 +31,9 @@ NAME="goldregendb-synology-${VERSION}"
 mkdir -p "$AUSGABE"
 rm -rf "${AUSGABE:?}/$NAME" "$AUSGABE/$NAME.zip"
 mkdir -p "$AUSGABE/$NAME/db"
+# Leere Ordner für den Standard-DATA_DIR (= Paketordner): Synology Container
+# Manager legt fehlende Bind-Mount-Quellen nicht an, sondern bricht ab.
+mkdir -p "$AUSGABE/$NAME/data" "$AUSGABE/$NAME/backups" "$AUSGABE/$NAME/uploads"
 
 cp "$COMPOSE" "$AUSGABE/$NAME/docker-compose.yml"
 sed "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" "$VORLAGE/.env.example" > "$AUSGABE/$NAME/.env.example"

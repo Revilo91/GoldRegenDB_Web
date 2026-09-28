@@ -358,6 +358,67 @@ describe('GET /api/backup/export', () => {
   });
 });
 
+describe('GET /api/backup/export-sql', () => {
+  let app;
+  let client;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    client = {
+      query: jest.fn(async (sql) => {
+        const katalog = katalogAntwort(sql);
+        if (katalog) return katalog;
+        if (sql && sql.rowMode === 'array' && sql.text.includes('FROM "Kunde"')) {
+          return { rows: [['1', 'Tab\there'], ['2', null], ['3', 'Zeile\nzwei\\x']] };
+        }
+        if (String(sql).includes('pg_trigger')) return { rows: [{}], rowCount: 1 };
+        return { rows: [], rowCount: 0 };
+      }),
+      release: jest.fn(),
+    };
+    db.connect.mockResolvedValue(client);
+  });
+
+  it('schreibt COPY-Blöcke mit Escapes, eingerahmt von TRUNCATE, setval und COMMIT', async () => {
+    const res = await request(app).get('/api/backup/export-sql?tables=Kunde,audit_log');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-disposition']).toMatch(/goldregendb_dump_.*\.sql/);
+    expect(res.text).toContain('TRUNCATE TABLE "Kunde", "audit_log" RESTART IDENTITY CASCADE;');
+    expect(res.text).toContain(
+      'COPY "Kunde" ("ID", "Name") FROM stdin;\n1\tTab\\there\n2\t\\N\n3\tZeile\\nzwei\\\\x\n\\.\n',
+    );
+    expect(res.text).toContain('ALTER TABLE audit_log DISABLE TRIGGER trg_audit_log_hash_chain;');
+    expect(res.text).toContain(`SELECT setval(pg_get_serial_sequence('"Kunde"', 'ID')`);
+    expect(res.text.trim().endsWith('COMMIT;')).toBe(true);
+    expect(res.text).not.toContain('"Lieferschein"');
+    expect(client.query).toHaveBeenCalledWith('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  it('liest alle Spalten als ::text und lässt die Foto-Tabellen aus', async () => {
+    const res = await request(app).get('/api/backup/export-sql');
+
+    const selects = client.query.mock.calls
+      .map(([q]) => q)
+      .filter((q) => q && q.rowMode === 'array');
+    expect(selects).toHaveLength(KATALOG_TABELLEN.length);
+    expect(selects.find((q) => q.text.includes('"audit_log"')).text).toBe(
+      'SELECT "id"::text, "change_timestamp"::text, "hash"::text FROM "audit_log" ORDER BY "id"',
+    );
+    expect(res.text).not.toMatch(/COPY "(Foto|bestellung_foto)"/);
+  });
+
+  it('antwortet mit 500, wenn die Verbindung scheitert', async () => {
+    db.connect.mockRejectedValue(new Error('weg'));
+    const res = await request(app).get('/api/backup/export-sql');
+    expect(res.status).toBe(500);
+  });
+});
+
 describe('POST /api/backup/import', () => {
   let app;
   let client;

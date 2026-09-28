@@ -429,6 +429,10 @@ export const api = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return downloadBlob(`/backup/export${query}`);
   },
+  exportBackupSql: (tables) => {
+    const query = tables && tables.length ? `?tables=${encodeURIComponent(tables.join(','))}` : '';
+    return downloadBlob(`/backup/export-sql${query}`);
+  },
   fotoBackupUrl: `${API_URL}/backup/export-fotos`,
   importBackup: (data, selectedTables) => {
     const payload = {

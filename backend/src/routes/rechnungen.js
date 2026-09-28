@@ -4,7 +4,7 @@ const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validate');
 const { rechnungSchema } = require('../schemas');
-const { rechnungsSummen } = require('../utils/rabatt');
+const { belegSummen } = require('../utils/rabatt');
 const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
@@ -160,7 +160,7 @@ router.get('/:id', async (req, res) => {
     // Rabatt zeigte das Modal einen um 20 % zu hohen Betrag. Das ist die Zahl,
     // nach der abgerechnet wird, deshalb kommt sie jetzt aus SQL, in derselben
     // Reihenfolge wie auf dem Beleg.
-    const summen = await rechnungsSummen(db, req.params.id);
+    const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
     res.json({ ...rows[0], schmuckstuecke: pieces.rows, summen });
   } catch (err) {
@@ -216,7 +216,7 @@ router.get('/:id/excel', async (req, res) => {
       rechungsZeitraum = minDate === maxDate ? minDate : `${minDate} bis ${maxDate}`;
     }
 
-    const summen = await rechnungsSummen(db, req.params.id);
+    const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],

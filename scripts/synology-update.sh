@@ -48,6 +48,10 @@ fi
 TAG="$(sed -n 's/^IMAGE_TAG=//p' .env | tail -n 1)"
 [ -n "$TAG" ] || fehler "IMAGE_TAG fehlt in der .env. Version angeben: $0 0.3.0"
 echo -e "${GREEN}[1/4]${NC} Version: ${TAG}"
+# Container Manager bricht bei fehlenden Bind-Mount-Quellen ab, statt sie anzulegen.
+DATA_DIR="$(sed -n 's/^DATA_DIR=//p' .env | tail -n 1)"
+DATA_DIR="${DATA_DIR:-/volume1/docker/goldregendb}"
+mkdir -p "$DATA_DIR/data" "$DATA_DIR/backups" "$DATA_DIR/uploads"
 echo ""
 
 # 2. Image herunterladen
