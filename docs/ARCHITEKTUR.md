@@ -435,7 +435,7 @@ GET    /bestelluebersicht                 Admin: Alle Bestellungen (inkl. entsch
 GET    /bestelluebersicht/:id             Admin: Einzelne Bestellung
 PUT    /bestelluebersicht/:id             Admin: Aktualisieren
 DELETE /bestelluebersicht/:id             Admin: Löschen
-PUT    /bestelluebersicht/:id/anonymisieren Admin: DSGVO-Anonymisierung
+POST   /bestelluebersicht/:id/anonymisieren Admin: DSGVO-Anonymisierung
 GET    /bestelluebersicht/foto/:fileName  Referenzfoto (öffentlich)
 ```
 
@@ -675,7 +675,7 @@ npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
 - Alle PII-Felder (Name, E-Mail, Telefon, Adresse) in `bestellung_kunde` AES-256-GCM verschlüsselt
 - IP-Adresse wird gehasht (SHA-256), nie im Klartext gespeichert
 - Datenminimierung per DB-Trigger: Lieferung → Adresse + Telefon erforderlich; Abholung → nur Telefon
-- Anonymisierung (DSGVO Art. 17): `PUT /api/bestelluebersicht/:id/anonymisieren` löscht alle PII, Transaktionsdaten bleiben für Buchhaltung
+- Anonymisierung (DSGVO Art. 17): `POST /api/bestelluebersicht/:id/anonymisieren` löscht alle PII in einer Transaktion: verschlüsselte Kontaktfelder in `bestellung_kunde`, `beschreibung` und `foto_pfad` in `bestellung`, Foto-Binärdaten in `bestellung_foto`. Transaktionsdaten bleiben für Buchhaltung erhalten. Auslöser: Admin-Route und `npm run dsgvo:retention`
 
 ### Öffentliches Formular
 
