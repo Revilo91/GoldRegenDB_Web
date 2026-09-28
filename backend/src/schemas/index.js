@@ -42,6 +42,7 @@ const kundeSchema = z.object({
     z.string().regex(/^[A-Z]{2}[A-Z0-9]{2,13}$/, 'ist keine gültige USt-IdNr. (z. B. DE123456789)').nullish(),
   ),
   Leitweg_ID: text(50),
+  Direktverkauf: bool(),
 });
 
 const restockSelectiveSchema = z.object({

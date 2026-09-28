@@ -97,6 +97,7 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `Land` | CHAR(2) | ISO 3166-1 (Default: `DE`) |
 | `UStIdNr` | TEXT | Umsatzsteuer-ID für E-Rechnung |
 | `Leitweg_ID` | TEXT | Leitweg-ID für XRechnung |
+| `Direktverkauf` | BOOLEAN | Rechnung bietet Lagerstücke ohne Lieferschein an (Online, Messe …) |
 | `Strasse`, `Hausnummer`, `PLZ`, `Ort` | TEXT | Rechnungsadresse |
 
 #### `Lieferschein`
@@ -626,6 +627,11 @@ Details: `docs/E-RECHNUNG.md`
 | `.env` | Verkäuferdaten: `VERKAEUFER_NAME`, `VERKAEUFER_STRASSE`, `VERKAEUFER_PLZ`, `VERKAEUFER_ORT`, `VERKAEUFER_STEUERNUMMER`, SEPA-Konto |
 | `Kunde` | `Name`, `Strasse`, `Hausnummer`, `PLZ`, `Ort`, `Land`, `UStIdNr`, `Leitweg_ID` |
 | `Rechnung` + `Schmuckstück` | Positionen, Rabatte, Umsatzsteuer |
+
+**Direktverkauf** (`Kunde.Direktverkauf`, Häkchen in der Kundenverwaltung; gesetzt für Online, Messe,
+Sonderanfertigung, Saskia Stempfhuber): Die Rechnung bietet Lagerstücke plus die bei diesem Kunden ausgelagerten
+an (`GET /api/schmuckstuecke?ausgelagert=0,15`), ein Lieferschein vorab entfällt. Übrige Kunden sehen weiter nur
+ihre ausgelagerten Stücke. Die Erstbelegung setzt `db.js` einmalig beim Anlegen der Spalte.
 
 **Einmalkunden (Onlineshop):** Die Rechnung läuft auf den Sammelkunden „Online“, die Anschrift des Käufers
 steht in `Rechnung.empfaenger` (Name, Strasse, Hausnummer, PLZ als Text, Ort, Land, Email). Excel und

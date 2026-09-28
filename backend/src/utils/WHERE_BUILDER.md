@@ -65,6 +65,7 @@ builder.ausgelagert(5);       // Ausgelagert = 5 (bei Kunde ID 5)
 builder.aktivAusgelagert();   // Ausgelagert > 0 AND Verkauft = 0 AND Ausschuss = 0
 builder.aktivAusgelagert(5);  // Ausgelagert = 5 AND Verkauft = 0 AND Ausschuss = 0
 builder.imLager();            // Ausgelagert = 0
+builder.ausgelagertIn([0, 15]); // Ausgelagert = ANY([0, 15]) – Lager plus Kunde (Direktverkauf)
 ```
 
 ### Artikelnummer-Filter

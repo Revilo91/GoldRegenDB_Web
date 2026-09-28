@@ -82,6 +82,10 @@ const definition = {
             type: 'string', nullable: true,
             description: 'E-Rechnung BT-10 (Käuferreferenz); ohne Angabe wird die Kundennummer verwendet',
           },
+          Direktverkauf: {
+            type: 'boolean',
+            description: 'Online, Messe usw.: Rechnungen bieten Lagerstücke an, ohne vorherigen Lieferschein',
+          },
         },
       },
       Schmuckstueck: {

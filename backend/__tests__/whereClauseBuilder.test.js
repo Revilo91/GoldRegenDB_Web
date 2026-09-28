@@ -83,6 +83,14 @@ describe('WhereClauseBuilder', () => {
       expect(builder.build()).toBe('WHERE "Ausgelagert" = 0');
       expect(builder.getParams()).toEqual([]);
     });
+
+    test('ausgelagertIn() filtert Lager und Kunde in einem Parameter', () => {
+      const builder = where();
+      builder.nichtVerkauft().ausgelagertIn([0, 15]);
+
+      expect(builder.build()).toBe('WHERE "Verkauft" IS FALSE AND "Ausgelagert" = ANY($1::int[])');
+      expect(builder.getParams()).toEqual([[0, 15]]);
+    });
   });
 
   describe('Artikelnummer-Filter', () => {

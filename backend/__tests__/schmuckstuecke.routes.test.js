@@ -100,6 +100,23 @@ describe('GET /api/schmuckstuecke', () => {
     expect(db.query.mock.calls[0][0]).not.toContain('LIMIT');
     expect(res.body.pagination.total).toBe(1);
   });
+
+  it('liefert bei ausgelagert=0,15 Lager und Kunde zusammen (Direktverkauf)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app).get('/api/schmuckstuecke?ausgelagert=0,15&verkauft=0&limit=-1');
+
+    expect(res.statusCode).toBe(200);
+    expect(db.query.mock.calls[0][0]).toContain('"Ausgelagert" = ANY(');
+    expect(db.query.mock.calls[0][1]).toContainEqual([0, 15]);
+  });
+
+  it.each(['0,', 'a,15', '0,-1'])('lehnt ausgelagert=%s ab (400)', async (wert) => {
+    const res = await request(app).get(`/api/schmuckstuecke?ausgelagert=${wert}`);
+
+    expect(res.statusCode).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/schmuckstuecke/filter-options', () => {

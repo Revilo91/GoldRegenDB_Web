@@ -101,6 +101,14 @@ class WhereClauseBuilder {
     return this;
   }
 
+  // Direktverkauf-Rechnung: Lager (0) plus die beim Kunden liegenden Stücke
+  ausgelagertIn(kundeIds) {
+    this.conditions.push(`${this._col('Ausgelagert')} = ANY($${this.paramIdx}::int[])`);
+    this.params.push(kundeIds);
+    this.paramIdx++;
+    return this;
+  }
+
   /** @returns {this} */
   imLager() {
     this.conditions.push(`${this._col('Ausgelagert')} = 0`);

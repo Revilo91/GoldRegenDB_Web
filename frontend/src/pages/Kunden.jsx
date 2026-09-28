@@ -65,6 +65,7 @@ export default function Kunden() {
       Land: "DE",
       UStIdNr: "",
       Leitweg_ID: "",
+      Direktverkauf: false,
       Artikelnummern_Erforderlich: false,
     });
     setEditing("new");
@@ -170,12 +171,16 @@ export default function Kunden() {
                 {
                   key: "Aktiv",
                   label: "Status",
-                  render: (r) =>
-                    r.Aktiv ? (
-                      <span className="badge success">Aktiv</span>
-                    ) : (
-                      <span className="badge danger">Inaktiv</span>
-                    ),
+                  render: (r) => (
+                    <span className="badge-gruppe">
+                      {r.Aktiv ? (
+                        <span className="badge success">Aktiv</span>
+                      ) : (
+                        <span className="badge danger">Inaktiv</span>
+                      )}
+                      {r.Direktverkauf && <span className="badge info">Direktverkauf</span>}
+                    </span>
+                  ),
                   sortable: true,
                 },
               ]}
@@ -331,6 +336,22 @@ export default function Kunden() {
                     checked={form.Aktiv || false}
                     onChange={(e) =>
                       setForm({ ...form, Aktiv: e.target.checked })
+                    }
+                  />
+                </div>
+
+                <div className="form-group ">
+                  <label className="form-label" htmlFor="kunde-direktverkauf">
+                    Direktverkauf (ohne Lieferschein)
+                  </label>
+                  <input
+                    id="kunde-direktverkauf"
+                    type="checkbox"
+                    className="form-checkbox"
+                    title="Rechnungen bieten alle Lagerstücke an, z. B. für Online oder Messe"
+                    checked={form.Direktverkauf || false}
+                    onChange={(e) =>
+                      setForm({ ...form, Direktverkauf: e.target.checked })
                     }
                   />
                 </div>

@@ -3085,3 +3085,10 @@ select.form-control {
   color: var(--text-secondary, #666);
   font-size: 0.9em;
 }
+
+.form-hinweis {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.85em;
+}

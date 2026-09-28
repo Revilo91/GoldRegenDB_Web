@@ -176,6 +176,9 @@ CREATE TABLE "Kunde" (
     "Land" CHAR(2) NOT NULL DEFAULT 'DE',
     "UStIdNr" VARCHAR(20) DEFAULT NULL,
     "Leitweg_ID" VARCHAR(50) DEFAULT NULL,
+    -- Direktverkauf (Online, Messe, …): Rechnungen bieten Lagerstücke direkt an,
+    -- ohne dass vorher ein Lieferschein an diesen Kunden nötig ist.
+    "Direktverkauf" BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY ("Name"),
     UNIQUE ("ID")
 );

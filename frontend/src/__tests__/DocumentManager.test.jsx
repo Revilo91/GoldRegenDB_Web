@@ -289,4 +289,43 @@ describe('DocumentManager', () => {
       expect(screen.queryByText('Einmalkunde erfassen…')).not.toBeInTheDocument();
     });
   });
+
+  describe('Direktverkauf (Online, Messe, …)', () => {
+    const kunden = [
+      { ID: 1, Name: 'Anna', Aktiv: true },
+      { ID: 15, Name: 'Online', Aktiv: true, Direktverkauf: true },
+    ];
+
+    async function waehleKunde(id) {
+      const pieceFilter = vi.fn(() => ({}));
+      const api = renderManager(
+        { getKunden: vi.fn().mockResolvedValue(kunden) },
+        { type: 'rechnung', pieceSelectMode: 'byKunde', pieceFilter },
+      );
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+      fireEvent.change(screen.getByDisplayValue('Bitte wählen...'), { target: { value: id } });
+      await waitFor(() => expect(api.getPieces).toHaveBeenCalled());
+      return pieceFilter;
+    }
+
+    it('übergibt dem Stückfilter den gewählten Kunden und zeigt den Hinweis', async () => {
+      const pieceFilter = await waehleKunde('15');
+
+      expect(pieceFilter).toHaveBeenLastCalledWith(
+        expect.objectContaining({ Kundennummer: '15' }),
+        'new',
+        expect.objectContaining({ ID: 15, Direktverkauf: true }),
+      );
+      expect(screen.getByText(/Direktverkauf: Stücke aus dem Lager/)).toBeInTheDocument();
+    });
+
+    it('zeigt den Hinweis bei gewöhnlichen Kunden nicht', async () => {
+      const pieceFilter = await waehleKunde('1');
+
+      expect(pieceFilter.mock.lastCall[2]).toMatchObject({ ID: 1 });
+      expect(screen.queryByText(/Direktverkauf: Stücke aus dem Lager/)).not.toBeInTheDocument();
+    });
+  });
 });

@@ -110,8 +110,18 @@ describe('POST /api/kunden', () => {
     await request(buildApp()).post('/api/kunden').send({ ...gueltigerKunde, UStIdNr: 'de 123 456 789', Leitweg_ID: '991-1' });
     await request(buildApp()).post('/api/kunden').send({ ...gueltigerKunde, Land: 'at' });
 
-    expect(db.query.mock.calls[0][1].slice(-3)).toEqual(['DE', 'DE123456789', '991-1']);
-    expect(db.query.mock.calls[1][1].slice(-3)).toEqual(['AT', null, null]);
+    expect(db.query.mock.calls[0][1].slice(9, 12)).toEqual(['DE', 'DE123456789', '991-1']);
+    expect(db.query.mock.calls[1][1].slice(9, 12)).toEqual(['AT', null, null]);
+  });
+
+  it('speichert Direktverkauf, ohne Angabe als false', async () => {
+    db.query.mockResolvedValue({ rows: [{ ID: 12 }] });
+
+    await request(buildApp()).post('/api/kunden').send({ ...gueltigerKunde, Direktverkauf: true });
+    await request(buildApp()).post('/api/kunden').send(gueltigerKunde);
+
+    expect(db.query.mock.calls[0][1].at(-1)).toBe(true);
+    expect(db.query.mock.calls[1][1].at(-1)).toBe(false);
   });
 
   it('lehnt einen ungültigen Ländercode ab (400)', async () => {
@@ -151,6 +161,17 @@ describe('PUT /api/kunden/:id', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.Name).toBe('Aktualisiert');
+  });
+
+  it('lässt Direktverkauf unverändert, wenn das Feld fehlt', async () => {
+    db.query.mockResolvedValue({ rows: [{ ID: 5 }] });
+
+    await request(buildApp()).put('/api/kunden/5').send({ ...gueltigerKunde, Direktverkauf: false });
+    await request(buildApp()).put('/api/kunden/5').send(gueltigerKunde);
+
+    expect(db.query.mock.calls[0][0]).toContain('"Direktverkauf" = COALESCE($13, "Direktverkauf")');
+    expect(db.query.mock.calls[0][1].slice(-2)).toEqual([false, '5']);
+    expect(db.query.mock.calls[1][1].slice(-2)).toEqual([null, '5']);
   });
 
   it('meldet 404 bei unbekannter ID', async () => {

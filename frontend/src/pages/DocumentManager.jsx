@@ -176,7 +176,8 @@ export default function DocumentManager({
   // (Befund G6).
   const loadAvailablePieces = async (formToUse = form, editingToUse = editing) => {
     try {
-      const resp = await api.getPieces(pieceFilter(formToUse, editingToUse));
+      const kunde = kunden.find((k) => String(k.ID) === String(formToUse.Kundennummer));
+      const resp = await api.getPieces(pieceFilter(formToUse, editingToUse, kunde));
       setAvailablePieces(resp.data);
     } catch (err) {
       setAvailablePieces([]);
@@ -236,7 +237,7 @@ export default function DocumentManager({
     } else {
       setAvailablePieces([]);
     }
-  }, [form.Kundennummer, editing]);
+  }, [form.Kundennummer, editing, kunden]);
 
   const handleSave = async (status = 'final') => {
     if (!form.Kundennummer) {
@@ -309,6 +310,8 @@ export default function DocumentManager({
     });
     return Array.from(y).sort((a, b) => b - a);
   }, [data]);
+
+  const gewaehlterKunde = kunden.find((k) => String(k.ID) === String(form.Kundennummer));
 
   const aktiveKunden = useMemo(
     () => kunden.filter((kunde) => kunde.Aktiv === true || kunde.Aktiv === 1),
@@ -924,6 +927,11 @@ export default function DocumentManager({
                       </option>
                     ))}
                   </select>
+                  {pieceSelectMode === "byKunde" && gewaehlterKunde?.Direktverkauf && (
+                    <small className="form-hinweis">
+                      Direktverkauf: Stücke aus dem Lager und bei diesem Kunden, kein Lieferschein nötig.
+                    </small>
+                  )}
                 </div>
                 {type === "rechnung" && (
                   <div className="form-group">
