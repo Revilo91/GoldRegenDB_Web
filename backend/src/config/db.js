@@ -840,6 +840,7 @@ async function ensureBestelluebersichtSchema() {
       CREATE INDEX IF NOT EXISTS idx_bestellung_status ON bestellung(status);
       CREATE INDEX IF NOT EXISTS idx_bestellung_erfassungsdatum ON bestellung(erfassungsdatum);
       ALTER TABLE bestellung ADD COLUMN IF NOT EXISTS foto_pfad VARCHAR(255) DEFAULT NULL;
+      ALTER TABLE bestellung ALTER COLUMN beschreibung DROP NOT NULL;
     `);
 
     await pool.query(`
@@ -898,6 +899,17 @@ async function ensureBestelluebersichtSchema() {
       CREATE OR REPLACE FUNCTION anonymisiere_bestellung_kunde(p_kunde_id INTEGER)
       RETURNS VOID AS $$
       BEGIN
+          DELETE FROM bestellung_foto
+          WHERE datei_name IN (
+              SELECT foto_pfad FROM bestellung
+              WHERE kunde_id = p_kunde_id AND foto_pfad IS NOT NULL
+          );
+
+          UPDATE bestellung
+          SET foto_pfad = NULL,
+              beschreibung = NULL
+          WHERE kunde_id = p_kunde_id;
+
           UPDATE bestellung_kunde
           SET name_enc = NULL,
               email_enc = NULL,

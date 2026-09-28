@@ -162,7 +162,7 @@ describe('Bestellübersicht API', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
-  it('POST /:id/anonymisieren anonymisiert Kundendaten (Admin)', async () => {
+  it('POST /:id/anonymisieren ruft DB-Funktion auf (löscht Foto + beschreibung intern)', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ kunde_id: 1 }] })
       .mockResolvedValueOnce({});
@@ -171,6 +171,14 @@ describe('Bestellübersicht API', () => {
 
     expect(res.status).toBe(200);
     expect(db.query).toHaveBeenCalledWith('SELECT anonymisiere_bestellung_kunde($1)', [1]);
+  });
+
+  it('POST /:id/anonymisieren gibt 404 wenn Bestellung nicht gefunden', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp('admin')).post('/api/bestelluebersicht/99/anonymisieren');
+
+    expect(res.status).toBe(404);
   });
   it('PUT /:id ersetzt das Referenzfoto und löscht das alte', async () => {
     db.query
