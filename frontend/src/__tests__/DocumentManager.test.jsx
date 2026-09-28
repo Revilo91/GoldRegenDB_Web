@@ -185,4 +185,208 @@ describe('DocumentManager', () => {
     );
     expect(meldung).toHaveTextContent('E-Mail-Adresse des Kunden fehlt. (BT-49)');
   });
+
+  describe('Einmalkunde (Onlineshop)', () => {
+    const rechnungProps = {
+      type: 'rechnung',
+      pieceSelectMode: 'byKunde',
+      pieceFilter: (form) => ({ ausgelagert: form.Kundennummer }),
+    };
+
+    async function oeffneNeueRechnung(apiOverrides = {}) {
+      const api = renderManager(apiOverrides, rechnungProps);
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+      fireEvent.change(screen.getByDisplayValue('Bitte wählen...'), { target: { value: '1' } });
+      return api;
+    }
+
+    function fuelleEmpfaenger(werte) {
+      for (const [label, wert] of Object.entries(werte)) {
+        fireEvent.change(screen.getByLabelText(label), { target: { value: wert } });
+      }
+    }
+
+    it('sendet die erfasste Anschrift beim Speichern mit', async () => {
+      const api = await oeffneNeueRechnung();
+
+      fireEvent.click(screen.getByText('Einmalkunde erfassen…'));
+      fuelleEmpfaenger({
+        'Name*': '  Erika Mustermann ',
+        'Straße*': 'Heidestraße',
+        Hausnummer: '17',
+        'PLZ*': '01067',
+        'Ort*': 'Dresden',
+      });
+      fireEvent.click(screen.getByText('Übernehmen'));
+
+      expect(screen.getByText('Erika Mustermann, Heidestraße 17, 01067 Dresden')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Speichern & Abschließen'));
+      await waitFor(() => expect(api.createItem).toHaveBeenCalled());
+      expect(api.createItem.mock.calls[0][0].empfaenger).toEqual({
+        Name: 'Erika Mustermann',
+        Strasse: 'Heidestraße',
+        Hausnummer: '17',
+        PLZ: '01067',
+        Ort: 'Dresden',
+        Land: 'DE',
+        Email: '',
+      });
+    });
+
+    it('meldet fehlende Pflichtfelder und übernimmt nichts', async () => {
+      await oeffneNeueRechnung();
+
+      fireEvent.click(screen.getByText('Einmalkunde erfassen…'));
+      fuelleEmpfaenger({ 'Name*': 'Erika Mustermann' });
+      fireEvent.click(screen.getByText('Übernehmen'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Bitte ausfüllen: Straße, PLZ, Ort');
+      expect(screen.getByText('Rechnungsempfänger (Einmalkunde)')).toBeInTheDocument();
+    });
+
+    it('entfernt einen erfassten Empfänger wieder', async () => {
+      const api = await oeffneNeueRechnung();
+
+      fireEvent.click(screen.getByText('Einmalkunde erfassen…'));
+      fuelleEmpfaenger({ 'Name*': 'Erika', 'Straße*': 'Weg', 'PLZ*': '12345', 'Ort*': 'Ort' });
+      fireEvent.click(screen.getByText('Übernehmen'));
+      fireEvent.click(screen.getByLabelText('Rechnungsempfänger entfernen'));
+      fireEvent.click(screen.getByText('Speichern & Abschließen'));
+
+      await waitFor(() => expect(api.createItem).toHaveBeenCalled());
+      expect(api.createItem.mock.calls[0][0].empfaenger).toBeNull();
+    });
+
+    it('zeigt den Empfänger in der Liste und findet ihn über die Suche', async () => {
+      renderManager(
+        {
+          getList: vi.fn().mockResolvedValue([
+            { ID: 1, Nummer: '2026-001', Kundennummer: 15, KundenName: 'Online', status: 'final', Datum: '2026-01-01', empfaenger: { Name: 'Erika Mustermann' } },
+            { ID: 2, Nummer: '2026-002', Kundennummer: 2, KundenName: 'Bernd', status: 'final', Datum: '2026-02-01' },
+          ]),
+        },
+        rechnungProps,
+      );
+
+      expect(await screen.findByText('Online · Erika Mustermann')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Suche nach Nummer, Kunde, ID...'), {
+        target: { value: 'erika' },
+      });
+      expect(screen.getByText('2026-001')).toBeInTheDocument();
+      expect(screen.queryByText('2026-002')).not.toBeInTheDocument();
+    });
+
+    it('bietet die Erfassung bei Lieferscheinen nicht an', async () => {
+      renderManager();
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+
+      expect(screen.queryByText('Einmalkunde erfassen…')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Direktverkauf (Online, Messe, …)', () => {
+    const kunden = [
+      { ID: 1, Name: 'Anna', Aktiv: true },
+      { ID: 15, Name: 'Online', Aktiv: true, Direktverkauf: true },
+    ];
+
+    async function waehleKunde(id) {
+      const pieceFilter = vi.fn(() => ({}));
+      const api = renderManager(
+        { getKunden: vi.fn().mockResolvedValue(kunden) },
+        { type: 'rechnung', pieceSelectMode: 'byKunde', pieceFilter },
+      );
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+      fireEvent.change(screen.getByDisplayValue('Bitte wählen...'), { target: { value: id } });
+      await waitFor(() => expect(api.getPieces).toHaveBeenCalled());
+      return pieceFilter;
+    }
+
+    it('übergibt dem Stückfilter den gewählten Kunden und zeigt den Hinweis', async () => {
+      const pieceFilter = await waehleKunde('15');
+
+      expect(pieceFilter).toHaveBeenLastCalledWith(
+        expect.objectContaining({ Kundennummer: '15' }),
+        'new',
+        expect.objectContaining({ ID: 15, Direktverkauf: true }),
+      );
+      expect(screen.getByText(/Direktverkauf: Stücke aus dem Lager/)).toBeInTheDocument();
+    });
+
+    it('zeigt den Hinweis bei gewöhnlichen Kunden nicht', async () => {
+      const pieceFilter = await waehleKunde('1');
+
+      expect(pieceFilter.mock.lastCall[2]).toMatchObject({ ID: 1 });
+      expect(screen.queryByText(/Direktverkauf: Stücke aus dem Lager/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Versandkosten', () => {
+    const rechnungProps = { type: 'rechnung', pieceSelectMode: 'byKunde', pieceFilter: () => ({}) };
+
+    async function speichereNeueRechnung(versandkosten) {
+      const api = renderManager({}, rechnungProps);
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+      fireEvent.change(screen.getByDisplayValue('Bitte wählen...'), { target: { value: '1' } });
+      if (versandkosten !== undefined) {
+        fireEvent.change(screen.getByLabelText('Versandkosten:'), { target: { value: versandkosten } });
+      }
+      fireEvent.click(screen.getByText('Speichern & Abschließen'));
+      await waitFor(() => expect(api.createItem).toHaveBeenCalled());
+      return api.createItem.mock.calls[0][0];
+    }
+
+    it('sendet eingegebene Versandkosten mit', async () => {
+      expect((await speichereNeueRechnung('4.9')).versandkosten).toBe('4.9');
+    });
+
+    // Leer bleibt leer, das Backend speichert dann NULL und der Beleg hat keine Versandzeile
+    it('sendet ein leeres Feld als leer', async () => {
+      expect((await speichereNeueRechnung()).versandkosten).toBe('');
+    });
+
+    it('bietet das Feld bei Lieferscheinen nicht an', async () => {
+      renderManager();
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+
+      expect(screen.queryByLabelText('Versandkosten:')).not.toBeInTheDocument();
+    });
+
+    it('zeigt Versandkosten im Detail und rechnet sie in den Überweisungsbetrag', async () => {
+      renderManager(
+        {
+          getDetail: vi.fn().mockResolvedValue({
+            ID: 1, Nummer: '2026-001', KundenName: 'Online', status: 'final', Datum: '2026-01-01', Provision: 0,
+            versandkosten: '4.90',
+            schmuckstuecke: [{ Artikelnummer: 'MHO001', Verkaufspreis: '40.00' }],
+            summen: {
+              summe_nach_rabatt: '40.00', provision_betrag: '0.00', versandkosten: '4.90', ueberweisungsbetrag: '44.90',
+              marina_brutto: '40.00', marina_netto: '40.00', saskia_brutto: '0.00', saskia_netto: '0.00',
+              rabatt_gesamt: '0',
+            },
+          }),
+        },
+        rechnungProps,
+      );
+      fireEvent.click(await screen.findByText('2026-001'));
+
+      expect(await screen.findByText('Versandkosten:')).toBeInTheDocument();
+      expect(screen.getByText(/\+4,90/)).toBeInTheDocument();
+      // Ohne Provision stand der Überweisungsbetrag bisher gar nicht im Modal
+      expect(screen.getByText('Überweisungsbetrag:').nextSibling).toHaveTextContent('44,90');
+      expect(screen.getByText('Versandkosten')).toBeInTheDocument();
+    });
+  });
 });

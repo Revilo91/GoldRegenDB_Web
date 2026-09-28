@@ -113,13 +113,15 @@ function statusFilterAnwenden(builder, query) {
     else builder.keinAusschuss();
   }
 
+  // Mehrere Werte ("0,15") für Direktverkauf-Rechnungen: Lager plus Kunde
   if (!istLeer(query.ausgelagert)) {
-    const kundeId = Number(query.ausgelagert);
-    if (!Number.isInteger(kundeId) || kundeId < 0) {
-      return "ausgelagert muss eine Kundennummer oder 0 sein";
+    const kundeIds = String(query.ausgelagert).split(",").map((v) => (v.trim() === "" ? NaN : Number(v)));
+    if (kundeIds.some((id) => !Number.isInteger(id) || id < 0)) {
+      return "ausgelagert muss eine Kundennummer oder 0 sein (mehrere durch Komma getrennt)";
     }
-    if (kundeId === 0) builder.imLager();
-    else builder.ausgelagert(kundeId);
+    if (kundeIds.length > 1) builder.ausgelagertIn(kundeIds);
+    else if (kundeIds[0] === 0) builder.imLager();
+    else builder.ausgelagert(kundeIds[0]);
   }
 
   return null;
@@ -674,7 +676,7 @@ router.post("/bulk", requireBearbeiter, validate(schmuckstueckBulkSchema), async
  *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
  *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
  *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
- *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID', schema: { type: integer } }
+ *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID; mehrere durch Komma ("0,15" = Lager plus Kunde 15)', schema: { type: string, example: '0,15' } }
  *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
  *     responses:
  *       200:
@@ -940,7 +942,7 @@ router.get("/filter-options", async (req, res) => {
  *     tags: [Schmuckstücke]
  *     parameters:
  *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
- *       - { name: ausgelagert, in: query, schema: { type: integer } }
+ *       - { name: ausgelagert, in: query, description: '0 oder Kunde.ID, mehrere durch Komma', schema: { type: string } }
  *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
  *       - { name: artikelnummer_art, in: query, schema: { type: string } }
  *       - { name: grundmaterial, in: query, schema: { type: string } }

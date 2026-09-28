@@ -62,14 +62,11 @@ export default function Benutzerverwaltung() {
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const [resetLink, setResetLink] = useState(null);
   const [resetLinkLoading, setResetLinkLoading] = useState(false);
   const [resetLinkCopied, setResetLinkCopied] = useState(false);
 
   const load = useCallback(() => {
-    setLoading(true);
     api
       .getUsers()
       .then((data) => setUsers(data || []))
@@ -93,8 +90,6 @@ export default function Benutzerverwaltung() {
     setSelected(u);
     setForm({ username: u.username, email: u.email || "", role: u.role, active: u.active });
     setEditing(null);
-    setNewPassword("");
-    setShowNewPassword(false);
     setResetLink(null);
     setResetLinkCopied(false);
   };
@@ -146,19 +141,6 @@ export default function Benutzerverwaltung() {
       await api.deleteUser(selected.id);
       setSelected(null);
       setEditing(null);
-      load();
-    } catch (err) {
-      toast.fehler(err.message || "Fehler");
-    }
-  };
-
-  const handleResetPassword = async () => {
-    try {
-      if (!newPassword || newPassword.length < 8) return toast.fehler("Passwort muss mindestens 8 Zeichen lang sein");
-      await api.resetUserPassword(selected.id, newPassword);
-      toast.erfolg("Passwort erfolgreich zurückgesetzt");
-      setNewPassword("");
-      setShowNewPassword(false);
       load();
     } catch (err) {
       toast.fehler(err.message || "Fehler");
@@ -327,7 +309,7 @@ export default function Benutzerverwaltung() {
                   {selected.id !== "new" && editing === null && (
                     <button className="btn btn-secondary" onClick={() => setEditing(selected.id)}><FontAwesomeIcon icon={faPen} /> Bearbeiten</button>
                   )}
-                  <button className="btn btn-secondary" onClick={() => { setSelected(null); setEditing(null); setNewPassword(""); setShowNewPassword(false); setResetLink(null); setResetLinkCopied(false); }}>
+                  <button className="btn btn-secondary" onClick={() => { setSelected(null); setEditing(null); setResetLink(null); setResetLinkCopied(false); }}>
                     {editing === "new" || editing === selected.id ? "Abbrechen" : "Schließen"}
                   </button>
                   {(editing === "new" || editing === selected.id) && (

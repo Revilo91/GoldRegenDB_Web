@@ -79,6 +79,7 @@ Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammenge
 Gesamtwert       = Σ( Einzelpreis × (1 − Positionsrabatt%) )
 − Gesamtrabatt   = Gesamtwert × Gesamtrabatt%
 − Provision      = (Gesamtwert − Gesamtrabatt) × Provision%
++ Versandkosten = fester Betrag, optional (nur Rechnung, gehört keiner Herstellerin)
 = Überweisung
 ```
 
@@ -171,6 +172,10 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 - Jeder Commit ist für sich lauffähig (Tests grün, App startet), damit `git bisect` eindeutig gut/schlecht liefert
 - Code, zugehörige Tests und Doku einer Änderung gehören in denselben Commit; unabhängige Änderungen in eigene Commits
 - Regeländerungen (CLAUDE.md) vorab und getrennt von der Code-Änderung committen
+
+**Branches:**
+- Nach GitHub wird **nur über eigene Branches** gepusht (`feat/…`, `fix/…`, `docs/…`), nie direkt auf `main`
+- `main` ändert sich ausschließlich über Pull Requests; lokale Commits auf `main` vor dem Push auf einen Branch verschieben
 
 ---
 

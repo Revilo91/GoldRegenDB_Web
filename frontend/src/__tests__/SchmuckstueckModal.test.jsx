@@ -59,7 +59,7 @@ describe('SchmuckstueckModal', () => {
     rendereMitToast(<SchmuckstueckModal artikelnummer="MHO001_2" onClose={() => {}} />);
 
     expect(await screen.findByAltText('MHO001_2')).toHaveAttribute('src', 'data:image/png;base64,AAAA');
-    expect(api.loadPhotoAsDataUrl).toHaveBeenCalledWith('MHO001_2');
+    expect(api.loadPhotoAsDataUrl).toHaveBeenCalledWith('MHO001_2', { signal: expect.any(AbortSignal) });
   });
 
   it('fragt ohne hatFoto kein Foto an', async () => {

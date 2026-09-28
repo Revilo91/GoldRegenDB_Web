@@ -50,7 +50,6 @@ export default function Bestelluebersicht() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
-    setLoading(true);
     api
       .getBestellungen()
       .then(setBestellungen)

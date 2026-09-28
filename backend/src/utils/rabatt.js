@@ -16,7 +16,11 @@
 //   - Gesamtrabatt     = Gesamtwert * (Gesamtrabatt/100)
 //   Summe nach Rabatt  = Gesamtwert - Gesamtrabatt
 //   - Provision        = Summe nach Rabatt * (Provision/100)
-//   Ueberweisungsbetrag = Summe nach Rabatt - Provision
+//   + Versandkosten    = fester Betrag, optional
+//   Ueberweisungsbetrag = Summe nach Rabatt - Provision + Versandkosten
+//
+// Versandkosten sind durchgereichte Kosten: weder Rabatt noch Provision
+// greifen auf sie, und sie gehoeren keiner Herstellerin.
 //
 // rabatt_positionen ist nach BASIS-Artikelnummer geschluesselt (MHO123, nicht
 // MHO123_1), deshalb split_part(..., '_', 1).
@@ -95,6 +99,8 @@ async function belegSummen(queryable, tabelle, belegId) {
     ? preisNachPositionsrabattSql('s', 'r')
     : 's."Verkaufspreis"';
   const rabattGesamt = beleg.mitRabatt ? 'COALESCE(r.rabatt_gesamt, 0)' : '0';
+  // Versandkosten gibt es nur auf der Rechnung
+  const versandkosten = beleg.mitRabatt ? 'COALESCE(r.versandkosten, 0)' : '0';
   const { rows } = await queryable.query(
     `WITH positionen AS (
        SELECT
@@ -111,7 +117,8 @@ async function belegSummen(queryable, tabelle, belegId) {
        -- 40 / 100 ist in SQL Ganzzahldivision -- also 0. Ohne den Cast war der
        -- Ueberweisungsbetrag gleich der Summe vor Provision.
        SELECT ${rabattGesamt}::numeric AS rabatt_gesamt,
-              COALESCE(k."Provision", 0)::numeric   AS provision
+              COALESCE(k."Provision", 0)::numeric   AS provision,
+              ${versandkosten}::numeric AS versandkosten
        FROM "${tabelle}" r
        LEFT JOIN "Kunde" k ON k."ID" = r."Kundennummer"
        WHERE r."ID" = $1
@@ -139,7 +146,8 @@ async function belegSummen(queryable, tabelle, belegId) {
               round(round(summen.gesamtwert, 2) * kopf.rabatt_gesamt / 100, 2)
                 AS gesamtrabatt_betrag,
               kopf.rabatt_gesamt,
-              kopf.provision
+              kopf.provision,
+              kopf.versandkosten
          FROM summen CROSS JOIN kopf
      ),
      nach_rabatt AS (
@@ -161,7 +169,8 @@ async function belegSummen(queryable, tabelle, belegId) {
        gesamtrabatt_betrag,
        summe_nach_rabatt,
        provision_betrag,
-       summe_nach_rabatt - provision_betrag AS ueberweisungsbetrag,
+       versandkosten,
+       summe_nach_rabatt - provision_betrag + versandkosten AS ueberweisungsbetrag,
        marina_brutto,
        round(marina_brutto * (1 - provision / 100), 2) AS marina_netto,
        saskia_brutto,

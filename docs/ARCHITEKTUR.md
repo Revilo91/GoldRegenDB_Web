@@ -97,6 +97,7 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `Land` | CHAR(2) | ISO 3166-1 (Default: `DE`) |
 | `UStIdNr` | TEXT | Umsatzsteuer-ID für E-Rechnung |
 | `Leitweg_ID` | TEXT | Leitweg-ID für XRechnung |
+| `Direktverkauf` | BOOLEAN | Rechnung bietet Lagerstücke ohne Lieferschein an (Online, Messe …) |
 | `Strasse`, `Hausnummer`, `PLZ`, `Ort` | TEXT | Rechnungsadresse |
 
 #### `Lieferschein`
@@ -120,6 +121,8 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `status` | TEXT | `entwurf` oder `final` |
 | `rabatt_positionen` | JSONB | `{ "MHO123": 10, "MBA456": 5 }` – Rabatt je Basis-Artikelnummer (%) |
 | `rabatt_gesamt` | NUMERIC | Gesamtrabatt auf den Beleg (%) |
+| `versandkosten` | NUMERIC(10,2) | Versandkosten brutto, NULL = keine |
+| `empfaenger` | JSONB | Anschrift eines Einmalkunden (Onlineshop), NULL = Kundenanschrift |
 
 #### `Foto`
 
@@ -320,6 +323,7 @@ Gesamtwert        = Σ( Einzelpreis × (1 − Positionsrabatt%) )
 − Gesamtrabatt    = Gesamtwert × Gesamtrabatt%
 Netto-Summe       = Gesamtwert − Gesamtrabatt
 − Provision       = Netto-Summe × Provision%
++ Versandkosten   = fester Betrag, optional
 = Überweisung
 ```
 
@@ -327,6 +331,10 @@ Netto-Summe       = Gesamtwert − Gesamtrabatt
 - **Gesamtrabatt** (`rabatt_gesamt` NUMERIC): gilt für den gesamten Beleg
 - **Provision**: Eigenschaft des Kunden (0–100 %)
 - Rabatte gibt es nur bei Rechnungen, nicht bei Lieferscheinen
+- **Versandkosten** (`versandkosten` NUMERIC, leer = keine): nur auf der Rechnung, nach Rabatt und Provision
+  aufgeschlagen. Sie werden weder rabattiert noch provisioniert und gehören keiner Herstellerin, stehen also
+  nicht in der Aufteilung. Excel zeigt „+ Versandkosten“, die E-Rechnung einen Zuschlag auf Belegebene
+  (BG-21, Grund `FC`)
 
 ### SQL-Hilfsfunktionen
 
@@ -626,6 +634,16 @@ Details: `docs/E-RECHNUNG.md`
 | `Kunde` | `Name`, `Strasse`, `Hausnummer`, `PLZ`, `Ort`, `Land`, `UStIdNr`, `Leitweg_ID` |
 | `Rechnung` + `Schmuckstück` | Positionen, Rabatte, Umsatzsteuer |
 
+**Direktverkauf** (`Kunde.Direktverkauf`, Häkchen in der Kundenverwaltung; gesetzt für Online, Messe,
+Sonderanfertigung, Saskia Stempfhuber): Die Rechnung bietet Lagerstücke plus die bei diesem Kunden ausgelagerten
+an (`GET /api/schmuckstuecke?ausgelagert=0,15`), ein Lieferschein vorab entfällt. Übrige Kunden sehen weiter nur
+ihre ausgelagerten Stücke. Die Erstbelegung setzt `db.js` einmalig beim Anlegen der Spalte.
+
+**Einmalkunden (Onlineshop):** Die Rechnung läuft auf den Sammelkunden „Online“, die Anschrift des Käufers
+steht in `Rechnung.empfaenger` (Name, Strasse, Hausnummer, PLZ als Text, Ort, Land, Email). Excel und
+E-Rechnung überschreiben damit die Kundenanschrift (`mitEmpfaenger()` in `rechnungen.js`, USt-IdNr entfällt).
+Erfasst wird sie im Rechnungsdialog über `components/EmpfaengerModal.jsx`; es entsteht kein Eintrag in `Kunde`.
+
 ---
 
 ## 11. Fotos
@@ -794,6 +812,7 @@ GoldRegenDB_Web/
         ├── index.css                 # Globale Styles (alle Klassen hier)
         ├── context/AuthContext.jsx   # JWT-Auth-State + Rollen
         ├── components/               # DataTable, TableToolbar, PhotoUpload, ProtectedRoute, Toast
+        ├── hooks/useFoto.js          # Foto per Artikelnummer laden (Tabelle, Modal, Detail, Upload)
         └── pages/                    # Alle Seiten (Login, Dashboard, Schmuckstuecke, …)
 ```
 

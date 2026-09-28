@@ -140,6 +140,18 @@ describe("belegSummen(queryable, 'Rechnung', id)", () => {
     expect(sql).not.toMatch(/round\(summen\.gesamtwert \* \(1 -/);
   });
 
+  it('schlägt Versandkosten nach der Provision auf, ohne sie aufzuteilen', async () => {
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
+
+    await belegSummen(queryable, 'Rechnung', 10);
+
+    const sql = String(queryable.query.mock.calls[0][0]);
+    expect(sql).toContain('COALESCE(r.versandkosten, 0)::numeric');
+    expect(sql).toContain('summe_nach_rabatt - provision_betrag + versandkosten AS ueberweisungsbetrag');
+    // Saskias Anteil bleibt Restsumme ohne Versand: Versand gehört keiner Herstellerin
+    expect(sql).toMatch(/\(summe_nach_rabatt - provision_betrag\)\s*- round\(marina_brutto/);
+  });
+
   it('liefert null, wenn die Rechnung nicht existiert', async () => {
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [] }) };
 
@@ -160,6 +172,9 @@ describe("belegSummen(queryable, 'Lieferschein', id)", () => {
     expect(sql).toContain('FROM "Lieferschein" r');
     expect(sql).toContain('0::numeric AS rabatt_gesamt');
     expect(sql).not.toContain('rabatt_positionen');
+    // Versandkosten gibt es nur auf der Rechnung
+    expect(sql).toContain('0::numeric AS versandkosten');
+    expect(sql).not.toContain('r.versandkosten');
     expect(sql).not.toContain('"Rechnung"');
     expect(sql).not.toContain('Rechnung_ID');
     expect(sql).toContain('COALESCE(k."Provision", 0)::numeric');

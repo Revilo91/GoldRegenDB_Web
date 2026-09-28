@@ -24,6 +24,7 @@ jest.mock('../src/utils/excelService', () => ({
 }));
 
 const db = require('../src/config/db');
+const { generateExcel } = require('../src/utils/excelService');
 const { requireBearbeiter } = require('../src/middleware/auth');
 const rechnungenRoutes = require('../src/routes/rechnungen');
 const { createTxClientMock, sqlVerlauf } = require('./helpers/txClientMock');
@@ -118,6 +119,19 @@ describe('GET /api/rechnungen/:id/excel', () => {
     expect(res.headers['content-type']).toContain('spreadsheetml');
   });
 
+  it('druckt beim Einmalkunden dessen Anschrift statt der des Sammelkunden', async () => {
+    const empfaenger = { Name: 'Erika Mustermann', Strasse: 'Hauptstr.', Hausnummer: '5', PLZ: '01067', Ort: 'Dresden' };
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ID: 15, Nummer: '2026-001', Name: 'Online', Strasse: '-', PLZ: 0, Ort: '-', empfaenger }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '0.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1/excel');
+
+    expect(res.statusCode).toBe(200);
+    expect(generateExcel.mock.calls[0][1].kunde).toMatchObject({ ID: 15, ...empfaenger });
+  });
+
   it('meldet 404 bei unbekannter ID', async () => {
     db.query.mockResolvedValueOnce({ rows: [] });
 
@@ -147,6 +161,79 @@ describe('POST /api/rechnungen', () => {
     expect(res.statusCode).toBe(201);
     expect(res.body.ID).toBe(1);
     expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+
+  it('speichert die Anschrift eines Einmalkunden an der Rechnung', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .post('/api/rechnungen')
+      .send({
+        Nummer: '2026-002',
+        Kundennummer: 15,
+        empfaenger: { Name: ' Erika Mustermann ', Strasse: 'Hauptstr.', Hausnummer: '5', PLZ: '01067', Ort: 'Dresden', Email: '', Land: 'de' },
+      });
+
+    expect(res.statusCode).toBe(201);
+    const insert = client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO "Rechnung"'));
+    expect(JSON.parse(insert[1][5])).toEqual({
+      Name: 'Erika Mustermann', Strasse: 'Hauptstr.', Hausnummer: '5', PLZ: '01067', Ort: 'Dresden', Email: null, Land: 'DE',
+    });
+  });
+
+  it('speichert ohne Einmalkunden NULL statt JSON-null', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(buildApp()).post('/api/rechnungen').send({ Nummer: '2026-002', Kundennummer: 1, empfaenger: null });
+
+    const insert = client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO "Rechnung"'));
+    expect(insert[1][5]).toBeNull();
+  });
+
+  it.each([
+    ['4,90', 4.9],
+    [12.345, 12.35],
+    ['', null],
+    [0, null],
+  ])('speichert Versandkosten %p als %p', async (eingabe, gespeichert) => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .post('/api/rechnungen')
+      .send({ Nummer: '2026-002', Kundennummer: 15, versandkosten: eingabe });
+
+    expect(res.statusCode).toBe(201);
+    const insert = client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO "Rechnung"'));
+    expect(insert[1][6]).toBe(gespeichert);
+  });
+
+  it('lehnt negative Versandkosten ab (400)', async () => {
+    const res = await request(buildApp())
+      .post('/api/rechnungen')
+      .send({ Kundennummer: 15, versandkosten: -1 });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toContain('versandkosten');
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('lehnt einen Einmalkunden ohne Name ab (400)', async () => {
+    const res = await request(buildApp())
+      .post('/api/rechnungen')
+      .send({ Kundennummer: 15, empfaenger: { Strasse: 'Hauptstr.', PLZ: '01067', Ort: 'Dresden' } });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toContain('empfaenger.Name');
+    expect(db.connect).not.toHaveBeenCalled();
   });
 
   it('lehnt einen ungültigen rabatt_gesamt ab (400)', async () => {
@@ -198,6 +285,42 @@ describe('PUT /api/rechnungen/:id', () => {
     expect(res.statusCode).toBe(200);
     expect(sqlVerlauf(client)).toContain('COMMIT');
     expect(client.release).toHaveBeenCalled();
+  });
+
+  it('entfernt den Einmalkunden bei empfaenger: null und lässt ihn sonst unverändert', async () => {
+    const mitNull = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    const ohneFeld = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(mitNull).mockResolvedValueOnce(ohneFeld);
+
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 15, empfaenger: null });
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 15 });
+
+    const update = (client) => client.query.mock.calls.find(([sql]) => sql.includes('UPDATE "Rechnung"'));
+    expect(update(mitNull)[0]).toContain('empfaenger = $3');
+    expect(update(mitNull)[1]).toEqual(['2026-001', 15, null, '1']);
+    expect(update(ohneFeld)[0]).not.toContain('empfaenger');
+  });
+
+  it('leert die Versandkosten bei leerem Feld und lässt sie ohne Feld unverändert', async () => {
+    const leer = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    const ohneFeld = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(leer).mockResolvedValueOnce(ohneFeld);
+
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 15, versandkosten: '' });
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 15 });
+
+    const update = (client) => client.query.mock.calls.find(([sql]) => sql.includes('UPDATE "Rechnung"'));
+    expect(update(leer)[0]).toContain('versandkosten = $3');
+    expect(update(leer)[1]).toEqual(['2026-001', 15, null, '1']);
+    expect(update(ohneFeld)[0]).not.toContain('versandkosten');
   });
 
   it('meldet 404 bei unbekannter ID und rollt zurück', async () => {
@@ -342,6 +465,21 @@ describe('GET /api/rechnungen/:id/erechnung', () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toBe('application/pdf');
     expect(res.body.subarray(0, 5).toString()).toBe('%PDF-');
+  }, 30000);
+
+  it('setzt beim Einmalkunden dessen Anschrift als Käufer ein', async () => {
+    const empfaenger = {
+      Name: 'Erika Mustermann', Strasse: 'Hauptstr.', Hausnummer: '5', PLZ: '01067', Ort: 'Dresden',
+      Email: 'erika@example.org', Land: 'DE',
+    };
+    mockRechnung({ ...rechnung, empfaenger }, { ...kunde, Name: 'Online', UStIdNr: 'DE123456789' });
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung?format=xrechnung');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain('<ram:Name>Erika Mustermann</ram:Name>');
+    expect(res.text).toContain('<ram:PostcodeCode>01067</ram:PostcodeCode>');
+    expect(res.text).not.toContain('DE123456789');
   }, 30000);
 
   it('meldet fehlende Pflichtangaben mit 422 und Feldliste', async () => {

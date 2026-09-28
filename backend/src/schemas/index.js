@@ -42,6 +42,7 @@ const kundeSchema = z.object({
     z.string().regex(/^[A-Z]{2}[A-Z0-9]{2,13}$/, 'ist keine gültige USt-IdNr. (z. B. DE123456789)').nullish(),
   ),
   Leitweg_ID: text(50),
+  Direktverkauf: bool(),
 });
 
 const restockSelectiveSchema = z.object({
@@ -137,10 +138,19 @@ const lieferscheinSchema = z.object({
   status: dokumentStatus.optional(),
 });
 
+// Einmalkunde (Onlineshop). PLZ als Text: "01067" verliert als Zahl die
+// führende Null, ausländische PLZ enthalten Buchstaben.
+const empfaengerSchema = kundeSchema
+  .pick({ Name: true, Strasse: true, Hausnummer: true, Ort: true, Email: true, Land: true })
+  .extend({ PLZ: pflichttext(10) });
+
 const rechnungSchema = lieferscheinSchema.extend({
   rabatt_gesamt: zahl({ min: 0, max: 100 }),
   // Rabatte je Position: { "MHO123_1": 10 }
   rabatt_positionen: z.record(vollstaendigeArtikelnummer, zahl({ min: 0, max: 100 })).nullish(),
+  empfaenger: empfaengerSchema.nullish(),
+  // Leer oder 0 = keine Versandkosten
+  versandkosten: zahl({ min: 0, max: 9999.99 }),
 });
 
 // ── Benutzerverwaltung / Auth ────────────────────────────────────────────────

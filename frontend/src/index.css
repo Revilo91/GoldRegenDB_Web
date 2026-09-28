@@ -2736,6 +2736,12 @@ select.form-control {
   width: 80px;
 }
 
+.aufteilung-zeile {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
 .rabatt-small {
   color: var(--text-muted);
 }
@@ -3066,4 +3072,29 @@ select.form-control {
   .toast {
     animation: none;
   }
+}
+
+/* Einmalkunde (Onlineshop) im Rechnungsdialog */
+.modal-overlay-nested {
+  z-index: 1600;
+}
+
+.empfaenger-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.empfaenger-hinweis {
+  margin: 0 0 16px;
+  color: var(--text-secondary, #666);
+  font-size: 0.9em;
+}
+
+.form-hinweis {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.85em;
 }

@@ -575,11 +575,28 @@ async function generateExcel(type, data, logoPath) {
     provValueCell.font = { name: "Calibri", size: 10 };
     provValueCell.alignment = { horizontal: "right" };
 
+    // Versandkosten (optional): nach der Provision, weil sie nicht provisioniert werden
+    const versandkosten = Number(data.versandkosten) || 0;
+    if (versandkosten > 0) {
+      currentRow++;
+      const versandLabelCell = worksheet.getCell(`G${currentRow}`);
+      versandLabelCell.value = "+ Versandkosten";
+      versandLabelCell.font = { name: "Calibri", size: 11, bold: true };
+      versandLabelCell.alignment = { horizontal: "right" };
+      worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
+
+      const versandValueCell = worksheet.getCell(`I${currentRow}`);
+      versandValueCell.value = versandkosten;
+      versandValueCell.numFmt = "#,##0.00 \u20ac";
+      versandValueCell.font = { name: "Calibri", size: 10 };
+      versandValueCell.alignment = { horizontal: "right" };
+    }
+
     // Final Total
     currentRow++;
     const finalTotal = data.summen
       ? Number(data.summen.ueberweisungsbetrag)
-      : totalNachRabatt - provisionValue;
+      : totalNachRabatt - provisionValue + versandkosten;
 
     const finalLabelCell = worksheet.getCell(`G${currentRow}`);
     finalLabelCell.value = "Überweisungsbetrag";

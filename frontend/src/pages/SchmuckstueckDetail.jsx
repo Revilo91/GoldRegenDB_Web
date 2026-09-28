@@ -9,6 +9,7 @@ import {
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import { useFoto } from "../hooks/useFoto";
 import { useAuth } from "../context/AuthContext";
 import { statusBadge } from "../utils/status";
 import { formatEur } from "../utils/zahlen";
@@ -29,19 +30,18 @@ export default function SchmuckstueckDetail() {
     (user.role === "admin" || user.role === "bearbeiter");
 
   const [item, setItem] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Artikelnummer, zu der zuletzt fertig geladen wurde; "lädt" wird daraus
+  // abgeleitet, statt im Effekt synchron gesetzt zu werden
+  const [geladenFuer, setGeladenFuer] = useState(null);
+  const loading = geladenFuer !== artikelnummer;
   const [kunden, setKunden] = useState([]);
-  const [photo, setPhoto] = useState(null);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
     api
       .getSchmuckstueck(artikelnummer)
       .then(setItem)
       .catch(() => navigate("/schmuckstuecke", { replace: true }))
-      .finally(() => setLoading(false));
+      .finally(() => setGeladenFuer(artikelnummer));
     api
       .getKunden()
       .then(setKunden)
@@ -50,24 +50,8 @@ export default function SchmuckstueckDetail() {
       );
   }, [artikelnummer, toast]);
 
-  useEffect(() => {
-    if (item?.hatFoto) {
-      setPhotoLoading(true);
-      setPhotoError(null);
-      api
-        .loadPhotoAsDataUrl(item.Artikelnummer)
-        .then(setPhoto)
-        .catch((err) => {
-          setPhoto(null);
-          setPhotoError(err.message);
-          console.error(err);
-        })
-        .finally(() => setPhotoLoading(false));
-    } else {
-      setPhoto(null);
-      setPhotoError(null);
-    }
-  }, [item]);
+  // version: item, damit ein neu geladenes Stück auch das Foto neu holt
+  const foto = useFoto(item?.hatFoto ? item.Artikelnummer : null, { version: item });
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -157,9 +141,9 @@ export default function SchmuckstueckDetail() {
               marginBottom: "16px",
               borderRadius: "4px",
             }}>
-            {photo ? (
+            {foto.src ? (
               <img
-                src={photo}
+                src={foto.src}
                 alt={item.Artikelnummer}
                 style={{
                   maxWidth: "200px",
@@ -167,7 +151,7 @@ export default function SchmuckstueckDetail() {
                   borderRadius: "8px",
                 }}
               />
-            ) : item.hatFoto && photoLoading ? (
+            ) : item.hatFoto && foto.laedt ? (
               <div
                 style={{
                   width: "200px",
@@ -187,7 +171,7 @@ export default function SchmuckstueckDetail() {
                   Bild wird geladen...
                 </div>
               </div>
-            ) : item.hatFoto && photoError ? (
+            ) : item.hatFoto && foto.fehler ? (
               <div
                 style={{
                   width: "200px",
@@ -209,7 +193,7 @@ export default function SchmuckstueckDetail() {
                   <div style={{ marginBottom: "8px" }}>⚠️</div>
                   Bild konnte nicht geladen werden
                   <div style={{ marginTop: "8px", fontSize: "12px" }}>
-                    {photoError}
+                    {foto.fehler}
                   </div>
                 </div>
               </div>

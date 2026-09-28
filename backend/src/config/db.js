@@ -247,6 +247,22 @@ async function ensureKundeTable() {
       ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "Leitweg_ID" VARCHAR(50) DEFAULT NULL;
     `);
 
+    // Direktverkauf: Rechnungen bieten Lagerstücke direkt an. Die Erstbelegung
+    // läuft nur beim Anlegen der Spalte, danach gilt das Häkchen in der
+    // Kundenverwaltung und ein Neustart überschreibt es nicht.
+    const { rowCount: direktverkaufVorhanden } = await pool.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'Kunde' AND column_name = 'Direktverkauf'
+    `);
+    if (!direktverkaufVorhanden) {
+      await pool.query(`ALTER TABLE "Kunde" ADD COLUMN IF NOT EXISTS "Direktverkauf" BOOLEAN NOT NULL DEFAULT FALSE;`);
+      const { rowCount } = await pool.query(`
+        UPDATE "Kunde" SET "Direktverkauf" = TRUE
+        WHERE "Name" IN ('Online', 'Messe', 'Sonderanfertigung', 'Saskia Stempfhuber')
+      `);
+      logger.info('DB', `"Kunde"."Direktverkauf" angelegt, ${rowCount} Kunden gesetzt`);
+    }
+
     // Hausnummer INTEGER -> TEXT (Issue #211): "12a" war nicht speicherbar.
     // 0 war der Platzhalter für "keine Hausnummer" (Messe, Online) und wird
     // zum Leerstring -- Excel-Export und E-Rechnung ließen 0 schon bisher weg.
@@ -371,6 +387,9 @@ async function ensureRechnungTable() {
       END
       $$;
     `);
+    // Einmalkunde (Onlineshop): Anschrift nur auf der Rechnung, nicht in "Kunde"
+    await pool.query(`ALTER TABLE "Rechnung" ADD COLUMN IF NOT EXISTS empfaenger JSONB DEFAULT NULL;`);
+    await pool.query(`ALTER TABLE "Rechnung" ADD COLUMN IF NOT EXISTS versandkosten NUMERIC(10,2) DEFAULT NULL;`);
     // Migrate: UNIQUE auf "ID" nachziehen (Befund B4).
     // "Lieferschein" hat sein UNIQUE ("ID"), "Rechnung" nie bekommen – die
     // Asymmetrie kam 1:1 aus MySQL mit (ADD UNIQUE KEY vs. ADD KEY). Ohne

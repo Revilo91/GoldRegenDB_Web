@@ -8,6 +8,7 @@ import {
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
+import { useFoto } from "../hooks/useFoto";
 import { statusBadge, statusVon, STATUS } from "../utils/status";
 import { formatEur } from "../utils/zahlen";
 import { useToast } from "./Toast";
@@ -30,14 +31,13 @@ export default function SchmuckstueckModal({
 }) {
   const toast = useToast();
   const [item, setItem] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Artikelnummer, zu der zuletzt fertig geladen wurde; "lädt" wird daraus
+  // abgeleitet, statt im Effekt synchron gesetzt zu werden
+  const [geladenFuer, setGeladenFuer] = useState(null);
+  const loading = geladenFuer !== artikelnummer;
   const [kunden, setKunden] = useState([]);
-  const [photo, setPhoto] = useState(null);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
     Promise.all([api.getSchmuckstueck(artikelnummer), api.getKunden()])
       .then(([s, k]) => {
         setItem(s);
@@ -47,27 +47,11 @@ export default function SchmuckstueckModal({
         toast.fehler("Fehler beim Laden des Schmuckstücks: " + err.message);
         onClose();
       })
-      .finally(() => setLoading(false));
+      .finally(() => setGeladenFuer(artikelnummer));
   }, [artikelnummer, toast]);
 
-  useEffect(() => {
-    if (item?.hatFoto) {
-      setPhotoLoading(true);
-      setPhotoError(null);
-      api
-        .loadPhotoAsDataUrl(item.Artikelnummer)
-        .then(setPhoto)
-        .catch((err) => {
-          setPhoto(null);
-          setPhotoError(err.message);
-          console.error(err);
-        })
-        .finally(() => setPhotoLoading(false));
-    } else {
-      setPhoto(null);
-      setPhotoError(null);
-    }
-  }, [item]);
+  // version: item, damit ein neu geladenes Stück auch das Foto neu holt
+  const foto = useFoto(item?.hatFoto ? item.Artikelnummer : null, { version: item });
 
   const getKundenName = (id) => {
     const kunde = kunden.find((k) => k.ID === id);
@@ -149,19 +133,19 @@ export default function SchmuckstueckModal({
 
             {/* Foto */}
             <div className="schmuck-modal-photo">
-              {photo ? (
-                <img src={photo} alt={item.Artikelnummer} />
-              ) : item.hatFoto && photoLoading ? (
+              {foto.src ? (
+                <img src={foto.src} alt={item.Artikelnummer} />
+              ) : item.hatFoto && foto.laedt ? (
                 <div className="schmuck-modal-photo-placeholder loading">
                   <span>⏳</span>
                   Bild wird geladen...
                 </div>
-              ) : item.hatFoto && photoError ? (
+              ) : item.hatFoto && foto.fehler ? (
                 <div className="schmuck-modal-photo-placeholder empty">
                   <span className="photo-icon">⚠️</span>
                   Bild konnte nicht geladen werden
                   <div style={{ marginTop: "4px", fontSize: "12px", color: "#666" }}>
-                    {photoError}
+                    {foto.fehler}
                   </div>
                 </div>
               ) : (

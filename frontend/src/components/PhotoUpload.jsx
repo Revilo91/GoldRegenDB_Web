@@ -1,5 +1,6 @@
-import { useState, useEffect, useId } from "react";
+import { useState, useId } from "react";
 import { api } from "../api";
+import { useFoto } from "../hooks/useFoto";
 
 export default function PhotoUpload({
   artikelnummer,
@@ -8,40 +9,16 @@ export default function PhotoUpload({
   disabled = false,
 }) {
   const inputId = useId();
-  const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    if (hatFoto && artikelnummer) {
-      api
-        .loadPhotoAsDataUrl(artikelnummer, { signal: controller.signal })
-        .then((dataUrl) => {
-          if (cancelled) return;
-          if (dataUrl) {
-            setPreview(dataUrl);
-          } else {
-            setPreview(null);
-          }
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setPreview(null);
-          setError(err.message);
-        });
-    } else {
-      setPreview(null);
-    }
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [hatFoto, artikelnummer]);
+  // Vorschau der gewählten Datei; gilt nur für die Artikelnummer, unter der
+  // sie hochgeladen wurde, sonst zeigt die Komponente das gespeicherte Foto
+  const [lokal, setLokal] = useState(null);
+  const foto = useFoto(hatFoto ? artikelnummer : null);
+  const lokalAktuell = lokal !== null && lokal.fuer === artikelnummer;
+  const preview = lokalAktuell ? lokal.src : foto.src;
+  const angezeigterFehler = error || (lokalAktuell ? null : foto.fehler);
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -72,7 +49,7 @@ export default function PhotoUpload({
       // Zeige Preview
       const reader = new FileReader();
       reader.onload = (e) => {
-        setPreview(e.target.result);
+        setLokal({ fuer: artikelnummer, src: e.target.result });
       };
       reader.readAsDataURL(file);
 
@@ -83,7 +60,7 @@ export default function PhotoUpload({
       }
     } catch (err) {
       setError(err.message);
-      setPreview(null);
+      setLokal({ fuer: artikelnummer, src: null });
     } finally {
       setUploading(false);
     }
@@ -146,7 +123,7 @@ export default function PhotoUpload({
         </label>
       </div>
 
-      {error && <div className="alert alert-danger" style={{ marginTop: "10px" }}>{error}</div>}
+      {angezeigterFehler && <div className="alert alert-danger" style={{ marginTop: "10px" }}>{angezeigterFehler}</div>}
 
       {uploading && (
         <div style={{ marginTop: "10px", textAlign: "center" }}>

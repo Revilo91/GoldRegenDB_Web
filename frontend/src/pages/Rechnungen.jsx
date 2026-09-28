@@ -36,9 +36,16 @@ export default function Rechnungen() {
         deleteConfirm: "Rechnung wirklich löschen?",
         excelFilePrefix: "Rechnung",
         kundeRequired: "Bitte Kunde angeben.",
-        pieceNotFound: (nr) => `Artikelnummer "${nr}" nicht gefunden oder nicht beim Kunden ausgelagert.`,
+        pieceNotFound: (nr) => `Artikelnummer "${nr}" nicht gefunden oder für diesen Kunden nicht verfügbar.`,
       }}
-      pieceFilter={(form) => ({ ausgelagert: form.Kundennummer, verkauft: "0", ausschuss: "0", limit: -1 })}
+      // Direktverkauf (Online, Messe, …): Lagerstücke plus die beim Kunden
+      // liegenden, ohne vorher einen Lieferschein erstellen zu müssen
+      pieceFilter={(form, _editing, kunde) => ({
+        ausgelagert: kunde?.Direktverkauf ? `0,${form.Kundennummer}` : form.Kundennummer,
+        verkauft: "0",
+        ausschuss: "0",
+        limit: -1,
+      })}
       pieceSelectMode="byKunde"
       eRechnungFormate={[
         { format: "xrechnung", label: "XRechnung (XML)", dateiSuffix: "XRechnung", endung: "xml" },

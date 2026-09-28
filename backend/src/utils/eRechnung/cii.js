@@ -126,6 +126,15 @@ function toCII(m) {
         m.leistungszeitraum && grp('ram:BillingSpecifiedPeriod',                            // BG-14
           grp('ram:StartDateTime', datum102(m.leistungszeitraum.von)),
           grp('ram:EndDateTime', datum102(m.leistungszeitraum.bis))),
+        ...m.zuschlaege.map((z) => grp('ram:SpecifiedTradeAllowanceCharge',                // BG-21
+          indikator(true),
+          el('ram:ActualAmount', betrag(z.betrag)),                                         // BT-99
+          el('ram:ReasonCode', z.grundCode),                                                // BT-105
+          el('ram:Reason', z.grund),                                                        // BT-104
+          grp('ram:CategoryTradeTax',
+            el('ram:TypeCode', 'VAT'),
+            el('ram:CategoryCode', m.steuer.kategorie),
+            el('ram:RateApplicablePercent', String(m.steuer.satz))))),
         ...m.nachlaesse.map((n) => grp('ram:SpecifiedTradeAllowanceCharge',                // BG-20
           indikator(false),
           el('ram:CalculationPercent', n.prozent.toFixed(2)),                               // BT-94
@@ -140,6 +149,7 @@ function toCII(m) {
         grp('ram:SpecifiedTradePaymentTerms', el('ram:Description', m.zahlung.bedingungen)), // BT-20
         grp('ram:SpecifiedTradeSettlementHeaderMonetarySummation',
           el('ram:LineTotalAmount', betrag(s.positionen)),                                  // BT-106
+          m.zuschlaege.length > 0 && el('ram:ChargeTotalAmount', betrag(s.zuschlaege)),     // BT-108
           m.nachlaesse.length > 0 && el('ram:AllowanceTotalAmount', betrag(s.nachlaesse)),  // BT-107
           el('ram:TaxBasisTotalAmount', betrag(s.netto)),                                   // BT-109
           el('ram:TaxTotalAmount', betrag(s.steuer), { currencyID: m.waehrung }),           // BT-110

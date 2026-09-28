@@ -4399,6 +4399,9 @@ INSERT INTO "Kunde" ("ID", "Name", "Strasse", "Hausnummer", "Ort", "PLZ", "Email
   (10, 'Weber kreatives Wohnen GmbH', 'Kelheimer Strasse', '7', 'Langquaid', 84085, '', '09452377', 0, FALSE),
   (21, 'Zwoaraloa', 'Hauptstrasse', '31', 'Schierling', 84069, 'zwoaraloa-schierling@outlook.de', '01704114102', 10, TRUE);
 
+UPDATE "Kunde" SET "Direktverkauf" = TRUE
+WHERE "Name" IN ('Online', 'Messe', 'Sonderanfertigung', 'Saskia Stempfhuber');
+
 -- Tabelle: Lieferschein (166 Zeilen)
 
 INSERT INTO "Lieferschein" ("ID", "Nummer", "Kundennummer", "Datum") VALUES
