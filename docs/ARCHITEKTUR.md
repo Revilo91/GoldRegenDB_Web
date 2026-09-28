@@ -812,6 +812,7 @@ GoldRegenDB_Web/
         ├── index.css                 # Globale Styles (alle Klassen hier)
         ├── context/AuthContext.jsx   # JWT-Auth-State + Rollen
         ├── components/               # DataTable, TableToolbar, PhotoUpload, ProtectedRoute, Toast
+        ├── hooks/useFoto.js          # Foto per Artikelnummer laden (Tabelle, Modal, Detail, Upload)
         └── pages/                    # Alle Seiten (Login, Dashboard, Schmuckstuecke, …)
 ```
 

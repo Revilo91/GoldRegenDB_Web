@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGem } from "@fortawesome/free-solid-svg-icons";
-import { api } from "../api";
+import { useFoto } from "../hooks/useFoto";
 
 // Thumbnail für eine Tabellenzeile.
 //
@@ -14,50 +13,11 @@ import { api } from "../api";
 // Öffnen eines Modals blieben sie leer, weil pauseLoading das Nachladen
 // unterdrückt (Befund G1).
 export default function TablePhoto({ hatFoto, artikelnummer, pauseLoading = false }) {
-  const [photoSrc, setPhotoSrc] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-    const controller = new AbortController();
-    const abbrechen = () => {
-      isCancelled = true;
-      controller.abort();
-    };
-
-    if (!hatFoto || !artikelnummer) {
-      setPhotoSrc(null);
-      setPhotoError(null);
-      setIsLoading(false);
-      return abbrechen;
-    }
-
-    if (pauseLoading) {
-      setIsLoading(false);
-      return abbrechen;
-    }
-
-    setIsLoading(true);
-    setPhotoError(null);
-    api
-      .loadPhotoAsDataUrl(artikelnummer, { signal: controller.signal })
-      .then((dataUrl) => {
-        if (isCancelled) return;
-        setPhotoSrc(dataUrl);
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-        setPhotoSrc(null);
-        setPhotoError(err.message);
-      })
-      .finally(() => {
-        if (isCancelled) return;
-        setIsLoading(false);
-      });
-
-    return abbrechen;
-  }, [hatFoto, artikelnummer, pauseLoading]);
+  const {
+    src: photoSrc,
+    laedt: isLoading,
+    fehler: photoError,
+  } = useFoto(hatFoto ? artikelnummer : null, { pausiert: pauseLoading });
 
   if (!photoSrc) {
     return (
