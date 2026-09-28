@@ -4,7 +4,7 @@
 // "Verkauft"/"Ausschuss" sind boolean, deshalb IS TRUE / IS FALSE -- "= 1" wäre
 // "operator does not exist: boolean = integer" (Befund B6).
 
-/** @typedef {string|number|string[]} SqlParam */
+/** @typedef {string|number|string[]|number[]} SqlParam */
 
 class WhereClauseBuilder {
   /**
@@ -102,6 +102,10 @@ class WhereClauseBuilder {
   }
 
   // Direktverkauf-Rechnung: Lager (0) plus die beim Kunden liegenden Stücke
+  /**
+   * @param {number[]} kundeIds
+   * @returns {this}
+   */
   ausgelagertIn(kundeIds) {
     this.conditions.push(`${this._col('Ausgelagert')} = ANY($${this.paramIdx}::int[])`);
     this.params.push(kundeIds);
