@@ -17,7 +17,7 @@ const {
   preisNachPositionsrabattSql,
   preisNachAllenRabattenSql,
   preisNachPositionsrabatt,
-  rechnungsSummen,
+  belegSummen,
 } = require('../src/utils/rabatt');
 
 describe('preisNachPositionsrabatt(preis, rabatt)', () => {
@@ -73,14 +73,14 @@ describe('SQL-Ausdrücke', () => {
   });
 });
 
-describe('rechnungsSummen(queryable, id)', () => {
+describe("belegSummen(queryable, 'Rechnung', id)", () => {
   it('castet die Provision auf numeric', async () => {
     // "Provision" ist INTEGER (Befund B8). 40 / 100 ist in SQL
     // Ganzzahldivision, also 0 -- ohne den Cast war der Überweisungsbetrag
     // gleich der Summe vor Provision. Das ist beim Abnahmetest aufgefallen.
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
 
-    await rechnungsSummen(queryable, 10);
+    await belegSummen(queryable, 'Rechnung', 10);
 
     const sql = String(queryable.query.mock.calls[0][0]);
     expect(sql).toContain('COALESCE(k."Provision", 0)::numeric');
@@ -90,7 +90,7 @@ describe('rechnungsSummen(queryable, id)', () => {
   it('rechnet in der Reihenfolge des Belegs und rundet jede Zeile auf Cent', async () => {
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
 
-    await rechnungsSummen(queryable, 10);
+    await belegSummen(queryable, 'Rechnung', 10);
 
     const sql = String(queryable.query.mock.calls[0][0]);
     for (const feld of [
@@ -108,7 +108,7 @@ describe('rechnungsSummen(queryable, id)', () => {
   it('teilt nach Herstellerkürzel M und S auf (Befund G7)', async () => {
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
 
-    await rechnungsSummen(queryable, 10);
+    await belegSummen(queryable, 'Rechnung', 10);
 
     const sql = String(queryable.query.mock.calls[0][0]);
     expect(sql).toContain("FILTER (WHERE hersteller = 'M')");
@@ -125,7 +125,7 @@ describe('rechnungsSummen(queryable, id)', () => {
     // jetzt auf, und XRechnung wie Excel nennen 96.59 Auszahlungsbetrag.
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
 
-    await rechnungsSummen(queryable, 10);
+    await belegSummen(queryable, 'Rechnung', 10);
 
     const sql = String(queryable.query.mock.calls[0][0]);
     // Subtraktion der GERUNDETEN Zwischensumme, nicht erneute Multiplikation
@@ -143,6 +143,34 @@ describe('rechnungsSummen(queryable, id)', () => {
   it('liefert null, wenn die Rechnung nicht existiert', async () => {
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [] }) };
 
-    await expect(rechnungsSummen(queryable, 999)).resolves.toBeNull();
+    await expect(belegSummen(queryable, 'Rechnung', 999)).resolves.toBeNull();
+  });
+});
+
+describe("belegSummen(queryable, 'Lieferschein', id)", () => {
+  // #241: der Lieferschein lieferte keine Summen, das Modal zeigte deshalb
+  // keine Aufteilung. "Lieferschein" hat keine Rabattspalten.
+  it('rechnet ohne Rabatt über Lieferschein_ID', async () => {
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
+
+    await belegSummen(queryable, 'Lieferschein', 7);
+
+    const sql = String(queryable.query.mock.calls[0][0]);
+    expect(sql).toContain('JOIN "Lieferschein" r ON r."ID" = s."Lieferschein_ID"');
+    expect(sql).toContain('FROM "Lieferschein" r');
+    expect(sql).toContain('0::numeric AS rabatt_gesamt');
+    expect(sql).not.toContain('rabatt_positionen');
+    expect(sql).not.toContain('"Rechnung"');
+    expect(sql).not.toContain('Rechnung_ID');
+    expect(sql).toContain('COALESCE(k."Provision", 0)::numeric');
+    expect(sql).toContain('AS ueberweisungsbetrag');
+    expect(queryable.query.mock.calls[0][1]).toEqual([7]);
+  });
+
+  it('lehnt unbekannte Belegtypen ab', async () => {
+    const queryable = { query: jest.fn() };
+
+    await expect(belegSummen(queryable, '"Kunde"; --', 1)).rejects.toThrow('Unbekannter Belegtyp');
+    expect(queryable.query).not.toHaveBeenCalled();
   });
 });

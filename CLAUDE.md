@@ -66,6 +66,8 @@ npm start          # Start production
 npm test           # Jest tests in __tests__/**/*.test.js
 npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
                    # Einmaliger Bestandsimport von Bildern in "Foto" (#209)
+npm run sammle:fotos -- --quelle <pfad|smb://…> --ziel <pfad> [--dry-run]
+                   # Sammelt Bilder mit Artikelnummer (Wurzel + _-Ordner) für den Import
 ```
 
 ### Frontend (React + Vite)
@@ -179,6 +181,11 @@ All styles go in `frontend/src/index.css` as class definitions. Avoid style prop
   `POST /api/backup/import-fotos-zip` übernimmt per Upsert als Hintergrund-Job
   (Fortschritt: `GET /api/backup/import-fotos-jobs/:id`). Der JSON-Export
   überspringt `"Foto"`/`bestellung_foto`, der JSON-Import fasst sie nicht an
+- **SQL-Dump:** `GET /api/backup/export-sql` schreibt dieselben Tabellen wie der
+  JSON-Export als COPY-Blöcke (alle Spalten `::text`, ein REPEATABLE-READ-Snapshot).
+  Beim Import liest `frontend/src/utils/sqlDump.js` nur die COPY-Blöcke eines
+  pg_dump/pg_dumpall in das JSON-Format und schickt sie an `POST /api/backup/import`
+  – aus der Datei wird nie SQL ausgeführt
 - Großer ZIP-Upload über langsame Leitung: Node bricht Requests nach
   `server.requestTimeout` (Standard 300 s) ab, ein Reverse-Proxy oft früher –
   dort ggf. Timeout und Body-Limit anheben
@@ -232,6 +239,19 @@ db/
 **Lieferscheine (delivery notes) and Rechnungen (invoices)** share 95% identical UI/logic. Both use a parameterized **DocumentManager.jsx** component that accepts type-specific props (labels, API endpoints, piece-selection logic). Lieferscheine.jsx and Rechnungen.jsx are thin wrappers around it.
 
 → If modifying document-list logic (filtering, grouping, modals), edit `DocumentManager.jsx` first.
+
+**Rechnung und Lieferschein sind eng verwandt – Änderungen immer an beiden
+prüfen.** Wer am einen Beleg etwas ändert (Route, Summen, Excel, Modal, Tests),
+zieht es beim anderen nach oder hält im Commit fest, warum nicht. Geteilte Stellen:
+- Frontend: `DocumentManager.jsx` (Unterschiede nur über `type === "rechnung"` / `"lieferschein"`)
+- Backend: `routes/rechnungen.js` ↔ `routes/lieferscheine.js` (gleiche Endpunkte,
+  gleiche Antwortform), Summen über `belegSummen()` in `utils/rabatt.js`,
+  Excel über `utils/excelService.js`
+- Fachlicher Unterschied: Der Lieferschein zeigt, was **an den Kunden gesendet**
+  wurde (brutto/netto nach Provision, kein Rabatt); abgerechnet wird erst per
+  Rechnung. Rabattspalten gibt es nur in `"Rechnung"`
+- Warnbeispiel #241: Befund G7 stellte die Summenbox auf `detail.summen` um, aber
+  nur die Rechnungs-Route lieferte das Objekt – beim Lieferschein blieb die Box leer
 
 ### Database Queries
 - No ORM: queries use `pg` (node-postgres) directly

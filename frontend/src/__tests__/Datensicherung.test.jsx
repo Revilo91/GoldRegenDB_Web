@@ -85,3 +85,17 @@ it('meldet einen abgebrochenen Import mit Ursache', async () => {
   );
   expect(api.getBackupFotosImportJob).not.toHaveBeenCalled();
 });
+
+it('bietet die Tabellen aus einem SQL-Dump zum Import an', async () => {
+  rendereMitToast(<Datensicherung />);
+  const dump = new File(
+    ['COPY public."Kunde" ("ID", "Name") FROM stdin;\n1\tA\n\\.\n'],
+    'goldregendb_dump.sql',
+    { type: 'application/sql' },
+  );
+  fireEvent.change(screen.getByLabelText(/SQL-Dump wählen/), { target: { files: [dump] } });
+  expect(await screen.findByText('goldregendb_dump.sql')).toBeInTheDocument();
+  // Export- und Importliste: Kunden zweimal, Rechnungen nur im Export.
+  expect(screen.getAllByRole('checkbox', { name: 'Kunden' })).toHaveLength(2);
+  expect(screen.getAllByRole('checkbox', { name: 'Rechnungen' })).toHaveLength(1);
+});

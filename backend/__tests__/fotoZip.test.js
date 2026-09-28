@@ -140,6 +140,23 @@ describe('Foto-ZIP Round-Trip', () => {
     expect(await importiereFotoZip(pfad, speicherDb())).toMatchObject({ gesamt: 0, verarbeitet: 0 });
   });
 
+  // Ab ~820 Fotos ist das Zentralverzeichnis über 64 KB. yazl rechnet dann den
+  // Zip64-Abschluss (76 Bytes) ein, schreibt ihn aber nicht – der Proxy wartete
+  // auf die fehlenden Bytes und brach mit 504 ab.
+  it('kündigt auch bei großem Zentralverzeichnis die exakte Größe an', async () => {
+    const fotos = {};
+    for (let i = 0; i < 1000; i += 1) {
+      fotos[`schmuckstueck:MBH${String(i).padStart(4, '0')}`] = { daten: JPG, mimeType: 'image/jpeg' };
+    }
+    const { stream, groesse } = await erstelleFotoZip(speicherDb(fotos));
+    const zipDaten = await alsBuffer(stream);
+    expect(zipDaten.length).toBe(groesse);
+
+    const pfad = path.join(tmpDir, 'gross.zip');
+    await fs.writeFile(pfad, zipDaten);
+    expect(await importiereFotoZip(pfad, speicherDb())).toMatchObject({ gesamt: 1000, uebersprungen: 0 });
+  });
+
   it('bricht den Stream ab, wenn ein Foto zwischen Liste und Laden verschwindet', async () => {
     const quelle = speicherDb({ 'schmuckstueck:MBH001': { daten: PNG, mimeType: 'image/png' } });
     const { stream } = await erstelleFotoZip(quelle);

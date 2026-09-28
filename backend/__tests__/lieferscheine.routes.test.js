@@ -84,12 +84,16 @@ describe('GET /api/lieferscheine/:id', () => {
   it('liefert Lieferschein inkl. zugeordneter Schmuckstücke', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] })
-      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001' }] });
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001' }] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '15.00', ueberweisungsbetrag: '13.50' }] });
 
     const res = await request(buildApp()).get('/api/lieferscheine/1');
 
     expect(res.statusCode).toBe(200);
     expect(res.body.schmuckstuecke).toHaveLength(1);
+    // #241: ohne summen zeigte das Modal keine Aufteilung
+    expect(res.body.summen).toEqual({ gesamtwert: '15.00', ueberweisungsbetrag: '13.50' });
+    expect(String(db.query.mock.calls[2][0])).toContain('"Lieferschein_ID"');
   });
 
   it('meldet 404 bei unbekannter ID', async () => {

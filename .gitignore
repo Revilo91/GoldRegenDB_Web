@@ -27,3 +27,6 @@ coverage/
 
 # Protokolle des Foto-Bestandsimports (npm run import:fotos)
 import-fotos-*.log
+
+# Eingesammelte Bestandsfotos für den Import (npm run sammle:fotos) – nie committen
+/uploads/

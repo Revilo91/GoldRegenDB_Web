@@ -21,7 +21,9 @@
    ```
    `DB_PASSWORD`, `JWT_SECRET` und `BESTELLUNG_ENCRYPTION_KEY` erzeugen, z. B. mit
    `openssl rand -hex 32`. Solange ein Platzhalter drinsteht, startet das Backend nicht.
-   Sollen Daten und Backups woanders liegen, `DATA_DIR` anpassen.
+   Die Ordner `data/`, `backups/` und `uploads/` liegen im Paket. Sollen sie woanders
+   liegen, `DATA_DIR` anpassen und die Ordner dort vor dem Start anlegen:
+   `mkdir -p <DATA_DIR>/data <DATA_DIR>/backups <DATA_DIR>/uploads`.
 3. Starten:
    ```bash
    docker compose up -d
@@ -39,7 +41,7 @@ alten Dateien kopieren, die `.env` behalten und das Update mit der neuen Version
 ```
 
 Das Skript setzt `IMAGE_TAG` in der `.env`, zieht das Image und startet die Container
-neu. `IMAGE_TAG` ist Pflicht – ohne startet Compose nicht.
+neu. Fehlende Ordner unter `DATA_DIR` legt es an. `IMAGE_TAG` ist Pflicht – ohne startet Compose nicht.
 
 ## Hinweise
 

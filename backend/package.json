@@ -11,6 +11,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "import:fotos": "node scripts/import-fotos.js",
+    "sammle:fotos": "node scripts/sammle-fotos.js",
     "dsgvo:retention": "node scripts/dsgvo-retention.js",
     "dsgvo:retention:dry": "node scripts/dsgvo-retention.js --dry-run",
     "test": "jest --forceExit",
