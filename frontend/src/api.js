@@ -259,12 +259,12 @@ export const authApi = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   changePassword: (currentPassword, newPassword) =>
     request('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
-  // Erzeugt ein Reset-Token. Solange kein Mailversand konfiguriert ist, gibt das
-  // Backend den Link nur ins Log aus – siehe backend/src/routes/auth.js.
   forgotPassword: (username) =>
     request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username }) }),
   resetPassword: (token, newPassword) =>
     request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+  generateAdminResetLink: (userId) =>
+    request('/auth/admin/generate-reset-link', { method: 'POST', body: JSON.stringify({ userId }) }),
 };
 
 export const publicApi = {

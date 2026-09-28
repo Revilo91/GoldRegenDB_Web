@@ -91,6 +91,14 @@ describe('authApi', () => {
       newPassword: 'neues-sicheres-passwort',
     });
   });
+
+  it('sendet userId beim Admin-Reset-Link', async () => {
+    const spy = mockFetchOk({ resetPath: '/reset-password?token=abc', expiresInMinutes: 30, username: 'marina' });
+    await authApi.generateAdminResetLink(7);
+
+    expect(spy.mock.calls[0][0]).toContain('/auth/admin/generate-reset-link');
+    expect(bodyOf(spy)).toEqual({ userId: 7 });
+  });
 });
 
 describe('Benutzerverwaltung', () => {
