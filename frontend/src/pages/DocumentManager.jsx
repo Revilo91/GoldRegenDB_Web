@@ -671,7 +671,11 @@ export default function DocumentManager({
                       color: "#888",
                       fontWeight: "600",
                     }}>
-                    Aufteilung (Netto nach Provision):
+                    {/* #241: der Lieferschein zeigt, welcher Wert an den
+                        Kunden ging -- abgerechnet wird erst per Rechnung */}
+                    {type === "lieferschein"
+                      ? "An Kunde gesendet (Netto nach Provision):"
+                      : "Aufteilung (Netto nach Provision):"}
                   </label>
                   {(() => {
                     // Befund G7: diese Zahlen wurden hier aus rohen Preisen
@@ -713,7 +717,9 @@ export default function DocumentManager({
                                 Modal und Rechnung nicht zwei Namen fuer
                                 dieselbe Zahl fuehren (Befund G7). */}
                             <span>
-                              {rabattGesamt > 0 ? "Summe nach Rabatt:" : "Gesamtwert:"}
+                              {type === "lieferschein"
+                                ? "Gesendet brutto:"
+                                : rabattGesamt > 0 ? "Summe nach Rabatt:" : "Gesamtwert:"}
                             </span>
                             <strong>{formatEur(totalBrutto)}</strong>
                           </div>
@@ -735,7 +741,9 @@ export default function DocumentManager({
                                   justifyContent: "space-between",
                                   fontWeight: "600",
                                 }}>
-                                <span>Überweisungsbetrag:</span>
+                                <span>
+                                  {type === "lieferschein" ? "Gesendet netto:" : "Überweisungsbetrag:"}
+                                </span>
                                 <strong>{formatEur(totalNetto)}</strong>
                               </div>
                             </>

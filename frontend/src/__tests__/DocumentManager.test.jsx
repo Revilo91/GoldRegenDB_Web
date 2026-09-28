@@ -94,6 +94,27 @@ describe('DocumentManager', () => {
     expect(await screen.findByRole('button', { name: 'Löschen' })).toBeInTheDocument();
   });
 
+  it('zeigt beim Lieferschein den gesendeten Wert brutto/netto samt Aufteilung (#241)', async () => {
+    renderManager({
+      getDetail: vi.fn().mockResolvedValue({
+        ID: 1, Nummer: '2026-001', KundenName: 'Anna', status: 'final', Datum: '2026-01-01', Provision: 10,
+        schmuckstuecke: [{ Artikelnummer: 'MHO001', Verkaufspreis: '100.00' }],
+        summen: {
+          summe_nach_rabatt: '100.00', provision_betrag: '10.00', ueberweisungsbetrag: '90.00',
+          marina_brutto: '100.00', marina_netto: '90.00', saskia_brutto: '0.00', saskia_netto: '0.00',
+          rabatt_gesamt: '0',
+        },
+      }),
+    });
+    fireEvent.click(await screen.findByText('2026-001'));
+
+    expect(await screen.findByText('An Kunde gesendet (Netto nach Provision):')).toBeInTheDocument();
+    expect(screen.getByText('Gesendet brutto:')).toBeInTheDocument();
+    expect(screen.getByText('Gesendet netto:')).toBeInTheDocument();
+    expect(screen.getByText('Marina:')).toBeInTheDocument();
+    expect(screen.queryByText('Überweisungsbetrag:')).not.toBeInTheDocument();
+  });
+
   it('verhindert das Speichern ohne ausgewählten Kunden', async () => {
     const api = renderManager();
     await screen.findByText('2026-001');

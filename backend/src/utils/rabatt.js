@@ -67,19 +67,34 @@ function preisNachPositionsrabatt(preis, rabattProzent) {
   return Math.round(p * (1 - rabatt / 100) * 100) / 100;
 }
 
+// Belegtypen fuer belegSummen(). "Lieferschein" hat keine Rabattspalten, dort
+// ist der Rabatt 0 -- sonst dieselbe Rechnung, damit das Modal fuer beide
+// Belege gleich aussieht (#241: der Lieferschein lieferte gar keine Summen).
+const BELEGE = {
+  Rechnung: { fk: 'Rechnung_ID', mitRabatt: true },
+  Lieferschein: { fk: 'Lieferschein_ID', mitRabatt: false },
+};
+
 /**
- * Die Belegsummen einer Rechnung, vollstaendig in SQL gerechnet.
+ * Die Belegsummen einer Rechnung oder eines Lieferscheins, vollstaendig in SQL
+ * gerechnet.
  *
  * Liefert zusaetzlich die Aufteilung je Herstellerin (Artikelnummer beginnt mit
  * M oder S), weil das Frontend sie bisher aus rohen Preisen selbst gebildet hat
  * (Befund G7).
  *
  * @param {{query: Function}} queryable db oder ein Client
- * @param {number|string} rechnungId
+ * @param {'Rechnung'|'Lieferschein'} tabelle
+ * @param {number|string} belegId
  * @returns {Promise<object|null>}
  */
-async function rechnungsSummen(queryable, rechnungId) {
-  const nachPosition = preisNachPositionsrabattSql('s', 'r');
+async function belegSummen(queryable, tabelle, belegId) {
+  const beleg = BELEGE[tabelle];
+  if (!beleg) throw new Error(`Unbekannter Belegtyp: ${tabelle}`);
+  const nachPosition = beleg.mitRabatt
+    ? preisNachPositionsrabattSql('s', 'r')
+    : 's."Verkaufspreis"';
+  const rabattGesamt = beleg.mitRabatt ? 'COALESCE(r.rabatt_gesamt, 0)' : '0';
   const { rows } = await queryable.query(
     `WITH positionen AS (
        SELECT
@@ -88,16 +103,16 @@ async function rechnungsSummen(queryable, rechnungId) {
          -- wie in utils/eRechnung/modell.js, sonst weichen die Belege ab
          round((${nachPosition})::numeric, 2) AS wert
        FROM "Schmuckstück" s
-       JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
-       WHERE s."Rechnung_ID" = $1
+       JOIN "${tabelle}" r ON r."ID" = s."${beleg.fk}"
+       WHERE s."${beleg.fk}" = $1
      ),
      kopf AS (
        -- ::numeric ist Pflicht: "Provision" ist INTEGER (Befund B8), und
        -- 40 / 100 ist in SQL Ganzzahldivision -- also 0. Ohne den Cast war der
        -- Ueberweisungsbetrag gleich der Summe vor Provision.
-       SELECT COALESCE(r.rabatt_gesamt, 0)::numeric AS rabatt_gesamt,
+       SELECT ${rabattGesamt}::numeric AS rabatt_gesamt,
               COALESCE(k."Provision", 0)::numeric   AS provision
-       FROM "Rechnung" r
+       FROM "${tabelle}" r
        LEFT JOIN "Kunde" k ON k."ID" = r."Kundennummer"
        WHERE r."ID" = $1
      ),
@@ -155,7 +170,7 @@ async function rechnungsSummen(queryable, rechnungId) {
        rabatt_gesamt,
        provision
      FROM nach_provision`,
-    [rechnungId],
+    [belegId],
   );
   return rows[0] || null;
 }
@@ -164,5 +179,5 @@ module.exports = {
   preisNachPositionsrabattSql,
   preisNachAllenRabattenSql,
   preisNachPositionsrabatt,
-  rechnungsSummen,
+  belegSummen,
 };
