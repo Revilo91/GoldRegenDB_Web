@@ -20,7 +20,9 @@ Umfassende Referenz für Codebase, Datenbankschema, Geschäftslogik, API-Endpunk
 12. [Bestellungen (DSGVO)](#12-bestellungen-dsgvo)
 13. [Audit-Log](#13-audit-log)
 14. [Technologie-Stack](#14-technologie-stack)
-15. [Bekannte Befunde & Fixes](#15-bekannte-befunde--fixes)
+15. [Projektstruktur](#15-projektstruktur)
+16. [Docker-Architektur](#16-docker-architektur)
+17. [Bekannte Befunde & Fixes](#17-bekannte-befunde--fixes)
 
 ---
 
@@ -559,6 +561,42 @@ img-src:        data: + blob:
 frame-ancestors: 'none'
 ```
 
+### Cookie-Attribute (`backend/src/utils/authCookie.js`)
+
+Alle Cookie-Attribute für `jwt` sind ausschließlich hier definiert — nie direkt `res.cookie('jwt', …)` in einer Route aufrufen.
+
+| Attribut | Wert | Grund |
+|----------|------|-------|
+| `httpOnly` | `true` | JavaScript kann das Token nicht lesen (XSS-Schutz) |
+| `sameSite` | `lax` | Blockt site-fremde POSTs, erlaubt normale Navigation |
+| `secure` | `COOKIE_SECURE === 'true'` | Nur setzen, wenn ein Reverse Proxy TLS terminiert |
+| `maxAge` | 8 h | Passend zur JWT-Laufzeit |
+
+### CORS (`backend/src/middleware/cors.js`)
+
+Die API ist nur für explizit erlaubte Origins geöffnet, konfiguriert über `ALLOWED_ORIGINS` (kommasepariert):
+
+```
+ALLOWED_ORIGINS=http://localhost:5173,https://schmuck.example.com
+```
+
+- Ohne gesetzte Variable gelten die lokalen Dev-Origins (`localhost:5173` / `localhost:3000`)
+- Requests ohne `Origin`-Header (same-origin, curl, Healthcheck) werden immer durchgelassen
+- In Produktion liefert Express das Frontend selbst aus — same-origin, keine CORS-Prüfung nötig
+- `Content-Disposition` und `X-Upload-File-Count` sind als Response-Header freigegeben (werden von `api.js` bei Downloads ausgelesen)
+
+### HTTPS / TLS (`backend/src/middleware/httpsRedirect.js`)
+
+Express terminiert kein TLS selbst — das übernimmt ein vorgeschalteter Reverse Proxy. Drei Env-Vars steuern das Verhalten:
+
+| Variable | Wirkung |
+|----------|---------|
+| `TRUST_PROXY` | `app.set('trust proxy', …)` — nötig, damit Express `X-Forwarded-*` nur vom echten Proxy akzeptiert |
+| `FORCE_HTTPS` | Aktiviert 301-Redirect auf HTTPS + HSTS + `upgrade-insecure-requests` in der CSP |
+| `HSTS_MAX_AGE` | Gültigkeit des HSTS-Headers in Sekunden (Standard: 15552000 = 180 Tage) |
+
+Alle drei sind standardmäßig deaktiviert — nativer Dev-Modus hat keinen TLS-Proxy.
+
 ### Secrets-Management
 
 Umgebungsvariablen können über `<NAME>_FILE` (Docker Secrets) geladen werden. `getSecret()` prüft beides. `NODE_ENV=production` erzwingt vollständige Secrets.
@@ -696,7 +734,111 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 
 ---
 
-## 15. Bekannte Befunde & Fixes
+## 15. Projektstruktur
+
+```
+GoldRegenDB_Web/
+├── Dockerfile                        # Produktions-Image (Multi-Stage: Frontend-Build → Express)
+├── docker-compose.yml                # Produktion (ein app-Service)
+├── docker-compose.dev.yml            # Entwicklung, voll containerisiert
+├── docker-compose.proxy.yml          # Overlay: Caddy-Reverse-Proxy mit TLS
+├── proxy/Caddyfile                   # Caddy-Konfiguration
+├── package.json                      # Root npm Workspace (backend, frontend) + npm run dev
+├── .env.example                      # Vorlage für Umgebungsvariablen
+│
+├── .github/
+│   └── workflows/
+│       ├── tests.yml                 # CI: Jest + Vitest bei jedem PR
+│       ├── check-architektur.yml     # CI: Warnt wenn docs/ARCHITEKTUR.md nicht mitgeändert wurde
+│       └── release.yml               # CI: Release-Workflow
+│
+├── db/
+│   ├── init.sql                      # Schema (Tabellen, Trigger, Funktionen)
+│   ├── seed.sql                      # Demo-Daten
+│   ├── backup.sh / restore.sh        # Automatische Backups
+│   └── README.md                     # Backup/Restore-Dokumentation
+│
+├── docs/
+│   ├── ARCHITEKTUR.md                # Diese Datei
+│   └── E-RECHNUNG.md                 # E-Rechnung-Details
+│
+├── backend/
+│   ├── __tests__/                    # Jest-Tests
+│   └── src/
+│       ├── index.js                  # Express Entry-Point
+│       ├── config/db.js              # PostgreSQL-Pool + Startup-Migrationen
+│       ├── routes/                   # REST-Endpunkte (auth, kunden, schmuckstuecke, …)
+│       ├── middleware/               # auth.js, csrf.js, cors.js, validate.js, …
+│       ├── schemas/                  # Zod-Schemas für Input-Validierung
+│       └── utils/
+│           ├── whereClauseBuilder.js # WHERE-Clause Builder
+│           ├── WHERE_BUILDER.md      # Builder-Dokumentation
+│           ├── rabatt.js             # Zentrale Rabatt-/Provisions-Formel
+│           ├── excelService.js       # Excel-Export
+│           ├── fotoService.js        # Foto-CRUD (Tabellen Foto, bestellung_foto)
+│           ├── fotoZip.js            # Foto-Backup als ZIP
+│           ├── eRechnung/            # XRechnung/ZUGFeRD (modell, cii, validator, zugferdPdf)
+│           ├── logger.js             # Strukturiertes Logging
+│           ├── passwordService.js    # bcrypt-Hashing + Legacy-Migration
+│           ├── accountSecurity.js    # Account-Lockout + Passwort-Reset
+│           ├── authCookie.js         # JWT-Cookie setzen/löschen
+│           └── constants.js          # GRUNDMATERIAL, PRODUKTART-Codes
+│
+└── frontend/
+    ├── __tests__/                    # Vitest-Tests
+    └── src/
+        ├── App.jsx                   # Router + Layout
+        ├── api.js                    # Zentraler API-Client
+        ├── index.css                 # Globale Styles (alle Klassen hier)
+        ├── context/AuthContext.jsx   # JWT-Auth-State + Rollen
+        ├── components/               # DataTable, TableToolbar, PhotoUpload, ProtectedRoute, Toast
+        └── pages/                    # Alle Seiten (Login, Dashboard, Schmuckstuecke, …)
+```
+
+---
+
+## 16. Docker-Architektur
+
+Frontend und Backend laufen als **eine App**: das Root-Dockerfile baut das Vite-Frontend und kopiert `dist/` als `public/` ins Express-Image. Express liefert API (`/api/*`) und statisches Frontend auf demselben Port — kein Nginx in Produktion.
+
+### Ports
+
+| Service | Nativ (`npm run dev`) | Docker Dev | Produktion |
+|---------|----------------------|------------|------------|
+| Frontend | 5173 (Vite) | 3000 → 5173 (Vite) | 3000 (Express) |
+| Backend | 3001 | 3001 | 3000 (Express, same-origin) |
+| Datenbank | 5432 | 5432 | 5432 |
+
+### Umgebungsvariablen
+
+```
+# Datenbank
+DB_PASSWORD=changeme
+POSTGRES_DB=goldregendb
+POSTGRES_USER=goldregen
+DATABASE_URL=postgresql://goldregen:changeme@localhost:5432/goldregendb
+
+# App
+NODE_ENV=development
+PORT=3001
+JWT_SECRET=change-this-to-a-long-random-secret
+
+# Frontend
+VITE_API_URL=http://localhost:3001/api
+
+# Optional (Produktion)
+ALLOWED_ORIGINS=https://schmuck.example.com
+TRUST_PROXY=1
+FORCE_HTTPS=true
+COOKIE_SECURE=true
+BESTELLUNG_ENCRYPTION_KEY=...   # AES-256 für DSGVO-Felder
+```
+
+Secrets (`JWT_SECRET`, `DB_PASSWORD`, `BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext auch über `<NAME>_FILE` (Docker-Secret-Datei) gesetzt werden.
+
+---
+
+## 17. Bekannte Befunde & Fixes
 
 Historische Bugfixes, die das aktuelle Design erklären:
 

@@ -1,4 +1,4 @@
-name: copilot-instructions aktuell halten
+name: Architekturdokumentation aktuell halten
 
 on:
   push:
@@ -23,8 +23,8 @@ on:
       - '.env.example'
 
 jobs:
-  check-copilot-instructions:
-    name: Prüfen ob .github/copilot-instructions.md aktualisiert wurde
+  check-architektur:
+    name: Prüfen ob docs/ARCHITEKTUR.md aktualisiert wurde
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,24 +46,23 @@ jobs:
           elif git rev-parse HEAD^ >/dev/null 2>&1; then
             CHANGED=$(git diff --name-only HEAD^ HEAD)
           else
-            # Initialer Commit: alle Dateien im Commit auflisten
             CHANGED=$(git diff-tree --no-commit-id -r --name-only HEAD)
           fi
 
           echo "Geänderte Dateien:"
           echo "$CHANGED"
 
-          COPILOT_INSTRUCTIONS_CHANGED=false
+          ARCHITEKTUR_CHANGED=false
           for f in $CHANGED; do
-            if [ "$f" = ".github/copilot-instructions.md" ]; then
-              COPILOT_INSTRUCTIONS_CHANGED=true
+            if [ "$f" = "docs/ARCHITEKTUR.md" ]; then
+              ARCHITEKTUR_CHANGED=true
             fi
           done
 
-          echo "copilot_instructions_changed=$COPILOT_INSTRUCTIONS_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "architektur_changed=$ARCHITEKTUR_CHANGED" >> "$GITHUB_OUTPUT"
 
       - name: Kommentar in Pull Request hinterlassen
-        if: github.event_name == 'pull_request' && steps.changed.outputs.copilot_instructions_changed == 'false'
+        if: github.event_name == 'pull_request' && steps.changed.outputs.architektur_changed == 'false'
         uses: actions/github-script@v9
         with:
           script: |
@@ -72,11 +71,11 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                '## ⚠️ .github/copilot-instructions.md wurde nicht aktualisiert',
+                '## ⚠️ docs/ARCHITEKTUR.md wurde nicht aktualisiert',
                 '',
-                'Dieser Pull Request ändert Projektdateien (`backend/`, `frontend/`, `db/` oder `docker-compose*.yml`), aber **`.github/copilot-instructions.md` wurde nicht angepasst**.',
+                'Dieser Pull Request ändert Projektdateien (`backend/`, `frontend/`, `db/` oder `docker-compose*.yml`), aber **`docs/ARCHITEKTUR.md` wurde nicht angepasst**.',
                 '',
-                'Bitte prüfe, ob die Änderungen in `.github/copilot-instructions.md` dokumentiert werden müssen:',
+                'Bitte prüfe, ob die Änderungen in `docs/ARCHITEKTUR.md` dokumentiert werden müssen:',
                 '- Neue oder geänderte Routen / Endpunkte',
                 '- Neue oder geänderte Frontend-Seiten / Komponenten',
                 '- Datenbankschema-Änderungen',
@@ -88,21 +87,20 @@ jobs:
             });
 
       - name: Issue erstellen (bei Push auf main/master)
-        if: github.event_name == 'push' && steps.changed.outputs.copilot_instructions_changed == 'false'
+        if: github.event_name == 'push' && steps.changed.outputs.architektur_changed == 'false'
         uses: actions/github-script@v9
         with:
           script: |
             const shortSha = context.sha.slice(0, 7);
             const commitUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
 
-            // Vorhandene offene Issues mit gleichem Titel suchen
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
             });
 
-            const title = 'Copilot-Instructions an Projekt anpassen';
+            const title = 'Architekturdokumentation an Projekt anpassen';
             const existing = issues.find(i => i.title === title);
 
             if (!existing) {
@@ -111,9 +109,9 @@ jobs:
                 repo: context.repo.repo,
                 title,
                 body: [
-                  `Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, aber \`.github/copilot-instructions.md\` wurde nicht aktualisiert.`,
+                  `Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, aber \`docs/ARCHITEKTUR.md\` wurde nicht aktualisiert.`,
                   '',
-                  'Bitte prüfe, ob die folgenden Bereiche in `.github/copilot-instructions.md` dokumentiert werden müssen:',
+                  'Bitte prüfe, ob die folgenden Bereiche in `docs/ARCHITEKTUR.md` dokumentiert werden müssen:',
                   '- Neue oder geänderte Backend-Routen / Endpunkte',
                   '- Neue oder geänderte Frontend-Seiten / Komponenten',
                   '- Datenbankschema-Änderungen (`db/init.sql`)',
@@ -128,6 +126,6 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: existing.number,
-                body: `Weiterer Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, ohne \`.github/copilot-instructions.md\` zu aktualisieren.`,
+                body: `Weiterer Commit [${shortSha}](${commitUrl}) hat Projektdateien geändert, ohne \`docs/ARCHITEKTUR.md\` zu aktualisieren.`,
               });
             }

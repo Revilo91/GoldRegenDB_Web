@@ -25,8 +25,7 @@ Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Re
 
 **GoldRegenDB** ist ein webbasiertes Warenwirtschaftssystem für zwei Schmuckhandwerkerinnen (Marina `M` und Saskia `S`). Stack: PostgreSQL, Node.js/Express (Backend), React 19 (Frontend), alles containerisiert mit Docker.
 
-**Detaillierte Architektur, Schema, API-Endpunkte und Styling-Regeln**: Siehe `.github/copilot-instructions.md`.  
-**Vollständige Architekturdokumentation** (Schema, alle Routes, Sicherheit, Befunde): Siehe `docs/ARCHITEKTUR.md`.
+**Vollständige Architekturdokumentation** (Schema, alle Routes, Sicherheit, Docker, Projektstruktur): Siehe `docs/ARCHITEKTUR.md`.
 
 ---
 
@@ -297,7 +296,7 @@ db/
 | **Logging** | `backend/src/utils/logger.js` |
 | **Passwort-Hashing** | `backend/src/utils/passwordService.js` |
 | **Fotos** | `backend/src/utils/fotoService.js` |
-| **Ausführliche Doku** | `.github/copilot-instructions.md` |
+| **Ausführliche Doku** | `docs/ARCHITEKTUR.md` |
 
 ---
 
