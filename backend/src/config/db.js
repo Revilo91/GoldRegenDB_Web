@@ -371,6 +371,8 @@ async function ensureRechnungTable() {
       END
       $$;
     `);
+    // Einmalkunde (Onlineshop): Anschrift nur auf der Rechnung, nicht in "Kunde"
+    await pool.query(`ALTER TABLE "Rechnung" ADD COLUMN IF NOT EXISTS empfaenger JSONB DEFAULT NULL;`);
     // Migrate: UNIQUE auf "ID" nachziehen (Befund B4).
     // "Lieferschein" hat sein UNIQUE ("ID"), "Rechnung" nie bekommen – die
     // Asymmetrie kam 1:1 aus MySQL mit (ADD UNIQUE KEY vs. ADD KEY). Ohne

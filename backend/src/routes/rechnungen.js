@@ -35,6 +35,15 @@ async function ladeLeistungszeitraum(pieces) {
   return { von: new Date(rows[0].min_datum), bis: new Date(rows[0].max_datum) };
 }
 
+// Einmalkunde (Onlineshop): die Anschrift der Rechnung ersetzt die des
+// Sammelkunden. ID, Provision und Leitweg-ID bleiben die des Kunden; eine
+// USt-IdNr. des Sammelkunden gehört nicht zum Einzelkäufer.
+function mitEmpfaenger(kunde, empfaenger) {
+  return empfaenger ? { ...kunde, ...empfaenger, UStIdNr: null } : kunde;
+}
+
+const empfaengerJson = (empfaenger) => (empfaenger ? JSON.stringify(empfaenger) : null);
+
 /**
  * @swagger
  * /rechnungen:
@@ -220,7 +229,7 @@ router.get('/:id/excel', async (req, res) => {
 
     const buffer = await generateExcel('Rechnung', {
       ...rows[0],
-      kunde: rows[0],
+      kunde: mitEmpfaenger(rows[0], rows[0].empfaenger),
       rechungsZeitraum,
       summen,
       schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
@@ -289,7 +298,7 @@ router.get('/:id/erechnung', async (req, res) => {
 
     const ergebnis = await erstelleERechnung({
       rechnung,
-      kunde: kunde.rows[0] || {},
+      kunde: mitEmpfaenger(kunde.rows[0] || {}, rechnung.empfaenger),
       schmuckstuecke: pieces.rows,
       leistungszeitraum: await ladeLeistungszeitraum(pieces.rows),
     }, format);
@@ -344,6 +353,8 @@ router.get('/:id/erechnung', async (req, res) => {
  *                 description: Rabatt je Artikelnummer in Prozent
  *                 additionalProperties: { type: number, minimum: 0, maximum: 100 }
  *                 example: { MHO123_1: 10 }
+ *               empfaenger:
+ *                 $ref: '#/components/schemas/RechnungEmpfaenger'
  *     responses:
  *       201:
  *         description: Rechnung erstellt
@@ -358,7 +369,9 @@ router.get('/:id/erechnung', async (req, res) => {
 router.post('/', validate(rechnungSchema), async (req, res) => {
   let client;
   try {
-    const { Nummer, Artikelnummern, Kundennummer, status = 'entwurf', rabatt_gesamt = 0, rabatt_positionen = {} } = req.body;
+    const {
+      Nummer, Artikelnummern, Kundennummer, status = 'entwurf', rabatt_gesamt = 0, rabatt_positionen = {}, empfaenger,
+    } = req.body;
     client = await db.connect();
     await client.query('BEGIN');
     await client.query('LOCK TABLE "Rechnung" IN SHARE ROW EXCLUSIVE MODE');
@@ -372,9 +385,9 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
     const rabattPositionen = rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {};
 
     const { rows } = await client.query(
-      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status, rabatt_gesamt, rabatt_positionen)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [rechnungsNummer, Kundennummer, status, rabattGesamt, JSON.stringify(rabattPositionen)]
+      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status, rabatt_gesamt, rabatt_positionen, empfaenger)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [rechnungsNummer, Kundennummer, status, rabattGesamt, JSON.stringify(rabattPositionen), empfaengerJson(empfaenger)]
     );
 
     const rechnungId = rows[0].ID;
@@ -455,6 +468,8 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
  *               rabatt_positionen:
  *                 type: object
  *                 additionalProperties: { type: number, minimum: 0, maximum: 100 }
+ *               empfaenger:
+ *                 $ref: '#/components/schemas/RechnungEmpfaenger'
  *     responses:
  *       200:
  *         description: Rechnung aktualisiert
@@ -470,7 +485,7 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
 router.put('/:id', validate(rechnungSchema), async (req, res) => {
   let client;
   try {
-    const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen } = req.body;
+    const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen, empfaenger } = req.body;
 
     // Build update query
     let updateQuery = `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2`;
@@ -487,6 +502,11 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
     if (rabatt_positionen !== undefined) {
       updateQuery += `, rabatt_positionen = $${params.length + 1}`;
       params.push(JSON.stringify(rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {}));
+    }
+    // null entfernt den Empfänger, fehlendes Feld lässt ihn unverändert
+    if (empfaenger !== undefined) {
+      updateQuery += `, empfaenger = $${params.length + 1}`;
+      params.push(empfaengerJson(empfaenger));
     }
 
     updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;

@@ -140,6 +140,21 @@ const definition = {
             additionalProperties: { type: 'number' },
             example: { MHO123_1: 10 },
           },
+          empfaenger: { allOf: [{ $ref: '#/components/schemas/RechnungEmpfaenger' }], nullable: true },
+        },
+      },
+      RechnungEmpfaenger: {
+        type: 'object',
+        description: 'Einmalkunde (Onlineshop): ersetzt beim Export die Anschrift des Kunden',
+        required: ['Name', 'Strasse', 'PLZ', 'Ort'],
+        properties: {
+          Name: { type: 'string', maxLength: 100, example: 'Erika Mustermann' },
+          Strasse: { type: 'string', maxLength: 200 },
+          Hausnummer: { type: 'string', maxLength: 20 },
+          PLZ: { type: 'string', maxLength: 10, example: '01067' },
+          Ort: { type: 'string', maxLength: 100 },
+          Land: { type: 'string', example: 'DE', nullable: true },
+          Email: { type: 'string', format: 'email', nullable: true },
         },
       },
       AppUser: {

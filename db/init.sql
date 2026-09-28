@@ -203,6 +203,9 @@ CREATE TABLE "Rechnung" (
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'final',
+    -- Einmalkunde (Onlineshop): Anschrift steht nur auf dieser Rechnung und
+    -- überschreibt beim Export die Anschrift aus "Kunde" (z. B. "Online").
+    empfaenger JSONB DEFAULT NULL,
     PRIMARY KEY ("Nummer"),
     -- "Schmuckstück"."Rechnung_ID" zeigt auf diese Spalte. Ohne Eindeutigkeit
     -- könnten zwei Rechnungen dieselbe "ID" tragen und jeder JOIN darüber die
