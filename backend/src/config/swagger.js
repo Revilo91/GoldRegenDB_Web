@@ -145,6 +145,7 @@ const definition = {
             example: { MHO123_1: 10 },
           },
           empfaenger: { allOf: [{ $ref: '#/components/schemas/RechnungEmpfaenger' }], nullable: true },
+          versandkosten: { type: 'string', nullable: true, description: 'NUMERIC(10,2), null = keine', example: '4.90' },
         },
       },
       RechnungEmpfaenger: {

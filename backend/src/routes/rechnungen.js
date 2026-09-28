@@ -44,6 +44,9 @@ function mitEmpfaenger(kunde, empfaenger) {
 
 const empfaengerJson = (empfaenger) => (empfaenger ? JSON.stringify(empfaenger) : null);
 
+// Leer und 0 werden NULL, damit der Beleg keine Versandzeile über 0,00 € zeigt
+const versandkostenWert = (v) => (v > 0 ? Math.round(v * 100) / 100 : null);
+
 /**
  * @swagger
  * /rechnungen:
@@ -355,6 +358,11 @@ router.get('/:id/erechnung', async (req, res) => {
  *                 example: { MHO123_1: 10 }
  *               empfaenger:
  *                 $ref: '#/components/schemas/RechnungEmpfaenger'
+ *               versandkosten:
+ *                 type: number
+ *                 nullable: true
+ *                 minimum: 0
+ *                 description: 'Euro; leer oder 0 = keine Versandkosten'
  *     responses:
  *       201:
  *         description: Rechnung erstellt
@@ -371,6 +379,7 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
   try {
     const {
       Nummer, Artikelnummern, Kundennummer, status = 'entwurf', rabatt_gesamt = 0, rabatt_positionen = {}, empfaenger,
+      versandkosten,
     } = req.body;
     client = await db.connect();
     await client.query('BEGIN');
@@ -385,9 +394,13 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
     const rabattPositionen = rabatt_positionen && typeof rabatt_positionen === 'object' ? rabatt_positionen : {};
 
     const { rows } = await client.query(
-      `INSERT INTO "Rechnung" ("Nummer", "Kundennummer", status, rabatt_gesamt, rabatt_positionen, empfaenger)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [rechnungsNummer, Kundennummer, status, rabattGesamt, JSON.stringify(rabattPositionen), empfaengerJson(empfaenger)]
+      `INSERT INTO "Rechnung"
+         ("Nummer", "Kundennummer", status, rabatt_gesamt, rabatt_positionen, empfaenger, versandkosten)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        rechnungsNummer, Kundennummer, status, rabattGesamt, JSON.stringify(rabattPositionen),
+        empfaengerJson(empfaenger), versandkostenWert(versandkosten),
+      ]
     );
 
     const rechnungId = rows[0].ID;
@@ -470,6 +483,11 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
  *                 additionalProperties: { type: number, minimum: 0, maximum: 100 }
  *               empfaenger:
  *                 $ref: '#/components/schemas/RechnungEmpfaenger'
+ *               versandkosten:
+ *                 type: number
+ *                 nullable: true
+ *                 minimum: 0
+ *                 description: 'Euro; leer oder 0 = keine Versandkosten'
  *     responses:
  *       200:
  *         description: Rechnung aktualisiert
@@ -485,7 +503,9 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
 router.put('/:id', validate(rechnungSchema), async (req, res) => {
   let client;
   try {
-    const { Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen, empfaenger } = req.body;
+    const {
+      Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen, empfaenger, versandkosten,
+    } = req.body;
 
     // Build update query
     let updateQuery = `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2`;
@@ -507,6 +527,10 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
     if (empfaenger !== undefined) {
       updateQuery += `, empfaenger = $${params.length + 1}`;
       params.push(empfaengerJson(empfaenger));
+    }
+    if (versandkosten !== undefined) {
+      updateQuery += `, versandkosten = $${params.length + 1}`;
+      params.push(versandkostenWert(versandkosten));
     }
 
     updateQuery += ` WHERE "ID" = $${params.length + 1} RETURNING *`;

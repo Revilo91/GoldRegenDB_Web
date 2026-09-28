@@ -149,6 +149,8 @@ const rechnungSchema = lieferscheinSchema.extend({
   // Rabatte je Position: { "MHO123_1": 10 }
   rabatt_positionen: z.record(vollstaendigeArtikelnummer, zahl({ min: 0, max: 100 })).nullish(),
   empfaenger: empfaengerSchema.nullish(),
+  // Leer oder 0 = keine Versandkosten
+  versandkosten: zahl({ min: 0, max: 9999.99 }),
 });
 
 // ── Benutzerverwaltung / Auth ────────────────────────────────────────────────

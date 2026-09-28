@@ -121,6 +121,7 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `status` | TEXT | `entwurf` oder `final` |
 | `rabatt_positionen` | JSONB | `{ "MHO123": 10, "MBA456": 5 }` – Rabatt je Basis-Artikelnummer (%) |
 | `rabatt_gesamt` | NUMERIC | Gesamtrabatt auf den Beleg (%) |
+| `versandkosten` | NUMERIC(10,2) | Versandkosten brutto, NULL = keine |
 | `empfaenger` | JSONB | Anschrift eines Einmalkunden (Onlineshop), NULL = Kundenanschrift |
 
 #### `Foto`
@@ -322,6 +323,7 @@ Gesamtwert        = Σ( Einzelpreis × (1 − Positionsrabatt%) )
 − Gesamtrabatt    = Gesamtwert × Gesamtrabatt%
 Netto-Summe       = Gesamtwert − Gesamtrabatt
 − Provision       = Netto-Summe × Provision%
++ Versandkosten   = fester Betrag, optional
 = Überweisung
 ```
 
@@ -329,6 +331,10 @@ Netto-Summe       = Gesamtwert − Gesamtrabatt
 - **Gesamtrabatt** (`rabatt_gesamt` NUMERIC): gilt für den gesamten Beleg
 - **Provision**: Eigenschaft des Kunden (0–100 %)
 - Rabatte gibt es nur bei Rechnungen, nicht bei Lieferscheinen
+- **Versandkosten** (`versandkosten` NUMERIC, leer = keine): nur auf der Rechnung, nach Rabatt und Provision
+  aufgeschlagen. Sie werden weder rabattiert noch provisioniert und gehören keiner Herstellerin, stehen also
+  nicht in der Aufteilung. Excel zeigt „+ Versandkosten“, die E-Rechnung einen Zuschlag auf Belegebene
+  (BG-21, Grund `FC`)
 
 ### SQL-Hilfsfunktionen
 

@@ -37,6 +37,7 @@ export default function DocumentManager({
     rabatt_gesamt: 0,
     rabatt_positionen: {},
     empfaenger: null,
+    versandkosten: "",
   });
   const [availablePieces, setAvailablePieces] = useState([]);
   const [pieceSearch, setPieceSearch] = useState("");
@@ -61,6 +62,7 @@ export default function DocumentManager({
         rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
         rabatt_positionen: d.rabatt_positionen || {},
         empfaenger: d.empfaenger || null,
+        versandkosten: d.versandkosten ?? "",
       };
       setForm(neuesForm);
       setPieceSearch("");
@@ -88,6 +90,7 @@ export default function DocumentManager({
         rabatt_gesamt: Number(d.rabatt_gesamt) || 0,
         rabatt_positionen: d.rabatt_positionen || {},
         empfaenger: d.empfaenger ?? null,
+        versandkosten: d.versandkosten ?? null,
       });
       setDetail(null);
       load();
@@ -204,6 +207,7 @@ export default function DocumentManager({
       rabatt_gesamt: 0,
       rabatt_positionen: {},
       empfaenger: null,
+      versandkosten: "",
     };
     setForm(neuesForm);
     setPieceSearch("");
@@ -671,6 +675,12 @@ export default function DocumentManager({
                     </div>
                   </div>
                 )}
+                {type === "rechnung" && Number(detail.versandkosten) > 0 && (
+                  <div className="detail-item">
+                    <label>Versandkosten</label>
+                    <div className="detail-value">{formatEur(Number(detail.versandkosten))}</div>
+                  </div>
+                )}
               </div>
               {/* Aufteilung Marina & Saskia */}
               {detail.schmuckstuecke?.length > 0 && (
@@ -717,6 +727,7 @@ export default function DocumentManager({
                     const marinaNetto = Number(summen.marina_netto) || 0;
                     const saskiaNetto = Number(summen.saskia_netto) || 0;
                     const rabattGesamt = Number(summen.rabatt_gesamt) || 0;
+                    const versandkosten = Number(summen.versandkosten) || 0;
 
                     return (
                       <div
@@ -758,6 +769,17 @@ export default function DocumentManager({
                                 <span>Provision ({provisionPercent}%):</span>
                                 <strong>-{formatEur(provisionValue)}</strong>
                               </div>
+                            </>
+                          )}
+                          {/* Versand gehört keiner Herstellerin, deshalb nur
+                              im Überweisungsbetrag, nicht in der Aufteilung */}
+                          {versandkosten > 0 && (
+                            <div className="aufteilung-zeile">
+                              <span>Versandkosten:</span>
+                              <strong>+{formatEur(versandkosten)}</strong>
+                            </div>
+                          )}
+                          {(provisionPercent > 0 || versandkosten > 0) && (
                               <div
                                 style={{
                                   display: "flex",
@@ -769,7 +791,6 @@ export default function DocumentManager({
                                 </span>
                                 <strong>{formatEur(totalNetto)}</strong>
                               </div>
-                            </>
                           )}
                         </div>
 
@@ -1154,7 +1175,21 @@ export default function DocumentManager({
                     }}
                   />
                   <label className="rabatt-label">%</label>
-
+                </div>
+                <div className="rabatt-form-group">
+                  <label className="rabatt-label" htmlFor="versandkosten">Versandkosten:</label>
+                  {/* Leer = keine Versandkosten; das Backend speichert dann NULL */}
+                  <input
+                    id="versandkosten"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="optional"
+                    value={form.versandkosten ?? ""}
+                    className="form-control rabatt-input"
+                    onChange={(e) => setForm({ ...form, versandkosten: e.target.value })}
+                  />
+                  <label className="rabatt-label">€</label>
                 </div>
               </div>
             )}

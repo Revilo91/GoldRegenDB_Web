@@ -196,6 +196,36 @@ describe('POST /api/rechnungen', () => {
     expect(insert[1][5]).toBeNull();
   });
 
+  it.each([
+    ['4,90', 4.9],
+    [12.345, 12.35],
+    ['', null],
+    [0, null],
+  ])('speichert Versandkosten %p als %p', async (eingabe, gespeichert) => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .post('/api/rechnungen')
+      .send({ Nummer: '2026-002', Kundennummer: 15, versandkosten: eingabe });
+
+    expect(res.statusCode).toBe(201);
+    const insert = client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO "Rechnung"'));
+    expect(insert[1][6]).toBe(gespeichert);
+  });
+
+  it('lehnt negative Versandkosten ab (400)', async () => {
+    const res = await request(buildApp())
+      .post('/api/rechnungen')
+      .send({ Kundennummer: 15, versandkosten: -1 });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toContain('versandkosten');
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
   it('lehnt einen Einmalkunden ohne Name ab (400)', async () => {
     const res = await request(buildApp())
       .post('/api/rechnungen')
@@ -273,6 +303,24 @@ describe('PUT /api/rechnungen/:id', () => {
     expect(update(mitNull)[0]).toContain('empfaenger = $3');
     expect(update(mitNull)[1]).toEqual(['2026-001', 15, null, '1']);
     expect(update(ohneFeld)[0]).not.toContain('empfaenger');
+  });
+
+  it('leert die Versandkosten bei leerem Feld und lässt sie ohne Feld unverändert', async () => {
+    const leer = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    const ohneFeld = createTxClientMock({
+      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(leer).mockResolvedValueOnce(ohneFeld);
+
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 15, versandkosten: '' });
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 15 });
+
+    const update = (client) => client.query.mock.calls.find(([sql]) => sql.includes('UPDATE "Rechnung"'));
+    expect(update(leer)[0]).toContain('versandkosten = $3');
+    expect(update(leer)[1]).toEqual(['2026-001', 15, null, '1']);
+    expect(update(ohneFeld)[0]).not.toContain('versandkosten');
   });
 
   it('meldet 404 bei unbekannter ID und rollt zurück', async () => {

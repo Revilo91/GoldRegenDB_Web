@@ -241,6 +241,9 @@ async function erstelleZugferdPdf(m, xml) {
   for (const n of m.nachlaesse) {
     summen.push([`- ${n.grund}`, `${n.prozent} %`, n.grund === 'Provision' ? n.betrag : -n.betrag]);
   }
+  for (const z of m.zuschlaege) {
+    summen.push([`+ ${z.grund}`, null, z.betrag]);
+  }
   const abschluss = [
     ...m.hinweise,
     'Bitte überweisen Sie den Rechnungsbetrag an u.g. Bankverbindung.',

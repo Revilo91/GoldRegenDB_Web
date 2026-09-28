@@ -328,4 +328,65 @@ describe('DocumentManager', () => {
       expect(screen.queryByText(/Direktverkauf: Stücke aus dem Lager/)).not.toBeInTheDocument();
     });
   });
+
+  describe('Versandkosten', () => {
+    const rechnungProps = { type: 'rechnung', pieceSelectMode: 'byKunde', pieceFilter: () => ({}) };
+
+    async function speichereNeueRechnung(versandkosten) {
+      const api = renderManager({}, rechnungProps);
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+      fireEvent.change(screen.getByDisplayValue('Bitte wählen...'), { target: { value: '1' } });
+      if (versandkosten !== undefined) {
+        fireEvent.change(screen.getByLabelText('Versandkosten:'), { target: { value: versandkosten } });
+      }
+      fireEvent.click(screen.getByText('Speichern & Abschließen'));
+      await waitFor(() => expect(api.createItem).toHaveBeenCalled());
+      return api.createItem.mock.calls[0][0];
+    }
+
+    it('sendet eingegebene Versandkosten mit', async () => {
+      expect((await speichereNeueRechnung('4.9')).versandkosten).toBe('4.9');
+    });
+
+    // Leer bleibt leer, das Backend speichert dann NULL und der Beleg hat keine Versandzeile
+    it('sendet ein leeres Feld als leer', async () => {
+      expect((await speichereNeueRechnung()).versandkosten).toBe('');
+    });
+
+    it('bietet das Feld bei Lieferscheinen nicht an', async () => {
+      renderManager();
+      await screen.findByText('2026-001');
+      fireEvent.click(screen.getByText('+ Neuer Lieferschein'));
+      await screen.findByText('Neuer Lieferschein');
+
+      expect(screen.queryByLabelText('Versandkosten:')).not.toBeInTheDocument();
+    });
+
+    it('zeigt Versandkosten im Detail und rechnet sie in den Überweisungsbetrag', async () => {
+      renderManager(
+        {
+          getDetail: vi.fn().mockResolvedValue({
+            ID: 1, Nummer: '2026-001', KundenName: 'Online', status: 'final', Datum: '2026-01-01', Provision: 0,
+            versandkosten: '4.90',
+            schmuckstuecke: [{ Artikelnummer: 'MHO001', Verkaufspreis: '40.00' }],
+            summen: {
+              summe_nach_rabatt: '40.00', provision_betrag: '0.00', versandkosten: '4.90', ueberweisungsbetrag: '44.90',
+              marina_brutto: '40.00', marina_netto: '40.00', saskia_brutto: '0.00', saskia_netto: '0.00',
+              rabatt_gesamt: '0',
+            },
+          }),
+        },
+        rechnungProps,
+      );
+      fireEvent.click(await screen.findByText('2026-001'));
+
+      expect(await screen.findByText('Versandkosten:')).toBeInTheDocument();
+      expect(screen.getByText(/\+4,90/)).toBeInTheDocument();
+      // Ohne Provision stand der Überweisungsbetrag bisher gar nicht im Modal
+      expect(screen.getByText('Überweisungsbetrag:').nextSibling).toHaveTextContent('44,90');
+      expect(screen.getByText('Versandkosten')).toBeInTheDocument();
+    });
+  });
 });

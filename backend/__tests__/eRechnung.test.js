@@ -73,8 +73,21 @@ describe('buildRechnungsModell', () => {
     // 96,48 € − 10 % Gesamtrabatt (9,65 €) − 20 % Provision auf 86,83 € (17,37 €) = 69,46 €
     expect(m.nachlaesse.map((n) => [n.grund, n.betrag])).toEqual([['Gesamtrabatt', 965], ['Provision', 1737]]);
     expect(m.summen).toEqual({
-      positionen: 9648, nachlaesse: 2702, netto: 6946, steuer: 0, brutto: 6946, zahlbetrag: 6946,
+      positionen: 9648, nachlaesse: 2702, zuschlaege: 0, netto: 6946, steuer: 0, brutto: 6946, zahlbetrag: 6946,
     });
+  });
+
+  it('schlägt Versandkosten nach Rabatt und Provision auf', () => {
+    const m = modell('xrechnung', { rechnung: { versandkosten: '4.90' } });
+
+    expect(m.zuschlaege).toEqual([{ grund: 'Versandkosten', grundCode: 'FC', betrag: 490 }]);
+    // Provision bleibt 20 % auf 86,83 €, die Versandkosten kommen danach dazu: 69,46 € + 4,90 €
+    expect(m.nachlaesse.map((n) => n.betrag)).toEqual([965, 1737]);
+    expect(m.summen).toMatchObject({ zuschlaege: 490, netto: 7436, zahlbetrag: 7436 });
+  });
+
+  it('lässt ohne Versandkosten keinen Zuschlag entstehen', () => {
+    expect(modell('xrechnung', { rechnung: { versandkosten: null } }).zuschlaege).toEqual([]);
   });
 
   it('trennt Stücke gleicher Basis-Artikelnummer mit unterschiedlichem Preis', () => {
@@ -174,6 +187,15 @@ describe('toCII + validiereCII', () => {
     expect(xml).toContain('<ram:CategoryCode>E</ram:CategoryCode>');
     expect(xml).toContain('<ram:ExemptionReason>Kleinunternehmer gemäß § 19 UStG</ram:ExemptionReason>');
     expect(xml).toContain('<ram:DuePayableAmount>69.46</ram:DuePayableAmount>');
+  });
+
+  it.each(['xrechnung', 'zugferd'])('bildet Versandkosten für %s als gültigen Zuschlag ab (BG-21)', async (profil) => {
+    const xml = toCII(modell(profil, { rechnung: { versandkosten: '4.90' } }));
+
+    expect(xml).toContain('<ram:ChargeTotalAmount>4.90</ram:ChargeTotalAmount>');
+    expect(xml).toContain('<ram:ReasonCode>FC</ram:ReasonCode><ram:Reason>Versandkosten</ram:Reason>');
+    expect(xml).toContain('<ram:DuePayableAmount>74.36</ram:DuePayableAmount>');
+    expect(await validiereCII(xml, profil)).toEqual({ gueltig: true, fehler: [], warnungen: [] });
   });
 
   it('maskiert Sonderzeichen aus der Datenbank', () => {

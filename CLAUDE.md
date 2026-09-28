@@ -79,6 +79,7 @@ Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammenge
 Gesamtwert       = Σ( Einzelpreis × (1 − Positionsrabatt%) )
 − Gesamtrabatt   = Gesamtwert × Gesamtrabatt%
 − Provision      = (Gesamtwert − Gesamtrabatt) × Provision%
++ Versandkosten = fester Betrag, optional (nur Rechnung, gehört keiner Herstellerin)
 = Überweisung
 ```
 

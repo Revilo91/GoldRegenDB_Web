@@ -78,8 +78,16 @@ function buildRechnungsModell({ rechnung, kunde, schmuckstuecke, leistungszeitra
     });
   }
 
+  // Versandkosten als Zuschlag auf Belegebene (BG-21), nach Rabatt und Provision
+  const zuschlaege = [];
+  const versandkosten = cent(rechnung.versandkosten);
+  if (versandkosten > 0) {
+    zuschlaege.push({ grund: 'Versandkosten', grundCode: 'FC', betrag: versandkosten });
+  }
+
   const summeNachlaesse = nachlaesse.reduce((sum, n) => sum + n.betrag, 0);
-  const netto = summePositionen - summeNachlaesse;
+  const summeZuschlaege = zuschlaege.reduce((sum, z) => sum + z.betrag, 0);
+  const netto = summePositionen - summeNachlaesse + summeZuschlaege;
   const land = (kunde.Land || 'DE').trim().toUpperCase();
   const datum = new Date(rechnung.Datum);
   const zeitraum = leistungszeitraum
@@ -124,9 +132,11 @@ function buildRechnungsModell({ rechnung, kunde, schmuckstuecke, leistungszeitra
     steuer: { kategorie: 'E', satz: 0, befreiungsgrund: 'Kleinunternehmer gemäß § 19 UStG' },
     positionen,
     nachlaesse,
+    zuschlaege,
     summen: {
       positionen: summePositionen,
       nachlaesse: summeNachlaesse,
+      zuschlaege: summeZuschlaege,
       netto,
       steuer: 0,
       brutto: netto,
