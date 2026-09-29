@@ -4,6 +4,15 @@ Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Re
 
 ---
 
+## Regeln für Claude
+
+1. Mach die Arbeit niemals selbst.
+2. Delegiere Aufgaben immer an Subagenten.
+3. Einfache Aufgaben → Haiku 4.5 / Sonnet 5
+4. Opus 5.5 nur für komplexe Aufgaben.
+
+
+
 ## Graphify Knowledge Graph
 
 **Die Graphify-Daten liegen im Projekt** (Verzeichnis `graphify-out/`). Bei **jeder** Frage zu diesem Projekt — Codebase, Architektur, Dateien, Abhängigkeiten, Features, Geschäftslogik — **sofort `/graphify` aufrufen, bevor geantwortet wird**, auch wenn die Antwort vermeintlich bekannt ist. Das stellt sicher:
