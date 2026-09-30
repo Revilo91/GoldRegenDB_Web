@@ -3140,6 +3140,92 @@ select.form-control {
   margin-top: 16px;
 }
 
+/* SchmuckstueckDetail */
+.schmuckstueck-detail-flex-ai-center-gap-12 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.schmuckstueck-detail-flex-gap-8 {
+  display: flex;
+  gap: 8px;
+}
+
+.schmuckstueck-detail-foto-box {
+  text-align: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #ddd;
+  background-color: #f9f9f9;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.schmuckstueck-detail-maxw-200-max-height-200-border-radius-8 {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+}
+
+.schmuckstueck-detail-foto-laedt {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 14px;
+  border: 2px dashed #ccc;
+}
+
+.schmuckstueck-detail-mb-8 {
+  margin-bottom: 8px;
+}
+
+.schmuckstueck-detail-foto-fehler {
+  width: 200px;
+  min-height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #fff4e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a4b00;
+  font-size: 14px;
+  border: 2px dashed #d8a74f;
+  padding: 12px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.schmuckstueck-detail-mt-8-fs-12 {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.schmuckstueck-detail-foto-leer {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bbb;
+  font-size: 14px;
+  border: 2px dashed #ddd;
+}
+
+.schmuckstueck-detail-mb-8-fs-24 {
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
