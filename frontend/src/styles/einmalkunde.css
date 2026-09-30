@@ -1,0 +1,25 @@
+/* Einmalkunde (Onlineshop) im Rechnungsdialog */
+.modal-overlay-nested {
+  z-index: 1600;
+}
+
+.empfaenger-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.empfaenger-hinweis {
+  margin: 0 0 16px;
+  color: var(--text-secondary, #666);
+  font-size: 0.9em;
+}
+
+.form-hinweis {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.85em;
+}
+

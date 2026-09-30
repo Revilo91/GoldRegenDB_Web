@@ -1,0 +1,118 @@
+/* ============ ALERT CARDS ============ */
+.alert-card {
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+
+.alert-card.warning {
+  border-left: 4px solid var(--warning);
+}
+
+.alert-card.info {
+  border-left: 4px solid var(--info);
+}
+
+.alert-card.error {
+  border-left: 4px solid var(--danger);
+}
+
+.alert-card.success {
+  border-left: 4px solid var(--success);
+}
+
+.alert-card-body {
+  padding: 24px;
+}
+
+.alert-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-card-content {
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.alert-card-content p:last-child {
+  margin-bottom: 0;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.data-table td {
+  padding: 14px 20px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table.inventur-table td {
+  max-width: none;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.data-table th.photo-col,
+.data-table td.photo-col {
+  width: 56px;
+  min-width: 56px;
+  padding-left: 14px;
+  padding-right: 8px;
+}
+
+.table-photo-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.table-photo-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+

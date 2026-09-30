@@ -1,0 +1,41 @@
+/* ============ INLINE-STYLES ALS KLASSEN (#256) ============
+   Je Seite/Komponente ein Block mit einheitlichem Klassen-Präfix. Steht ein Klassenname
+   doppelt im Selektor (.a.a), erhöht das die Spezifität: Inline-Styles schlugen bisher
+   jede Regel, das muss auch für die Klassen gelten. Dynamische Werte laufen nur über
+   CSS-Variablen (style={{ "--name": wert }}). */
+
+/* AuditLog */
+.audit-log-deco-none {
+  text-decoration: none;
+}
+
+.audit-log-mb-12 {
+  margin-bottom: 12px;
+}
+
+.data-table th.audit-log-th-geaendert-von {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Debug */
+.debug-color-text-muted {
+  color: var(--text-muted);
+}
+
+.debug-p-24 {
+  padding: 24px;
+}
+
+.debug-ox-auto {
+  overflow-x: auto;
+}
+
+.debug-mb-12 {
+  margin-bottom: 12px;
+}
+
+.debug-mt-16 {
+  margin-top: 16px;
+}
+

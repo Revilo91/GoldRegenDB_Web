@@ -1,0 +1,124 @@
+/* ============ NAV SECTION ============ */
+/* Gruppen-Überschriften: reine Labels, keine Kästen, keine Signalfarbe.
+   "Administration" ist einfach die letzte Gruppe. */
+.nav-section {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  padding: 14px 16px 4px;
+}
+
+/* Admin-Einträge sind gedämpft, aber teilen sich die Gold-Akzentfarbe */
+.nav-link-admin {
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+
+.nav-link-admin:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.nav-link-admin.active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.dblUnderlined {
+  border-bottom: 3px double;
+}
+
+/* ============ LOGIN PAGE ============ */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding: 24px;
+}
+
+.login-card {
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow);
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login-logo img {
+  max-height: 80px;
+  background: white;
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
+
+.login-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.login-success {
+  color: var(--success);
+  background: var(--success-bg);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.login-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.login-link {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-link:hover {
+  color: var(--text-primary);
+}
+
+.login-hint {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    padding: 24px 20px;
+  }
+  .login-title {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+}
+

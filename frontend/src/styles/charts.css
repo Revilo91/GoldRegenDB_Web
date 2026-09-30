@@ -1,0 +1,87 @@
+/* ============ LOADING ============ */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  --spinner-size: 16px;
+  --spinner-border: 2px;
+  display: inline-block;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  border: var(--spinner-border) solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading .spinner {
+  --spinner-size: 40px;
+  --spinner-border: 3px;
+  margin-right: 16px;
+}
+
+/* ============ CHARTS (recharts container) ============ */
+.chart-container {
+  padding: 16px 8px 8px;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ============ CHARTS (simple bar – legacy) ============ */
+.chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+}
+
+.chart-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-bar .bar-label {
+  width: 140px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.chart-bar .bar-track {
+  flex: 1;
+  height: 24px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.chart-bar .bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  min-width: 2px;
+}
+
+.chart-bar .bar-value {
+  width: 50px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+

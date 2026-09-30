@@ -1,0 +1,124 @@
+/* Etiketten / Label Vorschau (genutzt von /api/etiketten/preview) */
+@page {
+  /* Physical page size for the label roll: 30mm (width) x 40mm (height) in portrait */
+  size: 30mm 40mm portrait;
+  margin: 0mm;
+}
+.etiketten-body {
+  margin: 0;
+  padding: 0mm;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #111; /* Labels are printed on white background — use dark text */
+}
+.sheet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1mm;
+}
+.label {
+  /* target physical label size: portrait 30mm x 40mm */
+  width: 30mm;
+  height: 40mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+}
+.brand {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+}
+.dotted {
+  width: 100%;
+  color: #666;
+  text-align: center;
+  font-size: 9px;
+  margin: 2px 0 4px 0;
+}
+.artnr {
+  width: 100%;
+  display: flex;
+  gap: 6px;
+  text-align: center;
+  align-items: baseline;
+  font-size: 18px;
+  font-style: bold;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.label-key {
+  font-size: 10px;
+  color: #444;
+}
+
+.material-title {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 10px;
+}
+.hints {
+  margin: 4px 0 0 14px;
+  padding: 0;
+  list-style: disc;
+  font-size: 10px;
+}
+.hints li {
+  margin-bottom: 2px;
+}
+.qr {
+  margin-top: 6px;
+}
+.qr-img {
+  width: auto;
+  height: auto;
+  max-width: 16mm;
+  max-height: 16mm;
+  object-fit: contain;
+}
+@media print {
+  .label {
+    border: none;
+  }
+}
+
+/* Etiketten layout helpers */
+.meta-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+.left-meta {
+  flex: 1;
+  min-width: 0;
+}
+.right-block {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.warn-symbol {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10mm;
+  height: 10mm;
+}
+.warn-symbol img,
+.warn-symbol svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.warn-symbol[title] {
+  cursor: help;
+}
+.qr-img {
+  width: 48px;
+  height: 48px;
+}
+

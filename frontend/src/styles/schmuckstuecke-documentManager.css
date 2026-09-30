@@ -1,0 +1,140 @@
+/* Schmuckstuecke */
+.schmuckstuecke-flex-gap-10 {
+  display: flex;
+  gap: 10px;
+}
+
+.schmuckstuecke-flex-gap-8-mb-16 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.schmuckstuecke-maxw-100 {
+  max-width: 100%;
+}
+
+.schmuckstuecke-cols-1fr-220-ai-end {
+  grid-template-columns: 1fr 220px;
+  align-items: end;
+}
+
+.schmuckstuecke-ox-auto {
+  overflow-x: auto;
+}
+
+.schmuckstuecke-flex-gap-6 {
+  display: flex;
+  gap: 6px;
+}
+
+.schmuckstuecke-mt-12-flex-gap-8 {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.schmuckstuecke-maxw-900 {
+  max-width: 900px;
+}
+
+.schmuckstuecke-cols-1fr-1fr-1fr-120-ai-end {
+  grid-template-columns: 1fr 1fr 1fr 120px;
+  align-items: end;
+}
+
+.schmuckstuecke-flex-ai-center {
+  display: flex;
+  align-items: center;
+}
+
+.schmuckstuecke-mt-16 {
+  margin-top: 16px;
+}
+
+.schmuckstuecke-mt-12 {
+  margin-top: 12px;
+}
+
+.schmuckstuecke-flex-1 {
+  flex: 1;
+}
+
+/* DocumentManager */
+.docmgr-cursor-pointer.docmgr-cursor-pointer {
+  cursor: pointer;
+}
+
+.docmgr-fw-normal-color-text-muted-fs-0_9em {
+  font-weight: normal;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.docmgr-vorschau-box {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docmgr-fs-0_9em-mb-0-block-color-888-fw-600 {
+  font-size: 0.9em;
+  margin-bottom: 0;
+  display: block;
+  color: #888;
+  font-weight: 600;
+}
+
+.docmgr-flex-dir-column-gap-8 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docmgr-pb-8-border-b-1-solid-ddd {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.docmgr-flex-jc-space-between-mb-4 {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.docmgr-flex-jc-space-between-mb-4-color-d9534f {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: #d9534f;
+}
+
+.docmgr-flex-jc-space-between-fw-600 {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.docmgr-flex-jc-space-between-gap-12-wrap-wrap {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.docmgr-fs-0_9em-color-999-ml-4 {
+  font-size: 0.9em;
+  color: #999;
+  margin-left: 4px;
+}
+
+.docmgr-minw-90 {
+  min-width: 90px;
+}
+

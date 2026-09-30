@@ -1,0 +1,384 @@
+/* Inventur */
+.inventur-ox-auto {
+  overflow-x: auto;
+}
+
+.inventur-fs-8 {
+  font-size: 8px;
+}
+
+.inventur-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.inventur-fw-600-text-right-p-8-12.inventur-fw-600-text-right-p-8-12 {
+  font-weight: 600;
+  text-align: right;
+  padding: 8px 12px;
+}
+
+.inventur-fw-600 {
+  font-weight: 600;
+}
+
+.inventur-maxw-960-w-95 {
+  max-width: 960px;
+  width: 95%;
+}
+
+.inventur-ml-8-fs-12 {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+.inventur-mb-10 {
+  margin-bottom: 10px;
+}
+
+.inventur-flex-gap-12-mb-20-wrap-wrap {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.inventur-color-text-secondary-fs-13 {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.inventur-color-success {
+  color: var(--success);
+}
+
+.inventur-color-info {
+  color: var(--info);
+}
+
+.inventur-flex-gap-4-mb-16-wrap-wrap {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.inventur-zaehler-badge {
+  margin-left: 6px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.inventur-jc-space-between {
+  justify-content: space-between;
+}
+
+.inventur-flex-gap-8 {
+  display: flex;
+  gap: 8px;
+}
+
+.inventur-mr-6 {
+  margin-right: 6px;
+}
+
+.inventur-modal-diff {
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventur-flex-ai-center-gap-10 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inventur-flex-1-oy-auto {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.inventur-mb-20 {
+  margin-bottom: 20px;
+}
+
+.inventur-color-danger-flex-ai-center-gap-8-mb-12.inventur-color-danger-flex-ai-center-gap-8-mb-12 {
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inventur-fs-12-fw-400-color-text-secondary {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.inventur-color-success-fw-600 {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.inventur-w-100-border-collapse-collapse {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventur-border-b-2-solid-border {
+  border-bottom: 2px solid var(--border);
+}
+
+.inventur-p-8-text-left.inventur-p-8-text-left {
+  padding: 8px;
+  text-align: left;
+}
+
+.inventur-p-8-text-center.inventur-p-8-text-center {
+  padding: 8px;
+  text-align: center;
+}
+
+.inventur-zeile-fehlend {
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--danger-rgb, 239,68,68), 0.05);
+}
+
+.inventur-p-8.inventur-p-8 {
+  padding: 8px;
+}
+
+.inventur-color-danger {
+  color: var(--danger);
+}
+
+.inventur-p-8-text-center-fw-bold-color-danger.inventur-p-8-text-center-fw-bold-color-danger {
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  color: var(--danger);
+}
+
+.inventur-titel-unbekannt.inventur-titel-unbekannt {
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inventur-zeile-unbekannt {
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--warning-rgb, 245,158,11), 0.05);
+}
+
+.inventur-color-warning {
+  color: var(--warning);
+}
+
+.inventur-p-8-text-center-fw-bold-color-warning.inventur-p-8-text-center-fw-bold-color-warning {
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  color: var(--warning);
+}
+
+.inventur-titel-gefunden.inventur-titel-gefunden {
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inventur-color-text-muted {
+  color: var(--text-muted);
+}
+
+.inventur-border-b-1-solid-border {
+  border-bottom: 1px solid var(--border);
+}
+
+.inventur-jc-flex-end {
+  justify-content: flex-end;
+}
+
+.inventur-flex-gap-16-ai-center {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.inventur-m-0 {
+  margin: 0;
+}
+
+.inventur-w-100-maxw-400-mt-4 {
+  width: 100%;
+  max-width: 400px;
+  margin-top: 4px;
+}
+
+.inventur-scan-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.inventur-flex-1-maxw-300 {
+  flex: 1;
+  max-width: 300px;
+}
+
+.inventur-mb-12.inventur-mb-12 {
+  margin-bottom: 12px;
+}
+
+.inventur-ox-auto-mb-20 {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.inventur-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.inventur-w-120-p-8.inventur-w-120-p-8 {
+  width: 120px;
+  padding: 8px;
+}
+
+.inventur-w-80-p-8-text-center.inventur-w-80-p-8-text-center {
+  width: 80px;
+  padding: 8px;
+  text-align: center;
+}
+
+.inventur-w-80 {
+  width: 80px;
+}
+
+.inventur-aktionsleiste {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.inventur-color-text-muted-p-10 {
+  color: var(--text-muted);
+  padding: 10px;
+}
+
+.inventur-flex-gap-8-mb-16 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.inventur-fw-600-bg-bg-hover {
+  font-weight: 600;
+  background: var(--bg-hover);
+}
+
+.inventur-p-8-12.inventur-p-8-12 {
+  padding: 8px 12px;
+}
+
+.inventur-text-left {
+  text-align: left;
+}
+
+.inventur-text-left-color-success {
+  text-align: left;
+  color: var(--success);
+}
+
+.inventur-text-left-color-info {
+  text-align: left;
+  color: var(--info);
+}
+
+.inventur-text-left-color-warning {
+  text-align: left;
+  color: var(--warning);
+}
+
+.inventur-ml-8-fs-10 {
+  margin-left: 8px;
+  font-size: 10px;
+}
+
+.inventur-w-20-h-20 {
+  width: 20px;
+  height: 20px;
+}
+
+.inventur-color-danger-p-8 {
+  color: var(--danger);
+  padding: 8px;
+}
+
+.inventur-p-8-0-fs-13 {
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.inventur-flex-gap-24-wrap-wrap {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.inventur-color-info-fw-600 {
+  color: var(--info);
+  font-weight: 600;
+}
+
+.inventur-color-warning-fw-600 {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.inventur-stat-klickbar {
+  cursor: pointer;
+}
+
+.inventur-outline-danger {
+  outline: 2px solid var(--danger);
+}
+
+.inventur-outline-warning {
+  outline: 2px solid var(--warning);
+}
+
+.inventur-outline-success {
+  outline: 2px solid var(--success);
+}
+
+.data-table th.inventur-th-checkbox {
+  width: 40px;
+  text-align: center;
+}
+
+.data-table th.inventur-th-links {
+  text-align: left;
+}
+

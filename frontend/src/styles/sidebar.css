@@ -1,0 +1,201 @@
+/* ============ SIDEBAR ============ */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-hair);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 1000;
+  transition: width 0.2s ease;
+  overflow-x: hidden;
+}
+
+.sidebar-brand .sidebar-logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  background: white;
+  object-fit: contain;
+  /* SVG ist bereits eng beschnitten – nur ein schmaler Rahmen zum weißen Kasten */
+  padding: 6px 10px;
+  transition:
+    height 0.2s ease,
+    padding 0.2s ease;
+  border-radius: 10px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 12px;
+  padding: 0 8px 20px;
+  border-bottom: 1px solid var(--border-hair);
+  margin-bottom: 16px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.nav-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.nav-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.nav-link.active {
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+
+.nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--gold);
+}
+
+.nav-link .nav-link-icon {
+  font-size: 18px;
+  width: 24px;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.nav-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============ SIDEBAR EINGEKLAPPT ============ */
+.sidebar-collapse-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.sidebar-collapse-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+  padding: 16px 8px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  padding: 8px 0 16px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  height: 34px;
+  padding: 2px 2px;
+  border-radius: 5px;
+}
+
+.sidebar.collapsed .nav-link-label,
+.sidebar.collapsed .sidebar-username,
+.sidebar.collapsed .user-menu-btn .role-badge,
+.sidebar.collapsed .nav-section {
+  display: none;
+}
+
+/* Eingeklappt gibt es keinen Platz für Gruppen-Überschriften -
+   die Gruppen werden nur durch eine feine Linie getrennt. */
+.sidebar.collapsed .nav-group + .nav-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-hair);
+}
+
+.sidebar.collapsed .nav-link,
+.sidebar.collapsed .user-menu-btn {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.collapsed .nav-link.active::before {
+  left: -8px;
+}
+
+.sidebar.collapsed .sidebar-account-row {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar.collapsed ~ .main-content {
+  margin-left: var(--sidebar-collapsed-width);
+}
+
