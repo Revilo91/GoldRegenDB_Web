@@ -171,12 +171,12 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 ## Code-Konventionen
 
 - **Keine Funktions-Wrapper:** `hersteller_Marina()` → direkt `hersteller("M")` verwenden
-- **Keine ausführlichen Docstrings:** Methodennamen sind selbsterklärend; ein einzeiliger Kommentar nur, wenn das WARUM nicht offensichtlich ist
+- **Keine ausführlichen Docstrings:** Methodennamen sind selbsterklärend; ein einzeiliger Kommentar nur, wenn das WARUM nicht offensichtlich ist. Ausnahme: Typ-Annotationen in `@ts-check`-Dateien (siehe „Typisierung“)
 - **Duplikate zusammenführen:** Wenn Konstanten/Logik in 2+ Dateien existieren, in `utils/` auslagern
 - **Kein Debug-Logging:** `console.log/error` nur für echte Fehler; Debug-Traces nach Gebrauch löschen
 - **Rate-Limiter nur für unauthentifizierte Endpunkte** (Login, Passwort-Reset, öffentliches Bestellformular) mit echten Limits. Die angemeldete Anwendung bleibt bewusst ungedrosselt: die Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
 - **Kein `alert()`:** Fehler- und Erfolgsmeldungen laufen über `useToast()` aus `frontend/src/components/Toast.jsx`. ESLint erzwingt das per `no-restricted-globals` — `confirm()` bleibt für Löschabfragen erlaubt
-- **Kein JSDoc-Boilerplate:** Props per Inline-Kommentar beschreiben, kein Header-Block
+- **Kein JSDoc-Boilerplate:** Props per Inline-Kommentar beschreiben, kein Header-Block. Erlaubt und erwünscht sind nur Typ-Tags (`@param {Typ}`, `@returns`, `@typedef`) in `@ts-check`-Dateien, ohne Beschreibungsprosa
 
 **Commit-Stil (bisect-freundlich):**
 - Kleine, atomare Commits: eine logische Änderung pro Commit
@@ -187,6 +187,14 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 **Branches:**
 - Nach GitHub wird **nur über eigene Branches** gepusht (`feat/…`, `fix/…`, `docs/…`), nie direkt auf `main`
 - `main` ändert sich ausschließlich über Pull Requests; lokale Commits auf `main` vor dem Push auf einen Branch verschieben
+
+---
+
+## Typisierung
+
+- Backend bleibt JavaScript, kein TypeScript-Build. Typen kommen per JSDoc (`@param`, `@returns`, `@typedef`, `import('../types/…')`); Typdefinitionen (DB-Zeilen, geteilte Rückgabeformen) liegen in `backend/src/types/*.d.ts`
+- Opt-in pro Datei: `// @ts-check` als erste Zeile (`checkJs` bleibt `false`). `cd backend && npm run typecheck` (in CI) prüft genau diese Dateien
+- Neue Utils/Middleware mit `@ts-check` anlegen und in `backend/__tests__/tsCheckOptIn.test.js` eintragen; Typfehler nur per Annotation/Cast beheben, nie durch Logikänderung. Details: `backend/TYPESCRIPT.md`
 
 ---
 

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 // Rabattlogik an EINER Stelle (Befund C17, C18, G7).
@@ -60,8 +61,8 @@ function preisNachAllenRabattenSql(s = 's', r = 'r') {
  * Einzelpreis nach Positionsrabatt in JavaScript, auf Cent gerundet.
  * Fuer die Positionszeilen des Belegs -- die Summen kommen aus SQL.
  *
- * @param {string|number} preis
- * @param {string|number} rabattProzent
+ * @param {string|number|null|undefined} preis
+ * @param {string|number|null|undefined} rabattProzent
  * @returns {number}
  */
 function preisNachPositionsrabatt(preis, rabattProzent) {
@@ -90,7 +91,7 @@ const BELEGE = {
  * @param {{query: Function}} queryable db oder ein Client
  * @param {'Rechnung'|'Lieferschein'} tabelle
  * @param {number|string} belegId
- * @returns {Promise<object|null>}
+ * @returns {Promise<Record<string, any>|null>}
  */
 async function belegSummen(queryable, tabelle, belegId) {
   const beleg = BELEGE[tabelle];

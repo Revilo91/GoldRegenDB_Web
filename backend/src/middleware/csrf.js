@@ -1,3 +1,4 @@
+// @ts-check
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { AUTH_COOKIE_NAME } = require('../utils/authCookie');
@@ -24,17 +25,26 @@ function csrfCookieOptions() {
     // Muss lesbar sein – genau darauf beruht das Double-Submit-Verfahren
     httpOnly: false,
     secure: process.env.COOKIE_SECURE === 'true',
-    sameSite: 'lax',
+    sameSite: /** @type {const} */ ('lax'),
     path: '/',
   };
 }
 
+/**
+ * @param {import('express').Response} res
+ * @param {string} token
+ */
 function setCsrfCookie(res, token) {
   res.cookie(CSRF_COOKIE_NAME, token, csrfCookieOptions());
 }
 
 // Vergleich in konstanter Zeit, damit sich das Token nicht Zeichen für Zeichen
 // erraten lässt.
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
 function tokenGleich(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) {
     return false;
@@ -43,12 +53,21 @@ function tokenGleich(a, b) {
 }
 
 // GET /api/csrf-token – Token ausstellen (und im Cookie hinterlegen)
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 function csrfTokenHandler(req, res) {
   const token = req.cookies?.[CSRF_COOKIE_NAME] || erzeugeToken();
   setCsrfCookie(res, token);
   res.json({ csrfToken: token });
 }
 
+/**
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
 function csrfProtection(req, res, next) {
   if (!GESCHUETZTE_METHODEN.has(req.method)) {
     return next();
