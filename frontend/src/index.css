@@ -4102,6 +4102,13 @@ select.form-control {
   text-align: center;
 }
 
+/* SchmuckstueckModal */
+.schmuckstueck-modal-mt-4-fs-12-color-666 {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
