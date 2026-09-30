@@ -67,9 +67,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Tests ausführen
+      # Coverage-Schwellen stehen in frontend/vite.config.js (test.coverage.thresholds).
+      - name: Tests mit Coverage ausführen
         working-directory: frontend
-        run: npm test
+        run: npm run test:coverage
 
   # Prüft Beispielrechnungen aus dem echten Generator mit den offiziellen Werkzeugen:
   # KoSIT-Validator + XRechnung-Konfiguration (XRechnung-CII und EN16931-CII) sowie
