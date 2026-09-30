@@ -34,6 +34,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: development
+      DEBUG_ROUTE_ENABLED: "true"
       PORT: ${PORT}
       VITE_API_URL: ${VITE_API_URL}
       JWT_SECRET: ${JWT_SECRET}

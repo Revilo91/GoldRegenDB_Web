@@ -31,6 +31,26 @@ export default defineConfig([
         name: 'alert',
         message: 'Statt alert() den useToast()-Hook aus components/Toast.jsx benutzen.',
       }],
+      // Inline-Styles sind verboten (CLAUDE.md, "Frontend-Styling"): Klassen in index.css.
+      // Erlaubt bleiben nur CSS-Variablen für dynamische Werte: style={{ "--name": wert }}.
+      'no-restricted-syntax': ['error',
+        {
+          selector: "JSXAttribute[name.name='style'] > JSXExpressionContainer > ObjectExpression > Property:not([key.type='Literal'][key.value=/^--/])",
+          message: 'Kein Inline-Style: Klasse in index.css anlegen. Nur CSS-Variablen erlaubt, z. B. style={{ "--balken-breite": `${x}%` }}.',
+        },
+        {
+          selector: "JSXAttribute[name.name='style'] > JSXExpressionContainer > ObjectExpression > SpreadElement",
+          message: 'Kein Inline-Style: Spread ist nicht prüfbar. Klasse in index.css anlegen oder CSS-Variablen einzeln setzen.',
+        },
+        {
+          selector: "JSXAttribute[name.name='style'] > JSXExpressionContainer > :not(ObjectExpression)",
+          message: 'Kein Inline-Style: style darf nur ein Objektliteral mit CSS-Variablen sein.',
+        },
+        {
+          selector: "JSXAttribute[name.name='style'] > Literal",
+          message: 'Kein Inline-Style: Klasse in index.css anlegen.',
+        },
+      ],
       'no-unused-vars': ['error', {
         varsIgnorePattern: '^[A-Z_]',
         // `const { ausgelagert, ...rest } = filters` entfernt einen Schlüssel aus

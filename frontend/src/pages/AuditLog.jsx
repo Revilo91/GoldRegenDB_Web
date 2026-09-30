@@ -51,12 +51,12 @@ export default function AuditLog() {
   const p = data.pagination;
   const columns = [
     { key: "id", label: "ID", sortable: true },
-    { key: "artikelnummer_id", label: "Artikel", sortable: true, render: (r) => <Link to={`/schmuckstuecke/${r.artikelnummer_id}`} className="badge gold" style={{ textDecoration: "none" }}>{r.artikelnummer_id}</Link> },
+    { key: "artikelnummer_id", label: "Artikel", sortable: true, render: (r) => <Link to={`/schmuckstuecke/${r.artikelnummer_id}`} className="badge gold audit-log-deco-none">{r.artikelnummer_id}</Link> },
     { key: "column_name", label: "Spalte", sortable: true },
     { key: "old_value", label: "Alter Wert" },
     { key: "new_value", label: "Neuer Wert" },
     { key: "action_type", label: "Aktion", sortable: true, render: (r) => <span className="badge info">{r.action_type}</span> },
-    { key: "changed_by", label: "Geändert von", sortable: true, style: { fontSize: 12, color: "var(--text-secondary)" } },
+    { key: "changed_by", label: "Geändert von", sortable: true, headerClassName: "audit-log-th-geaendert-von" },
     { key: "change_timestamp", label: "Zeitpunkt", sortable: true, render: (r) => (r.change_timestamp ? new Date(r.change_timestamp).toLocaleString("de-DE") : "") },
   ];
 
@@ -70,9 +70,7 @@ export default function AuditLog() {
       <TableToolbar
         search={search}
         onSearchChange={setSearch}
-        placeholder="Suche nach ID, Artikel, Spalte,..."
-        style={{ marginBottom: 12 }}
-      />
+        placeholder="Suche nach ID, Artikel, Spalte,..." className="audit-log-mb-12"/>
 
       <div className="card">
         <div className="card-body">

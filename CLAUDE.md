@@ -72,14 +72,17 @@ Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammenge
 
 | Status | Bedingung | Bedeutung |
 |--------|-----------|-----------|
-| **Im Lager** | `Ausgelagert=0, Verkauft=F, Ausschuss=F` | Bereit zum Auslagern/Verkauf |
-| **Aktiv ausgelagert** | `Ausgelagert>0, Verkauft=F, Ausschuss=F` | Physisch bei Kunde X |
-| **Verkauft** | `Verkauft=T, Ausschuss=F` | Verkauft, Rechnung zugeordnet |
-| **Ausschuss** | `Ausschuss=T` | Aussortiert (Grund in `Ausschuss_Grund`) |
+| **Im Lager** | `Ausgelagert = 0, Verkauft = FALSE, Ausschuss = FALSE` | Bereit zum Auslagern/Verkauf |
+| **Aktiv ausgelagert** | `Ausgelagert > 0, Verkauft = FALSE, Ausschuss = FALSE` | Physisch bei Kunde X |
+| **Verkauft** | `Verkauft = TRUE, Ausschuss = FALSE` | Verkauft, Rechnung zugeordnet |
+| **Ausschuss** | `Ausschuss = TRUE` | Aussortiert (Grund in `Ausschuss_Grund`) |
 
 `Ausgelagert` ist keine Boolean, sondern die **Kunden-ID** (`0` = Lager, `>0` = bei diesem Kunden).
 
-**Pflicht:** Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden — niemals WHERE-Klauseln für Status manuell schreiben.
+**Pflicht (drei Fälle):**
+- **WHERE-Filter auf Status** (`Verkauft`, `Ausschuss`, `Ausgelagert`) laufen immer über `whereClauseBuilder` — niemals manuell schreiben.
+- **Statusübergänge** (UPDATE, z. B. verkauft markieren, auslagern, zurücklagern) laufen über die Helper in `backend/src/utils/statusUebergaenge.js` — keine eigenen `SET "Verkauft" = …`/`SET "Ausgelagert" = …` in Routen.
+- **Beziehungs-JOINs** wie `s."Ausgelagert" = k."ID"` sind erlaubt; sie filtern keinen Status.
 
 ### Rabatt-Formel (zentral in `utils/rabatt.js`)
 
@@ -168,12 +171,12 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 ## Code-Konventionen
 
 - **Keine Funktions-Wrapper:** `hersteller_Marina()` → direkt `hersteller("M")` verwenden
-- **Keine ausführlichen Docstrings:** Methodennamen sind selbsterklärend; ein einzeiliger Kommentar nur, wenn das WARUM nicht offensichtlich ist
+- **Keine ausführlichen Docstrings:** Methodennamen sind selbsterklärend; ein einzeiliger Kommentar nur, wenn das WARUM nicht offensichtlich ist. Ausnahme: Typ-Annotationen in `@ts-check`-Dateien (siehe „Typisierung“)
 - **Duplikate zusammenführen:** Wenn Konstanten/Logik in 2+ Dateien existieren, in `utils/` auslagern
 - **Kein Debug-Logging:** `console.log/error` nur für echte Fehler; Debug-Traces nach Gebrauch löschen
 - **Rate-Limiter nur für unauthentifizierte Endpunkte** (Login, Passwort-Reset, öffentliches Bestellformular) mit echten Limits. Die angemeldete Anwendung bleibt bewusst ungedrosselt: die Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
 - **Kein `alert()`:** Fehler- und Erfolgsmeldungen laufen über `useToast()` aus `frontend/src/components/Toast.jsx`. ESLint erzwingt das per `no-restricted-globals` — `confirm()` bleibt für Löschabfragen erlaubt
-- **Kein JSDoc-Boilerplate:** Props per Inline-Kommentar beschreiben, kein Header-Block
+- **Kein JSDoc-Boilerplate:** Props per Inline-Kommentar beschreiben, kein Header-Block. Erlaubt und erwünscht sind nur Typ-Tags (`@param {Typ}`, `@returns`, `@typedef`) in `@ts-check`-Dateien, ohne Beschreibungsprosa
 
 **Commit-Stil (bisect-freundlich):**
 - Kleine, atomare Commits: eine logische Änderung pro Commit
@@ -187,10 +190,18 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 
 ---
 
+## Typisierung
+
+- Backend bleibt JavaScript, kein TypeScript-Build. Typen kommen per JSDoc (`@param`, `@returns`, `@typedef`, `import('../types/…')`); Typdefinitionen (DB-Zeilen, geteilte Rückgabeformen) liegen in `backend/src/types/*.d.ts`
+- Opt-in pro Datei: `// @ts-check` als erste Zeile (`checkJs` bleibt `false`). `cd backend && npm run typecheck` (in CI) prüft genau diese Dateien
+- Neue Utils/Middleware mit `@ts-check` anlegen und in `backend/__tests__/tsCheckOptIn.test.js` eintragen; Typfehler nur per Annotation/Cast beheben, nie durch Logikänderung. Details: `backend/TYPESCRIPT.md`
+
+---
+
 ## Kritische Projektregeln
 
 ### 1. WHERE-Clause-Builder (Backend)
-**Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden** für konsistente Filterlogik in der gesamten App.
+**Alle WHERE-Filter auf den Status von Schmuckstücken müssen `whereClauseBuilder` verwenden** für konsistente Filterlogik in der gesamten App. Statusübergänge (UPDATE) laufen über `backend/src/utils/statusUebergaenge.js`; Beziehungs-JOINs wie `s."Ausgelagert" = k."ID"` sind erlaubt.
 
 ```javascript
 const { where } = require('../utils/whereClauseBuilder');
@@ -205,10 +216,10 @@ const { rows } = await db.query(
 ```
 
 **Status-Mappings** (kritische Geschäftslogik):
-- **Verfügbar**: `Verkauft=0 AND Ausschuss=0 AND Ausgelagert=0`
-- **Verkauft**: `Verkauft=1 AND Ausschuss=0`
-- **Ausschuss**: `Ausschuss=1`
-- **Aktiv Ausgelagert**: `Ausgelagert>0 AND Verkauft=0 AND Ausschuss=0`
+- **Verfügbar**: `Verkauft = FALSE AND Ausschuss = FALSE AND Ausgelagert = 0`
+- **Verkauft**: `Verkauft = TRUE AND Ausschuss = FALSE`
+- **Ausschuss**: `Ausschuss = TRUE`
+- **Aktiv Ausgelagert**: `Ausgelagert > 0 AND Verkauft = FALSE AND Ausschuss = FALSE`
 
 Vollständige API: `backend/src/utils/WHERE_BUILDER.md`
 
@@ -223,6 +234,9 @@ Vollständige API: `backend/src/utils/WHERE_BUILDER.md`
 ```
 
 Alle Styles gehören als Klassendefinitionen in `frontend/src/index.css`.
+
+**Ausnahme:** Dynamische Werte (aus Daten/State berechnet) nur als CSS-Variable: `style={{ "--balken-breite": `${x}%` }}` mit `width: var(--balken-breite)` in der Klasse. Bedingte Styles zwischen festen Werten sind bedingte Klassennamen, keine Variablen. ESLint (`no-restricted-syntax`) erzwingt das.
+**Klassennamen** je Seite/Komponente einheitlich präfixiert (`inventur-…`, `dashboard-…`, `docmgr-…`) und in `index.css` in einem eigenen kommentierten Block je Datei gruppiert; vorhandene Klassen (z. B. `cursor-pointer`, `mr-8`) wiederverwenden. Ein doppelter Klassenname im Selektor (`.a.a`) hebt die Spezifität, wo eine bestehende Regel sonst gewinnt.
 
 ### 3. Fotos
 - Fotos liegen **in PostgreSQL**: Tabelle `"Foto"` (Schmuckstücke, Schlüssel = Basis-Artikelnummer, `MHO123` gilt für `MHO123_1`, `MHO123_2`) und `bestellung_foto` (Bestellformular)

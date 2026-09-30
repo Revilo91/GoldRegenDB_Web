@@ -89,7 +89,7 @@ export default function SchmuckstueckDetail() {
   return (
     <div>
       <div className="page-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="schmuckstueck-detail-flex-ai-center-gap-12">
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => navigate(-1)}
@@ -109,7 +109,7 @@ export default function SchmuckstueckDetail() {
           </div>
         </div>
         {canEdit && (
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div className="schmuckstueck-detail-flex-gap-8">
             <button
               className="btn btn-secondary"
               onClick={handleDuplicate}>
@@ -132,88 +132,32 @@ export default function SchmuckstueckDetail() {
       <div className="card">
         <div className="card-body">
           {/* Foto */}
-          <div
-            style={{
-              textAlign: "center",
-              padding: "16px 0",
-              borderBottom: "1px solid #ddd",
-              backgroundColor: "#f9f9f9",
-              marginBottom: "16px",
-              borderRadius: "4px",
-            }}>
+          <div className="schmuckstueck-detail-foto-box">
             {foto.src ? (
               <img
                 src={foto.src}
-                alt={item.Artikelnummer}
-                style={{
-                  maxWidth: "200px",
-                  maxHeight: "200px",
-                  borderRadius: "8px",
-                }}
-              />
+                alt={item.Artikelnummer} className="schmuckstueck-detail-maxw-200-max-height-200-border-radius-8"/>
             ) : item.hatFoto && foto.laedt ? (
-              <div
-                style={{
-                  width: "200px",
-                  height: "200px",
-                  margin: "0 auto",
-                  borderRadius: "8px",
-                  backgroundColor: "#e0e0e0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#999",
-                  fontSize: "14px",
-                  border: "2px dashed #ccc",
-                }}>
+              <div className="schmuckstueck-detail-foto-laedt">
                 <div>
-                  <div style={{ marginBottom: "8px" }}>⏳</div>
+                  <div className="schmuckstueck-detail-mb-8">⏳</div>
                   Bild wird geladen...
                 </div>
               </div>
             ) : item.hatFoto && foto.fehler ? (
-              <div
-                style={{
-                  width: "200px",
-                  minHeight: "200px",
-                  margin: "0 auto",
-                  borderRadius: "8px",
-                  backgroundColor: "#fff4e5",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#7a4b00",
-                  fontSize: "14px",
-                  border: "2px dashed #d8a74f",
-                  padding: "12px",
-                  boxSizing: "border-box",
-                  textAlign: "center",
-                }}>
+              <div className="schmuckstueck-detail-foto-fehler">
                 <div>
-                  <div style={{ marginBottom: "8px" }}>⚠️</div>
+                  <div className="schmuckstueck-detail-mb-8">⚠️</div>
                   Bild konnte nicht geladen werden
-                  <div style={{ marginTop: "8px", fontSize: "12px" }}>
+                  <div className="schmuckstueck-detail-mt-8-fs-12">
                     {foto.fehler}
                   </div>
                 </div>
               </div>
             ) : (
-              <div
-                style={{
-                  width: "200px",
-                  height: "200px",
-                  margin: "0 auto",
-                  borderRadius: "8px",
-                  backgroundColor: "#f0f0f0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#bbb",
-                  fontSize: "14px",
-                  border: "2px dashed #ddd",
-                }}>
+              <div className="schmuckstueck-detail-foto-leer">
                 <div>
-                  <div style={{ marginBottom: "8px", fontSize: "24px" }}>
+                  <div className="schmuckstueck-detail-mb-8-fs-24">
                     📷
                   </div>
                   Kein Bild vorhanden

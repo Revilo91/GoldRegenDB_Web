@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const { validate } = require('../middleware/validate');
 const { rechnungSchema } = require('../schemas');
 const { belegSummen } = require('../utils/rabatt');
+const { markiereVerkauft, hebeVerkauftAuf } = require('../utils/statusUebergaenge');
 const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
@@ -409,10 +410,7 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
     // But only set Verkauft flag if status is 'final'
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (status === 'final') {
-        await client.query(
-          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = TRUE WHERE "Artikelnummer" = ANY($2::text[])`,
-          [rechnungId, Artikelnummern]
-        );
+        await markiereVerkauft(client, Artikelnummern, rechnungId);
       } else {
         // Draft: only set Rechnung_ID, don't change Verkauft
         await client.query(
@@ -548,19 +546,13 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
     const currentStatus = rows[0].status;
 
     // Always reset old associations first (both Rechnung_ID and Verkauft)
-    await client.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
-      [req.params.id]
-    );
+    await hebeVerkauftAuf(client, req.params.id);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (currentStatus === 'final') {
         // Final: set both Rechnung_ID and Verkauft
-        await client.query(
-          `UPDATE "Schmuckstück" SET "Rechnung_ID" = $1, "Verkauft" = TRUE WHERE "Artikelnummer" = ANY($2::text[])`,
-          [req.params.id, Artikelnummern]
-        );
+        await markiereVerkauft(client, Artikelnummern, req.params.id);
       } else {
         // Draft: only set Rechnung_ID, don't change Verkauft
         await client.query(
@@ -634,10 +626,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Reset associations before deleting
-    await client.query(
-      `UPDATE "Schmuckstück" SET "Rechnung_ID" = 0, "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
-      [req.params.id]
-    );
+    await hebeVerkauftAuf(client, req.params.id);
     await client.query(
       'DELETE FROM "Rechnung" WHERE "ID" = $1',
       [req.params.id]
