@@ -4045,6 +4045,49 @@ select.form-control {
   font-size: 0.8rem;
 }
 
+/* App */
+.app-hinweis-warnung {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: rgba(245,158,11,0.1);
+  color: #f59e0b;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.app-hinweis-fehler {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.app-hinweis-erfolg {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--success-bg, rgba(16,185,129,0.1));
+  color: var(--success, #10b981);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.app-grid-gap-16 {
+  display: grid;
+  gap: 16px;
+}
+
+.app-flex-gap-8 {
+  display: flex;
+  gap: 8px;
+}
+
+.app-p-6-12-minw-40 {
+  padding: 6px 12px;
+  min-width: 40px;
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
