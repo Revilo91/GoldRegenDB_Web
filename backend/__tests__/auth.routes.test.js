@@ -21,6 +21,12 @@ jest.mock('../src/utils/logger', () => ({
   debug: jest.fn(),
 }));
 
+// Durchreichen, damit Tests das erzeugte Klartext-Token abfangen können (Issue #258)
+jest.mock('../src/utils/accountSecurity', () => {
+  const echt = jest.requireActual('../src/utils/accountSecurity');
+  return { ...echt, erzeugeResetToken: jest.fn((...args) => echt.erzeugeResetToken(...args)) };
+});
+
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -28,6 +34,16 @@ const bcrypt = require('bcryptjs');
 const { buildTestApp } = require('./helpers/buildTestApp');
 
 const mockQuery = require('../src/config/db').query;
+const mockLogger = require('../src/utils/logger');
+const { erzeugeResetToken: mockErzeugeResetToken } = require('../src/utils/accountSecurity');
+
+// Alle Logger-Aufrufe (alle Level, alle Argumente) als ein durchsuchbarer String
+function alleLogAusgaben() {
+  return ['info', 'warn', 'error', 'debug']
+    .flatMap((level) => mockLogger[level].mock.calls)
+    .map((args) => JSON.stringify(args))
+    .join('\n');
+}
 
 // Build a minimal Express app that wires the auth router
 function buildApp() {
@@ -519,6 +535,111 @@ describe('POST /api/auth/forgot-password', () => {
       ([sql]) => typeof sql === 'string' && sql.includes('reset_token_hash = $1'),
     );
     expect(updateCall).toBeUndefined();
+  });
+
+  it('schreibt weder Token noch Reset-Pfad in irgendein Log', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 1, username: 'admin', active: true }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ username: 'admin' });
+
+    expect(res.status).toBe(200);
+    const { token } = mockErzeugeResetToken.mock.results[0].value;
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
+    const logs = alleLogAusgaben();
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs).not.toContain(token);
+    expect(logs).not.toContain('reset-password?token=');
+    expect(logs).not.toContain('/reset-password');
+    expect(JSON.stringify(res.body)).not.toContain(token);
+  });
+
+  it('erzeugt für ein unbekanntes Konto kein Token', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ username: 'gibtsnicht' });
+
+    expect(res.status).toBe(200);
+    expect(mockErzeugeResetToken).not.toHaveBeenCalled();
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('reset_token_hash = $1'),
+    );
+    expect(updateCall).toBeUndefined();
+  });
+});
+
+describe('POST /api/auth/admin/generate-reset-link', () => {
+  let app;
+
+  beforeAll(() => {
+    app = buildApp();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function adminHeader() {
+    const jwtToken = jwt.sign(
+      { id: 1, username: 'chef', role: 'admin' },
+      'test-secret-do-not-use-in-prod',
+      { expiresIn: '1h' },
+    );
+    return `Bearer ${jwtToken}`;
+  }
+
+  it('liefert den Reset-Pfad mit Token, ohne ihn zu loggen', async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 7, username: 'saskia', active: true }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/admin/generate-reset-link')
+      .set('Authorization', adminHeader())
+      .send({ userId: 7 });
+
+    expect(res.status).toBe(200);
+    const { token, tokenHash } = mockErzeugeResetToken.mock.results[0].value;
+    expect(res.body.resetPath).toBe(`/reset-password?token=${token}`);
+    expect(res.body.username).toBe('saskia');
+    const updateCall = mockQuery.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('reset_token_hash = $1'),
+    );
+    expect(updateCall[1][0]).toBe(tokenHash);
+    expect(updateCall[1]).not.toContain(token);
+
+    const logs = alleLogAusgaben();
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs).not.toContain(token);
+    expect(logs).not.toContain('reset-password?token=');
+    expect(logs).not.toContain('/reset-password');
+  });
+
+  it('lehnt Nicht-Admins mit 403 ab', async () => {
+    const userToken = jwt.sign(
+      { id: 2, username: 'bea', role: 'bearbeiter' },
+      'test-secret-do-not-use-in-prod',
+      { expiresIn: '1h' },
+    );
+    const res = await request(app)
+      .post('/api/auth/admin/generate-reset-link')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ userId: 7 });
+
+    expect(res.status).toBe(403);
+    expect(mockErzeugeResetToken).not.toHaveBeenCalled();
+  });
+
+  it('antwortet 404 für einen unbekannten Benutzer', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app)
+      .post('/api/auth/admin/generate-reset-link')
+      .set('Authorization', adminHeader())
+      .send({ userId: 999 });
+
+    expect(res.status).toBe(404);
   });
 });
 

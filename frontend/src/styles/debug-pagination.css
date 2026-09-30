@@ -1,0 +1,4 @@
+/* Debug-Pagination (#262) */
+.debug-pagination-info {
+  color: var(--text-secondary);
+}

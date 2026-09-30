@@ -487,10 +487,12 @@ PUT    /users/:id                   Bearbeiten
 DELETE /users/:id                   Löschen
 
 GET    /etiketten                   Etiketten-Datei (Artikelnummer, Preis, Barcode, QR)
-GET    /debug/tables                DB-Tabellen auflisten
-GET    /debug/tables/:name          Tabelleninhalt
-PUT    /debug/tables/:name          Datensatz direkt bearbeiten
+GET    /debug/tables                DB-Tabellen auflisten (ohne gesperrte)
+GET    /debug/tables/:name          Tabelleninhalt (?limit=&offset=, ohne BYTEA)
+PUT    /debug/tables/:name          Einzelfeld direkt bearbeiten (geloggt)
 ```
+
+**Debug-Route (#262):** nur mit `DEBUG_ROUTE_ENABLED=true` (Default aus, sonst 404; in `docker-compose.dev.yml` aktiv, in Produktion nicht). Gesperrt (403, nicht in der Liste): `app_users`, `audit_log`, `bestellung*`, `schema_migrations`. GET paginiert (Default 100, max. 500), sortiert nach Primärschlüssel, liefert `total`/`limit`/`offset` und nie BYTEA-Spalten. PUT akzeptiert nur existierende Nicht-BYTEA-Spalten, den echten einspaltigen Primärschlüssel (Änderung des PK-Felds abgelehnt) und schreibt Benutzer, Tabelle, Feld, PK sowie alten/neuen Wert (auf 200 Zeichen gekürzt) per `logger.info`.
 
 ---
 
@@ -552,6 +554,7 @@ PUT    /debug/tables/:name          Datensatz direkt bearbeiten
 - Unbekannte Benutzernamen laufen gegen Dummy-Hash (timing-sicher)
 - Reset-Link wird über `POST /api/auth/admin/generate-reset-link` (admin-only) erzeugt und direkt im Response zurückgegeben — das Token erscheint nicht im Log
 - Admin kopiert den Link und gibt ihn an den Benutzer weiter; kein SMTP konfiguriert
+- Entscheidung (Issue #258): Der Admin-Reset in der Benutzerverwaltung ist der offizielle Weg, es gibt bewusst keinen Mailversand. `POST /api/auth/forgot-password` antwortet immer identisch und legt nur den Token-Hash ab; SMTP wäre ein eigenes Issue
 - Nur SHA-256-Hash des Reset-Tokens wird in der DB gespeichert
 
 ### Passwort-Migration
@@ -740,6 +743,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 | Diagramme | Recharts |
 | Icons | Font Awesome (Solid + Regular) |
 | Container | Docker + Docker Compose |
+| Typprüfung | JSDoc + `// @ts-check` (Opt-in pro Datei), `tsc --noEmit`, kein Build |
 | Tests | Jest (Backend), Vitest (Frontend) |
 
 ### Architektur-Highlights
@@ -751,6 +755,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 5. **Hash-Kette Audit-Log**: SHA-256-Verkettung + Trigger-Immutabilität → Tampering-Detection
 6. **DSGVO by Design**: Verschlüsselte PII, Datenminimierung, Anonymisierung, Consent-Audit
 7. **E-Rechnung offline**: Vollständige EN-16931-Validierung ohne externe Abhängigkeit
+8. **Typisierung per JSDoc**: Backend bleibt JavaScript ohne Build-Schritt. Dateien mit `// @ts-check` in der ersten Zeile prüft `npm run typecheck` (CI, `checkJs: false`, Opt-in). Gemeinsame Typen liegen in `backend/src/types/*.d.ts`; ein Jest-Test (`__tests__/tsCheckOptIn.test.js`) stellt sicher, dass das Pragma nicht still verloren geht. Details: `backend/TYPESCRIPT.md`
 
 ---
 
@@ -776,6 +781,8 @@ GoldRegenDB_Web/
 │   ├── init.sql                      # Schema (Tabellen, Trigger, Funktionen)
 │   ├── seed.sql                      # Demo-Daten
 │   ├── backup.sh / restore.sh        # Automatische Backups
+│   ├── convert_mysql_to_pg.py        # Einmalige MySQL→PG-Konvertierung (Dump als Pflichtargument)
+│   ├── legacy/                       # Alte MySQL-Strukturreferenz (nur Doku)
 │   └── README.md                     # Backup/Restore-Dokumentation
 │
 ├── docs/
