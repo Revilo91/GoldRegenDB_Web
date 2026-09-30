@@ -776,6 +776,8 @@ GoldRegenDB_Web/
 │   ├── init.sql                      # Schema (Tabellen, Trigger, Funktionen)
 │   ├── seed.sql                      # Demo-Daten
 │   ├── backup.sh / restore.sh        # Automatische Backups
+│   ├── convert_mysql_to_pg.py        # Einmalige MySQL→PG-Konvertierung (Dump als Pflichtargument)
+│   ├── legacy/                       # Alte MySQL-Strukturreferenz (nur Doku)
 │   └── README.md                     # Backup/Restore-Dokumentation
 │
 ├── docs/
