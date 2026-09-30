@@ -263,7 +263,10 @@ Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammenge
 
 DB-Constraint verhindert `Verkauft=TRUE AND Ausschuss=TRUE` gleichzeitig.
 
-**Pflicht:** Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden — niemals Status-WHERE-Klauseln manuell schreiben.
+**Pflicht (drei Fälle):**
+- **WHERE-Filter auf Status** laufen immer über `whereClauseBuilder` — niemals manuell schreiben.
+- **Statusübergänge** (UPDATE: verkauft markieren, auslagern, zurücklagern) laufen über `backend/src/utils/statusUebergaenge.js` (`markiereVerkauft`, `hebeVerkauftAuf`, `lagereAus`, `lagereOffeneAus`, `hebeAuslagerungAuf`, `lagereZurueck`).
+- **Beziehungs-JOINs** wie `s."Ausgelagert" = k."ID"` sind erlaubt.
 
 ---
 
@@ -793,6 +796,7 @@ GoldRegenDB_Web/
 │       └── utils/
 │           ├── whereClauseBuilder.js # WHERE-Clause Builder
 │           ├── WHERE_BUILDER.md      # Builder-Dokumentation
+│           ├── statusUebergaenge.js  # Statusübergänge (UPDATE) für Schmuckstücke
 │           ├── rabatt.js             # Zentrale Rabatt-/Provisions-Formel
 │           ├── excelService.js       # Excel-Export
 │           ├── fotoService.js        # Foto-CRUD (Tabellen Foto, bestellung_foto)
