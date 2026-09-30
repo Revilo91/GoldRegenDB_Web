@@ -213,6 +213,49 @@ idx_audit_ts                 ON audit_log(change_timestamp DESC)
 idx_audit_artikel            ON audit_log(artikelnummer_id, change_timestamp DESC)
 ```
 
+### Schema-Migrationen (Issue #257)
+
+Maßgeblich für das Schema sind die nummerierten SQL-Dateien in `backend/src/config/migrations/`.
+`db.initializeDatabase()` ruft beim Start `runMigrations()` aus `backend/src/config/migrate.js` auf;
+erst danach lauscht Express und `/api/health` meldet `ok`.
+
+| Datei | Inhalt |
+|-------|--------|
+| `0001_baseline.sql` | Tabellen, Indizes, Funktionen, Trigger von `Kunde` bis `Foto` inkl. Audit-Hash-Kette (Stand der früheren `ensure…`-Funktionen) |
+| `0002_status_booleans.sql` | `Verkauft`/`Ausschuss` SMALLINT → boolean, Widerspruchsbereinigung, `schmuck_status_chk` (Befund B6) |
+| `0003_geld_numeric.sql` | Preise DOUBLE PRECISION → `numeric(10,2)`, `schmuck_preis_nicht_negativ` (Befund B1) |
+| `0004_artikelnummer_grossschreibung.sql` | `schmuck_artikelnummer_gross_chk`, bei Kleinbuchstaben im Bestand `NOT VALID` (Befund D4) |
+| `0005_ausschuss_grund_und_trigger.sql` | Ausschuss_Grund-Constraint (`NOT VALID`) und Trigger auf `Schmuckstück` |
+
+**Ablauf des Runners:**
+
+1. Eigener Pool-Client, `pg_advisory_lock` – parallele Starts warten, statt doppelt zu migrieren.
+2. `schema_migrations(version, name, applied_at)` anlegen, angewandte Versionen lesen.
+3. Ausstehend und Datenbank enthält schon Tabellen → **Backup-Gate:** `pg_dump --format=custom` per
+   `execFile` (ohne Shell, Passwort per `PGPASSWORD`) nach `MIGRATION_BACKUP_DIR`. Fehlt `pg_dump`
+   oder scheitert es, bricht der Start ab (halbe Dumps werden gelöscht); `MIGRATION_SKIP_BACKUP=true`
+   überspringt das Backup mit Warnung.
+4. Jede ausstehende Migration in eigener Transaktion (`BEGIN` → SQL → Eintrag in `schema_migrations`
+   → `COMMIT`); Fehler → `ROLLBACK` und Startabbruch mit Versionsnummer.
+5. Standard-Admin anlegen, falls `app_users` leer ist (Startdaten, kein Schema).
+
+`RAISE NOTICE/WARNING` aus den Migrationen landen im Log (Kategorie `MIGRATION`).
+
+**Regeln:** Nur Vorwärts-Migrationen. Neue Schemaänderung = neue Datei mit der nächsten Nummer;
+veröffentlichte Migrationen werden nie geändert. Alle bisherigen Migrationen sind idempotent formuliert
+(`IF NOT EXISTS`, DO-Blöcke), weil Bestandsdatenbanken ohne `schema_migrations` sie beim ersten Start
+komplett durchlaufen. Datenumwandlungen stehen in eigenen Migrationen, damit sie versioniert sichtbar sind.
+Audit-Log: `backfill_audit_chain()` verkettet nur Zeilen mit `hash IS NULL`; bestehende Hashes werden nie
+neu berechnet.
+
+**`db/init.sql`** bleibt als eingefrorener Start-Stand für den Docker-Entrypoint, weil `seed.sql` direkt
+danach Tabellen braucht. Neue Änderungen kommen nicht hinein. Einzige bewusste Lücke: die
+Ausschuss_Grund-Constraint (Seed-Daten haben Ausschuss ohne Grund), die legt `0005` beim ersten Start an.
+`backend/__tests__/migrations.integration.test.js` (nur mit `TEST_DATABASE_URL`, Rolle braucht `CREATEDB`)
+prüft, dass „leere DB + Migrationen“, „leere DB + init.sql + Migrationen“ und eine Bestandsdatenbank alten
+Stands dasselbe Schema ergeben (Spalten, Constraints, Indizes, Trigger, Funktionen, Enums) und ein erneuter
+Lauf keinen Audit-Hash verändert.
+
 ---
 
 ## 3. Artikelnummern-Format
@@ -263,7 +306,10 @@ Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammenge
 
 DB-Constraint verhindert `Verkauft=TRUE AND Ausschuss=TRUE` gleichzeitig.
 
-**Pflicht:** Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden — niemals Status-WHERE-Klauseln manuell schreiben.
+**Pflicht (drei Fälle):**
+- **WHERE-Filter auf Status** laufen immer über `whereClauseBuilder` — niemals manuell schreiben.
+- **Statusübergänge** (UPDATE: verkauft markieren, auslagern, zurücklagern) laufen über `backend/src/utils/statusUebergaenge.js` (`markiereVerkauft`, `hebeVerkauftAuf`, `lagereAus`, `lagereOffeneAus`, `hebeAuslagerungAuf`, `lagereZurueck`).
+- **Beziehungs-JOINs** wie `s."Ausgelagert" = k."ID"` sind erlaubt.
 
 ---
 
@@ -487,10 +533,12 @@ PUT    /users/:id                   Bearbeiten
 DELETE /users/:id                   Löschen
 
 GET    /etiketten                   Etiketten-Datei (Artikelnummer, Preis, Barcode, QR)
-GET    /debug/tables                DB-Tabellen auflisten
-GET    /debug/tables/:name          Tabelleninhalt
-PUT    /debug/tables/:name          Datensatz direkt bearbeiten
+GET    /debug/tables                DB-Tabellen auflisten (ohne gesperrte)
+GET    /debug/tables/:name          Tabelleninhalt (?limit=&offset=, ohne BYTEA)
+PUT    /debug/tables/:name          Einzelfeld direkt bearbeiten (geloggt)
 ```
+
+**Debug-Route (#262):** nur mit `DEBUG_ROUTE_ENABLED=true` (Default aus, sonst 404; in `docker-compose.dev.yml` aktiv, in Produktion nicht). Gesperrt (403, nicht in der Liste): `app_users`, `audit_log`, `bestellung*`, `schema_migrations`. GET paginiert (Default 100, max. 500), sortiert nach Primärschlüssel, liefert `total`/`limit`/`offset` und nie BYTEA-Spalten. PUT akzeptiert nur existierende Nicht-BYTEA-Spalten, den echten einspaltigen Primärschlüssel (Änderung des PK-Felds abgelehnt) und schreibt Benutzer, Tabelle, Feld, PK sowie alten/neuen Wert (auf 200 Zeichen gekürzt) per `logger.info`.
 
 ---
 
@@ -552,6 +600,7 @@ PUT    /debug/tables/:name          Datensatz direkt bearbeiten
 - Unbekannte Benutzernamen laufen gegen Dummy-Hash (timing-sicher)
 - Reset-Link wird über `POST /api/auth/admin/generate-reset-link` (admin-only) erzeugt und direkt im Response zurückgegeben — das Token erscheint nicht im Log
 - Admin kopiert den Link und gibt ihn an den Benutzer weiter; kein SMTP konfiguriert
+- Entscheidung (Issue #258): Der Admin-Reset in der Benutzerverwaltung ist der offizielle Weg, es gibt bewusst keinen Mailversand. `POST /api/auth/forgot-password` antwortet immer identisch und legt nur den Token-Hash ab; SMTP wäre ein eigenes Issue
 - Nur SHA-256-Hash des Reset-Tokens wird in der DB gespeichert
 
 ### Passwort-Migration
@@ -637,7 +686,7 @@ Details: `docs/E-RECHNUNG.md`
 **Direktverkauf** (`Kunde.Direktverkauf`, Häkchen in der Kundenverwaltung; gesetzt für Online, Messe,
 Sonderanfertigung, Saskia Stempfhuber): Die Rechnung bietet Lagerstücke plus die bei diesem Kunden ausgelagerten
 an (`GET /api/schmuckstuecke?ausgelagert=0,15`), ein Lieferschein vorab entfällt. Übrige Kunden sehen weiter nur
-ihre ausgelagerten Stücke. Die Erstbelegung setzt `db.js` einmalig beim Anlegen der Spalte.
+ihre ausgelagerten Stücke. Die Erstbelegung setzt Migration `0001_baseline.sql` einmalig beim Anlegen der Spalte.
 
 **Einmalkunden (Onlineshop):** Die Rechnung läuft auf den Sammelkunden „Online“, die Anschrift des Käufers
 steht in `Rechnung.empfaenger` (Name, Strasse, Hausnummer, PLZ als Text, Ort, Land, Email). Excel und
@@ -740,6 +789,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 | Diagramme | Recharts |
 | Icons | Font Awesome (Solid + Regular) |
 | Container | Docker + Docker Compose |
+| Typprüfung | JSDoc + `// @ts-check` (Opt-in pro Datei), `tsc --noEmit`, kein Build |
 | Tests | Jest (Backend), Vitest (Frontend) |
 
 ### Architektur-Highlights
@@ -751,6 +801,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 5. **Hash-Kette Audit-Log**: SHA-256-Verkettung + Trigger-Immutabilität → Tampering-Detection
 6. **DSGVO by Design**: Verschlüsselte PII, Datenminimierung, Anonymisierung, Consent-Audit
 7. **E-Rechnung offline**: Vollständige EN-16931-Validierung ohne externe Abhängigkeit
+8. **Typisierung per JSDoc**: Backend bleibt JavaScript ohne Build-Schritt. Dateien mit `// @ts-check` in der ersten Zeile prüft `npm run typecheck` (CI, `checkJs: false`, Opt-in). Gemeinsame Typen liegen in `backend/src/types/*.d.ts`; ein Jest-Test (`__tests__/tsCheckOptIn.test.js`) stellt sicher, dass das Pragma nicht still verloren geht. Details: `backend/TYPESCRIPT.md`
 
 ---
 
@@ -773,9 +824,11 @@ GoldRegenDB_Web/
 │       └── release.yml               # CI: Release-Workflow
 │
 ├── db/
-│   ├── init.sql                      # Schema (Tabellen, Trigger, Funktionen)
+│   ├── init.sql                      # Eingefrorenes Start-Schema für den Docker-Entrypoint
 │   ├── seed.sql                      # Demo-Daten
 │   ├── backup.sh / restore.sh        # Automatische Backups
+│   ├── convert_mysql_to_pg.py        # Einmalige MySQL→PG-Konvertierung (Dump als Pflichtargument)
+│   ├── legacy/                       # Alte MySQL-Strukturreferenz (nur Doku)
 │   └── README.md                     # Backup/Restore-Dokumentation
 │
 ├── docs/
@@ -786,7 +839,9 @@ GoldRegenDB_Web/
 │   ├── __tests__/                    # Jest-Tests
 │   └── src/
 │       ├── index.js                  # Express Entry-Point
-│       ├── config/db.js              # PostgreSQL-Pool + Startup-Migrationen
+│       ├── config/db.js              # PostgreSQL-Pool + request-scoped Client
+│       ├── config/migrate.js         # Migrations-Runner (Advisory-Lock, Backup-Gate)
+│       ├── config/migrations/        # Nummerierte SQL-Migrationen (0001_baseline.sql, …)
 │       ├── routes/                   # REST-Endpunkte (auth, kunden, …)
 │       │   ├── schmuckstuecke/       # index.js setzt zusammen (Reihenfolge relevant), foto, bulk, liste, anlegen, bearbeiten
 │       │   └── backup/               # index.js setzt zusammen: json, sql, fotos (Hintergrund-Job), import
@@ -796,6 +851,7 @@ GoldRegenDB_Web/
 │       └── utils/
 │           ├── whereClauseBuilder.js # WHERE-Clause Builder
 │           ├── WHERE_BUILDER.md      # Builder-Dokumentation
+│           ├── statusUebergaenge.js  # Statusübergänge (UPDATE) für Schmuckstücke
 │           ├── rabatt.js             # Zentrale Rabatt-/Provisions-Formel
 │           ├── excelService.js       # Excel-Export
 │           ├── fotoService.js        # Foto-CRUD (Tabellen Foto, bestellung_foto)
@@ -812,7 +868,7 @@ GoldRegenDB_Web/
     └── src/
         ├── App.jsx                   # Router + Layout
         ├── api.js                    # Zentraler API-Client
-        ├── index.css                 # Globale Styles (alle Klassen hier)
+        ├── index.css                 # Globale Styles (alle Klassen hier; Inline-Styles per ESLint verboten, nur CSS-Variablen)
         ├── context/AuthContext.jsx   # JWT-Auth-State + Rollen
         ├── components/               # DataTable, TableToolbar, PhotoUpload, ProtectedRoute, Toast
         ├── hooks/useFoto.js          # Foto per Artikelnummer laden (Tabelle, Modal, Detail, Upload)
@@ -856,6 +912,10 @@ TRUST_PROXY=1
 FORCE_HTTPS=true
 COOKIE_SECURE=true
 BESTELLUNG_ENCRYPTION_KEY=...   # AES-256 für DSGVO-Felder
+
+# Schema-Migrationen (siehe Abschnitt 2)
+MIGRATION_BACKUP_DIR=/backups/migrations   # Compose-Default, Volume der db-Backups
+MIGRATION_SKIP_BACKUP=false                # true = Backup-Gate überspringen (nur Warnung)
 ```
 
 Secrets (`JWT_SECRET`, `DB_PASSWORD`, `BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext auch über `<NAME>_FILE` (Docker-Secret-Datei) gesetzt werden.
@@ -870,7 +930,7 @@ Historische Bugfixes, die das aktuelle Design erklären:
 |--------|---------|------------------------|
 | **B1** | `DOUBLE PRECISION` verliert Genauigkeit bei Preisberechnungen | `NUMERIC(10,2)` im Schema |
 | **B4** | `Rechnung.ID` nicht UNIQUE → JOINs mischen Positionen | UNIQUE Constraint |
-| **B6** | Status-Spalten als `SMALLINT (0/1/NULL)` → NULL in keinem Filter | `BOOLEAN`-Spalten; `ensureStatusBooleans()` in `db.js` korrigiert Alt-Daten |
+| **B6** | Status-Spalten als `SMALLINT (0/1/NULL)` → NULL in keinem Filter | `BOOLEAN`-Spalten; Migration `0002_status_booleans.sql` korrigiert Alt-Daten |
 | **B11** | Fehlende Indizes → Sequential Scan + Re-Sort | Indizes auf Datum, FK, Status, Artikelnummer |
 | **C17/C18** | Rabatte nur in `excelService.js`, nicht in Dashboard/Inventur | Zentrale `preisNachAllenRabattenSql()` in `rabatt.js` |
 | **D1/D2** | Zahlenfelder als Text → `parseFloat("") = NaN` → `JSON.stringify(NaN) = null` → NULL-UPDATE | `parseZahlOderNull()`-Normalisierung in Formularen |
@@ -880,4 +940,5 @@ Historische Bugfixes, die das aktuelle Design erklären:
 | **#138** | Express ohne TLS hinter Proxy | `TRUST_PROXY`, `FORCE_HTTPS`, `COOKIE_SECURE` als Env-Vars |
 | **#139** | Audit-Log nachträglich manipulierbar | Hash-Kette + Immutabilitäts-Trigger |
 | **#208** | Fotos im Dateisystem → kein Backup, keine Transaktionssicherheit | BYTEA in Tabelle `Foto` |
-| **#214** | Spalte `"Schmuckstück"."Foto"` entfernt; Listen zeigten BYTEA | `hatFoto` (boolean) via `EXISTS`; `DROP COLUMN IF EXISTS` in `db.js` |
+| **#214** | Spalte `"Schmuckstück"."Foto"` entfernt; Listen zeigten BYTEA | `hatFoto` (boolean) via `EXISTS`; `DROP COLUMN IF EXISTS` in `0001_baseline.sql` |
+| **#257** | Schema als Startup-Code in `db.js`, `init.sql` manuell synchron gehalten, keine Versionierung, kein Backup | Nummerierte SQL-Migrationen + `schema_migrations`, Backup-Gate per `pg_dump`, Vergleichstest init.sql ↔ Migrationen |

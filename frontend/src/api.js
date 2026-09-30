@@ -389,7 +389,10 @@ export const api = {
 
   // Debug (Admin)
   getDebugTables: () => request('/debug/tables'),
-  getDebugTableData: (tableName) => request(`/debug/tables/${tableName}`),
+  getDebugTableData: (tableName, { limit, offset } = {}) => {
+    const qs = new URLSearchParams({ limit, offset }).toString();
+    return request(`/debug/tables/${tableName}?${qs}`);
+  },
   updateDebugCell: (tableName, payload) =>
     request(`/debug/tables/${tableName}`, {
       method: 'PUT',

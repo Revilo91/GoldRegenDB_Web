@@ -51,6 +51,10 @@ services:
       HSTS_MAX_AGE: ${HSTS_MAX_AGE:-15552000}
       TRUST_PROXY: ${TRUST_PROXY:-}
       BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      # Backup (pg_dump) vor ausstehenden Schema-Migrationen, siehe README
+      # "Schema-Migrationen". Landet neben den täglichen db-Backups.
+      MIGRATION_BACKUP_DIR: /backups/migrations
+      MIGRATION_SKIP_BACKUP: ${MIGRATION_SKIP_BACKUP:-false}
       PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION}
       BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
       BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
@@ -71,6 +75,8 @@ services:
       VERKAEUFER_BIC: ${VERKAEUFER_BIC:-}
     ports:
       - "${APP_HOST_PORT:-3000}:${PORT}"
+    volumes:
+      - ${DATA_DIR:-/volume1/docker/goldregendb}/backups:/backups
     networks:
       - goldregendb_net
 

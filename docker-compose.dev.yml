@@ -34,6 +34,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
       NODE_ENV: development
+      DEBUG_ROUTE_ENABLED: "true"
       PORT: ${PORT}
       VITE_API_URL: ${VITE_API_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -41,6 +42,10 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      # Backup (pg_dump) vor ausstehenden Schema-Migrationen, siehe README
+      # "Schema-Migrationen". Liegt im selben Volume wie die db-Backups.
+      MIGRATION_BACKUP_DIR: /backups/migrations
+      MIGRATION_SKIP_BACKUP: ${MIGRATION_SKIP_BACKUP:-false}
       PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION}
       BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
       BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
@@ -67,6 +72,7 @@ services:
       - ./frontend/public:/app/frontend/public
       - ./frontend/index.html:/app/frontend/index.html
       - app_node_modules:/app/node_modules
+      - pgbackups_dev:/backups
     ports:
       - "3000:5173"
       - "3001:${PORT}"

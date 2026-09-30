@@ -1,73 +1,49 @@
-# TypeScript in diesem Backend (Issue #141)
+# Typisierung im Backend (Issues #141, #261)
 
-Stand: JSDoc + `tsc --noEmit` als Typprüfung, **kein** Build-Schritt. Der
-Server startet weiterhin unverändert per `node src/index.js` – `tsc` wird nur
-lokal/in CI zur Prüfung aufgerufen, nie zum Kompilieren.
+Standard: **JSDoc + `// @ts-check`, Opt-in pro Datei.** Kein TypeScript-Build,
+der Server startet weiterhin per `node src/index.js`. `tsc` prüft nur.
 
 ```bash
 cd backend
-npm run typecheck   # tsc --noEmit, prüft nur Dateien mit // @ts-check + alle .d.ts
+npm run typecheck   # tsc --noEmit, läuft in CI (.github/workflows/tests.yml)
 ```
 
-## Warum JSDoc statt `.ts`-Dateien?
+## Regeln
 
-Eine vollständige `.js` → `.ts`-Migration würde den Laufzeit-Build umstellen
-(Dockerfile, `npm start`, `node --watch`) und kollidiert mit paralleler Arbeit
-an `backend/src/**`. Stattdessen:
+1. `tsconfig.json`: `allowJs: true`, `checkJs: false`, `strict: true`,
+   `noEmit: true`. Geprüft werden genau die Dateien, die mit `// @ts-check`
+   in der **ersten Zeile** beginnen (plus alle `.d.ts`).
+2. Typen per JSDoc: `@param {Typ}`, `@returns`, `@typedef`, bei Bedarf
+   `/** @type {X} */ (ausdruck)`-Casts. Beschreibungsprosa ist nicht nötig
+   (siehe CLAUDE.md, Code-Konventionen).
+3. Gemeinsame Typen liegen in `src/types/*.d.ts` und werden per
+   `import('../types')` referenziert:
+   - `db.d.ts`: Zeilentypen, so wie `pg` sie liefert (NUMERIC → `string`,
+     TIMESTAMP/DATE → `Date`, JSONB → Objekt, BYTEA → `Buffer`)
+   - `express.d.ts`: `req.user` (`AuthenticatedUser`)
+   - `utils.d.ts`: geteilte Rückgabeformen von `passwordService` und
+     `accountSecurity`
+   Nur Typen, die eine Datei tatsächlich referenziert, gehören dorthin;
+   ungenutzte Typen wieder entfernen.
+4. Keine Logikänderung, um einen Typfehler zu beheben. Wo eine Korrektur das
+   Laufzeitverhalten ändern würde, einen Cast setzen und den Punkt im PR
+   erwähnen.
+5. Neue Datei unter `@ts-check` nehmen: Pragma einfügen, `npm run typecheck`
+   grün machen, Datei in `__tests__/tsCheckOptIn.test.js` eintragen. Der Test
+   schlägt fehl, wenn ein Pragma verloren geht oder eine Datei mit Pragma nicht
+   in der Liste steht.
 
-1. **`tsconfig.json`** mit `allowJs: true`, `checkJs: false`, `noEmit: true`.
-   Ohne `// @ts-check`-Pragma am Dateianfang wird eine `.js`-Datei von `tsc`
-   zwar geparst (für den Modul-Graphen), aber **nicht** typgeprüft – der
-   Rollout ist damit pro Datei steuerbar und für den Rest des Codes
-   wirkungslos.
-2. **`backend/src/types/`** enthält die eigentlichen Typdefinitionen
-   (`.d.ts`, kein Code, keine Laufzeitwirkung):
-   - `db.d.ts` – Zeilentypen aller Tabellen aus `db/init.sql`, so wie `pg`
-     sie tatsächlich zurückgibt (siehe Kommentar am Dateianfang: NUMERIC →
-     `string`, TIMESTAMP/DATE → `Date`, JSONB → geparstes Objekt, BYTEA →
-     `Buffer`).
-   - `express.d.ts` – erweitert `Request` um `req.user` (Payload aus
-     `middleware/auth.js` / `jwt.sign(...)` in `routes/auth.js`).
-   - `utils.d.ts` – Rückgabeformen von `passwordService`, `accountSecurity`,
-     `whereClauseBuilder` u. a., die (noch) nicht selbst unter `@ts-check`
-     stehen.
-   - `index.d.ts` – Sammel-Export, z. B.
-     `/** @typedef {import('../types').SchmuckstueckRow} SchmuckstueckRow */`.
-3. **Pilot-Dateien** mit `// @ts-check` + JSDoc-Annotationen:
-   - `src/utils/whereClauseBuilder.js`
-   - `src/utils/constants.js`
-   - `src/middleware/auth.js`
+## Stand
 
-   Diese drei sind rein additiv typisiert – **keine Verhaltensänderung**
-   (einzige Ausnahme: die Catch-Blöcke in `auth.js` prüfen `err instanceof
-   Error`, weil TypeScript `catch`-Variablen strikt als `unknown` behandelt;
-   für alle von `jwt.verify` tatsächlich geworfenen Fehler ist das Ergebnis
-   identisch zu vorher).
+Unter `@ts-check`: `middleware/{auth,csrf,httpsRedirect,validate}.js` und
+`utils/{accountSecurity,artikelBezeichnung,authCookie,constants,
+encryptionService,fotoDateiname,passwordService,rabatt,whereClauseBuilder}.js`
+(maßgeblich ist die Liste im Test).
 
-## Weitere Dateien schrittweise unter `@ts-check` nehmen
-
-1. Datei auswählen, die **stabil** ist (kein aktiver PR/Refactor gerade
-   parallel) und wenig `require()`-Kopplung an noch ungetypten Code hat.
-2. `// @ts-check` als erste Zeile einfügen, `npm run typecheck` laufen
-   lassen.
-3. Fehler beheben – **nur** durch JSDoc-Annotationen (`@param`, `@returns`,
-   `@type`, `@typedef`, ggf. `/** @type {X} */ (ausdruck)`-Casts). Keine
-   Logikänderung, auch keine Umbenennungen "nebenbei".
-4. Für DB-Zeilen/`req.user`/gemeinsame Rückgabeformen die Typen aus
-   `src/types/` importieren statt neue zu erfinden – Konsistenz mit den
-   echten Spalten aus `db/init.sql` ist hier das Ziel, nicht Bequemlichkeit.
-5. `npm test` grün halten, dann committen.
-
-Gute nächste Kandidaten (stand jetzt unangetastet, geringe Kopplung):
-`src/utils/accountSecurity.js`, `src/utils/passwordService.js`,
-`src/utils/authCookie.js`, `src/utils/encryptionService.js`,
-`src/middleware/validate.js`, `src/schemas/*.js` (dort ergänzt
-`z.infer<typeof schema>` die Zod-Schemas fast ohne zusätzliche Typannotationen).
-
-Absichtlich **nicht** angefasst in diesem Zug: `src/utils/logger.js` (parallel
-in Bearbeitung), `src/index.js`, `src/routes/**` (hohe Änderungsfrequenz,
-viele parallele Issues) – die Types in `src/types/db.d.ts` sind aber bereits
-so geschnitten, dass die Routen sie beim Migrieren direkt verwenden können.
+Noch offen (jeweils eigener Schritt): `utils/{fotoService,fotoZip,
+bestellungService,excelService,logger}.js`, `middleware/{cors,
+securityHeaders}.js`, `schemas/*.js` (dort hilft `z.infer<typeof schema>`),
+`config/db.js`, `routes/**` (hohe Änderungsfrequenz, zuletzt migrieren).
 
 ## Wann lohnt sich der Schritt zu echten `.ts`-Dateien + Build?
 

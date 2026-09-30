@@ -1,5 +1,14 @@
 -- GoldRegenDB PostgreSQL Schema
 -- Migriert von MariaDB/MySQL
+--
+-- Eingefrorener Schema-Stand für den Docker-Entrypoint (Issue #257): legt die
+-- Tabellen an, damit db/seed.sql direkt danach Daten einspielen kann. Maßgeblich
+-- ist backend/src/config/migrations/ – das Backend wendet beim Start alle
+-- Migrationen idempotent an, auch auf eine mit dieser Datei angelegte
+-- Datenbank. Diese Datei deshalb NICHT für neue Schemaänderungen erweitern,
+-- dafür gibt es eine neue, höher nummerierte Migrationsdatei. Dass
+-- "init.sql + Migrationen" und "nur Migrationen" dasselbe Schema ergeben,
+-- prüft backend/__tests__/migrations.integration.test.js.
 
 -- Für die Hash-Kette des audit_log (digest/encode), siehe Issue #139
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -18,38 +27,28 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION audit_schmuckstueck_changes()
 RETURNS TRIGGER AS $$
-DECLARE
-    col_name TEXT;
-    old_val TEXT;
-    new_val TEXT;
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        -- Verkauft
         IF OLD."Verkauft" IS DISTINCT FROM NEW."Verkauft" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Verkauft', OLD."Verkauft"::TEXT, NEW."Verkauft"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
-        -- Ausgelagert
         IF OLD."Ausgelagert" IS DISTINCT FROM NEW."Ausgelagert" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausgelagert', OLD."Ausgelagert"::TEXT, NEW."Ausgelagert"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
-        -- Ausschuss
         IF OLD."Ausschuss" IS DISTINCT FROM NEW."Ausschuss" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausschuss', OLD."Ausschuss"::TEXT, NEW."Ausschuss"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
-        -- Lieferschein_ID
         IF OLD."Lieferschein_ID" IS DISTINCT FROM NEW."Lieferschein_ID" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Lieferschein_ID', OLD."Lieferschein_ID"::TEXT, NEW."Lieferschein_ID"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
-        -- Rechnung_ID
         IF OLD."Rechnung_ID" IS DISTINCT FROM NEW."Rechnung_ID" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Rechnung_ID', OLD."Rechnung_ID"::TEXT, NEW."Rechnung_ID"::TEXT, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
         END IF;
-            -- Ausschuss_Grund
         IF OLD."Ausschuss_Grund" IS DISTINCT FROM NEW."Ausschuss_Grund" THEN
             INSERT INTO audit_log (table_name, artikelnummer_id, column_name, old_value, new_value, action_type, changed_by)
             VALUES ('Schmuckstück', NEW."Artikelnummer", 'Ausschuss_Grund', OLD."Ausschuss_Grund", NEW."Ausschuss_Grund", 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user));
@@ -206,6 +205,10 @@ CREATE TABLE "Rechnung" (
     "Kundennummer" INTEGER NOT NULL,
     "Datum" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'final',
+    -- Rabatte (utils/rabatt.js): Gesamtrabatt in Prozent und Positionsrabatte
+    -- je Basis-Artikelnummer
+    rabatt_gesamt NUMERIC(5,2) NOT NULL DEFAULT 0,
+    rabatt_positionen JSONB NOT NULL DEFAULT '{}',
     -- Einmalkunde (Onlineshop): Anschrift steht nur auf dieser Rechnung und
     -- überschreibt beim Export die Anschrift aus "Kunde" (z. B. "Online").
     empfaenger JSONB DEFAULT NULL,
@@ -271,8 +274,8 @@ CREATE TABLE "Schmuckstück" (
     -- Verkauft UND Ausschuss gleichzeitig ist in keinem Status-Mapping
     -- vorgesehen: die Zeile zählt in der Inventur doppelt und im Dashboard nur
     -- als Ausschuss. Im Bestand gab es 28 solche Zeilen, siehe
-    -- db/status_widerspruch_2026-09.csv und ensureStatusBooleans() in
-    -- backend/src/config/db.js.
+    -- db/status_widerspruch_2026-09.csv und Migration
+    -- backend/src/config/migrations/0002_status_booleans.sql.
     CONSTRAINT schmuck_status_chk CHECK (NOT ("Verkauft" AND "Ausschuss")),
     CONSTRAINT schmuck_preis_nicht_negativ
       CHECK ("Verkaufspreis" >= 0 AND "Herstellungskosten" >= 0),
@@ -284,6 +287,10 @@ CREATE TABLE "Schmuckstück" (
     CONSTRAINT schmuck_artikelnummer_gross_chk
       CHECK ("Artikelnummer" = UPPER("Artikelnummer"))
 );
+
+-- schmuckstueck_ausschuss_grund_required_chk fehlt hier bewusst: db/seed.sql
+-- enthält Ausschuss-Stücke ohne Grund (Befund D7) und würde daran scheitern.
+-- Migration 0005 legt sie beim ersten Backend-Start als NOT VALID an.
 
 CREATE INDEX idx_schmuck_ausgelagert ON "Schmuckstück" ("Ausgelagert");
 CREATE INDEX idx_schmuck_lieferschein ON "Schmuckstück" ("Lieferschein_ID");
@@ -316,8 +323,8 @@ CREATE TABLE audit_log (
     changed_by VARCHAR(255) DEFAULT NULL,
     change_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     -- Hash-Kette (Issue #139), siehe audit_log_hash_chain() / verify_audit_chain()
-    previous_hash CHAR(64) DEFAULT NULL,
-    hash CHAR(64) DEFAULT NULL
+    previous_hash CHAR(64),
+    hash CHAR(64)
 );
 
 -- Die Tabelle wächst unbegrenzt und wird durchweg nach Zeitstempel abgefragt:
@@ -448,7 +455,8 @@ CREATE TABLE bestellung (
     versandart      versandart_typ NOT NULL,
     erfassungsdatum TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     wunschdatum     DATE DEFAULT NULL,
-    beschreibung    TEXT NOT NULL,
+    -- Nullable: die Anonymisierung leert die Beschreibung (Freitext kann PII enthalten)
+    beschreibung    TEXT,
     status          bestellstatus_typ NOT NULL DEFAULT 'offen',
     rechnung_nummer VARCHAR(20) DEFAULT NULL REFERENCES "Rechnung"("Nummer"),
     erstellt_von    VARCHAR(100) NOT NULL,
@@ -524,11 +532,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Recht auf Vergessenwerden (Art. 17 DSGVO): PII in bestellung_kunde löschen,
--- bestellung (Transaktionsdaten) bleibt für Statistik/Buchhaltung erhalten.
+-- Recht auf Vergessenwerden (Art. 17 DSGVO): PII in bestellung_kunde, das
+-- Referenzfoto und die Freitext-Beschreibung löschen; bestellung
+-- (Transaktionsdaten) bleibt für Statistik/Buchhaltung erhalten.
 CREATE OR REPLACE FUNCTION anonymisiere_bestellung_kunde(p_kunde_id INTEGER)
 RETURNS VOID AS $$
 BEGIN
+    DELETE FROM bestellung_foto
+    WHERE datei_name IN (
+        SELECT foto_pfad FROM bestellung
+        WHERE kunde_id = p_kunde_id AND foto_pfad IS NOT NULL
+    );
+
+    UPDATE bestellung
+    SET foto_pfad = NULL,
+        beschreibung = NULL
+    WHERE kunde_id = p_kunde_id;
+
     UPDATE bestellung_kunde
     SET name_enc = NULL,
         email_enc = NULL,
@@ -552,3 +572,4 @@ CREATE TRIGGER trg_bestellung_aktualisiert
     BEFORE UPDATE ON bestellung
     FOR EACH ROW
     EXECUTE FUNCTION update_bestellung_aktualisiert();
+

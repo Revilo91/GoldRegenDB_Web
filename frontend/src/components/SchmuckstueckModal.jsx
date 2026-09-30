@@ -144,7 +144,7 @@ export default function SchmuckstueckModal({
                 <div className="schmuck-modal-photo-placeholder empty">
                   <span className="photo-icon">⚠️</span>
                   Bild konnte nicht geladen werden
-                  <div style={{ marginTop: "4px", fontSize: "12px", color: "#666" }}>
+                  <div className="schmuckstueck-modal-mt-4-fs-12-color-666">
                     {foto.fehler}
                   </div>
                 </div>

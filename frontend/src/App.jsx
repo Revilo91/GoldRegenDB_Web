@@ -442,53 +442,26 @@ function AppLayout() {
             </div>
             <div className="modal-body">
               {showForcedPasswordChange && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    marginBottom: 16,
-                    background: "rgba(245,158,11,0.1)",
-                    color: "#f59e0b",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: 14,
-                  }}
-                >
+                <div className="app-hinweis-warnung">
                   Bitte ändern Sie Ihr Passwort, bevor Sie fortfahren können.
                   Geben Sie Ihr aktuelles Einmalpasswort und ein neues Passwort
                   ein.
                 </div>
               )}
               {passwordError && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    marginBottom: 16,
-                    background: "var(--danger-bg)",
-                    color: "var(--danger)",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: 14,
-                  }}
-                >
+                <div className="app-hinweis-fehler">
                   {passwordError}
                 </div>
               )}
               {passwordSuccess && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    marginBottom: 16,
-                    background: "var(--success-bg, rgba(16,185,129,0.1))",
-                    color: "var(--success, #10b981)",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: 14,
-                  }}
-                >
+                <div className="app-hinweis-erfolg">
                   {passwordSuccess}
                 </div>
               )}
-              <div style={{ display: "grid", gap: 16 }}>
+              <div className="app-grid-gap-16">
                 <div className="form-group">
                   <label className="form-label">Aktuelles Passwort *</label>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div className="app-flex-gap-8">
                     <input
                       type={showCurrentPassword ? "text" : "password"}
                       className="form-control"
@@ -498,11 +471,10 @@ function AppLayout() {
                     />
                     <button
                       type="button"
-                      className="btn btn-secondary"
+                      className="btn btn-secondary app-p-6-12-minw-40"
                       onClick={() =>
                         setShowCurrentPassword(!showCurrentPassword)
                       }
-                      style={{ padding: "6px 12px", minWidth: 40 }}
                     >
                       {showCurrentPassword ? "🙈" : "👁️"}
                     </button>
@@ -510,7 +482,7 @@ function AppLayout() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Neues Passwort *</label>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div className="app-flex-gap-8">
                     <input
                       type={showNewPasswordField ? "text" : "password"}
                       className="form-control"
@@ -520,11 +492,10 @@ function AppLayout() {
                     />
                     <button
                       type="button"
-                      className="btn btn-secondary"
+                      className="btn btn-secondary app-p-6-12-minw-40"
                       onClick={() =>
                         setShowNewPasswordField(!showNewPasswordField)
                       }
-                      style={{ padding: "6px 12px", minWidth: 40 }}
                     >
                       {showNewPasswordField ? "🙈" : "👁️"}
                     </button>

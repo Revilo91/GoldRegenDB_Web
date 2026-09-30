@@ -70,7 +70,7 @@ INSERT INTO "Schmuckstück" (…, "Herstellungskosten", "Verkaufspreis", "Online
 ```
 In `db/init.sql` und `backend/src/config/db.js` kommt `"Online"` **null Mal**
 vor (`grep -c` = 0/0). Die Spalte stammt aus MySQL
-(`GoldRegenDB_structure.sql:107`: `` `Online` tinyint(1) DEFAULT 0 ``) und wurde
+(`db/legacy/GoldRegenDB_structure.sql:107`: `` `Online` tinyint(1) DEFAULT 0 ``) und wurde
 bei der Postgres-Migration gestrichen — im Seed aber nicht.
 
 > Zur Einordnung der Zahl: `grep -c '"Online"' db/seed.sql` liefert 653, das
@@ -281,7 +281,7 @@ ALTER TABLE "Schmuckstück" ALTER COLUMN "Ausgelagert_Kunde_ID" DROP DEFAULT;
 Lagerorte, nicht Kunden.
 
 ### B3 [S1] Drei Fremdschlüssel sind bei der MySQL→PG-Migration verloren gegangen
-`GoldRegenDB_structure.sql:194-197` hatte sie noch:
+`db/legacy/GoldRegenDB_structure.sql:194-197` hatte sie noch:
 ```sql
 ALTER TABLE `Schmuckstück`
   ADD CONSTRAINT FOREIGN KEY (`Ausgelagert`)     REFERENCES `Kunde` (`ID`),
@@ -324,7 +324,7 @@ CREATE INDEX idx_rechnung_id ON "Rechnung" ("ID");   -- nur ein *nicht*-eindeuti
 ```
 `"Lieferschein"` hat sein `UNIQUE ("ID")` (`init.sql:182`), `"Rechnung"` nicht.
 Die Asymmetrie ist 1:1 aus MySQL übernommen
-(`GoldRegenDB_structure.sql:133` `ADD UNIQUE KEY` vs. `:141` `ADD KEY`) — ein
+(`db/legacy/GoldRegenDB_structure.sql:133` `ADD UNIQUE KEY` vs. `:141` `ADD KEY`) — ein
 alter Bug, treu mitmigriert.
 
 *Fehlerszenario:* Jeder Pfad mit explizitem `"ID"` kann duplizieren —
