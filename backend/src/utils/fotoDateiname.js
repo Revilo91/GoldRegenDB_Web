@@ -1,3 +1,4 @@
+// @ts-check
 const path = require('path');
 const { basisArtikelnummer } = require('./fotoService');
 
@@ -7,6 +8,12 @@ const NUMMER_TEIL = /^[A-Z]+\d+$/i;
 
 // Ordnet einen Dateinamen aus dem Bestandsimport einer Basis-Artikelnummer zu.
 // "MBH004.jpg" und "MBH004_2.jpg" → MBH004; "MBH004_MBH005.jpg" → mehrere.
+/**
+ * @param {string} dateiName
+ * @returns {{status: 'endung' | 'ohneNummer' | 'unklar'}
+ *   | {status: 'mehrere', nummern: string[]}
+ *   | {status: 'ok', basis: string}}
+ */
 function analysiereDateiname(dateiName) {
   const { name, ext } = path.parse(dateiName);
   if (!ERLAUBTE_ENDUNGEN.has(ext.toLowerCase())) {

@@ -1,3 +1,4 @@
+// @ts-check
 const crypto = require('crypto');
 
 // Nach so vielen aufeinanderfolgenden Fehlversuchen wird das Konto gesperrt.
@@ -9,16 +10,33 @@ const SPERRDAUER_MINUTEN = 30;
 // Gültigkeit eines Passwort-Reset-Tokens
 const RESET_TOKEN_GUELTIGKEIT_MINUTEN = 30;
 
+/** @typedef {import('../types').SperrbarerUser} SperrbarerUser */
+
+/**
+ * @param {Partial<SperrbarerUser> | null | undefined} user
+ * @param {Date} [jetzt]
+ * @returns {boolean}
+ */
 function istGesperrt(user, jetzt = new Date()) {
-  return Boolean(user?.locked_until) && new Date(user.locked_until) > jetzt;
+  return Boolean(user?.locked_until) && new Date(/** @type {Date} */ (user?.locked_until)) > jetzt;
 }
 
+/**
+ * @param {Partial<SperrbarerUser> | null | undefined} user
+ * @param {Date} [jetzt]
+ * @returns {number}
+ */
 function verbleibendeSperrminuten(user, jetzt = new Date()) {
   if (!istGesperrt(user, jetzt)) return 0;
-  return Math.ceil((new Date(user.locked_until) - jetzt) / 60000);
+  return Math.ceil((new Date(/** @type {Date} */ (user?.locked_until)).getTime() - jetzt.getTime()) / 60000);
 }
 
 // Ergebnis eines Fehlversuchs: neuer Zähler und ggf. Sperrzeitpunkt.
+/**
+ * @param {Partial<SperrbarerUser> | null | undefined} user
+ * @param {Date} [jetzt]
+ * @returns {import('../types').FehlversuchErgebnis}
+ */
 function naechsterFehlversuch(user, jetzt = new Date()) {
   const versuche = (user?.failed_login_attempts || 0) + 1;
   const lockedUntil =
@@ -30,6 +48,10 @@ function naechsterFehlversuch(user, jetzt = new Date()) {
 
 // Das Token geht an den Benutzer, gespeichert wird nur sein Hash – ein
 // Datenbank-Leak erlaubt damit keine Passwort-Zurücksetzung.
+/**
+ * @param {Date} [jetzt]
+ * @returns {import('../types').ResetTokenErgebnis}
+ */
 function erzeugeResetToken(jetzt = new Date()) {
   const token = crypto.randomBytes(32).toString('hex');
   return {
@@ -39,6 +61,7 @@ function erzeugeResetToken(jetzt = new Date()) {
   };
 }
 
+/** @param {string} token */
 function hashResetToken(token) {
   return crypto.createHash('sha256').update(token, 'utf8').digest('hex');
 }

@@ -1,3 +1,4 @@
+// @ts-check
 const crypto = require('crypto');
 const logger = require('./logger');
 const { getSecret } = require('../config/secrets');
@@ -20,6 +21,7 @@ if (KEY.length !== 32) {
 
 // Verschlüsselt ein einzelnes Feld für die Speicherung als BYTEA.
 // Layout: IV(12B) || AuthTag(16B) || Ciphertext – jeder Wert mit eigenem, zufälligem IV.
+/** @param {unknown} plaintext */
 function encryptField(plaintext) {
   if (plaintext === null || plaintext === undefined || plaintext === '') return null;
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -30,6 +32,7 @@ function encryptField(plaintext) {
 }
 
 // Entschlüsselt ein mit encryptField() erzeugtes BYTEA-Feld.
+/** @param {Buffer | Uint8Array | null | undefined} value */
 function decryptField(value) {
   if (!value) return null;
   const raw = Buffer.isBuffer(value) ? value : Buffer.from(value);
@@ -42,6 +45,7 @@ function decryptField(value) {
 }
 
 // SHA-256-Hash für Nachweiszwecke (z.B. Consent-IP) – niemals Klartext speichern.
+/** @param {unknown} value */
 function hashValue(value) {
   if (!value) return null;
   return crypto.createHash('sha256').update(String(value)).digest('hex');

@@ -1,3 +1,4 @@
+// @ts-check
 // Name des Cookies, in dem das JWT liegt.
 const AUTH_COOKIE_NAME = 'jwt';
 
@@ -14,11 +15,15 @@ function cookieOptions() {
     secure: process.env.COOKIE_SECURE === 'true',
     // 'lax' blockt das Cookie bei site-fremden POST-Requests (CSRF-Grundschutz),
     // erlaubt aber normale Navigation. Dev (5173 → 3001) ist same-site.
-    sameSite: 'lax',
+    sameSite: /** @type {const} */ ('lax'),
     path: '/',
   };
 }
 
+/**
+ * @param {import('express').Response} res
+ * @param {string} token
+ */
 function setAuthCookie(res, token) {
   res.cookie(AUTH_COOKIE_NAME, token, {
     ...cookieOptions(),
@@ -26,6 +31,7 @@ function setAuthCookie(res, token) {
   });
 }
 
+/** @param {import('express').Response} res */
 function clearAuthCookie(res) {
   // Beim Löschen dürfen maxAge/expires nicht gesetzt sein, die übrigen
   // Attribute müssen exakt denen beim Setzen entsprechen.
