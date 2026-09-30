@@ -820,7 +820,7 @@ GoldRegenDB_Web/
     └── src/
         ├── App.jsx                   # Router + Layout
         ├── api.js                    # Zentraler API-Client
-        ├── index.css                 # Globale Styles (alle Klassen hier)
+        ├── index.css                 # Globale Styles (alle Klassen hier; Inline-Styles per ESLint verboten, nur CSS-Variablen)
         ├── context/AuthContext.jsx   # JWT-Auth-State + Rollen
         ├── components/               # DataTable, TableToolbar, PhotoUpload, ProtectedRoute, Toast
         ├── hooks/useFoto.js          # Foto per Artikelnummer laden (Tabelle, Modal, Detail, Upload)

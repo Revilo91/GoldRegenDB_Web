@@ -580,7 +580,7 @@ export default function Schmuckstuecke() {
           </p>
         </div>
         {activeTab === "schmuckstuecke" && (
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="schmuckstuecke-flex-gap-10">
           {canEdit && (
             <button className="btn btn-secondary" onClick={openBulkCreate}>
               + Schmuckstücke nachtragen
@@ -593,7 +593,7 @@ export default function Schmuckstuecke() {
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div className="schmuckstuecke-flex-gap-8-mb-16">
         <button
           className={`btn btn-sm ${activeTab === "schmuckstuecke" ? "btn-primary" : "btn-secondary"}`}
           onClick={() => setActiveTab("schmuckstuecke")}>
@@ -834,9 +834,8 @@ export default function Schmuckstuecke() {
       {bulkModalOpen && (
         <div className="modal-overlay">
           <div
-            className="modal modal-lg"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "100%" }}>
+            className="modal modal-lg schmuckstuecke-maxw-100"
+            onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
                 <FontAwesomeIcon icon={faPlus} /> Mehrere Schmuckstücke
@@ -854,11 +853,7 @@ export default function Schmuckstuecke() {
                   <FontAwesomeIcon icon={faCopy} /> Vorlage (optional)
                 </h4>
                 <div
-                  className="form-row"
-                  style={{
-                    gridTemplateColumns: "1fr 220px",
-                    alignItems: "end",
-                  }}>
+                  className="form-row schmuckstuecke-cols-1fr-220-ai-end">
                   <div className="form-group">
                     <label>Bestehendes Schmuckstück laden</label>
                     <input
@@ -890,7 +885,7 @@ export default function Schmuckstuecke() {
                   <FontAwesomeIcon icon={faHashtag} /> Tabelle für
                   Mehrfach-Erfassung
                 </h4>
-                <div className="table-container" style={{ overflowX: "auto" }}>
+                <div className="table-container schmuckstuecke-ox-auto">
                   <DataTable
                     className="table"
                     data={bulkRows}
@@ -1069,7 +1064,7 @@ export default function Schmuckstuecke() {
                         label: "Aktion",
                         render: (row) => {
                           return (
-                            <div style={{ display: "flex", gap: "6px" }}>
+                            <div className="schmuckstuecke-flex-gap-6">
                               <button
                                 className="btn btn-secondary btn-sm"
                                 onClick={() => duplicateBulkRow(row._rowId)}
@@ -1091,7 +1086,7 @@ export default function Schmuckstuecke() {
                     ]}
                   />
                 </div>
-                <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+                <div className="schmuckstuecke-mt-12-flex-gap-8">
                   <button className="btn btn-secondary" onClick={addBulkRow}>
                     <FontAwesomeIcon icon={faPlus} /> Zeile hinzufügen
                   </button>
@@ -1145,9 +1140,8 @@ export default function Schmuckstuecke() {
       {editing !== null && (
         <div className="modal-overlay">
           <div
-            className="modal modal-lg"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "900px" }}>
+            className="modal modal-lg schmuckstuecke-maxw-900"
+            onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
                 {editing === "new" ? (
@@ -1172,11 +1166,7 @@ export default function Schmuckstuecke() {
                 {editing === "new" ? (
                   <>
                     <div
-                      className="form-row"
-                      style={{
-                        gridTemplateColumns: "1fr 1fr 1fr 120px",
-                        alignItems: "end",
-                      }}>
+                      className="form-row schmuckstuecke-cols-1fr-1fr-1fr-120-ai-end">
                       <div className="form-group">
                         <label>Hersteller*</label>
                         <select
@@ -1275,8 +1265,7 @@ export default function Schmuckstuecke() {
                       <div className="form-group">
                         <label>Artikelnummer*</label>
                         <div
-                          className="form-control"
-                          style={{ display: "flex", alignItems: "center" }}>
+                          className="form-control schmuckstuecke-flex-ai-center">
                           {nextArtikelnummerPreview ||
                             form.Artikelnummer ||
                             "---"}
@@ -1772,7 +1761,7 @@ export default function Schmuckstuecke() {
                 </div>
                 {editing !== "new" ? (
                   <>
-                    <div className="form-row" style={{ marginTop: "16px" }}>
+                    <div className="form-row schmuckstuecke-mt-16">
                       <div className="form-group">
                         <label
                           className="form-label">
@@ -1797,8 +1786,8 @@ export default function Schmuckstuecke() {
                       </div>
 
                       {istWahr(form.Ausschuss) && (
-                        <div className="form-row" style={{ marginTop: "12px" }}>
-                          <div className="form-group" style={{ flex: 1 }}>
+                        <div className="form-row schmuckstuecke-mt-12">
+                          <div className="form-group schmuckstuecke-flex-1">
                             <label>Ausschuss Grund</label>
                             <input
                               list="ausschussgruende-list"

@@ -247,84 +247,58 @@ export default function Dashboard() {
       </div>
 
       {/* ── Manufacturer Stats Grid ── */}
-      <div style={{ marginBottom: 24 }}>
-        <h2
-          style={{
-            fontSize: "1.5rem",
-            fontWeight: 600,
-            marginBottom: 16,
-            color: "#e8eaf0",
-          }}
-        >
+      <div className="dashboard-mb-24">
+        <h2 className="dashboard-fs-1_5rem-fw-600-mb-16-color-e8eaf0">
           Statistiken nach Hersteller
         </h2>
         <div className="responsive-grid-2">
           {/* Marina */}
           <div className="card">
             <div
-              className="card-header"
-              style={{ borderBottom: "2px solid #6366f1" }}
-            >
-              <h3 style={{ color: "#6366f1" }}>Marina (M)</h3>
+              className="card-header dashboard-border-b-2-solid-6366f1">
+              <h3 className="dashboard-color-6366f1">Marina (M)</h3>
             </div>
-            <div style={{ padding: 16 }}>
-              <div className="stats-grid" style={{ marginBottom: 0 }}>
-                <div className="stat-card info" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+            <div className="dashboard-p-16">
+              <div className="stats-grid dashboard-mb-0">
+                <div className="stat-card info dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {mStats.total}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Gesamt
                   </div>
                 </div>
                 <div
-                  className="stat-card success"
-                  style={{ minHeight: "auto" }}
-                >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                  className="stat-card success dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {mStats.verfuegbar}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Verfügbar
                   </div>
                 </div>
                 <div
-                  className="stat-card warning"
-                  style={{ minHeight: "auto" }}
-                >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                  className="stat-card warning dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {mStats.ausgelagert}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Ausgelagert
                   </div>
                 </div>
-                <div className="stat-card gold" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                <div className="stat-card gold dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {mStats.verkauft}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Verkauft
                   </div>
                 </div>
               </div>
-              <div
-                style={{
-                  marginTop: 12,
-                  paddingTop: 12,
-                  borderTop: "1px solid #2e3240",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "0.9rem",
-                    color: "#9ca3b4",
-                  }}
-                >
+              <div className="dashboard-mt-12-pt-12-border-t-1-solid-2e3240">
+                <div className="dashboard-kennzahl-zeile">
                   <span>Umsatz:</span>
-                  <span style={{ fontWeight: 600, color: "#d4a853" }}>
+                  <span className="dashboard-fw-600-color-d4a853">
                     {formatEur(mStats.umsatz)}
                   </span>
                 </div>
@@ -335,69 +309,50 @@ export default function Dashboard() {
           {/* Saskia */}
           <div className="card">
             <div
-              className="card-header"
-              style={{ borderBottom: "2px solid #ec4899" }}
-            >
-              <h3 style={{ color: "#ec4899" }}>Saskia (S)</h3>
+              className="card-header dashboard-border-b-2-solid-ec4899">
+              <h3 className="dashboard-color-ec4899">Saskia (S)</h3>
             </div>
-            <div style={{ padding: 16 }}>
-              <div className="stats-grid" style={{ marginBottom: 0 }}>
-                <div className="stat-card info" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+            <div className="dashboard-p-16">
+              <div className="stats-grid dashboard-mb-0">
+                <div className="stat-card info dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {sStats.total}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Gesamt
                   </div>
                 </div>
                 <div
-                  className="stat-card success"
-                  style={{ minHeight: "auto" }}
-                >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                  className="stat-card success dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {sStats.verfuegbar}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Verfügbar
                   </div>
                 </div>
                 <div
-                  className="stat-card warning"
-                  style={{ minHeight: "auto" }}
-                >
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                  className="stat-card warning dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {sStats.ausgelagert}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Ausgelagert
                   </div>
                 </div>
-                <div className="stat-card gold" style={{ minHeight: "auto" }}>
-                  <div className="stat-value" style={{ fontSize: "1.5rem" }}>
+                <div className="stat-card gold dashboard-minh-auto">
+                  <div className="stat-value dashboard-fs-1_5rem">
                     {sStats.verkauft}
                   </div>
-                  <div className="stat-label" style={{ fontSize: "0.75rem" }}>
+                  <div className="stat-label dashboard-fs-0_75rem">
                     Verkauft
                   </div>
                 </div>
               </div>
-              <div
-                style={{
-                  marginTop: 12,
-                  paddingTop: 12,
-                  borderTop: "1px solid #2e3240",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "0.9rem",
-                    color: "#9ca3b4",
-                  }}
-                >
+              <div className="dashboard-mt-12-pt-12-border-t-1-solid-2e3240">
+                <div className="dashboard-kennzahl-zeile">
                   <span>Umsatz:</span>
-                  <span style={{ fontWeight: 600, color: "#d4a853" }}>
+                  <span className="dashboard-fw-600-color-d4a853">
                     {formatEur(sStats.umsatz)}
                   </span>
                 </div>
@@ -408,7 +363,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Manufacturer Comparison Chart ── */}
-      <div style={{ marginBottom: 24 }}>
+      <div className="dashboard-mb-24">
         <div className="card">
           <div className="card-header">
             <h3>Hersteller-Vergleich</h3>
@@ -471,21 +426,14 @@ export default function Dashboard() {
       </div>
 
       {/* ── Manufacturer Outsourced by Customer ── */}
-      <div style={{ marginBottom: 24 }}>
-        <h3
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: 600,
-            marginBottom: 16,
-            color: "#e8eaf0",
-          }}
-        >
+      <div className="dashboard-mb-24">
+        <h3 className="dashboard-fs-1_25rem-fw-600-mb-16-color-e8eaf0">
           Ausgelagerte Stücke nach Hersteller & Kunde
         </h3>
         <div className="responsive-grid-2">
           <div className="card">
             <div className="card-header">
-              <h3 style={{ color: "#6366f1" }}>Marina bei Kunden</h3>
+              <h3 className="dashboard-color-6366f1">Marina bei Kunden</h3>
             </div>
             <div className="chart-container">
               {mByKunde.length === 0 ? (
@@ -535,7 +483,7 @@ export default function Dashboard() {
 
           <div className="card">
             <div className="card-header">
-              <h3 style={{ color: "#ec4899" }}>Saskia bei Kunden</h3>
+              <h3 className="dashboard-color-ec4899">Saskia bei Kunden</h3>
             </div>
             <div className="chart-container">
               {sByKunde.length === 0 ? (
@@ -586,7 +534,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Row 1: BarChart Art + PieChart Status ── */}
-      <div className="responsive-grid-2" style={{ marginBottom: 24 }}>
+      <div className="responsive-grid-2 dashboard-mb-24">
         <div className="card">
           <div className="card-header">
             <h3>Stücke nach Art</h3>
@@ -743,37 +691,26 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-header">
             <h3>Monatlicher Umsatztrend</h3>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="dashboard-flex-gap-8-wrap-wrap">
               <button
                 type="button"
                 onClick={() => setRevenueSeriesMode("total")}
-                className={revenueSeriesMode === "total" ? "btn" : "btn-secondary"}
-                style={{ padding: "6px 10px", fontSize: "0.8rem" }}
-              >
+                className={`${revenueSeriesMode === "total" ? "btn" : "btn-secondary"} dashboard-p-6-10-fs-0_8rem`}>
                 Gesamt
               </button>
               <button
                 type="button"
                 onClick={() => setRevenueSeriesMode("manufacturers")}
                 className={
-                  revenueSeriesMode === "manufacturers" ? "btn" : "btn-secondary"
+                  `${revenueSeriesMode === "manufacturers" ? "btn" : "btn-secondary"} dashboard-p-6-10-fs-0_8rem`
                 }
-                style={{ padding: "6px 10px", fontSize: "0.8rem" }}
               >
                 Hersteller
               </button>
               <button
                 type="button"
                 onClick={() => setRevenueSeriesMode("all")}
-                className={revenueSeriesMode === "all" ? "btn" : "btn-secondary"}
-                style={{ padding: "6px 10px", fontSize: "0.8rem" }}
-              >
+                className={`${revenueSeriesMode === "all" ? "btn" : "btn-secondary"} dashboard-p-6-10-fs-0_8rem`}>
                 Alle
               </button>
             </div>

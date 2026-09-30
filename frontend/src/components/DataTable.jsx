@@ -59,8 +59,7 @@ export default function DataTable({
           {columns.map((c) => (
             <th
               key={c.key || c.label}
-              className={c.className || ""}
-              style={{ cursor: c.sortable ? "pointer" : "default", ...c.style }}
+              className={`${c.className || ""} ${c.headerClassName || ""} ${c.sortable ? "data-table-th-sortable" : "data-table-th-static"}`.trim()}
               onClick={() => c.sortable && requestSort(c.key)}>
               {c.label} {c.sortable ? getSortIcon(c.key) : null}
             </th>
@@ -75,18 +74,17 @@ export default function DataTable({
             onClick: customOnClick,
             onDragStart: customOnDragStart,
             onDragEnd: customOnDragEnd,
-            style: customStyle,
             ...restCustomRowProps
           } = customRowProps;
 
           const isDraggable = Boolean(restCustomRowProps.draggable);
-          const baseCursor = isDraggable
+          const rowCursorClass = isDraggable
             ? draggingRowKey === rowKey
-              ? "grabbing"
-              : "grab"
+              ? "data-table-row-grabbing"
+              : "data-table-row-grab"
             : onRowClick
-              ? "pointer"
-              : "default";
+              ? "data-table-row-pointer"
+              : "data-table-row-default";
 
           return (
             <tr
@@ -117,10 +115,7 @@ export default function DataTable({
                   customOnDragEnd(event);
                 }
               }}
-              style={{
-                cursor: baseCursor,
-                ...customStyle,
-              }}
+              className={rowCursorClass}
               {...restCustomRowProps}>
               {columns.map((c) => (
                 <td key={(c.key || c.label) + getRowKey(row)} className={c.className || ""}>

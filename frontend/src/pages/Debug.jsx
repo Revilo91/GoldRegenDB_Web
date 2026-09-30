@@ -177,7 +177,7 @@ const DebugTable = ({ tableName }) => {
           const value = row[colName];
           const displayValue =
             value === null ? (
-              <em style={{ color: "var(--text-muted)" }}>null</em>
+              <em className="debug-color-text-muted">null</em>
             ) : (
               String(value)
             );
@@ -223,13 +223,13 @@ const DebugTable = ({ tableName }) => {
       );
     if (error)
       return (
-        <div className="detail-item" style={{ padding: "24px" }}>
+        <div className="detail-item debug-p-24">
           <span className="badge danger">{error}</span>
         </div>
       );
     if (hasFetched && data.length === 0)
       return (
-        <div className="detail-item" style={{ padding: "24px" }}>
+        <div className="detail-item debug-p-24">
           No rows in {tableName}
         </div>
       );
@@ -237,13 +237,11 @@ const DebugTable = ({ tableName }) => {
     if (!hasFetched) return null;
 
     return (
-      <div className="card-body" style={{ overflowX: "auto" }}>
+      <div className="card-body debug-ox-auto">
         <TableToolbar
           search={search}
           onSearchChange={handleSearchChange}
-          placeholder={`Suche in ${tableName}...`}
-          style={{ marginBottom: "12px" }}
-        />
+          placeholder={`Suche in ${tableName}...`} className="debug-mb-12"/>
 
         {filteredData.length > 0 ? (
           <DataTable
@@ -257,7 +255,7 @@ const DebugTable = ({ tableName }) => {
             }}
           />
         ) : (
-          <div className="detail-item" style={{ padding: "24px" }}>
+          <div className="detail-item debug-p-24">
             Keine Treffer in {tableName}.
           </div>
         )}
@@ -290,7 +288,7 @@ const DebugTable = ({ tableName }) => {
         <span>{expanded ? "▲" : "▼"}</span>
       </h3>
       {expanded && (
-        <div className="card" style={{ marginTop: "16px" }}>
+        <div className="card debug-mt-16">
           {renderContent()}
         </div>
       )}

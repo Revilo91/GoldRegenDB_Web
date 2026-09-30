@@ -82,7 +82,7 @@ function ItemsTable({
   );
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="inventur-ox-auto">
       <DataTable
         data={items}
         className="inventur-items-table"
@@ -94,7 +94,7 @@ function ItemsTable({
             key: "zurueck",
             label: (
               <>
-                <div style={{ fontSize: 8 }}>Zurück</div>
+                <div className="inventur-fs-8">Zurück</div>
                 <input
                   type="checkbox"
                   className="table-checkbox table-checkbox-header"
@@ -105,7 +105,7 @@ function ItemsTable({
                 />
               </>
             ),
-            style: { width: 40, textAlign: "center" },
+            headerClassName: "inventur-th-checkbox",
             render: (item) => (
               <input
                 type="checkbox"
@@ -120,7 +120,7 @@ function ItemsTable({
             key: "rechnung",
             label: (
               <>
-                <div style={{ fontSize: 8 }}>Rechnung</div>
+                <div className="inventur-fs-8">Rechnung</div>
                 <input
                   type="checkbox"
                   className="table-checkbox table-checkbox-header"
@@ -135,7 +135,7 @@ function ItemsTable({
                 />
               </>
             ),
-            style: { width: 40, textAlign: "center" },
+            headerClassName: "inventur-th-checkbox",
             render: (item) => (
               <input
                 type="checkbox"
@@ -170,15 +170,7 @@ function ItemsTable({
               ),
             render: (item) => (
               <button
-                className="btn-link"
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
+                className="btn-link inventur-link-button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onItemClick(item.Artikelnummer);
@@ -226,15 +218,10 @@ function ItemsTable({
             {selectedForRechnung && <td />}
             <td className="photo-col" />
             <td
-              colSpan={1}
-              style={{
-                fontWeight: 600,
-                textAlign: "right",
-                padding: "8px 12px",
-              }}>
+              colSpan={1} className="inventur-fw-600-text-right-p-8-12">
               Gesamtwert:
             </td>
-            <td style={{ fontWeight: 600 }}>{formatEur(total)}</td>
+            <td className="inventur-fw-600">{formatEur(total)}</td>
             <td className="hide-on-mobile" />
           </tr>
         }
@@ -403,16 +390,14 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{ maxWidth: 960, width: "95%" }}
+        className="modal inventur-maxw-960-w-95"
         onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>
             Inventur – {kundeName}
             {!kundeAktiv && (
               <span
-                className="badge danger"
-                style={{ marginLeft: 8, fontSize: 12 }}>
+                className="badge danger inventur-ml-8-fs-12">
                 Inaktiv
               </span>
             )}
@@ -432,7 +417,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
             data && (
               <>
                 {/* Stats */}
-                <div className="stats-grid" style={{ marginBottom: 10 }}>
+                <div className="stats-grid inventur-mb-10">
                   {[
                     {
                       label: "Gesamt",
@@ -463,37 +448,23 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                 </div>
 
                 {/* Wert stats */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    marginBottom: 20,
-                    flexWrap: "wrap",
-                  }}>
-                  <span
-                    style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                <div className="inventur-flex-gap-12-mb-20-wrap-wrap">
+                  <span className="inventur-color-text-secondary-fs-13">
                     Warenwert (aktiv):{" "}
-                    <strong style={{ color: "var(--success)" }}>
+                    <strong className="inventur-color-success">
                       {formatEur(data.stats.wert_aktiv)}
                     </strong>
                   </span>
-                  <span
-                    style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                  <span className="inventur-color-text-secondary-fs-13">
                     Warenwert (verkauft):{" "}
-                    <strong style={{ color: "var(--info)" }}>
+                    <strong className="inventur-color-info">
                       {formatEur(data.stats.wert_verkauft)}
                     </strong>
                   </span>
                 </div>
 
                 {/* Tabs */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 4,
-                    marginBottom: 16,
-                    flexWrap: "wrap",
-                  }}>
+                <div className="inventur-flex-gap-4-mb-16-wrap-wrap">
                   {TABS.map((t) => (
                     <button
                       key={t.id}
@@ -505,14 +476,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                       }}>
                       {t.label}
                       {t.id !== "alle" && (
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            background: "rgba(255,255,255,0.15)",
-                            borderRadius: 10,
-                            padding: "1px 6px",
-                            fontSize: 11,
-                          }}>
+                        <span className="inventur-zaehler-badge">
                           {t.id === "aktiv"
                             ? data.stats.aktiv
                             : t.id === "verkauft"
@@ -546,9 +510,8 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
         </div>
 
         <div
-          className="modal-footer inventur-modal-footer"
-          style={{ justifyContent: "space-between" }}>
-          <div style={{ display: "flex", gap: 8 }}>
+          className="modal-footer inventur-modal-footer inventur-jc-space-between">
+          <div className="inventur-flex-gap-8">
             <button
               className="btn btn-warning"
               onClick={handleRestock}
@@ -558,7 +521,7 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                   ? "Wähle Artikel (↩) aus um zurückzulagern"
                   : `${selectedForReturn.size} Artikel zurücklagern`
               }>
-              <FontAwesomeIcon icon={faBox} style={{ marginRight: 6 }} />
+              <FontAwesomeIcon icon={faBox} className="inventur-mr-6" />
               {restocking
                 ? "Lagere zurück…"
                 : `Zurücklagern (${selectedForReturn.size})`}
@@ -575,22 +538,19 @@ function DetailModal({ kundeId, kundeName, kundeAktiv, onClose, onRestock }) {
                   : `Rechnung für ${selectedForRechnung.size} Artikel erstellen`
               }>
               <FontAwesomeIcon
-                icon={faFileInvoice}
-                style={{ marginRight: 6 }}
-              />
+                icon={faFileInvoice} className="inventur-mr-6"/>
               {creatingRechnung
                 ? "Erstelle Rechnung…"
                 : `Rechnung erstellen (${selectedForRechnung.size})`}
             </button>
           </div>
           <div
-            className="inventur-modal-actions"
-            style={{ display: "flex", gap: 8 }}>
+            className="inventur-modal-actions inventur-flex-gap-8">
             <button
               className="btn btn-primary"
               onClick={handleExcel}
               disabled={exporting || loading}>
-              <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: 6 }} />
+              <FontAwesomeIcon icon={faFileExcel} className="inventur-mr-6" />
               {exporting ? "Exportiere…" : "Excel Export"}
             </button>
             <button className="btn btn-secondary" onClick={onClose}>
@@ -626,17 +586,10 @@ function InventurDiffModal({ draftId, onClose }) {
   return (
     <div className="modal-overlay">
       <div
-        className="modal"
-        style={{
-          maxWidth: 900,
-          width: "95%",
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className="modal inventur-modal-diff"
         onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <h3 className="inventur-flex-ai-center-gap-10">
             <FontAwesomeIcon icon={faSearch} />
             Inventur-Auswertung #{draftId}
           </h3>
@@ -645,7 +598,7 @@ function InventurDiffModal({ draftId, onClose }) {
           </button>
         </div>
 
-        <div className="modal-body" style={{ flex: 1, overflowY: "auto" }}>
+        <div className="modal-body inventur-flex-1-oy-auto">
           {loading ? (
             <div className="loading">
               <div className="spinner"></div>Lade Auswertung…
@@ -654,42 +607,21 @@ function InventurDiffModal({ draftId, onClose }) {
             diff && (
               <>
                 {/* Summary Badges */}
-                <div className="stats-grid" style={{ marginBottom: 20 }}>
+                <div className="stats-grid inventur-mb-20">
                   <div
-                    className="stat-card danger"
-                    style={{
-                      cursor: "pointer",
-                      outline:
-                        activeSection === "fehlend"
-                          ? "2px solid var(--danger)"
-                          : "none",
-                    }}
+                    className={`stat-card danger inventur-stat-klickbar${activeSection === "fehlend" ? " inventur-outline-danger" : ""}`}
                     onClick={() => setActiveSection("fehlend")}>
                     <div className="stat-value">{diff.stats.fehlend}</div>
                     <div className="stat-label">Fehlend</div>
                   </div>
                   <div
-                    className="stat-card warning"
-                    style={{
-                      cursor: "pointer",
-                      outline:
-                        activeSection === "unbekannt"
-                          ? "2px solid var(--warning)"
-                          : "none",
-                    }}
+                    className={`stat-card warning inventur-stat-klickbar${activeSection === "unbekannt" ? " inventur-outline-warning" : ""}`}
                     onClick={() => setActiveSection("unbekannt")}>
                     <div className="stat-value">{diff.stats.unbekannt}</div>
                     <div className="stat-label">Unbekannt</div>
                   </div>
                   <div
-                    className="stat-card success"
-                    style={{
-                      cursor: "pointer",
-                      outline:
-                        activeSection === "gefunden"
-                          ? "2px solid var(--success)"
-                          : "none",
-                    }}
+                    className={`stat-card success inventur-stat-klickbar${activeSection === "gefunden" ? " inventur-outline-success" : ""}`}
                     onClick={() => setActiveSection("gefunden")}>
                     <div className="stat-value">{diff.stats.gefunden}</div>
                     <div className="stat-label">Gefunden</div>
@@ -703,55 +635,36 @@ function InventurDiffModal({ draftId, onClose }) {
                 {/* Fehlend */}
                 {activeSection === "fehlend" && (
                   <>
-                    <h4
-                      style={{
-                        color: "var(--danger)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginBottom: 12,
-                      }}>
+                    <h4 className="inventur-color-danger-flex-ai-center-gap-8-mb-12">
                       <FontAwesomeIcon icon={faExclamationTriangle} />
                       Fehlende Artikelnummern ({diff.stats.fehlend})
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 400,
-                          color: "var(--text-secondary)",
-                        }}>
+                      <span className="inventur-fs-12-fw-400-color-text-secondary">
                         – Im Lager erwartet, aber nicht gescannt
                       </span>
                     </h4>
                     {diff.fehlend.length === 0 ? (
-                      <p style={{ color: "var(--success)", fontWeight: 600 }}>
+                      <p className="inventur-color-success-fw-600">
                         ✓ Keine Artikel fehlen – alles vollständig erfasst!
                       </p>
                     ) : (
-                      <div style={{ overflowX: "auto" }}>
+                      <div className="inventur-ox-auto">
                         <table
-                          className="table"
-                          style={{ width: "100%", borderCollapse: "collapse" }}>
+                          className="table inventur-w-100-border-collapse-collapse">
                           <thead>
-                            <tr
-                              style={{
-                                borderBottom: "2px solid var(--border)",
-                              }}>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
+                            <tr className="inventur-border-b-2-solid-border">
+                              <th className="inventur-p-8-text-left">
                                 Artikelnummer
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
+                              <th className="inventur-p-8-text-left">
                                 Name
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Soll
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Ist
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Fehlend
                               </th>
                             </tr>
@@ -759,41 +672,22 @@ function InventurDiffModal({ draftId, onClose }) {
                           <tbody>
                             {diff.fehlend.map((item) => (
                               <tr
-                                key={item.Artikelnummer}
-                                style={{
-                                  borderBottom: "1px solid var(--border)",
-                                  background:
-                                    "rgba(var(--danger-rgb, 239,68,68), 0.05)",
-                                }}>
-                                <td style={{ padding: "8px" }}>
-                                  <strong style={{ color: "var(--danger)" }}>
+                                key={item.Artikelnummer} className="inventur-zeile-fehlend">
+                                <td className="inventur-p-8">
+                                  <strong className="inventur-color-danger">
                                     {item.Artikelnummer}
                                   </strong>
                                 </td>
-                                <td style={{ padding: "8px" }}>
+                                <td className="inventur-p-8">
                                   {item.Name || "–"}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                  }}>
+                                <td className="inventur-p-8-text-center">
                                   {item.Soll}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                  }}>
+                                <td className="inventur-p-8-text-center">
                                   {item.Ist}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                    fontWeight: "bold",
-                                    color: "var(--danger)",
-                                  }}>
+                                <td className="inventur-p-8-text-center-fw-bold-color-danger">
                                   {item.Fehlt}
                                 </td>
                               </tr>
@@ -808,55 +702,36 @@ function InventurDiffModal({ draftId, onClose }) {
                 {/* Unbekannt */}
                 {activeSection === "unbekannt" && (
                   <>
-                    <h4
-                      style={{
-                        color: "var(--warning)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginBottom: 12,
-                      }}>
+                    <h4 className="inventur-titel-unbekannt">
                       <FontAwesomeIcon icon={faQuestionCircle} />
                       Unbekannte Artikel ({diff.unbekannt.length})
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 400,
-                          color: "var(--text-secondary)",
-                        }}>
+                      <span className="inventur-fs-12-fw-400-color-text-secondary">
                         – Gescannt, aber nicht im Lager-Soll
                       </span>
                     </h4>
                     {diff.unbekannt.length === 0 ? (
-                      <p style={{ color: "var(--success)", fontWeight: 600 }}>
+                      <p className="inventur-color-success-fw-600">
                         ✓ Keine unbekannten Artikel gescannt.
                       </p>
                     ) : (
-                      <div style={{ overflowX: "auto" }}>
+                      <div className="inventur-ox-auto">
                         <table
-                          className="table"
-                          style={{ width: "100%", borderCollapse: "collapse" }}>
+                          className="table inventur-w-100-border-collapse-collapse">
                           <thead>
-                            <tr
-                              style={{
-                                borderBottom: "2px solid var(--border)",
-                              }}>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
+                            <tr className="inventur-border-b-2-solid-border">
+                              <th className="inventur-p-8-text-left">
                                 Artikelnummer
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
+                              <th className="inventur-p-8-text-left">
                                 Name
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Soll
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Ist
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Überschuss
                               </th>
                             </tr>
@@ -864,41 +739,22 @@ function InventurDiffModal({ draftId, onClose }) {
                           <tbody>
                             {diff.unbekannt.map((item) => (
                               <tr
-                                key={item.Artikelnummer}
-                                style={{
-                                  borderBottom: "1px solid var(--border)",
-                                  background:
-                                    "rgba(var(--warning-rgb, 245,158,11), 0.05)",
-                                }}>
-                                <td style={{ padding: "8px" }}>
-                                  <strong style={{ color: "var(--warning)" }}>
+                                key={item.Artikelnummer} className="inventur-zeile-unbekannt">
+                                <td className="inventur-p-8">
+                                  <strong className="inventur-color-warning">
                                     {item.Artikelnummer}
                                   </strong>
                                 </td>
-                                <td style={{ padding: "8px" }}>
+                                <td className="inventur-p-8">
                                   {item.Name || "–"}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                  }}>
+                                <td className="inventur-p-8-text-center">
                                   {item.Soll}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                  }}>
+                                <td className="inventur-p-8-text-center">
                                   {item.Ist}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                    fontWeight: "bold",
-                                    color: "var(--warning)",
-                                  }}>
+                                <td className="inventur-p-8-text-center-fw-bold-color-warning">
                                   {item.Zuviel}
                                 </td>
                               </tr>
@@ -913,51 +769,33 @@ function InventurDiffModal({ draftId, onClose }) {
                 {/* Gefunden */}
                 {activeSection === "gefunden" && (
                   <>
-                    <h4
-                      style={{
-                        color: "var(--success)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginBottom: 12,
-                      }}>
+                    <h4 className="inventur-titel-gefunden">
                       <FontAwesomeIcon icon={faCheckCircle} />
                       Gefundene Artikel ({diff.gefunden.length})
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 400,
-                          color: "var(--text-secondary)",
-                        }}>
+                      <span className="inventur-fs-12-fw-400-color-text-secondary">
                         – Im Soll und auch gescannt
                       </span>
                     </h4>
                     {diff.gefunden.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)" }}>
+                      <p className="inventur-color-text-muted">
                         Keine Artikel übereinstimmend.
                       </p>
                     ) : (
-                      <div style={{ overflowX: "auto" }}>
+                      <div className="inventur-ox-auto">
                         <table
-                          className="table"
-                          style={{ width: "100%", borderCollapse: "collapse" }}>
+                          className="table inventur-w-100-border-collapse-collapse">
                           <thead>
-                            <tr
-                              style={{
-                                borderBottom: "2px solid var(--border)",
-                              }}>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
+                            <tr className="inventur-border-b-2-solid-border">
+                              <th className="inventur-p-8-text-left">
                                 Artikelnummer
                               </th>
-                              <th style={{ padding: "8px", textAlign: "left" }}>
+                              <th className="inventur-p-8-text-left">
                                 Name
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Soll
                               </th>
-                              <th
-                                style={{ padding: "8px", textAlign: "center" }}>
+                              <th className="inventur-p-8-text-center">
                                 Gefunden
                               </th>
                             </tr>
@@ -965,30 +803,19 @@ function InventurDiffModal({ draftId, onClose }) {
                           <tbody>
                             {diff.gefunden.map((item) => (
                               <tr
-                                key={item.Artikelnummer}
-                                style={{
-                                  borderBottom: "1px solid var(--border)",
-                                }}>
-                                <td style={{ padding: "8px" }}>
-                                  <strong style={{ color: "var(--success)" }}>
+                                key={item.Artikelnummer} className="inventur-border-b-1-solid-border">
+                                <td className="inventur-p-8">
+                                  <strong className="inventur-color-success">
                                     {item.Artikelnummer}
                                   </strong>
                                 </td>
-                                <td style={{ padding: "8px" }}>
+                                <td className="inventur-p-8">
                                   {item.Name || "–"}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                  }}>
+                                <td className="inventur-p-8-text-center">
                                   {item.Soll}
                                 </td>
-                                <td
-                                  style={{
-                                    padding: "8px",
-                                    textAlign: "center",
-                                  }}>
+                                <td className="inventur-p-8-text-center">
                                   {item.Gefunden}
                                 </td>
                               </tr>
@@ -1004,7 +831,7 @@ function InventurDiffModal({ draftId, onClose }) {
           )}
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: "flex-end" }}>
+        <div className="modal-footer inventur-jc-flex-end">
           <button className="btn btn-secondary" onClick={onClose}>
             Schließen
           </button>
@@ -1190,47 +1017,36 @@ function LagerInventurEditor({ draftId, onBack }) {
       )}
       <div className="card">
         <div
-          className="card-header"
-          style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          className="card-header inventur-flex-gap-16-ai-center">
           <button className="btn btn-secondary" onClick={onBack}>
             &larr; Zurück
           </button>
-          <h3 style={{ margin: 0 }}>Lager-Inventur #{draft.id}</h3>
+          <h3 className="inventur-m-0">Lager-Inventur #{draft.id}</h3>
         </div>
         <div className="card-body">
-          <div style={{ marginBottom: 20 }}>
+          <div className="inventur-mb-20">
             <label>Kommentar:</label>
             <input
               type="text"
-              className="input"
+              className="input inventur-w-100-maxw-400-mt-4"
               value={draft.kommentar || ""}
               onChange={(e) =>
                 setDraft((prev) => ({ ...prev, kommentar: e.target.value }))
               }
               placeholder="Optionale Notiz..."
-              style={{ width: "100%", maxWidth: 400, marginTop: 4 }}
             />
           </div>
 
           <form
-            onSubmit={handleScan}
-            style={{
-              display: "flex",
-              gap: 8,
-              marginBottom: 24,
-              padding: 16,
-              background: "var(--bg-hover)",
-              borderRadius: 8,
-            }}>
+            onSubmit={handleScan} className="inventur-scan-form">
             <input
               type="text"
-              className="input"
+              className="input inventur-flex-1-maxw-300"
               list="artikelnummer-autocomplete"
               value={inputNr}
               onChange={(e) => setInputNr(e.target.value)}
               placeholder="Artikelnummer scannen..."
               autoFocus
-              style={{ flex: 1, maxWidth: 300 }}
             />
             <datalist id="artikelnummer-autocomplete">
               {allArticleNumbers.map((nr) => (
@@ -1245,33 +1061,23 @@ function LagerInventurEditor({ draftId, onBack }) {
             </button>
           </form>
 
-          <h4 style={{ marginBottom: 12 }}>
+          <h4 className="inventur-mb-12">
             Erfasste Artikel (
             {entries.reduce((sum, [_, count]) => sum + count, 0)} Stück gesamt)
           </h4>
           {entries.length === 0 ? (
-            <p style={{ color: "var(--text-muted)" }}>
+            <p className="inventur-color-text-muted">
               Noch keine Artikel gescannt.
             </p>
           ) : (
-            <div style={{ overflowX: "auto", marginBottom: 20 }}>
+            <div className="inventur-ox-auto-mb-20">
               <table
-                className="table"
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  textAlign: "left",
-                }}>
+                className="table inventur-tabelle">
                 <thead>
-                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                    <th style={{ padding: "8px" }}>Artikelnummer</th>
-                    <th style={{ width: 120, padding: "8px" }}>Anzahl</th>
-                    <th
-                      style={{
-                        width: 80,
-                        padding: "8px",
-                        textAlign: "center",
-                      }}>
+                  <tr className="inventur-border-b-2-solid-border">
+                    <th className="inventur-p-8">Artikelnummer</th>
+                    <th className="inventur-w-120-p-8">Anzahl</th>
+                    <th className="inventur-w-80-p-8-text-center">
                       Aktion
                     </th>
                   </tr>
@@ -1279,24 +1085,22 @@ function LagerInventurEditor({ draftId, onBack }) {
                 <tbody>
                   {entries.map(([nr, count]) => (
                     <tr
-                      key={nr}
-                      style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px" }}>
+                      key={nr} className="inventur-border-b-1-solid-border">
+                      <td className="inventur-p-8">
                         <strong>{nr}</strong>
                       </td>
-                      <td style={{ padding: "8px" }}>
+                      <td className="inventur-p-8">
                         <input
                           type="number"
-                          className="input"
+                          className="input inventur-w-80"
                           min="1"
                           value={count}
                           onChange={(e) =>
                             handleCountChange(nr, e.target.value)
                           }
-                          style={{ width: 80 }}
                         />
                       </td>
-                      <td style={{ padding: "8px", textAlign: "center" }}>
+                      <td className="inventur-p-8-text-center">
                         <button
                           className="btn btn-danger btn-sm"
                           onClick={() => handleRemove(nr)}
@@ -1311,29 +1115,20 @@ function LagerInventurEditor({ draftId, onBack }) {
             </div>
           )}
 
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              marginTop: 20,
-              paddingTop: 20,
-              borderTop: "1px solid var(--border)",
-              flexWrap: "wrap",
-            }}>
+          <div className="inventur-aktionsleiste">
             <button
               className="btn btn-primary"
               onClick={handleShowDiff}
               disabled={saving || entries.length === 0}
               title="Vergleiche gescannte Artikel mit dem Lagerbestand">
-              <FontAwesomeIcon icon={faSearch} style={{ marginRight: 8 }} />
+              <FontAwesomeIcon icon={faSearch} className="mr-8" />
               Auswertung anzeigen
             </button>
             <button
-              className="btn btn-success"
+              className="btn btn-success ml-auto"
               onClick={completeDraft}
-              disabled={saving}
-              style={{ marginLeft: "auto" }}>
-              <FontAwesomeIcon icon={faCheck} style={{ marginRight: 8 }} />
+              disabled={saving}>
+              <FontAwesomeIcon icon={faCheck} className="mr-8" />
               Abschließen
             </button>
           </div>
@@ -1386,7 +1181,7 @@ function LagerInventurUI() {
       <div className="card-header">
         <h3>Offene Inventuren</h3>
         <button className="btn btn-primary" onClick={createDraft}>
-          <FontAwesomeIcon icon={faPlus} style={{ marginRight: 8 }} />
+          <FontAwesomeIcon icon={faPlus} className="mr-8" />
           Neue Inventur
         </button>
       </div>
@@ -1396,7 +1191,7 @@ function LagerInventurUI() {
             <div className="spinner"></div>Lade Inventuren...
           </div>
         ) : drafts.length === 0 ? (
-          <p style={{ color: "var(--text-muted)", padding: 10 }}>
+          <p className="inventur-color-text-muted-p-10">
             Keine offenen Inventuren vorhanden.
           </p>
         ) : (
@@ -1421,7 +1216,7 @@ function LagerInventurUI() {
                 label: "Kommentar",
                 render: (d) =>
                   d.kommentar || (
-                    <span style={{ color: "var(--text-muted)" }}>
+                    <span className="inventur-color-text-muted">
                       Kein Kommentar
                     </span>
                   ),
@@ -1557,7 +1352,7 @@ export default function Inventur() {
       </div>
 
       {/* Tabs für Kunden-Inventur und Lager-Inventur */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div className="inventur-flex-gap-8-mb-16">
         <button
           className={`btn btn-sm ${activeTab === "kunden" ? "btn-primary" : "btn-secondary"}`}
           onClick={() => setActiveTab("kunden")}>
@@ -1604,7 +1399,7 @@ export default function Inventur() {
                   <div className="spinner"></div>Lade…
                 </div>
               ) : filtered.length === 0 ? (
-                <p style={{ color: "var(--text-muted)" }}>
+                <p className="inventur-color-text-muted">
                   {summary.length === 0
                     ? "Keine ausgelagerten Artikel vorhanden."
                     : "Keine Ergebnisse für diese Suche."}
@@ -1618,45 +1413,29 @@ export default function Inventur() {
                     onRowClick={(k) => setSelectedKunde(k)}
                     className="inventur-table"
                     footer={
-                      <tr
-                        style={{
-                          fontWeight: 600,
-                          background: "var(--bg-hover)",
-                        }}>
+                      <tr className="inventur-fw-600-bg-bg-hover">
                         <td
-                          colSpan={isMobile ? 1 : 2}
-                          style={{ padding: "8px 12px" }}>
+                          colSpan={isMobile ? 1 : 2} className="inventur-p-8-12">
                           Gesamt
                         </td>
-                        <td style={{ textAlign: "left" }}>{totals.gesamt}</td>
-                        <td
-                          style={{
-                            textAlign: "left",
-                            color: "var(--success)",
-                          }}>
+                        <td className="inventur-text-left">{totals.gesamt}</td>
+                        <td className="inventur-text-left-color-success">
                           {totals.aktiv}
                         </td>
                         <td
-                          className="hide-on-mobile"
-                          style={{ textAlign: "left", color: "var(--info)" }}>
+                          className="hide-on-mobile inventur-text-left-color-info">
                           {totals.verkauft}
                         </td>
                         <td
-                          className="hide-on-mobile"
-                          style={{
-                            textAlign: "left",
-                            color: "var(--warning)",
-                          }}>
+                          className="hide-on-mobile inventur-text-left-color-warning">
                           {totals.ausschuss}
                         </td>
                         <td
-                          className="hide-on-mobile"
-                          style={{ textAlign: "left" }}>
+                          className="hide-on-mobile inventur-text-left">
                           {formatEur(totals.wert_aktiv)}
                         </td>
                         <td
-                          className="hide-on-mobile"
-                          style={{ textAlign: "left" }}>
+                          className="hide-on-mobile inventur-text-left">
                           {formatEur(totals.wert_verkauft)}
                         </td>
                       </tr>
@@ -1671,8 +1450,7 @@ export default function Inventur() {
                             <strong>{r.Name}</strong>
                             {!r.Aktiv && (
                               <span
-                                className="badge danger"
-                                style={{ marginLeft: 8, fontSize: 10 }}>
+                                className="badge danger inventur-ml-8-fs-10">
                                 Inaktiv
                               </span>
                             )}
@@ -1688,19 +1466,19 @@ export default function Inventur() {
                       {
                         key: "gesamt",
                         label: "Gesamt",
-                        style: { textAlign: "left" },
+                        headerClassName: "inventur-th-links",
                         sortable: true,
                         render: (r) => (
-                          <span style={{ textAlign: "left" }}>{r.gesamt}</span>
+                          <span className="inventur-text-left">{r.gesamt}</span>
                         ),
                       },
                       {
                         key: "aktiv",
                         label: "Nicht verkauft",
-                        style: { textAlign: "left" },
+                        headerClassName: "inventur-th-links",
                         sortable: true,
                         render: (r) => (
-                          <span style={{ color: "var(--success)" }}>
+                          <span className="inventur-color-success">
                             {r.aktiv}
                           </span>
                         ),
@@ -1709,10 +1487,10 @@ export default function Inventur() {
                         key: "verkauft",
                         label: "Verkauft",
                         className: "hide-on-mobile",
-                        style: { textAlign: "left" },
+                        headerClassName: "inventur-th-links",
                         sortable: true,
                         render: (r) => (
-                          <span style={{ color: "var(--info)" }}>
+                          <span className="inventur-color-info">
                             {r.verkauft}
                           </span>
                         ),
@@ -1721,10 +1499,10 @@ export default function Inventur() {
                         key: "ausschuss",
                         label: "Ausschuss",
                         className: "hide-on-mobile",
-                        style: { textAlign: "left" },
+                        headerClassName: "inventur-th-links",
                         sortable: true,
                         render: (r) => (
-                          <span style={{ color: "var(--warning)" }}>
+                          <span className="inventur-color-warning">
                             {r.ausschuss}
                           </span>
                         ),
@@ -1733,14 +1511,14 @@ export default function Inventur() {
                         key: "wert_aktiv",
                         label: "Warenwert (aktiv)",
                         className: "hide-on-mobile",
-                        style: { textAlign: "left" },
+                        headerClassName: "inventur-th-links",
                         render: (r) => formatEur(r.wert_aktiv),
                       },
                       {
                         key: "wert_verkauft",
                         label: "Warenwert (verkauft)",
                         className: "hide-on-mobile",
-                        style: { textAlign: "left" },
+                        headerClassName: "inventur-th-links",
                         render: (r) => formatEur(r.wert_verkauft),
                       },
                     ]}
@@ -1782,12 +1560,12 @@ function InlineItems({ kundeId }) {
 
   if (loading)
     return (
-      <div style={{ padding: 8 }}>
-        <div className="spinner" style={{ width: 20, height: 20 }}></div>
+      <div className="inventur-p-8">
+        <div className="spinner inventur-w-20-h-20"></div>
       </div>
     );
   if (error)
-    return <p style={{ color: "var(--danger)", padding: 8 }}>{error}</p>;
+    return <p className="inventur-color-danger-p-8">{error}</p>;
   if (!data) return null;
 
   const aktiv = data.items.filter(
@@ -1797,18 +1575,18 @@ function InlineItems({ kundeId }) {
   const ausschuss = data.items.filter((i) => istWahr(i.Ausschuss));
 
   return (
-    <div style={{ padding: "8px 0", fontSize: 13 }}>
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+    <div className="inventur-p-8-0-fs-13">
+      <div className="inventur-flex-gap-24-wrap-wrap">
         <span>
-          <span style={{ color: "var(--success)", fontWeight: 600 }}>
+          <span className="inventur-color-success-fw-600">
             {aktiv.length}
           </span>{" "}
           nicht verkauft &nbsp;|&nbsp;
-          <span style={{ color: "var(--info)", fontWeight: 600 }}>
+          <span className="inventur-color-info-fw-600">
             {verkauft.length}
           </span>{" "}
           verkauft &nbsp;|&nbsp;
-          <span style={{ color: "var(--warning)", fontWeight: 600 }}>
+          <span className="inventur-color-warning-fw-600">
             {ausschuss.length}
           </span>{" "}
           Ausschuss
