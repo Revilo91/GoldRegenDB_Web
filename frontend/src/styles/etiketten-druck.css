@@ -162,7 +162,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .etiketten-preview {
-    position: static;
     order: -1;
   }
 }

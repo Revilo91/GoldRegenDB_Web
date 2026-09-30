@@ -466,100 +466,6 @@ export default function Etiketten({ showHeader = true }) {
               )}
             </div>
           </section>
-
-          <section className="card">
-            <div className="card-header">
-              <h3>
-                <span className="etikett-step">3</span> Etikett gestalten
-              </h3>
-            </div>
-            <div className="card-body etikett-design">
-              <fieldset className="etikett-fieldset">
-                <legend>Etikettengröße</legend>
-                <div className="etikett-size-grid">
-                  {sizes.map((size) => (
-                    <label
-                      key={size.id}
-                      className={`etikett-size-option${
-                        labelSize === size.id ? " is-active" : ""
-                      }`}>
-                      <input
-                        type="radio"
-                        name="labelSize"
-                        value={size.id}
-                        checked={labelSize === size.id}
-                        onChange={() => setLabelSize(size.id)}
-                      />
-                      <span className="etikett-size-name">{size.name}</span>
-                      <span className="etikett-size-dim">
-                        {size.w} × {size.h} mm
-                      </span>
-                      <span className="etikett-size-meta">
-                        {size.showQr ? "mit QR-Code" : "ohne QR-Code"}
-                        {size.rotate ? " · gedreht" : ""}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
-              <fieldset className="etikett-fieldset">
-                <legend>
-                  Materialhinweise ({selectedHints.length}/{MAX_HINTS})
-                </legend>
-                <div className="etikett-chips">
-                  {PRESET_HINTS.map((hint) => (
-                    <button
-                      key={hint}
-                      type="button"
-                      aria-pressed={selectedHints.includes(hint)}
-                      className={`etikett-chip${
-                        selectedHints.includes(hint) ? " is-active" : ""
-                      }`}
-                      disabled={hintLimitReached && !selectedHints.includes(hint)}
-                      onClick={() => toggleHint(hint)}>
-                      {hint}
-                    </button>
-                  ))}
-                  {selectedHints
-                    .filter((hint) => !PRESET_HINTS.includes(hint))
-                    .map((hint) => (
-                      <button
-                        key={hint}
-                        type="button"
-                        aria-pressed="true"
-                        className="etikett-chip is-active"
-                        aria-label={`Hinweis ${hint} entfernen`}
-                        onClick={() => toggleHint(hint)}>
-                        {hint} ✕
-                      </button>
-                    ))}
-                </div>
-                <div className="etikett-custom-hint">
-                  <input
-                    className="form-control"
-                    placeholder="Eigener Hinweis"
-                    aria-label="Eigener Hinweis"
-                    value={customHint}
-                    disabled={hintLimitReached}
-                    onChange={(e) => setCustomHint(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key !== "Enter") return;
-                      e.preventDefault();
-                      addCustomHint();
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={addCustomHint}
-                    disabled={!customHint.trim() || hintLimitReached}>
-                    Hinweis hinzufügen
-                  </button>
-                </div>
-              </fieldset>
-            </div>
-          </section>
         </div>
 
         <aside className="etiketten-preview">
@@ -646,6 +552,93 @@ export default function Etiketten({ showHeader = true }) {
                   Musteretikett – Größe und Hinweise lassen sich vorab prüfen.
                 </p>
               )}
+
+              <div className="etikett-design">
+                <fieldset className="etikett-fieldset">
+                  <legend>Etikettengröße</legend>
+                  <div className="etikett-size-grid">
+                    {sizes.map((size) => (
+                      <label
+                        key={size.id}
+                        className={`etikett-size-option${
+                          labelSize === size.id ? " is-active" : ""
+                        }`}>
+                        <input
+                          type="radio"
+                          name="labelSize"
+                          value={size.id}
+                          checked={labelSize === size.id}
+                          onChange={() => setLabelSize(size.id)}
+                        />
+                        <span className="etikett-size-name">{size.name}</span>
+                        <span className="etikett-size-dim">
+                          {size.w} × {size.h} mm
+                        </span>
+                        <span className="etikett-size-meta">
+                          {size.showQr ? "mit QR-Code" : "ohne QR-Code"}
+                          {size.rotate ? " · gedreht" : ""}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="etikett-fieldset">
+                  <legend>
+                    Materialhinweise ({selectedHints.length}/{MAX_HINTS})
+                  </legend>
+                  <div className="etikett-chips">
+                    {PRESET_HINTS.map((hint) => (
+                      <button
+                        key={hint}
+                        type="button"
+                        aria-pressed={selectedHints.includes(hint)}
+                        className={`etikett-chip${
+                          selectedHints.includes(hint) ? " is-active" : ""
+                        }`}
+                        disabled={hintLimitReached && !selectedHints.includes(hint)}
+                        onClick={() => toggleHint(hint)}>
+                        {hint}
+                      </button>
+                    ))}
+                    {selectedHints
+                      .filter((hint) => !PRESET_HINTS.includes(hint))
+                      .map((hint) => (
+                        <button
+                          key={hint}
+                          type="button"
+                          aria-pressed="true"
+                          className="etikett-chip is-active"
+                          aria-label={`Hinweis ${hint} entfernen`}
+                          onClick={() => toggleHint(hint)}>
+                          {hint} ✕
+                        </button>
+                      ))}
+                  </div>
+                  <div className="etikett-custom-hint">
+                    <input
+                      className="form-control"
+                      placeholder="Eigener Hinweis"
+                      aria-label="Eigener Hinweis"
+                      value={customHint}
+                      disabled={hintLimitReached}
+                      onChange={(e) => setCustomHint(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        addCustomHint();
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={addCustomHint}
+                      disabled={!customHint.trim() || hintLimitReached}>
+                      Hinweis hinzufügen
+                    </button>
+                  </div>
+                </fieldset>
+              </div>
 
               <div className="etikett-summary">
                 <span className="etikett-summary-item">

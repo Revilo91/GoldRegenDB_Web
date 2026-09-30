@@ -14,11 +14,6 @@
   min-width: 0;
 }
 
-.etiketten-preview {
-  position: sticky;
-  top: 16px;
-}
-
 .etiketten-page .card-header h3 {
   display: flex;
   align-items: center;
@@ -105,6 +100,9 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .etikett-fieldset {
