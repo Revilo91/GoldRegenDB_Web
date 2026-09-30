@@ -330,18 +330,18 @@ router.put("/change-password", authenticate, validate(changePasswordSchema), asy
 
 // POST /api/auth/forgot-password – Reset-Token anfordern
 //
-// Es ist kein Mailversand konfiguriert. Der Reset-Link wird deshalb im
-// Backend-Log ausgegeben; ein Administrator gibt ihn an den Benutzer weiter.
-// Sobald SMTP verfügbar ist, muss nur diese Stelle auf Mailversand umgestellt
-// werden – der Ablauf für den Benutzer bleibt gleich.
+// Es ist kein Mailversand konfiguriert. Das Token erscheint bewusst nicht im
+// Log; ein Administrator ruft den Link über POST /auth/admin/generate-reset-link
+// ab und gibt ihn weiter. Sobald SMTP verfügbar ist, muss nur diese Stelle auf
+// Mailversand umgestellt werden.
 /**
  * @swagger
  * /auth/forgot-password:
  *   post:
  *     summary: Passwort-Reset-Token anfordern
  *     description: Antwort ist immer identisch, unabhängig davon, ob das Konto existiert (kein
- *       Benutzernamen-Orakel). Kein SMTP konfiguriert – der Reset-Link landet im Backend-Log, ein
- *       Administrator gibt ihn weiter. Läuft unter dem strengen Login-Rate-Limiter (20/15 Min pro IP).
+ *       Benutzernamen-Orakel). Kein SMTP konfiguriert – der Reset-Link steht nicht im Log, ein
+ *       Administrator erzeugt ihn über /auth/admin/generate-reset-link und gibt ihn weiter. Läuft unter dem strengen Login-Rate-Limiter (20/15 Min pro IP).
  *     tags: [Auth]
  *     security: []
  *     requestBody:

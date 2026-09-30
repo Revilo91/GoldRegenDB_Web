@@ -287,7 +287,7 @@ db/
 
 **CSRF** (`backend/src/middleware/csrf.js`): Double-Submit-Cookie-Muster. `GET /api/csrf-token` setzt ein lesbares `csrfToken`-Cookie; `api.js` spiegelt es als `X-CSRF-Token`-Header bei POST/PUT/PATCH/DELETE. Nur für cookie-authentifizierte Anfragen erzwungen.
 
-**Kontosperrung & Passwort-Reset** (`backend/src/utils/accountSecurity.js`): 5 aufeinanderfolgende fehlgeschlagene Logins sperren das Konto für 30 Minuten. Reset via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`; nur der SHA-256-Hash des Tokens wird gespeichert. Kein SMTP konfiguriert — der Reset-Link wird ins Backend-Log geschrieben.
+**Kontosperrung & Passwort-Reset** (`backend/src/utils/accountSecurity.js`): 5 aufeinanderfolgende fehlgeschlagene Logins sperren das Konto für 30 Minuten. Reset via `POST /api/auth/forgot-password` → `POST /api/auth/reset-password`; nur der SHA-256-Hash des Tokens wird gespeichert. Kein SMTP konfiguriert — ein Admin erzeugt den Reset-Link über `POST /api/auth/admin/generate-reset-link` (Token erscheint nicht im Log).
 
 ### Rollen & Berechtigungen
 | Rolle | Zugriff |
