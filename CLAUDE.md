@@ -6,8 +6,8 @@ Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Re
 
 ## Regeln für Claude
 
-1. Mach die Arbeit niemals selbst.
-2. Delegiere Aufgaben immer an Subagenten.
+1. Umfangreiche oder parallele Arbeit geht an Subagenten; Rückfragen, Pläne, Einzeiler und Commits macht die Haupt-KI selbst (Details: Abschnitt „Delegation & Modellwahl“ unten).
+2. Die Haupt-KI hat immer das letzte Wort: Subagenten committen nie, den Commit macht die Haupt-KI nach Diff-Prüfung und Tests.
 3. Einfache Aufgaben → Haiku 4.5 / Sonnet 5
 4. Opus 5.5 nur für komplexe Aufgaben.
 
@@ -464,6 +464,7 @@ Siehe `README.md`, Abschnitt „Synology NAS".
 - Parallel nur bei unabhängigen Aufgaben (keine gemeinsamen Dateien).
 - Auftrag an Subagenten immer vollständig: Ziel, betroffene Dateien, erwartetes Ergebnisformat, Grenzen aus Abschnitt 2.
 - Ergebnis nie ungeprüft übernehmen: Diff lesen, Tests selbst ausführen (Abschnitt 1, Schritt 5).
+- Haupt-KI hat immer das letzte Wort: Subagenten ändern nur Dateien und committen nie; den Commit für ihre Änderungen macht die Haupt-KI nach Diff-Prüfung und Tests.
 
 Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
 - **haiku**: Dateien suchen/lesen, Logs zusammenfassen, Formatierung, Doku-Kleinkram.
