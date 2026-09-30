@@ -4088,6 +4088,20 @@ select.form-control {
   min-width: 40px;
 }
 
+/* PhotoUpload */
+.photo-upload-color-666.photo-upload-color-666 {
+  color: #666;
+}
+
+.photo-upload-mt-10 {
+  margin-top: 10px;
+}
+
+.photo-upload-mt-10-text-center {
+  margin-top: 10px;
+  text-align: center;
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
