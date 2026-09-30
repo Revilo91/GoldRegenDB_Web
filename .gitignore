@@ -29,3 +29,9 @@ import-fotos-*.log
 
 # Eingesammelte Bestandsfotos für den Import (npm run sammle:fotos) – nie committen
 /uploads/
+
+# Datenbank-Dumps nie einchecken (#263)
+/*.sql
+/*.csv
+*_data.sql
+*.dump

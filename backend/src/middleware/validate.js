@@ -1,6 +1,8 @@
+// @ts-check
 const logger = require('../utils/logger');
 
 // Übersetzt einen Zod-Fehler in eine einzelne, für den Benutzer lesbare Meldung.
+/** @param {{path: PropertyKey[], message: string}} issue */
 function formatIssue(issue) {
   const pfad = issue.path.length > 0 ? issue.path.join('.') : 'Anfrage';
   return `${pfad}: ${issue.message}`;
@@ -9,6 +11,11 @@ function formatIssue(issue) {
 // Prüft req[source] gegen ein Zod-Schema und ersetzt es durch die geparsten Daten.
 // Unbekannte Felder entfernt Zod dabei automatisch, sodass nur explizit
 // erlaubte Werte in die SQL-Statements gelangen.
+/**
+ * @param {{safeParse: (data: unknown) => any}} schema Zod-Schema
+ * @param {'body' | 'query' | 'params'} [source]
+ * @returns {import('express').RequestHandler}
+ */
 function validate(schema, source = 'body') {
   return (req, res, next) => {
     const result = schema.safeParse(req[source]);
@@ -27,7 +34,9 @@ function validate(schema, source = 'body') {
     if (source === 'body') {
       req.body = result.data;
     } else {
-      req[`validated${source[0].toUpperCase()}${source.slice(1)}`] = result.data;
+      /** @type {Record<string, unknown>} */ (/** @type {unknown} */ (req))[
+        `validated${source[0].toUpperCase()}${source.slice(1)}`
+      ] = result.data;
     }
     return next();
   };
