@@ -740,6 +740,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 | Diagramme | Recharts |
 | Icons | Font Awesome (Solid + Regular) |
 | Container | Docker + Docker Compose |
+| Typprüfung | JSDoc + `// @ts-check` (Opt-in pro Datei), `tsc --noEmit`, kein Build |
 | Tests | Jest (Backend), Vitest (Frontend) |
 
 ### Architektur-Highlights
@@ -751,6 +752,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 5. **Hash-Kette Audit-Log**: SHA-256-Verkettung + Trigger-Immutabilität → Tampering-Detection
 6. **DSGVO by Design**: Verschlüsselte PII, Datenminimierung, Anonymisierung, Consent-Audit
 7. **E-Rechnung offline**: Vollständige EN-16931-Validierung ohne externe Abhängigkeit
+8. **Typisierung per JSDoc**: Backend bleibt JavaScript ohne Build-Schritt. Dateien mit `// @ts-check` in der ersten Zeile prüft `npm run typecheck` (CI, `checkJs: false`, Opt-in). Gemeinsame Typen liegen in `backend/src/types/*.d.ts`; ein Jest-Test (`__tests__/tsCheckOptIn.test.js`) stellt sicher, dass das Pragma nicht still verloren geht. Details: `backend/TYPESCRIPT.md`
 
 ---
 
