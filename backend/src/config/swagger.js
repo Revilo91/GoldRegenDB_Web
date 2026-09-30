@@ -265,7 +265,7 @@ const definition = {
 
 const swaggerSpec = swaggerJsdoc({
   definition,
-  apis: [path.join(__dirname, '..', 'routes', '*.js')],
+  apis: [path.join(__dirname, '..', 'routes', '**', '*.js')],
 });
 
 // Einzige Quelle für die /api-docs-Freigabe-Entscheidung, damit index.js und

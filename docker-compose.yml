@@ -46,6 +46,10 @@ services:
       HSTS_MAX_AGE: ${HSTS_MAX_AGE:-15552000}
       TRUST_PROXY: ${TRUST_PROXY:-}
       BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      # Backup (pg_dump) vor ausstehenden Schema-Migrationen, siehe README
+      # "Schema-Migrationen". Liegt im selben Volume wie die db-Backups.
+      MIGRATION_BACKUP_DIR: /backups/migrations
+      MIGRATION_SKIP_BACKUP: ${MIGRATION_SKIP_BACKUP:-false}
       PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION:-unversioniert}
       BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG:-90}
       BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG:-10}
@@ -67,6 +71,8 @@ services:
       VERKAEUFER_BIC: ${VERKAEUFER_BIC:-}
     ports:
       - "3000:${PORT:-3001}"
+    volumes:
+      - pgbackups:/backups
     # Ohne eigenen Healthcheck sah ein Backend mit gescheiterter Migration für
     # Docker gesund aus (Befund A3/E5). /api/health antwortet erst mit 200,
     # wenn das Schema vollständig verifiziert ist.

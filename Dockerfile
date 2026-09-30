@@ -36,6 +36,11 @@ RUN npm ci --omit=dev --workspace backend \
 # ─── Runtime image ──────────────────────────────────────────────────────────
 FROM node:22-alpine
 WORKDIR /app
+# pg_dump für das Backup vor Schema-Migrationen (Issue #257, config/migrate.js).
+# Major-Version fest auf 16 wie das DB-Image postgres:16-alpine: pg_dump darf
+# nicht älter als der Server sein. Die Patch-Version kommt aus dem Alpine-Repo –
+# ein exakter apk-Pin bricht den Build, sobald Alpine das Paket aktualisiert.
+RUN apk add --no-cache postgresql16-client
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY backend/package.json ./
 COPY backend/src ./src

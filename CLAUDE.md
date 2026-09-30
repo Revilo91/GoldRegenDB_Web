@@ -265,11 +265,13 @@ frontend/src/
 backend/src/
 ├── routes/                # 10+ REST-Endpunkte (auth, kunden, schmuckstuecke usw.)
 ├── middleware/auth.js     # JWT-Validierung, Rollenprüfung (authenticate, requireAdmin)
-├── config/db.js           # PostgreSQL-Pool + request-scoped Client + Startup-Migrationen
+├── config/db.js           # PostgreSQL-Pool + request-scoped Client
+├── config/migrate.js      # Migrations-Runner (Advisory-Lock, Backup-Gate per pg_dump)
+├── config/migrations/     # Nummerierte SQL-Migrationen 0001_baseline.sql, …
 └── utils/                 # whereClauseBuilder, excelService, logger, passwordService
 
 db/
-├── init.sql               # Schema: 7 Tabellen + Audit-Trigger
+├── init.sql               # Eingefrorenes Start-Schema für Docker-Entrypoint + seed.sql
 ├── seed.sql               # Demo-Daten
 ├── backup.sh / restore.sh # Automatische Backups (täglich/wöchentlich)
 └── README.md              # Backup/Restore-Dokumentation
@@ -293,7 +295,8 @@ db/
 - Kein ORM: Abfragen direkt mit `pg` (node-postgres)
 - Alle Einfüge-/Update-Operationen verwenden Prepared Statements gegen SQL-Injection
 - Session-Benutzer wird per `SET app.current_user = 'username'` im `authenticate`-Middleware gesetzt (fließt in Audit-Trigger)
-- Startup-Migrationen in `db.js` stellen Schema-Konsistenz sicher
+- **Schema-Migrationen:** `backend/src/config/migrations/NNNN_name.sql`, beim Start angewandt von `config/migrate.js` (Tabelle `schema_migrations`, eine Transaktion je Migration, `pg_advisory_lock`, vorher `pg_dump`-Backup bei Bestandsdatenbanken; `MIGRATION_BACKUP_DIR`, `MIGRATION_SKIP_BACKUP`)
+- **Neue Schemaänderung = neue Datei mit der nächsten Nummer.** Veröffentlichte Migrationen nie ändern, `db/init.sql` nicht erweitern, kein Schema-Code (CREATE/ALTER) in `db.js`. Datenumwandlungen als eigene, idempotente Migration
 
 ### Authentifizierung
 1. Frontend sendet Passwort im Klartext über TLS — kein clientseitiges Hashing
@@ -319,7 +322,7 @@ db/
 
 | Zweck | Pfad |
 |-------|------|
-| **Datenbankschema** | `db/init.sql` (7 Tabellen, Audit-Trigger) |
+| **Datenbankschema** | `backend/src/config/migrations/` (maßgeblich), `db/init.sql` (eingefrorener Start-Stand) |
 | **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & DB_PASSWORD setzen) |
 | **WHERE-Builder-Doku** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel-Export** | `backend/src/utils/excelService.js` |
@@ -339,7 +342,7 @@ cd backend && npm test
 # Mocks: db.js, logger.js via jest.mock()
 ```
 
-Für Backup/Restore gibt es eine Integrationssuite gegen echtes Postgres (`__tests__/backup.integration.test.js`), die nur mit `TEST_DATABASE_URL` läuft und Datenbanken ohne „test" im Namen ablehnt.
+Für Backup/Restore gibt es eine Integrationssuite gegen echtes Postgres (`__tests__/backup.integration.test.js`), die nur mit `TEST_DATABASE_URL` läuft und Datenbanken ohne „test" im Namen ablehnt. Ebenso `__tests__/migrations.integration.test.js` (Rolle braucht `CREATEDB`): vergleicht Neuinstallation, init.sql + Migrationen und Bestandsdatenbank auf identisches Schema.
 
 **Frontend** (Vitest):
 ```bash

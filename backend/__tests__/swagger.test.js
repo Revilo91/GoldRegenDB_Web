@@ -102,18 +102,25 @@ function toOpenApiStyle(expressPath) {
   return expressPath.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
 }
 
-function collectActualRoutes() {
-  const routes = new Set();
-  for (const [mountPrefix, modulePath] of ROUTER_MOUNTS) {
-    const router = require(modulePath);
-    for (const layer of router.stack) {
-      if (!layer.route) continue;
+// Unterrouter (router.use(...), z. B. routes/schmuckstuecke/index.js) werden mit durchlaufen.
+function collectRouterRoutes(router, mountPrefix, routes) {
+  for (const layer of router.stack) {
+    if (layer.route) {
       const subPath = layer.route.path === '/' ? '' : layer.route.path;
       const fullPath = `/api${mountPrefix}${toOpenApiStyle(subPath)}`;
       for (const method of Object.keys(layer.route.methods)) {
         routes.add(`${method.toUpperCase()} ${fullPath}`);
       }
+    } else if (layer.handle && layer.handle.stack) {
+      collectRouterRoutes(layer.handle, mountPrefix, routes);
     }
+  }
+}
+
+function collectActualRoutes() {
+  const routes = new Set();
+  for (const [mountPrefix, modulePath] of ROUTER_MOUNTS) {
+    collectRouterRoutes(require(modulePath), mountPrefix, routes);
   }
   return routes;
 }
