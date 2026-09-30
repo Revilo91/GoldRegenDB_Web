@@ -3119,6 +3119,27 @@ select.form-control {
   color: var(--text-secondary);
 }
 
+/* Debug */
+.debug-color-text-muted {
+  color: var(--text-muted);
+}
+
+.debug-p-24 {
+  padding: 24px;
+}
+
+.debug-ox-auto {
+  overflow-x: auto;
+}
+
+.debug-mb-12 {
+  margin-bottom: 12px;
+}
+
+.debug-mt-16 {
+  margin-top: 16px;
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
