@@ -1,16 +1,22 @@
+// @ts-check
 const { GRUNDMATERIAL } = require('./constants');
 
+/** @type {Record<string, string>} */
 const ARTIKEL_TYP = { H: 'Halskette', O: 'Ohrring', A: 'Armband', S: 'Schlüsselanhänger' };
 
 // Artikelnummer "MHO123_2" → Basis "MHO123" (Stücke desselben Artikels teilen sich eine Rechnungsposition)
+/** @param {string | null | undefined} artikelnummer */
 const artikelnummerBasis = (artikelnummer) => (artikelnummer || '').split('_')[0];
 
+/** @param {Partial<import('../types').SchmuckstueckRow>} s */
 function artikelKategorie(s) {
   return GRUNDMATERIAL[artikelnummerBasis(s.Artikelnummer)[1]] || s.Art || '';
 }
 
 // Positionstext für Lieferschein/Rechnung (ursprünglich aus dem Python-Export portiert)
+/** @param {Partial<import('../types').SchmuckstueckRow>} s */
 function artikelBezeichnung(s) {
+  /** @param {unknown} val */
   const getVal = (val) => (val && val !== '0' && val !== 0 ? val : '-');
   const artikelTyp = ARTIKEL_TYP[artikelnummerBasis(s.Artikelnummer)[2]] || '';
 
