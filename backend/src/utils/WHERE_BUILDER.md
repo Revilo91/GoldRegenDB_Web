@@ -20,17 +20,27 @@ Die folgenden Regeln sind im Builder implementiert und werden **in allen Routes 
 
 | Status | Regel | Bedeutung |
 |--------|-------|-----------|
-| **Verkauft** | `Verkauft = 1 AND Ausschuss = 0` | Erfolgreich verkauft (NICHT Ausschuss!) |
-| **Ausschuss** | `Ausschuss = 1` | Ausschuss (unabhängig von Verkauft-Status) |
-| **Verfügbar** | `Verkauft = 0 AND Ausschuss = 0 AND Ausgelagert = 0` | Im Lager, verfügbar für Verkauf |
+| **Verkauft** | `Verkauft = TRUE AND Ausschuss = FALSE` | Erfolgreich verkauft (NICHT Ausschuss!) |
+| **Ausschuss** | `Ausschuss = TRUE` | Ausschuss (unabhängig von Verkauft-Status) |
+| **Verfügbar** | `Verkauft = FALSE AND Ausschuss = FALSE AND Ausgelagert = 0` | Im Lager, verfügbar für Verkauf |
 | **Ausgelagert** | `Ausgelagert > 0` | Bei einem Kunden/Händler ausgelagert |
-| **Aktiv Ausgelagert** | `Ausgelagert > 0 AND Verkauft = 0 AND Ausschuss = 0` | Beim Kunden, noch nicht verkauft |
+| **Aktiv Ausgelagert** | `Ausgelagert > 0 AND Verkauft = FALSE AND Ausschuss = FALSE` | Beim Kunden, noch nicht verkauft |
 
 ### Wichtig: Verkauft ≠ Ausschuss
 
 Ein Schmuckstück kann **niemals gleichzeitig** verkauft und Ausschuss sein.
-- `verkauft()` schließt automatisch Ausschuss aus (`Ausschuss = 0`)
+- `verkauft()` schließt automatisch Ausschuss aus (`Ausschuss = FALSE`)
 - `ausschuss()` ist unabhängig vom Verkauft-Status
+
+## Geltungsbereich: Filter, Übergang, JOIN
+
+| Fall | Regel |
+|------|-------|
+| **WHERE-Filter auf Status** (`Verkauft`, `Ausschuss`, `Ausgelagert`) | Immer über den Builder, nie manuell schreiben |
+| **Statusübergang** (UPDATE) | Über die Helper in `statusUebergaenge.js`: `markiereVerkauft`, `hebeVerkauftAuf`, `lagereAus`, `lagereOffeneAus`, `hebeAuslagerungAuf`, `lagereZurueck` |
+| **Beziehungs-JOIN** (`s."Ausgelagert" = k."ID"`) | Erlaubt, kein Statusfilter |
+
+`"Verkauft"` und `"Ausschuss"` sind `BOOLEAN`; `= 1` / `= 0` ist in PostgreSQL ein Typfehler. Erlaubt sind `= TRUE/FALSE` bzw. `IS TRUE/FALSE` (der Builder erzeugt `IS TRUE/FALSE`). `"Ausgelagert"` ist `INTEGER` (Kunden-ID, `0` = Lager).
 
 ## Verwendung
 
@@ -53,17 +63,17 @@ const result = await db.query(query, builder.getParams());
 const builder = where();
 
 // Status-Filter
-builder.verkauft();           // Verkauft = 1 AND Ausschuss = 0
-builder.ausschuss();          // Ausschuss = 1
-builder.verfuegbar();         // Verkauft = 0 AND Ausschuss = 0 AND Ausgelagert = 0
-builder.nichtVerkauft();      // Verkauft = 0
-builder.keinAusschuss();      // Ausschuss = 0
+builder.verkauft();           // Verkauft = TRUE AND Ausschuss = FALSE
+builder.ausschuss();          // Ausschuss = TRUE
+builder.verfuegbar();         // Verkauft = FALSE AND Ausschuss = FALSE AND Ausgelagert = 0
+builder.nichtVerkauft();      // Verkauft = FALSE
+builder.keinAusschuss();      // Ausschuss = FALSE
 
 // Auslagerungs-Filter
 builder.ausgelagert();        // Ausgelagert > 0
 builder.ausgelagert(5);       // Ausgelagert = 5 (bei Kunde ID 5)
-builder.aktivAusgelagert();   // Ausgelagert > 0 AND Verkauft = 0 AND Ausschuss = 0
-builder.aktivAusgelagert(5);  // Ausgelagert = 5 AND Verkauft = 0 AND Ausschuss = 0
+builder.aktivAusgelagert();   // Ausgelagert > 0 AND Verkauft = FALSE AND Ausschuss = FALSE
+builder.aktivAusgelagert(5);  // Ausgelagert = 5 AND Verkauft = FALSE AND Ausschuss = FALSE
 builder.imLager();            // Ausgelagert = 0
 builder.ausgelagertIn([0, 15]); // Ausgelagert = ANY([0, 15]) – Lager plus Kunde (Direktverkauf)
 ```
@@ -96,7 +106,7 @@ builder.verfuegbar();            // Im Lager
 builder.grundmaterial('P');      // Perlen
 builder.produktart('A');         // Armband
 
-// Ergibt: WHERE Verkauft = 0 AND Ausschuss = 0 AND Ausgelagert = 0
+// Ergibt: WHERE Verkauft = FALSE AND Ausschuss = FALSE AND Ausgelagert = 0
 //               AND SUBSTRING("Artikelnummer", 2, 1) = $1
 //               AND SUBSTRING("Artikelnummer", 3, 1) = $2
 // Params: ['P', 'A']
@@ -188,13 +198,13 @@ const builder2 = builder.clone();
 
 **Vorher:**
 ```javascript
-COUNT(*) FILTER (WHERE "Verkauft" = 1) AS "soldPieces"
+COUNT(*) FILTER (WHERE "Verkauft" = TRUE) AS "soldPieces"
 ```
 
 **Nachher:**
 ```javascript
-// Konsistent überall: verkauft = 1 UND ausschuss = 0
-COUNT(*) FILTER (WHERE "Verkauft" = 1 AND "Ausschuss" = 0) AS "soldPieces"
+// Konsistent überall: verkauft UND kein Ausschuss
+COUNT(*) FILTER (WHERE "Verkauft" = TRUE AND "Ausschuss" = FALSE) AS "soldPieces"
 ```
 
 ### SumUp Export: Verfügbare Artikel
@@ -203,7 +213,7 @@ COUNT(*) FILTER (WHERE "Verkauft" = 1 AND "Ausschuss" = 0) AS "soldPieces"
 ```javascript
 const { rows } = await db.query(
   `SELECT * FROM "Schmuckstück"
-   WHERE "Ausgelagert" = 0 AND "Ausschuss" = 0 AND "Verkauft" = 0
+   WHERE "Ausgelagert" = 0 AND "Ausschuss" = FALSE AND "Verkauft" = FALSE
    ORDER BY "Artikelnummer"`
 );
 ```
@@ -221,27 +231,25 @@ const { rows } = await db.query(
 );
 ```
 
-### Kunden: Ausgelagerte Artikel zurücklagern
+### Kunden: Ausgelagerte Artikel zurücklagern (Statusübergang)
+
+Ein UPDATE ist kein Filter-Fall für Routen: Der Übergang läuft über den Helper, der intern den Builder für die WHERE-Bedingung nutzt.
 
 **Vorher:**
 ```javascript
 await db.query(
-  'UPDATE "Schmuckstück" SET "Ausgelagert" = 0
-   WHERE "Artikelnummer" = ANY($1) AND "Ausgelagert" = $2',
+  `UPDATE "Schmuckstück" SET "Ausgelagert" = 0
+   WHERE "Artikelnummer" = ANY($1) AND "Ausgelagert" = $2`,
   [artikelnummern, kundeId]
 );
 ```
 
 **Nachher:**
 ```javascript
-const builder = where();
-builder.artikelnummerIn(artikelnummern);
-builder.ausgelagert(kundeId);
+const { lagereZurueck } = require('../utils/statusUebergaenge');
 
-await db.query(
-  `UPDATE "Schmuckstück" SET "Ausgelagert" = 0 ${builder.build()}`,
-  builder.getParams()
-);
+const rowCount = await lagereZurueck(db, kundeId, artikelnummern);
+// setzt "Ausgelagert" = 0 und "Lieferschein_ID" = 0, nur für aktiv ausgelagerte Stücke
 ```
 
 ## Best Practices
@@ -252,7 +260,7 @@ await db.query(
    builder.verfuegbar();
 
    // ❌ Vermeiden
-   builder.equals('Verkauft', 0).equals('Ausschuss', 0).equals('Ausgelagert', 0);
+   builder.equals('Verkauft', false).equals('Ausschuss', false).equals('Ausgelagert', 0);
    ```
 
 2. **Verkauft-Status immer mit Builder**
@@ -261,7 +269,7 @@ await db.query(
    builder.verkauft();
 
    // ❌ Fehler - inkonsistent mit Geschäftslogik
-   builder.equals('Verkauft', 1);
+   builder.equals('Verkauft', true);
    ```
 
 3. **Raw SQL sparsam verwenden**
