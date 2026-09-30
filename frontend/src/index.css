@@ -3098,3 +3098,34 @@ select.form-control {
   color: var(--text-secondary);
   font-size: 0.85em;
 }
+
+/* ============ INLINE-STYLES ALS KLASSEN (#256) ============
+   Je Seite/Komponente ein Block mit einheitlichem Klassen-Präfix. Steht ein Klassenname
+   doppelt im Selektor (.a.a), erhöht das die Spezifität: Inline-Styles schlugen bisher
+   jede Regel, das muss auch für die Klassen gelten. Dynamische Werte laufen nur über
+   CSS-Variablen (style={{ "--name": wert }}). */
+
+/* DataTable */
+.data-table th.data-table-th-sortable {
+  cursor: pointer;
+}
+
+.data-table th.data-table-th-static {
+  cursor: default;
+}
+
+.data-table-row-grab {
+  cursor: grab;
+}
+
+.data-table-row-grabbing {
+  cursor: grabbing;
+}
+
+.data-table-row-pointer {
+  cursor: pointer;
+}
+
+.data-table-row-default {
+  cursor: default;
+}
