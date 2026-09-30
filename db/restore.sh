@@ -13,8 +13,8 @@
 #
 # WICHTIG: Vorher den app-Container stoppen (`docker compose stop app`).
 #          Sonst reisst pg_terminate_backend unten die Verbindung des Backends
-#          ab; es startet per `restart: always` neu und legt seine ensureX-
-#          Tabellen PARALLEL zum laufenden Restore an. Die CREATE TABLE aus dem
+#          ab; es startet per `restart: always` neu und legt ueber seine
+#          Schema-Migrationen Tabellen PARALLEL zum laufenden Restore an. Die CREATE TABLE aus dem
 #          Dump treffen dann auf bereits existierende Tabellen, ON_ERROR_STOP=1
 #          bricht ab, und das Ergebnis ist eine teilweise wiederhergestellte
 #          Datenbank (Befund E3).
