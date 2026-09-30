@@ -1,3 +1,4 @@
+// @ts-check
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
@@ -14,6 +15,7 @@ const MAX_PASSWORT_LAENGE = 200;
 // Entspricht bcrypt('goldregen_dummy_password', 10) – trifft nie ein echtes Passwort.
 const DUMMY_HASH = '$2b$10$R.TDJCrjRGLI2JqsouPWpegc/JtNCODKyAbCawKH/moXb.jOmDY1u';
 
+/** @param {string} klartext */
 function hashPassword(klartext) {
   return bcrypt.hash(klartext, BCRYPT_ROUNDS);
 }
@@ -21,6 +23,7 @@ function hashPassword(klartext) {
 // Bis Issue #131 hashte das Frontend das Passwort mit SHA-256 und das Backend
 // legte bcrypt(sha256(passwort)) ab. Bestehende Konten tragen diesen Hash noch,
 // deshalb wird er beim Login zusätzlich geprüft.
+/** @param {string} klartext */
 function legacySha256(klartext) {
   return crypto.createHash('sha256').update(klartext, 'utf8').digest('hex');
 }
@@ -28,7 +31,9 @@ function legacySha256(klartext) {
 /**
  * Prüft ein Klartext-Passwort gegen einen gespeicherten bcrypt-Hash.
  *
- * @returns {Promise<{valid: boolean, needsRehash: boolean}>}
+ * @param {string} klartext
+ * @param {string | null | undefined} gespeicherterHash
+ * @returns {Promise<import('../types').PasswortPruefErgebnis>}
  *   needsRehash ist true, wenn der Treffer nur über das alte
  *   bcrypt(sha256(...))-Schema zustande kam. Der Aufrufer sollte den Hash dann
  *   auf das neue Schema umstellen.

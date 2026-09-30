@@ -4,7 +4,7 @@
 // nicht das Postgres-Schema wörtlich. Wichtige Abweichungen:
 // - INTEGER/SMALLINT/SERIAL/DOUBLE PRECISION -> number
 // - NUMERIC/DECIMAL -> string (pg parst das bewusst NICHT zu number,
-//   um Präzisionsverlust zu vermeiden – betrifft "Rechnung".rabatt_gesamt)
+//   um Präzisionsverlust zu vermeiden – betrifft "Verkaufspreis")
 // - TIMESTAMP/DATE -> Date (pg's Default-Typ-Parser gibt hier ein Date-Objekt
 //   zurück, kein ISO-String – es gibt keinen `types.setTypeParser`-Override
 //   in diesem Projekt, siehe backend/src/config/db.js)
@@ -12,49 +12,12 @@
 // - JSONB -> bereits geparstes Objekt/Array (pg dekodiert JSON automatisch)
 // - BYTEA -> Buffer
 //
+// Bewusst nur die Tabellen, die per JSDoc referenziert werden (Schmuckstück,
+// app_users); weitere Zeilentypen bei Bedarf aus db/init.sql ergänzen.
+//
 // Es gibt keine Query-Ergebnisse mit camelCase-Spalten: alle Original-Spalten
 // aus init.sql tragen exakt ihre Groß-/Kleinschreibung inkl. Umlauten, weil
 // sie in Postgres per doppelten Anführungszeichen angelegt wurden.
-
-// ── Kunde ────────────────────────────────────────────────────────────────────
-
-export interface KundeRow {
-  ID: number;
-  Name: string;
-  Strasse: string;
-  Hausnummer: number;
-  Ort: string;
-  PLZ: number;
-  Email: string | null;
-  Telefonnummer: string | null;
-  Provision: number;
-  Aktiv: boolean;
-}
-
-// ── Lieferschein / Rechnung ──────────────────────────────────────────────────
-
-export type DokumentStatus = 'entwurf' | 'final';
-
-export interface LieferscheinRow {
-  ID: number;
-  Nummer: string;
-  Kundennummer: number;
-  Datum: Date;
-  status: DokumentStatus;
-}
-
-export interface RechnungRow {
-  ID: number;
-  Nummer: string;
-  Kundennummer: number;
-  Datum: Date;
-  status: DokumentStatus;
-  // NUMERIC(5,2) – kommt als String zurück, siehe Kommentar oben. Die Routen
-  // wandeln das beim Lesen selbst per Number(...) um (routes/rechnungen.js).
-  rabatt_gesamt: string;
-  // JSONB, z. B. { "MHO123_1": 10 } – Rabatt je Artikelnummer in Prozent.
-  rabatt_positionen: Record<string, number>;
-}
 
 // ── Schmuckstück ─────────────────────────────────────────────────────────────
 //
@@ -112,22 +75,6 @@ export interface SchmuckstueckRow {
   Letzte_Änderung: Date;
 }
 
-// ── audit_log ────────────────────────────────────────────────────────────────
-
-export type AuditActionType = 'INSERT' | 'UPDATE' | 'DELETE';
-
-export interface AuditLogRow {
-  id: number;
-  table_name: string;
-  artikelnummer_id: string | null;
-  column_name: string | null;
-  old_value: string | null;
-  new_value: string | null;
-  action_type: AuditActionType;
-  changed_by: string | null;
-  change_timestamp: Date;
-}
-
 // ── app_users ────────────────────────────────────────────────────────────────
 
 export type AppRole = 'admin' | 'bearbeiter' | 'user';
@@ -146,87 +93,4 @@ export interface AppUserRow {
   locked_until: Date | null;
   reset_token_hash: string | null;
   reset_token_expiry: Date | null;
-}
-
-// ── lagerinventur ────────────────────────────────────────────────────────────
-
-export type LagerinventurStatus = 'entwurf' | 'abgeschlossen';
-
-export interface LagerinventurRow {
-  id: number;
-  user_id: number;
-  created_at: Date;
-  updated_at: Date;
-  status: LagerinventurStatus;
-  // JSONB: { "MHO123_1": 3, ... } – gezählte Menge je Artikelnummer.
-  data: Record<string, number>;
-  kommentar: string | null;
-}
-
-// ── Bestellübersicht (DSGVO) ─────────────────────────────────────────────────
-
-export type VersandartTyp = 'lieferung' | 'abholung';
-export type BestellstatusTyp = 'offen' | 'in_bearbeitung' | 'abgeschlossen' | 'storniert';
-
-// Alle *_enc-Spalten sind AES-256-GCM-verschlüsselt (encryptionService.js) und
-// NULL, wenn nicht erfasst ODER bereits anonymisiert (Art. 17 DSGVO).
-export interface BestellungKundeRow {
-  id: number;
-  kunde_pseudonym: string;
-  name_enc: Buffer | null;
-  email_enc: Buffer | null;
-  telefonnummer_enc: Buffer | null;
-  strasse_enc: Buffer | null;
-  hausnummer_enc: Buffer | null;
-  plz_enc: Buffer | null;
-  ort_enc: Buffer | null;
-  anonymisiert: boolean;
-  anonymisiert_am: Date | null;
-  erstellt_am: Date;
-}
-
-export interface BestellungRow {
-  id: number;
-  bestellnummer: string;
-  kunde_id: number;
-  versandart: VersandartTyp;
-  erfassungsdatum: Date;
-  // DATE-Spalte – kommt bei diesem Projekt (kein setTypeParser) ebenfalls als
-  // Date zurück, nicht als "JJJJ-MM-TT"-String.
-  wunschdatum: Date | null;
-  beschreibung: string;
-  status: BestellstatusTyp;
-  rechnung_nummer: string | null;
-  erstellt_von: string;
-  erstellt_am: Date;
-  aktualisiert_am: Date;
-}
-
-// ── Foto / bestellung_foto (Issue #208) ──────────────────────────────────────
-
-// Schlüssel ist die Basis-Artikelnummer (ohne _Suffix).
-export interface FotoRow {
-  Artikelnummer: string;
-  Daten: Buffer;
-  MimeType: string;
-  Groesse: number;
-  Geaendert: Date;
-}
-
-export interface BestellungFotoRow {
-  datei_name: string;
-  daten: Buffer;
-  mime_type: string;
-  groesse: number;
-  geaendert: Date;
-}
-
-export interface BestellungConsentRow {
-  id: number;
-  kunde_id: number;
-  consent_typ: string;
-  consent_erteilt: boolean;
-  consent_zeitpunkt: Date;
-  datenschutz_version: string;
-  ip_hash: string | null;
 }
