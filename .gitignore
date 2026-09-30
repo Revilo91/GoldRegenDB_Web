@@ -27,6 +27,9 @@ coverage/
 # Protokolle des Foto-Bestandsimports (npm run import:fotos)
 import-fotos-*.log
 
+# Backups vor Schema-Migrationen in der nativen Entwicklung (MIGRATION_BACKUP_DIR)
+migration-backups/
+
 # Eingesammelte Bestandsfotos für den Import (npm run sammle:fotos) – nie committen
 /uploads/
 

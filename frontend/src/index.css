@@ -2230,7 +2230,7 @@ select.form-control {
   }
 
   /* Stats grid in modals: 2 columns on small phones */
-  .modal-body > div[style*="grid-template-columns"] {
+  .modal-body > div.benutzer-info-grid {
     grid-template-columns: 1fr 1fr !important;
   }
 }
@@ -3097,4 +3097,1044 @@ select.form-control {
   margin-top: 4px;
   color: var(--text-secondary);
   font-size: 0.85em;
+}
+
+/* ============ INLINE-STYLES ALS KLASSEN (#256) ============
+   Je Seite/Komponente ein Block mit einheitlichem Klassen-Präfix. Steht ein Klassenname
+   doppelt im Selektor (.a.a), erhöht das die Spezifität: Inline-Styles schlugen bisher
+   jede Regel, das muss auch für die Klassen gelten. Dynamische Werte laufen nur über
+   CSS-Variablen (style={{ "--name": wert }}). */
+
+/* AuditLog */
+.audit-log-deco-none {
+  text-decoration: none;
+}
+
+.audit-log-mb-12 {
+  margin-bottom: 12px;
+}
+
+.data-table th.audit-log-th-geaendert-von {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Debug */
+.debug-color-text-muted {
+  color: var(--text-muted);
+}
+
+.debug-p-24 {
+  padding: 24px;
+}
+
+.debug-ox-auto {
+  overflow-x: auto;
+}
+
+.debug-mb-12 {
+  margin-bottom: 12px;
+}
+
+.debug-mt-16 {
+  margin-top: 16px;
+}
+
+/* SchmuckstueckDetail */
+.schmuckstueck-detail-flex-ai-center-gap-12 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.schmuckstueck-detail-flex-gap-8 {
+  display: flex;
+  gap: 8px;
+}
+
+.schmuckstueck-detail-foto-box {
+  text-align: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #ddd;
+  background-color: #f9f9f9;
+  margin-bottom: 16px;
+  border-radius: 4px;
+}
+
+.schmuckstueck-detail-maxw-200-max-height-200-border-radius-8 {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+}
+
+.schmuckstueck-detail-foto-laedt {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 14px;
+  border: 2px dashed #ccc;
+}
+
+.schmuckstueck-detail-mb-8 {
+  margin-bottom: 8px;
+}
+
+.schmuckstueck-detail-foto-fehler {
+  width: 200px;
+  min-height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #fff4e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a4b00;
+  font-size: 14px;
+  border: 2px dashed #d8a74f;
+  padding: 12px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.schmuckstueck-detail-mt-8-fs-12 {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.schmuckstueck-detail-foto-leer {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bbb;
+  font-size: 14px;
+  border: 2px dashed #ddd;
+}
+
+.schmuckstueck-detail-mb-8-fs-24 {
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+/* Inventur */
+.inventur-ox-auto {
+  overflow-x: auto;
+}
+
+.inventur-fs-8 {
+  font-size: 8px;
+}
+
+.inventur-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.inventur-fw-600-text-right-p-8-12.inventur-fw-600-text-right-p-8-12 {
+  font-weight: 600;
+  text-align: right;
+  padding: 8px 12px;
+}
+
+.inventur-fw-600 {
+  font-weight: 600;
+}
+
+.inventur-maxw-960-w-95 {
+  max-width: 960px;
+  width: 95%;
+}
+
+.inventur-ml-8-fs-12 {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+.inventur-mb-10 {
+  margin-bottom: 10px;
+}
+
+.inventur-flex-gap-12-mb-20-wrap-wrap {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.inventur-color-text-secondary-fs-13 {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.inventur-color-success {
+  color: var(--success);
+}
+
+.inventur-color-info {
+  color: var(--info);
+}
+
+.inventur-flex-gap-4-mb-16-wrap-wrap {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.inventur-zaehler-badge {
+  margin-left: 6px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.inventur-jc-space-between {
+  justify-content: space-between;
+}
+
+.inventur-flex-gap-8 {
+  display: flex;
+  gap: 8px;
+}
+
+.inventur-mr-6 {
+  margin-right: 6px;
+}
+
+.inventur-modal-diff {
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.inventur-flex-ai-center-gap-10 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inventur-flex-1-oy-auto {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.inventur-mb-20 {
+  margin-bottom: 20px;
+}
+
+.inventur-color-danger-flex-ai-center-gap-8-mb-12.inventur-color-danger-flex-ai-center-gap-8-mb-12 {
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inventur-fs-12-fw-400-color-text-secondary {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.inventur-color-success-fw-600 {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.inventur-w-100-border-collapse-collapse {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventur-border-b-2-solid-border {
+  border-bottom: 2px solid var(--border);
+}
+
+.inventur-p-8-text-left.inventur-p-8-text-left {
+  padding: 8px;
+  text-align: left;
+}
+
+.inventur-p-8-text-center.inventur-p-8-text-center {
+  padding: 8px;
+  text-align: center;
+}
+
+.inventur-zeile-fehlend {
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--danger-rgb, 239,68,68), 0.05);
+}
+
+.inventur-p-8.inventur-p-8 {
+  padding: 8px;
+}
+
+.inventur-color-danger {
+  color: var(--danger);
+}
+
+.inventur-p-8-text-center-fw-bold-color-danger.inventur-p-8-text-center-fw-bold-color-danger {
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  color: var(--danger);
+}
+
+.inventur-titel-unbekannt.inventur-titel-unbekannt {
+  color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inventur-zeile-unbekannt {
+  border-bottom: 1px solid var(--border);
+  background: rgba(var(--warning-rgb, 245,158,11), 0.05);
+}
+
+.inventur-color-warning {
+  color: var(--warning);
+}
+
+.inventur-p-8-text-center-fw-bold-color-warning.inventur-p-8-text-center-fw-bold-color-warning {
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  color: var(--warning);
+}
+
+.inventur-titel-gefunden.inventur-titel-gefunden {
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.inventur-color-text-muted {
+  color: var(--text-muted);
+}
+
+.inventur-border-b-1-solid-border {
+  border-bottom: 1px solid var(--border);
+}
+
+.inventur-jc-flex-end {
+  justify-content: flex-end;
+}
+
+.inventur-flex-gap-16-ai-center {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.inventur-m-0 {
+  margin: 0;
+}
+
+.inventur-w-100-maxw-400-mt-4 {
+  width: 100%;
+  max-width: 400px;
+  margin-top: 4px;
+}
+
+.inventur-scan-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.inventur-flex-1-maxw-300 {
+  flex: 1;
+  max-width: 300px;
+}
+
+.inventur-mb-12.inventur-mb-12 {
+  margin-bottom: 12px;
+}
+
+.inventur-ox-auto-mb-20 {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.inventur-tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.inventur-w-120-p-8.inventur-w-120-p-8 {
+  width: 120px;
+  padding: 8px;
+}
+
+.inventur-w-80-p-8-text-center.inventur-w-80-p-8-text-center {
+  width: 80px;
+  padding: 8px;
+  text-align: center;
+}
+
+.inventur-w-80 {
+  width: 80px;
+}
+
+.inventur-aktionsleiste {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.inventur-color-text-muted-p-10 {
+  color: var(--text-muted);
+  padding: 10px;
+}
+
+.inventur-flex-gap-8-mb-16 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.inventur-fw-600-bg-bg-hover {
+  font-weight: 600;
+  background: var(--bg-hover);
+}
+
+.inventur-p-8-12.inventur-p-8-12 {
+  padding: 8px 12px;
+}
+
+.inventur-text-left {
+  text-align: left;
+}
+
+.inventur-text-left-color-success {
+  text-align: left;
+  color: var(--success);
+}
+
+.inventur-text-left-color-info {
+  text-align: left;
+  color: var(--info);
+}
+
+.inventur-text-left-color-warning {
+  text-align: left;
+  color: var(--warning);
+}
+
+.inventur-ml-8-fs-10 {
+  margin-left: 8px;
+  font-size: 10px;
+}
+
+.inventur-w-20-h-20 {
+  width: 20px;
+  height: 20px;
+}
+
+.inventur-color-danger-p-8 {
+  color: var(--danger);
+  padding: 8px;
+}
+
+.inventur-p-8-0-fs-13 {
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.inventur-flex-gap-24-wrap-wrap {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.inventur-color-info-fw-600 {
+  color: var(--info);
+  font-weight: 600;
+}
+
+.inventur-color-warning-fw-600 {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.inventur-stat-klickbar {
+  cursor: pointer;
+}
+
+.inventur-outline-danger {
+  outline: 2px solid var(--danger);
+}
+
+.inventur-outline-warning {
+  outline: 2px solid var(--warning);
+}
+
+.inventur-outline-success {
+  outline: 2px solid var(--success);
+}
+
+.data-table th.inventur-th-checkbox {
+  width: 40px;
+  text-align: center;
+}
+
+.data-table th.inventur-th-links {
+  text-align: left;
+}
+
+/* SumUp */
+.sumup-mb-32-fs-1rem-lh-1_5.sumup-mb-32-fs-1rem-lh-1_5 {
+  margin-bottom: 32px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.sumup-mb-32 {
+  margin-bottom: 32px;
+}
+
+.sumup-p-20-24 {
+  padding: 20px 24px;
+}
+
+.sumup-p-24 {
+  padding: 24px;
+}
+
+.sumup-mb-20-lh-1_6 {
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.sumup-mb-20-lh-1_8 {
+  margin-bottom: 20px;
+  line-height: 1.8;
+}
+
+.sumup-ergebnis-box {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  display: block;
+  white-space: pre-line;
+}
+
+.sumup-mb-20-p-16-20-block {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  display: block;
+}
+
+.sumup-cursor-pointer-mt-12 {
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+.sumup-fw-bold {
+  font-weight: bold;
+}
+
+.sumup-details-trenner {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid currentColor;
+}
+
+.sumup-ml-20 {
+  margin-left: 20px;
+}
+
+.sumup-cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+/* Datensicherung */
+.datensicherung-mb-16 {
+  margin-bottom: 16px;
+}
+
+.datensicherung-flex-wrap-wrap-gap-8-24 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.datensicherung-mb-32-fs-1rem-lh-1_5.datensicherung-mb-32-fs-1rem-lh-1_5 {
+  margin-bottom: 32px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.datensicherung-mb-32 {
+  margin-bottom: 32px;
+}
+
+.datensicherung-p-20-24 {
+  padding: 20px 24px;
+}
+
+.datensicherung-p-24 {
+  padding: 24px;
+}
+
+.datensicherung-mb-16-lh-1_6 {
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.datensicherung-mb-20 {
+  margin-bottom: 20px;
+}
+
+.datensicherung-mb-20-lh-1_6 {
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.datensicherung-mb-20-p-12-16 {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+}
+
+.datensicherung-mb-12-lh-1_6 {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.datensicherung-mb-16-p-12-16 {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+}
+
+.datensicherung-flex-gap-12-wrap-wrap {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.datensicherung-flex-ai-center-gap-8-mb-8-fw-600 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.datensicherung-flex-ai-center-gap-6 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.datensicherung-cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+/* Schmuckstuecke */
+.schmuckstuecke-flex-gap-10 {
+  display: flex;
+  gap: 10px;
+}
+
+.schmuckstuecke-flex-gap-8-mb-16 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.schmuckstuecke-maxw-100 {
+  max-width: 100%;
+}
+
+.schmuckstuecke-cols-1fr-220-ai-end {
+  grid-template-columns: 1fr 220px;
+  align-items: end;
+}
+
+.schmuckstuecke-ox-auto {
+  overflow-x: auto;
+}
+
+.schmuckstuecke-flex-gap-6 {
+  display: flex;
+  gap: 6px;
+}
+
+.schmuckstuecke-mt-12-flex-gap-8 {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.schmuckstuecke-maxw-900 {
+  max-width: 900px;
+}
+
+.schmuckstuecke-cols-1fr-1fr-1fr-120-ai-end {
+  grid-template-columns: 1fr 1fr 1fr 120px;
+  align-items: end;
+}
+
+.schmuckstuecke-flex-ai-center {
+  display: flex;
+  align-items: center;
+}
+
+.schmuckstuecke-mt-16 {
+  margin-top: 16px;
+}
+
+.schmuckstuecke-mt-12 {
+  margin-top: 12px;
+}
+
+.schmuckstuecke-flex-1 {
+  flex: 1;
+}
+
+/* DocumentManager */
+.docmgr-cursor-pointer.docmgr-cursor-pointer {
+  cursor: pointer;
+}
+
+.docmgr-fw-normal-color-text-muted-fs-0_9em {
+  font-weight: normal;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.docmgr-vorschau-box {
+  font-size: 0.85em;
+  color: #666;
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docmgr-fs-0_9em-mb-0-block-color-888-fw-600 {
+  font-size: 0.9em;
+  margin-bottom: 0;
+  display: block;
+  color: #888;
+  font-weight: 600;
+}
+
+.docmgr-flex-dir-column-gap-8 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docmgr-pb-8-border-b-1-solid-ddd {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.docmgr-flex-jc-space-between-mb-4 {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.docmgr-flex-jc-space-between-mb-4-color-d9534f {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: #d9534f;
+}
+
+.docmgr-flex-jc-space-between-fw-600 {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.docmgr-flex-jc-space-between-gap-12-wrap-wrap {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.docmgr-fs-0_9em-color-999-ml-4 {
+  font-size: 0.9em;
+  color: #999;
+  margin-left: 4px;
+}
+
+.docmgr-minw-90 {
+  min-width: 90px;
+}
+
+/* Benutzerverwaltung */
+.benutzer-flex-jc-space-between-ai-center-mb-12 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.benutzer-mb-12 {
+  margin-bottom: 12px;
+}
+
+.benutzer-block {
+  display: block;
+}
+
+.benutzer-m-0 {
+  margin: 0;
+}
+
+.benutzer-mb-10-color-text-secondary.benutzer-mb-10-color-text-secondary {
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+}
+
+.benutzer-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 20px;
+}
+
+.benutzer-mt-16-mb-8-color-text-secondary.benutzer-mt-16-mb-8-color-text-secondary {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.benutzer-mb-8-fs-0_875rem-color-text-secondary {
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.benutzer-mt-12 {
+  margin-top: 12px;
+}
+
+.benutzer-mr-auto.benutzer-mr-auto.benutzer-mr-auto.benutzer-mr-auto {
+  margin-right: auto;
+}
+
+.benutzer-flex-gap-10 {
+  display: flex;
+  gap: 10px;
+}
+
+.benutzer-jc-flex-end {
+  justify-content: flex-end;
+}
+
+.benutzer-jc-space-between {
+  justify-content: space-between;
+}
+
+/* Dashboard */
+.dashboard-mb-24 {
+  margin-bottom: 24px;
+}
+
+.dashboard-fs-1_5rem-fw-600-mb-16-color-e8eaf0 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #e8eaf0;
+}
+
+.dashboard-border-b-2-solid-6366f1 {
+  border-bottom: 2px solid #6366f1;
+}
+
+.dashboard-color-6366f1 {
+  color: #6366f1;
+}
+
+.dashboard-p-16 {
+  padding: 16px;
+}
+
+.dashboard-mb-0 {
+  margin-bottom: 0;
+}
+
+.dashboard-minh-auto {
+  min-height: auto;
+}
+
+.dashboard-fs-1_5rem.dashboard-fs-1_5rem {
+  font-size: 1.5rem;
+}
+
+.dashboard-fs-0_75rem.dashboard-fs-0_75rem {
+  font-size: 0.75rem;
+}
+
+.dashboard-mt-12-pt-12-border-t-1-solid-2e3240 {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #2e3240;
+}
+
+.dashboard-kennzahl-zeile {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #9ca3b4;
+}
+
+.dashboard-fw-600-color-d4a853 {
+  font-weight: 600;
+  color: #d4a853;
+}
+
+.dashboard-border-b-2-solid-ec4899 {
+  border-bottom: 2px solid #ec4899;
+}
+
+.dashboard-color-ec4899 {
+  color: #ec4899;
+}
+
+.dashboard-fs-1_25rem-fw-600-mb-16-color-e8eaf0 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #e8eaf0;
+}
+
+.dashboard-flex-gap-8-wrap-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboard-p-6-10-fs-0_8rem {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+/* App */
+.app-hinweis-warnung {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: rgba(245,158,11,0.1);
+  color: #f59e0b;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.app-hinweis-fehler {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.app-hinweis-erfolg {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--success-bg, rgba(16,185,129,0.1));
+  color: var(--success, #10b981);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.app-grid-gap-16 {
+  display: grid;
+  gap: 16px;
+}
+
+.app-flex-gap-8 {
+  display: flex;
+  gap: 8px;
+}
+
+.app-p-6-12-minw-40 {
+  padding: 6px 12px;
+  min-width: 40px;
+}
+
+/* PhotoUpload */
+.photo-upload-color-666.photo-upload-color-666 {
+  color: #666;
+}
+
+.photo-upload-mt-10 {
+  margin-top: 10px;
+}
+
+.photo-upload-mt-10-text-center {
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* SchmuckstueckModal */
+.schmuckstueck-modal-mt-4-fs-12-color-666 {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* DataTable */
+.data-table th.data-table-th-sortable {
+  cursor: pointer;
+}
+
+.data-table th.data-table-th-static {
+  cursor: default;
+}
+
+.data-table-row-grab {
+  cursor: grab;
+}
+
+.data-table-row-grabbing {
+  cursor: grabbing;
+}
+
+.data-table-row-pointer {
+  cursor: pointer;
+}
+
+.data-table-row-default {
+  cursor: default;
+}
+
+/* Debug-Pagination (#262) */
+.debug-pagination-info {
+  color: var(--text-secondary);
 }

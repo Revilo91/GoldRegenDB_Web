@@ -183,7 +183,7 @@ export default function Benutzerverwaltung() {
 
   return (
     <div className="page">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <div className="benutzer-flex-jc-space-between-ai-center-mb-12">
         <h2>Benutzerverwaltung</h2>
         <button className="btn btn-primary" onClick={openNew} title="Neuer Benutzer">
           <FontAwesomeIcon icon={faPlus} />
@@ -193,9 +193,7 @@ export default function Benutzerverwaltung() {
       <TableToolbar
         search={search}
         onSearchChange={setSearch}
-        placeholder="Suche nach Benutzername oder E-Mail..."
-        style={{ marginBottom: 12 }}
-      />
+        placeholder="Suche nach Benutzername oder E-Mail..." className="benutzer-mb-12"/>
 
       <div className="card">
         <div className="card-body">
@@ -214,11 +212,11 @@ export default function Benutzerverwaltung() {
       </div>
 
       {selected && (
-        <div className="modal" style={{ display: "block" }}>
+        <div className="modal benutzer-block">
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h3 style={{ margin: 0 }}>{editing === "new" || editing === selected.id ? (editing === "new" ? "Neuer Benutzer" : `Bearbeite: ${selected.username}`) : selected.username}</h3>
+                <h3 className="benutzer-m-0">{editing === "new" || editing === selected.id ? (editing === "new" ? "Neuer Benutzer" : `Bearbeite: ${selected.username}`) : selected.username}</h3>
                 <button className="btn btn-ghost" onClick={() => { setSelected(null); setEditing(null); setResetLink(null); setResetLinkCopied(false); }}><FontAwesomeIcon icon={faTimes} /></button>
               </div>
               <div className="modal-body">
@@ -256,20 +254,20 @@ export default function Benutzerverwaltung() {
                   </>
                 ) : (
                   <>
-                    <h4 style={{ marginBottom: 10, color: "var(--text-secondary)" }}>Grundinformationen</h4>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px 20px" }}>
+                    <h4 className="benutzer-mb-10-color-text-secondary">Grundinformationen</h4>
+                    <div className="benutzer-info-grid">
                       <strong>Benutzername:</strong><span>{selected.username}</span>
                       <strong>E-Mail:</strong><span>{selected.email || "–"}</span>
                       <strong>Rolle:</strong><span><RoleBadge role={selected.role} /></span>
                       <strong>Status:</strong><span><span className={`badge ${selected.active ? "success" : "danger"}`}>{selected.active ? (<><FontAwesomeIcon icon={faCheckCircle} /> Aktiv</>) : (<><FontAwesomeIcon icon={faTimesCircle} /> Inaktiv</>)}</span></span>
                     </div>
-                    <h4 style={{ marginTop: 16, marginBottom: 8, color: "var(--text-secondary)" }}>Audit-Informationen</h4>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px 20px" }}>
+                    <h4 className="benutzer-mt-16-mb-8-color-text-secondary">Audit-Informationen</h4>
+                    <div className="benutzer-info-grid">
                       <strong>Erstellt:</strong><span>{selected.created_at ? new Date(selected.created_at).toLocaleString("de-DE") : "–"}</span>
                       <strong>Letzter Login:</strong><span>{selected.last_login ? new Date(selected.last_login).toLocaleString("de-DE") : "Noch nicht angemeldet"}</span>
                     </div>
-                    <h4 style={{ marginTop: 16, marginBottom: 8, color: "var(--text-secondary)" }}>Passwort-Reset</h4>
-                    <p style={{ marginBottom: 8, fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                    <h4 className="benutzer-mt-16-mb-8-color-text-secondary">Passwort-Reset</h4>
+                    <p className="benutzer-mb-8-fs-0_875rem-color-text-secondary">
                       Generiert einen Einmal-Link, den Sie an den Benutzer weitergeben. Der Benutzer setzt sein Passwort selbst.
                     </p>
                     <button
@@ -297,15 +295,15 @@ export default function Benutzerverwaltung() {
                         </div>
                       </div>
                     )}
-                    <div style={{ marginTop: 12 }} />
+                    <div className="benutzer-mt-12" />
                   </>
                 )}
               </div>
-              <div className="modal-footer" style={{ display: "flex", gap: 10, justifyContent: editing === "new" || editing === selected.id ? "flex-end" : "space-between" }}>
+              <div className={`modal-footer benutzer-flex-gap-10 ${editing === "new" || editing === selected.id ? "benutzer-jc-flex-end" : "benutzer-jc-space-between"}`}>
                 {selected.id !== "new" && editing === null && (
-                  <button className="btn btn-danger" onClick={handleDelete} style={{ marginRight: "auto" }}><FontAwesomeIcon icon={faTrash} /> Löschen</button>
+                  <button className="btn btn-danger benutzer-mr-auto" onClick={handleDelete}><FontAwesomeIcon icon={faTrash} /> Löschen</button>
                 )}
-                <div style={{ display: "flex", gap: 10 }}>
+                <div className="benutzer-flex-gap-10">
                   {selected.id !== "new" && editing === null && (
                     <button className="btn btn-secondary" onClick={() => setEditing(selected.id)}><FontAwesomeIcon icon={faPen} /> Bearbeiten</button>
                   )}

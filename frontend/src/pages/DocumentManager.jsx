@@ -482,9 +482,9 @@ export default function DocumentManager({
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer" }}>Nummer</th>
-                  <th style={{ cursor: "pointer" }}>Kunde</th>
-                  <th className="hide-on-mobile" style={{ cursor: "pointer" }}>
+                  <th className="docmgr-cursor-pointer">Nummer</th>
+                  <th className="docmgr-cursor-pointer">Kunde</th>
+                  <th className="hide-on-mobile docmgr-cursor-pointer">
                     Datum
                   </th>
                 </tr>
@@ -495,21 +495,15 @@ export default function DocumentManager({
                   return [
                     <tr
                       key={`group-${group.key}`}
-                      className="group-header-row"
-                      style={{ cursor: "pointer" }}
+                      className="group-header-row docmgr-cursor-pointer"
                       onClick={() => toggleGroup(group.key)}
                       aria-label={`Kundengruppe: ${group.name}`}>
                       <td colSpan={4}>
-                        <span style={{ marginRight: 8 }}>
+                        <span className="mr-8">
                           {isExpanded ? "▼" : "▶"}
                         </span>
                         <FontAwesomeIcon icon={icons.user} /> {group.name}{" "}
-                        <span
-                          style={{
-                            fontWeight: "normal",
-                            color: "var(--text-muted)",
-                            fontSize: "0.9em",
-                          }}>
+                        <span className="docmgr-fw-normal-color-text-muted-fs-0_9em">
                           ({group.items.length})
                         </span>
                       </td>
@@ -521,8 +515,7 @@ export default function DocumentManager({
                             onClick={(e) => {
                               e.stopPropagation();
                               openDetail(d.ID);
-                            }}
-                            style={{ cursor: "pointer" }}>
+                            }} className="docmgr-cursor-pointer">
                             <td>{d.Nummer}</td>
                             <td>{kundenAnzeige(d)}</td>
                             <td className="hide-on-mobile">
@@ -618,8 +611,7 @@ export default function DocumentManager({
                     Bearbeiten
                   </button>
                   <button
-                    className="btn btn-success btn-sm"
-                    style={{ marginRight: 8 }}
+                    className="btn btn-success btn-sm mr-8"
                     onClick={() => finalizeDraft(detail.ID)}>
                     Abschließen
                   </button>
@@ -689,26 +681,8 @@ export default function DocumentManager({
               </div>
               {/* Aufteilung Marina & Saskia */}
               {detail.schmuckstuecke?.length > 0 && (
-                <div
-                  style={{
-                    fontSize: "0.85em",
-                    color: "#666",
-                    marginTop: 16,
-                    padding: "12px",
-                    backgroundColor: "#f9f9f9",
-                    borderRadius: "4px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
-                  }}>
-                  <label
-                    style={{
-                      fontSize: "0.9em",
-                      marginBottom: "0",
-                      display: "block",
-                      color: "#888",
-                      fontWeight: "600",
-                    }}>
+                <div className="docmgr-vorschau-box">
+                  <label className="docmgr-fs-0_9em-mb-0-block-color-888-fw-600">
                     {/* #241: der Lieferschein zeigt, welcher Wert an den
                         Kunden ging -- abgerechnet wird erst per Rechnung */}
                     {type === "lieferschein"
@@ -735,23 +709,9 @@ export default function DocumentManager({
                     const versandkosten = Number(summen.versandkosten) || 0;
 
                     return (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "8px",
-                        }}>
-                        <div
-                          style={{
-                            paddingBottom: "8px",
-                            borderBottom: "1px solid #ddd",
-                          }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              marginBottom: "4px",
-                            }}>
+                      <div className="docmgr-flex-dir-column-gap-8">
+                        <div className="docmgr-pb-8-border-b-1-solid-ddd">
+                          <div className="docmgr-flex-jc-space-between-mb-4">
                             {/* Dieselbe Bezeichnung wie auf dem Beleg, damit
                                 Modal und Rechnung nicht zwei Namen fuer
                                 dieselbe Zahl fuehren (Befund G7). */}
@@ -764,13 +724,7 @@ export default function DocumentManager({
                           </div>
                           {provisionPercent > 0 && (
                             <>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  marginBottom: "4px",
-                                  color: "#d9534f",
-                                }}>
+                              <div className="docmgr-flex-jc-space-between-mb-4-color-d9534f">
                                 <span>Provision ({provisionPercent}%):</span>
                                 <strong>-{formatEur(provisionValue)}</strong>
                               </div>
@@ -785,12 +739,7 @@ export default function DocumentManager({
                             </div>
                           )}
                           {(provisionPercent > 0 || versandkosten > 0) && (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  fontWeight: "600",
-                                }}>
+                              <div className="docmgr-flex-jc-space-between-fw-600">
                                 <span>
                                   {type === "lieferschein" ? "Gesendet netto:" : "Überweisungsbetrag:"}
                                 </span>
@@ -799,23 +748,12 @@ export default function DocumentManager({
                           )}
                         </div>
 
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: "12px",
-                            flexWrap: "wrap",
-                          }}>
+                        <div className="docmgr-flex-jc-space-between-gap-12-wrap-wrap">
                           {marinaBrutto > 0 && (
                             <div>
                               <strong>Marina:</strong>{" "}
                               {formatEur(marinaNetto)}
-                              <span
-                                style={{
-                                  fontSize: "0.9em",
-                                  color: "#999",
-                                  marginLeft: "4px",
-                                }}>
+                              <span className="docmgr-fs-0_9em-color-999-ml-4">
                                 ({formatEur(marinaBrutto)} brutto)
                               </span>
                             </div>
@@ -824,12 +762,7 @@ export default function DocumentManager({
                             <div>
                               <strong>Saskia:</strong>{" "}
                               {formatEur(saskiaNetto)}
-                              <span
-                                style={{
-                                  fontSize: "0.9em",
-                                  color: "#999",
-                                  marginLeft: "4px",
-                                }}>
+                              <span className="docmgr-fs-0_9em-color-999-ml-4">
                                 ({formatEur(saskiaBrutto)} brutto)
                               </span>
                             </div>
@@ -1103,7 +1036,7 @@ export default function DocumentManager({
                             <th>Artikelnr.</th>
                             <th>Art</th>
                             <th>Preis</th>
-                            {type === "rechnung" && <th style={{ minWidth: 90 }}>Rabatt %</th>}
+                            {type === "rechnung" && <th className="docmgr-minw-90">Rabatt %</th>}
                             <th></th>
                           </tr>
                         </thead>
@@ -1205,10 +1138,9 @@ export default function DocumentManager({
                 Abbrechen
               </button>
               <button
-                className="btn btn-secondary"
+                className="btn btn-secondary ml-auto"
                 disabled={saving}
-                onClick={() => handleSave('entwurf')}
-                style={{ marginLeft: 'auto' }}>
+                onClick={() => handleSave('entwurf')}>
                 {saving ? 'Speichert…' : 'Als Entwurf speichern'}
               </button>
               <button

@@ -4,10 +4,9 @@ export default function TableToolbar({
   placeholder = "Suchen...",
   right = null,
   className = "",
-  style,
 }) {
   return (
-    <div className={`toolbar ${className}`.trim()} style={style}>
+    <div className={`toolbar ${className}`.trim()}>
       <input
         className="form-control search-input"
         placeholder={placeholder}

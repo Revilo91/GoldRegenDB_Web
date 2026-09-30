@@ -115,7 +115,7 @@ export default function PhotoUpload({
             <p>Ziehe Foto hier hin oder klicke zum Auswählen</p>
             <small>JPG, PNG, GIF (max. 5 MB)</small>
             {disabled && (
-              <small style={{ color: "#666" }}>
+              <small className="photo-upload-color-666">
                 Bitte zuerst Hersteller, Grundmaterial und Produktart auswählen.
               </small>
             )}
@@ -123,10 +123,10 @@ export default function PhotoUpload({
         </label>
       </div>
 
-      {angezeigterFehler && <div className="alert alert-danger" style={{ marginTop: "10px" }}>{angezeigterFehler}</div>}
+      {angezeigterFehler && <div className="alert alert-danger photo-upload-mt-10">{angezeigterFehler}</div>}
 
       {uploading && (
-        <div style={{ marginTop: "10px", textAlign: "center" }}>
+        <div className="photo-upload-mt-10-text-center">
           <div className="spinner"></div>
           Hochladen...
         </div>

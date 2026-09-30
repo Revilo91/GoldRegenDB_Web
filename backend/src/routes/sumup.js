@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../config/db");
 const logger = require("../utils/logger");
 const { where } = require("../utils/whereClauseBuilder");
+const { markiereVerkauft, lagereOffeneAus } = require("../utils/statusUebergaenge");
 const { PRODUKTART } = require("../utils/constants");
 const { validate } = require("../middleware/validate");
 const { sumupImportSchema } = require("../schemas");
@@ -253,21 +254,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
     // hier gehen nur die tatsächlich gefundenen Stücke auf den Lieferschein.
     const lieferscheinArtikelnummern = existingItems.map((i) => i.Artikelnummer);
     if (lieferscheinArtikelnummern.length > 0) {
-      const updateBuilder = where();
-      updateBuilder.artikelnummerIn(lieferscheinArtikelnummern);
-      updateBuilder.nichtVerkauft();
-      updateBuilder.keinAusschuss();
-
-      // SET-Parameter zuerst, dann WHERE-Parameter
-      const setParams = [messeKunde.ID, lieferschein.ID];
-      const whereParams = updateBuilder.getParams();
-      await client.query(
-        `UPDATE "Schmuckstück"
-         SET "Ausgelagert" = $1, "Lieferschein_ID" = $2
-         ${updateBuilder.build().replace(/\$1/g, `$${setParams.length + 1}`)}
-        `,
-        [...setParams, ...whereParams],
-      );
+      await lagereOffeneAus(client, lieferscheinArtikelnummern, messeKunde.ID, lieferschein.ID);
     }
 
     // Fortlaufende Rechnungsnummern im Format YYYY-XXX
@@ -299,14 +286,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       const marinaArtikelnummernArray = marinaArtikelnummern.map(
         (i) => i.Artikelnummer,
       );
-      if (marinaArtikelnummernArray.length > 0) {
-        await client.query(
-          `UPDATE "Schmuckstück"
-           SET "Verkauft" = TRUE, "Rechnung_ID" = $1
-           WHERE "Artikelnummer" = ANY($2)`,
-          [rechnungMarina.ID, marinaArtikelnummernArray],
-        );
-      }
+      await markiereVerkauft(client, marinaArtikelnummernArray, rechnungMarina.ID);
     }
 
     // 3. Erstelle Rechnung für Saskia
@@ -327,14 +307,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
       const saskiaArtikelnummernArray = saskiaArtikelnummern.map(
         (i) => i.Artikelnummer,
       );
-      if (saskiaArtikelnummernArray.length > 0) {
-        await client.query(
-          `UPDATE "Schmuckstück"
-           SET "Verkauft" = TRUE, "Rechnung_ID" = $1
-           WHERE "Artikelnummer" = ANY($2)`,
-          [rechnungSaskia.ID, saskiaArtikelnummernArray],
-        );
-      }
+      await markiereVerkauft(client, saskiaArtikelnummernArray, rechnungSaskia.ID);
     }
 
     await client.query("COMMIT");

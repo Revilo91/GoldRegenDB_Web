@@ -72,14 +72,17 @@ Jedes Stück hat genau einen von vier Zuständen, aus drei DB-Spalten zusammenge
 
 | Status | Bedingung | Bedeutung |
 |--------|-----------|-----------|
-| **Im Lager** | `Ausgelagert=0, Verkauft=F, Ausschuss=F` | Bereit zum Auslagern/Verkauf |
-| **Aktiv ausgelagert** | `Ausgelagert>0, Verkauft=F, Ausschuss=F` | Physisch bei Kunde X |
-| **Verkauft** | `Verkauft=T, Ausschuss=F` | Verkauft, Rechnung zugeordnet |
-| **Ausschuss** | `Ausschuss=T` | Aussortiert (Grund in `Ausschuss_Grund`) |
+| **Im Lager** | `Ausgelagert = 0, Verkauft = FALSE, Ausschuss = FALSE` | Bereit zum Auslagern/Verkauf |
+| **Aktiv ausgelagert** | `Ausgelagert > 0, Verkauft = FALSE, Ausschuss = FALSE` | Physisch bei Kunde X |
+| **Verkauft** | `Verkauft = TRUE, Ausschuss = FALSE` | Verkauft, Rechnung zugeordnet |
+| **Ausschuss** | `Ausschuss = TRUE` | Aussortiert (Grund in `Ausschuss_Grund`) |
 
 `Ausgelagert` ist keine Boolean, sondern die **Kunden-ID** (`0` = Lager, `>0` = bei diesem Kunden).
 
-**Pflicht:** Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden — niemals WHERE-Klauseln für Status manuell schreiben.
+**Pflicht (drei Fälle):**
+- **WHERE-Filter auf Status** (`Verkauft`, `Ausschuss`, `Ausgelagert`) laufen immer über `whereClauseBuilder` — niemals manuell schreiben.
+- **Statusübergänge** (UPDATE, z. B. verkauft markieren, auslagern, zurücklagern) laufen über die Helper in `backend/src/utils/statusUebergaenge.js` — keine eigenen `SET "Verkauft" = …`/`SET "Ausgelagert" = …` in Routen.
+- **Beziehungs-JOINs** wie `s."Ausgelagert" = k."ID"` sind erlaubt; sie filtern keinen Status.
 
 ### Rabatt-Formel (zentral in `utils/rabatt.js`)
 
@@ -198,7 +201,7 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 ## Kritische Projektregeln
 
 ### 1. WHERE-Clause-Builder (Backend)
-**Alle Schmuckstück-Abfragen müssen `whereClauseBuilder` verwenden** für konsistente Filterlogik in der gesamten App.
+**Alle WHERE-Filter auf den Status von Schmuckstücken müssen `whereClauseBuilder` verwenden** für konsistente Filterlogik in der gesamten App. Statusübergänge (UPDATE) laufen über `backend/src/utils/statusUebergaenge.js`; Beziehungs-JOINs wie `s."Ausgelagert" = k."ID"` sind erlaubt.
 
 ```javascript
 const { where } = require('../utils/whereClauseBuilder');
@@ -213,10 +216,10 @@ const { rows } = await db.query(
 ```
 
 **Status-Mappings** (kritische Geschäftslogik):
-- **Verfügbar**: `Verkauft=0 AND Ausschuss=0 AND Ausgelagert=0`
-- **Verkauft**: `Verkauft=1 AND Ausschuss=0`
-- **Ausschuss**: `Ausschuss=1`
-- **Aktiv Ausgelagert**: `Ausgelagert>0 AND Verkauft=0 AND Ausschuss=0`
+- **Verfügbar**: `Verkauft = FALSE AND Ausschuss = FALSE AND Ausgelagert = 0`
+- **Verkauft**: `Verkauft = TRUE AND Ausschuss = FALSE`
+- **Ausschuss**: `Ausschuss = TRUE`
+- **Aktiv Ausgelagert**: `Ausgelagert > 0 AND Verkauft = FALSE AND Ausschuss = FALSE`
 
 Vollständige API: `backend/src/utils/WHERE_BUILDER.md`
 
@@ -231,6 +234,9 @@ Vollständige API: `backend/src/utils/WHERE_BUILDER.md`
 ```
 
 Alle Styles gehören als Klassendefinitionen in `frontend/src/index.css`.
+
+**Ausnahme:** Dynamische Werte (aus Daten/State berechnet) nur als CSS-Variable: `style={{ "--balken-breite": `${x}%` }}` mit `width: var(--balken-breite)` in der Klasse. Bedingte Styles zwischen festen Werten sind bedingte Klassennamen, keine Variablen. ESLint (`no-restricted-syntax`) erzwingt das.
+**Klassennamen** je Seite/Komponente einheitlich präfixiert (`inventur-…`, `dashboard-…`, `docmgr-…`) und in `index.css` in einem eigenen kommentierten Block je Datei gruppiert; vorhandene Klassen (z. B. `cursor-pointer`, `mr-8`) wiederverwenden. Ein doppelter Klassenname im Selektor (`.a.a`) hebt die Spezifität, wo eine bestehende Regel sonst gewinnt.
 
 ### 3. Fotos
 - Fotos liegen **in PostgreSQL**: Tabelle `"Foto"` (Schmuckstücke, Schlüssel = Basis-Artikelnummer, `MHO123` gilt für `MHO123_1`, `MHO123_2`) und `bestellung_foto` (Bestellformular)
@@ -256,11 +262,13 @@ frontend/src/
 backend/src/
 ├── routes/                # 10+ REST-Endpunkte (auth, kunden, schmuckstuecke usw.)
 ├── middleware/auth.js     # JWT-Validierung, Rollenprüfung (authenticate, requireAdmin)
-├── config/db.js           # PostgreSQL-Pool + request-scoped Client + Startup-Migrationen
+├── config/db.js           # PostgreSQL-Pool + request-scoped Client
+├── config/migrate.js      # Migrations-Runner (Advisory-Lock, Backup-Gate per pg_dump)
+├── config/migrations/     # Nummerierte SQL-Migrationen 0001_baseline.sql, …
 └── utils/                 # whereClauseBuilder, excelService, logger, passwordService
 
 db/
-├── init.sql               # Schema: 7 Tabellen + Audit-Trigger
+├── init.sql               # Eingefrorenes Start-Schema für Docker-Entrypoint + seed.sql
 ├── seed.sql               # Demo-Daten
 ├── backup.sh / restore.sh # Automatische Backups (täglich/wöchentlich)
 └── README.md              # Backup/Restore-Dokumentation
@@ -284,7 +292,8 @@ db/
 - Kein ORM: Abfragen direkt mit `pg` (node-postgres)
 - Alle Einfüge-/Update-Operationen verwenden Prepared Statements gegen SQL-Injection
 - Session-Benutzer wird per `SET app.current_user = 'username'` im `authenticate`-Middleware gesetzt (fließt in Audit-Trigger)
-- Startup-Migrationen in `db.js` stellen Schema-Konsistenz sicher
+- **Schema-Migrationen:** `backend/src/config/migrations/NNNN_name.sql`, beim Start angewandt von `config/migrate.js` (Tabelle `schema_migrations`, eine Transaktion je Migration, `pg_advisory_lock`, vorher `pg_dump`-Backup bei Bestandsdatenbanken; `MIGRATION_BACKUP_DIR`, `MIGRATION_SKIP_BACKUP`)
+- **Neue Schemaänderung = neue Datei mit der nächsten Nummer.** Veröffentlichte Migrationen nie ändern, `db/init.sql` nicht erweitern, kein Schema-Code (CREATE/ALTER) in `db.js`. Datenumwandlungen als eigene, idempotente Migration
 
 ### Authentifizierung
 1. Frontend sendet Passwort im Klartext über TLS — kein clientseitiges Hashing
@@ -310,7 +319,7 @@ db/
 
 | Zweck | Pfad |
 |-------|------|
-| **Datenbankschema** | `db/init.sql` (7 Tabellen, Audit-Trigger) |
+| **Datenbankschema** | `backend/src/config/migrations/` (maßgeblich), `db/init.sql` (eingefrorener Start-Stand) |
 | **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & DB_PASSWORD setzen) |
 | **WHERE-Builder-Doku** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel-Export** | `backend/src/utils/excelService.js` |
@@ -330,7 +339,7 @@ cd backend && npm test
 # Mocks: db.js, logger.js via jest.mock()
 ```
 
-Für Backup/Restore gibt es eine Integrationssuite gegen echtes Postgres (`__tests__/backup.integration.test.js`), die nur mit `TEST_DATABASE_URL` läuft und Datenbanken ohne „test" im Namen ablehnt.
+Für Backup/Restore gibt es eine Integrationssuite gegen echtes Postgres (`__tests__/backup.integration.test.js`), die nur mit `TEST_DATABASE_URL` läuft und Datenbanken ohne „test" im Namen ablehnt. Ebenso `__tests__/migrations.integration.test.js` (Rolle braucht `CREATEDB`): vergleicht Neuinstallation, init.sql + Migrationen und Bestandsdatenbank auf identisches Schema.
 
 **Frontend** (Vitest):
 ```bash

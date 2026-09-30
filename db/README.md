@@ -134,8 +134,8 @@ docker compose cp db:/backups/daily ./backups_export/
 >
 > `restore.sh` trennt per `pg_terminate_backend` alle Verbindungen zur
 > Datenbank. Läuft das Backend weiter, reißt das seine Verbindung ab; es
-> startet wegen `restart: always` neu und legt seine `ensureX`-Tabellen
-> **parallel zum laufenden Restore** an. Die `CREATE TABLE` aus dem Dump
+> startet wegen `restart: always` neu und legt über seine Schema-Migrationen
+> Tabellen **parallel zum laufenden Restore** an. Die `CREATE TABLE` aus dem Dump
 > treffen dann auf bereits existierende Tabellen, `ON_ERROR_STOP=1` bricht ab,
 > und das Ergebnis ist eine **teilweise** wiederhergestellte Datenbank. Nach
 > dem Restore wieder starten mit `docker compose start app`.

@@ -79,27 +79,26 @@ export default function Sumup() {
         <h2>
           <FontAwesomeIcon icon={faCreditCard} /> SumUp Verwaltung
         </h2>
-        <p
-          style={{ marginBottom: "32px", fontSize: "1rem", lineHeight: "1.5" }}>
+        <p className="sumup-mb-32-fs-1rem-lh-1_5">
           Exportieren Sie verfügbare Artikel für SumUp oder importieren Sie
           Verkaufsberichte.
         </p>
       </div>
 
       {/* Export Section */}
-      <div className="card" style={{ marginBottom: "32px" }}>
-        <div className="card-header" style={{ padding: "20px 24px" }}>
+      <div className="card sumup-mb-32">
+        <div className="card-header sumup-p-20-24">
           <h3>
             <FontAwesomeIcon icon={faFileExport} /> SumUp Export (CSV)
           </h3>
         </div>
-        <div className="card-body" style={{ padding: "24px" }}>
-          <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
+        <div className="card-body sumup-p-24">
+          <p className="sumup-mb-20-lh-1_6">
             Exportiert alle verfügbaren Schmuckstücke (nicht verkauft, nicht
             ausgelagert, kein Ausschuss) als CSV-Datei im SumUp-Format. Die
             Datei kann direkt in das SumUp-Kassensystem importiert werden.
           </p>
-          <ul style={{ marginBottom: "20px", lineHeight: "1.8" }}>
+          <ul className="sumup-mb-20-lh-1_8">
             <div>
               <FontAwesomeIcon icon={faCheck} /> Gruppierung nach
               Basis-Artikelnummer (z.B. MBH028 mit Varianten _1 bis _5)
@@ -138,18 +137,18 @@ export default function Sumup() {
 
       {/* Import Section */}
       <div className="card">
-        <div className="card-header" style={{ padding: "20px 24px" }}>
+        <div className="card-header sumup-p-20-24">
           <h3>
             <FontAwesomeIcon icon={faFileImport} /> SumUp Verkaufsbericht
             importieren
           </h3>
         </div>
-        <div className="card-body" style={{ padding: "24px" }}>
-          <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
+        <div className="card-body sumup-p-24">
+          <p className="sumup-mb-20-lh-1_6">
             Importieren Sie einen SumUp Verkaufsbericht (CSV-Datei). Das System
             erstellt automatisch:
           </p>
-          <ul style={{ marginBottom: "20px", lineHeight: "1.8" }}>
+          <ul className="sumup-mb-20-lh-1_8">
             <div>
               <FontAwesomeIcon icon={faCheck} /> Einen Lieferschein für alle
               verkauften Artikel (zu SumUp ausgelagert)
@@ -166,13 +165,7 @@ export default function Sumup() {
 
           {sumupResult && (
             <div
-              className="badge success"
-              style={{
-                marginBottom: "20px",
-                padding: "16px 20px",
-                display: "block",
-                whiteSpace: "pre-line",
-              }}>
+              className="badge success sumup-ergebnis-box">
               <strong>
                 <FontAwesomeIcon icon={faCheck} /> Import erfolgreich!
               </strong>
@@ -204,12 +197,7 @@ export default function Sumup() {
           )}
           {sumupError && (
             <div
-              className="badge danger"
-              style={{
-                marginBottom: "20px",
-                padding: "16px 20px",
-                display: "block",
-              }}>
+              className="badge danger sumup-mb-20-p-16-20-block">
               <strong>
                 <FontAwesomeIcon icon={faTimes} /> Fehler:
               </strong>{" "}
@@ -218,21 +206,16 @@ export default function Sumup() {
                 <>
                   <br />
                   <br />
-                  <details style={{ cursor: "pointer", marginTop: "12px" }}>
-                    <summary style={{ fontWeight: "bold" }}>
+                  <details className="sumup-cursor-pointer-mt-12">
+                    <summary className="sumup-fw-bold">
                       <FontAwesomeIcon icon={faHandPointRight} /> Klicken für
                       Hilfe zur Fehlersuche
                     </summary>
-                    <div
-                      style={{
-                        marginTop: "12px",
-                        paddingTop: "12px",
-                        borderTop: "1px solid currentColor",
-                      }}>
+                    <div className="sumup-details-trenner">
                       <p>
                         <strong>Tipps:</strong>
                       </p>
-                      <ul style={{ marginLeft: "20px" }}>
+                      <ul className="sumup-ml-20">
                         <li>
                           Die CSV-Datei sollte eine Spalte mit Artikelnummern
                           haben
@@ -261,8 +244,7 @@ export default function Sumup() {
 
           <label
             htmlFor="sumup-import-file"
-            className={`btn btn-primary${sumupImporting ? " disabled" : ""}`}
-            style={{ cursor: sumupImporting ? "not-allowed" : "pointer" }}>
+            className={`btn btn-primary${sumupImporting ? " disabled sumup-cursor-not-allowed" : " cursor-pointer"}`}>
             {sumupImporting ? (
               <>
                 <FontAwesomeIcon icon={faSpinner} spin /> Importiere…
@@ -279,8 +261,7 @@ export default function Sumup() {
             type="file"
             accept=".csv,text/csv"
             onChange={handleSumupFileChange}
-            disabled={sumupImporting}
-            style={{ display: "none" }}
+            disabled={sumupImporting} className="visually-hidden-input"
           />
         </div>
       </div>
