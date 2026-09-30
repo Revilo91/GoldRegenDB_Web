@@ -22,6 +22,7 @@ Verwaltet Schmuckstücke, Kunden, Lieferscheine, Rechnungen und Inventuren – v
 - [Benutzerrollen](#benutzerrollen)
 - [Projektstruktur](#projektstruktur)
 - [Backup & Wiederherstellung](#backup--wiederherstellung)
+  - [Schema-Migrationen](#schema-migrationen)
 - [Tests](#tests)
 - [Troubleshooting](#troubleshooting)
 
@@ -280,6 +281,8 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 | `PRIVACY_POLICY_VERSION` | Version der Datenschutzerklärung, die beim Consent protokolliert wird | `2026-01-v1` |
 | `BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG` | Aufbewahrungsfrist (Tage) für die DSGVO-Anonymisierung ohne Rechnung (`backend/scripts/dsgvo-retention.js`) | `90` |
 | `BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG` | Aufbewahrungsfrist (Jahre) für die DSGVO-Anonymisierung mit Rechnung | `10` |
+| `MIGRATION_BACKUP_DIR` | Ziel des automatischen `pg_dump` vor ausstehenden [Schema-Migrationen](#schema-migrationen). Compose: `/backups/migrations`; nativ ohne Angabe `<Arbeitsverzeichnis>/migration-backups` | `/backups/migrations` |
+| `MIGRATION_SKIP_BACKUP` | `true` überspringt dieses Backup (nur Warnung im Log). Nur mit eigenem, aktuellem Backup oder in der nativen Entwicklung ohne `pg_dump` | `false` |
 
 > ⚠️ **`JWT_SECRET`**, **`DB_PASSWORD`** und **`BESTELLUNG_ENCRYPTION_KEY`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden. Mit `NODE_ENV=production` verweigert das Backend den Start, solange noch ein Platzhalterwert aus `.env.example` oder ein zu kurzes Secret gesetzt ist (`backend/src/config/secrets.js`).
 
@@ -368,7 +371,7 @@ GoldRegenDB_Web/
 ├── .env.example                     # Vorlage für Umgebungsvariablen
 │
 ├── db/
-│   ├── init.sql                    # PostgreSQL-Schema (Tabellen + Trigger)
+│   ├── init.sql                    # Eingefrorenes Start-Schema für den Docker-Entrypoint (+ seed.sql)
 │   ├── seed.sql                    # Initiale Daten
 │   ├── backup.sh                   # Backup-Skript (täglich/wöchentlich)
 │   ├── restore.sh                  # Wiederherstellungs-Skript
@@ -378,6 +381,8 @@ GoldRegenDB_Web/
 │   ├── src/
 │   │   ├── index.js                # Express-Einstiegspunkt
 │   │   ├── config/db.js            # PostgreSQL-Verbindung (pg Pool)
+│   │   ├── config/migrate.js       # Migrations-Runner (Backup-Gate, Advisory-Lock)
+│   │   ├── config/migrations/      # Nummerierte SQL-Migrationen (0001_baseline.sql, …)
 │   │   ├── middleware/auth.js      # JWT-Middleware (authenticate, requireAdmin)
 │   │   ├── routes/                 # REST-API-Routen
 │   │   │   ├── auth.js             # Login, /me
@@ -434,6 +439,34 @@ docker compose -f docker-compose.dev.yml exec db /backup.sh
 ```
 
 Backups werden im Docker-Volume `pgbackups` unter `/backups/daily/` und `/backups/weekly/` gespeichert (7 tägliche + 4 wöchentliche Dumps).
+
+### Schema-Migrationen
+
+Das Schema entsteht beim Backend-Start aus den nummerierten SQL-Dateien in
+`backend/src/config/migrations/` (Runner: `backend/src/config/migrate.js`). Angewandte
+Versionen stehen in der Tabelle `schema_migrations`; jede Migration läuft in einer eigenen
+Transaktion, ein Fehler rollt sie zurück und bricht den Start ab (`/api/health` bleibt 503).
+Parallele Starts warten per `pg_advisory_lock` aufeinander.
+
+**Backup-Gate:** Stehen Migrationen aus und enthält die Datenbank bereits Tabellen, legt das
+Backend vorher mit `pg_dump` (Custom-Format) ein Backup an – in Docker unter
+`/backups/migrations/vor_migration_<version>_<zeit>.dump`, also im selben Volume bzw.
+Synology-Ordner (`${DATA_DIR}/backups/migrations`) wie die täglichen Backups. Das Image bringt
+`pg_dump` mit (`postgresql16-client`). Schlägt das Backup fehl, startet das Backend **nicht**
+und nennt den Grund im Log; das Schema bleibt unverändert. Erst nach eigener Sicherung
+`MIGRATION_SKIP_BACKUP=true` setzen, dann läuft die Migration nur mit Warnung.
+
+- **Erster Start nach dem Update auf diese Version:** Bestandsdatenbanken haben noch keine
+  `schema_migrations`; alle Migrationen gelten als ausstehend, es entsteht einmalig ein Backup,
+  und die Migrationen laufen idempotent über den vorhandenen Stand.
+- **Neuinstallation per Docker:** `db/init.sql` (+ `seed.sql`) legt die Tabellen an, beim
+  ersten Backend-Start entsteht deshalb ebenfalls einmal ein (kleines) Backup.
+- **Native Entwicklung ohne `pg_dump`** auf dem Host: `MIGRATION_SKIP_BACKUP=true` in der `.env`.
+- **Backup einspielen:** `pg_restore --clean --if-exists -d <db> <datei>.dump` (App vorher stoppen).
+
+**Neue Migration:** neue Datei mit der nächsten Nummer anlegen
+(`0006_kurzer_name.sql`, Kleinbuchstaben/Ziffern/`_`). Bereits veröffentlichte Migrationen
+**nie ändern** – Korrekturen sind wieder eine neue Datei. `db/init.sql` bleibt eingefroren.
 
 ### JSON-Backup über die Web-Oberfläche (Admin)
 
