@@ -8,8 +8,7 @@ Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Re
 
 1. Umfangreiche oder parallele Arbeit geht an Subagenten; Rückfragen, Pläne, Einzeiler und Commits macht die Haupt-KI selbst (Details: Abschnitt „Delegation & Modellwahl“ unten).
 2. Die Haupt-KI hat immer das letzte Wort: Subagenten committen nie, den Commit macht die Haupt-KI nach Diff-Prüfung und Tests.
-3. Einfache Aufgaben → Haiku 4.5 / Sonnet 5
-4. Opus 5.5 nur für komplexe Aufgaben.
+3. Mehr Details: Abschnitt „Delegation & Modellwahl“ unten
 
 
 
