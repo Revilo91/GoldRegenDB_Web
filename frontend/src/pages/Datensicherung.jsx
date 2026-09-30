@@ -60,16 +60,9 @@ function TableCheckboxList({ tables, selected, onChange, disabled }) {
     }
   };
   return (
-    <div style={{ marginBottom: "16px" }}>
+    <div className="datensicherung-mb-16">
       <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "8px",
-          fontWeight: 600,
-          cursor: disabled ? "not-allowed" : "pointer",
-        }}>
+        className={`datensicherung-flex-ai-center-gap-8-mb-8-fw-600 ${disabled ? "datensicherung-cursor-not-allowed" : "cursor-pointer"}`}>
         <input
           type="checkbox"
           className="form-checkbox"
@@ -79,16 +72,11 @@ function TableCheckboxList({ tables, selected, onChange, disabled }) {
         />
         Alle auswählen
       </label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
+      <div className="datensicherung-flex-wrap-wrap-gap-8-24">
         {tables.map(({ key, label }) => (
           <label
             key={key}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              cursor: disabled ? "not-allowed" : "pointer",
-            }}>
+            className={`datensicherung-flex-ai-center-gap-6 ${disabled ? "datensicherung-cursor-not-allowed" : "cursor-pointer"}`}>
             <input
               type="checkbox"
               className="form-checkbox"
@@ -365,7 +353,7 @@ export default function Datensicherung() {
   return (
     <div className="page-header">
       <h2>Datensicherung</h2>
-      <p style={{ marginBottom: "32px", fontSize: "1rem", lineHeight: "1.5" }}>
+      <p className="datensicherung-mb-32-fs-1rem-lh-1_5">
         Exportieren Sie ausgewählte Tabellen als JSON-Backup oder stellen Sie
         einen früheren Stand aus einer Backup-Datei wieder her. Die Fotos
         stehen nicht im JSON, sie werden als eigenes ZIP gesichert.
@@ -419,14 +407,14 @@ export default function Datensicherung() {
       </div>
 
       {/* Export Section */}
-      <div className="card" style={{ marginBottom: "32px" }}>
-        <div className="card-header" style={{ padding: "20px 24px" }}>
+      <div className="card datensicherung-mb-32">
+        <div className="card-header datensicherung-p-20-24">
           <h3>
             <FontAwesomeIcon icon={faFileExport} /> Daten exportieren
           </h3>
         </div>
-        <div className="card-body" style={{ padding: "24px" }}>
-          <p style={{ marginBottom: "16px", lineHeight: "1.6" }}>
+        <div className="card-body datensicherung-p-24">
+          <p className="datensicherung-mb-16-lh-1_6">
             Wählen Sie die Tabellen aus, die in die Backup-Datei aufgenommen
             werden sollen. Die Datei kann später für einen Import verwendet
             werden.
@@ -438,7 +426,7 @@ export default function Datensicherung() {
             disabled={exporting}
           />
           {exportError && (
-            <div className="badge danger" style={{ marginBottom: "20px" }}>
+            <div className="badge danger datensicherung-mb-20">
               {exportError}
             </div>
           )}
@@ -480,15 +468,15 @@ export default function Datensicherung() {
 
       {/* Import Section */}
       <div className="card">
-        <div className="card-header" style={{ padding: "20px 24px" }}>
+        <div className="card-header datensicherung-p-20-24">
           <h3>
             <FontAwesomeIcon icon={faFileImport} /> Daten importieren
           </h3>
         </div>
-        <div className="card-body" style={{ padding: "24px" }}>
+        <div className="card-body datensicherung-p-24">
           {!pendingImport ? (
             <>
-              <p style={{ marginBottom: "20px", lineHeight: "1.6" }}>
+              <p className="datensicherung-mb-20-lh-1_6">
                 Wählen Sie eine Backup-Datei aus (JSON-Backup oder SQL-Dump
                 aus <code>pg_dump</code>/<code>pg_dumpall</code>). Sie können
                 danach auswählen, welche Tabellen wiederhergestellt werden
@@ -498,8 +486,7 @@ export default function Datensicherung() {
 
               {importResult && (
                 <div
-                  className="badge success"
-                  style={{ marginBottom: "20px", padding: "12px 16px" }}>
+                  className="badge success datensicherung-mb-20-p-12-16">
                   <FontAwesomeIcon icon={faCheckCircle} /> Import erfolgreich!
                   Importiert:{" "}
                   {Object.entries(importResult.counts || {})
@@ -536,16 +523,14 @@ export default function Datensicherung() {
                 )}
               {importError && (
                 <div
-                  className="badge danger"
-                  style={{ marginBottom: "20px", padding: "12px 16px" }}>
+                  className="badge danger datensicherung-mb-20-p-12-16">
                   {importError}
                 </div>
               )}
 
               <label
                 htmlFor="import-file"
-                className="btn btn-secondary"
-                style={{ cursor: "pointer" }}>
+                className="btn btn-secondary cursor-pointer">
                 <FontAwesomeIcon icon={faFolderOpen} /> Backup-Datei oder
                 SQL-Dump wählen
               </label>
@@ -554,8 +539,7 @@ export default function Datensicherung() {
                 ref={fileInputRef}
                 type="file"
                 accept=".json,application/json,.sql,application/sql"
-                onChange={handleFileChange}
-                style={{ display: "none" }}
+                onChange={handleFileChange} className="visually-hidden-input"
               />
 
               <div className="datensicherung-abschnitt">
@@ -599,10 +583,10 @@ export default function Datensicherung() {
             </>
           ) : (
             <>
-              <p style={{ marginBottom: "12px", lineHeight: "1.6" }}>
+              <p className="datensicherung-mb-12-lh-1_6">
                 <strong>Datei:</strong> {pendingImport.fileName}
               </p>
-              <p style={{ marginBottom: "16px", lineHeight: "1.6" }}>
+              <p className="datensicherung-mb-16-lh-1_6">
                 <strong>
                   <FontAwesomeIcon icon={faExclamationTriangle} /> Achtung:
                 </strong>{" "}
@@ -618,12 +602,11 @@ export default function Datensicherung() {
               />
               {importError && (
                 <div
-                  className="badge danger"
-                  style={{ marginBottom: "16px", padding: "12px 16px" }}>
+                  className="badge danger datensicherung-mb-16-p-12-16">
                   {importError}
                 </div>
               )}
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <div className="datensicherung-flex-gap-12-wrap-wrap">
                 <button
                   className="btn btn-primary"
                   onClick={handleImportConfirm}
