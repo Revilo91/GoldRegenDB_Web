@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { belegSummen } = require('../utils/rabatt');
+const { lagereAus, hebeAuslagerungAuf } = require('../utils/statusUebergaenge');
 const { validate } = require('../middleware/validate');
 const { lieferscheinSchema } = require('../schemas');
 
@@ -270,10 +271,7 @@ router.post('/', validate(lieferscheinSchema), async (req, res) => {
     // But only set Ausgelagert flag if status is 'final'
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (status === 'final') {
-        await client.query(
-          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-          [lieferscheinId, parseInt(Kundennummer), Artikelnummern]
-        );
+        await lagereAus(client, Artikelnummern, parseInt(Kundennummer), lieferscheinId);
       } else {
         // Draft: only set Lieferschein_ID, don't change Ausgelagert
         await client.query(
@@ -379,19 +377,13 @@ router.put('/:id', validate(lieferscheinSchema), async (req, res) => {
     const currentStatus = rows[0].status;
 
     // Always reset old associations first (both Lieferschein_ID and Ausgelagert)
-    await client.query(
-      `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`,
-      [req.params.id]
-    );
+    await hebeAuslagerungAuf(client, req.params.id);
 
     // Set new associations
     if (Artikelnummern && Artikelnummern.length > 0) {
       if (currentStatus === 'final') {
         // Final: set both Lieferschein_ID and Ausgelagert
-        await client.query(
-          `UPDATE "Schmuckstück" SET "Lieferschein_ID" = $1, "Ausgelagert" = $2 WHERE "Artikelnummer" = ANY($3::text[])`,
-          [req.params.id, parseInt(Kundennummer), Artikelnummern]
-        );
+        await lagereAus(client, Artikelnummern, parseInt(Kundennummer), req.params.id);
       } else {
         // Draft: only set Lieferschein_ID, don't change Ausgelagert
         await client.query(
@@ -469,10 +461,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Reset associations before deleting
-    await client.query(
-      `UPDATE "Schmuckstück" SET "Lieferschein_ID" = 0, "Ausgelagert" = 0 WHERE "Lieferschein_ID" = $1`,
-      [req.params.id]
-    );
+    await hebeAuslagerungAuf(client, req.params.id);
     await client.query(
       'DELETE FROM "Lieferschein" WHERE "ID" = $1',
       [req.params.id]
