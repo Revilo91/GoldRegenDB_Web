@@ -790,7 +790,7 @@ Der Benutzername kommt aus `app.current_user`, das im `authenticate`-Middleware 
 | Icons | Font Awesome (Solid + Regular) |
 | Container | Docker + Docker Compose |
 | Typprüfung | JSDoc + `// @ts-check` (Opt-in pro Datei), `tsc --noEmit`, kein Build |
-| Tests | Jest (Backend), Vitest (Frontend) |
+| Tests | Jest (Backend), Vitest (Frontend); Coverage-Schwellen in `backend/package.json` und `frontend/vite.config.js`, nur anheben (Ratchet) |
 
 ### Architektur-Highlights
 
@@ -819,7 +819,7 @@ GoldRegenDB_Web/
 │
 ├── .github/
 │   └── workflows/
-│       ├── tests.yml                 # CI: Jest + Vitest bei jedem PR
+│       ├── tests.yml                 # CI: Jest + Vitest mit Coverage-Schwellen bei jedem PR
 │       ├── check-architektur.yml     # CI: Warnt wenn docs/ARCHITEKTUR.md nicht mitgeändert wurde
 │       └── release.yml               # CI: Release-Workflow
 │
