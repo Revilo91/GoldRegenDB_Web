@@ -192,3 +192,61 @@ describe('GET /api/inventur/:kundeId', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('GET /api/inventur/:kundeId/excel', () => {
+  const { generateInventurExcel } = require('../src/utils/excelService');
+
+  it('liefert die Excel-Datei mit bereinigtem Dateinamen aus dem Kundennamen', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ID: 4, Name: 'Laden/Sued: "Alt"' }] })
+      .mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001_1' }] });
+
+    const res = await request(buildApp()).get('/api/inventur/4/excel');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/spreadsheetml\.sheet/);
+    expect(res.headers['content-disposition']).toContain('Inventur_Laden_Sued_ _Alt_.xlsx');
+    expect(generateInventurExcel).toHaveBeenCalledWith(
+      { ID: 4, Name: 'Laden/Sued: "Alt"' },
+      [{ Artikelnummer: 'MHO001_1' }],
+    );
+  });
+
+  it('holt nur die Stücke dieses Kunden über den Ausgelagert-Filter', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ID: 4, Name: 'A' }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await request(buildApp()).get('/api/inventur/4/excel');
+
+    expect(String(db.query.mock.calls[1][0])).toContain('"Ausgelagert"');
+    expect(db.query.mock.calls[1][1]).toContain('4');
+  });
+
+  it('meldet 400 bei nicht-numerischer Kundennummer', async () => {
+    const res = await request(buildApp()).get('/api/inventur/abc/excel');
+
+    expect(res.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('meldet 404 bei unbekanntem Kunden', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/inventur/999/excel');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('meldet 500, wenn die Excel-Erzeugung scheitert', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ID: 4, Name: 'A' }] })
+      .mockResolvedValueOnce({ rows: [] });
+    generateInventurExcel.mockRejectedValueOnce(new Error('kaputt'));
+
+    const res = await request(buildApp()).get('/api/inventur/4/excel');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Fehler beim Erstellen des Excel-Exports');
+  });
+});
