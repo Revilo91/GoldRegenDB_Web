@@ -6,6 +6,12 @@ import DataTable from "../components/DataTable";
 import TableToolbar from "../components/TableToolbar";
 import "./../index.css"; // Make sure styles are loaded
 import { useToast } from "../components/Toast";
+import {
+  DEBUG_PAGE_SIZE,
+  debugSeitenInfo,
+  hatVorherigeSeite,
+  hatNaechsteSeite,
+} from "../utils/debugPagination";
 
 const formatDebugError = (err) => {
   if (err?.status === 401) {
@@ -13,6 +19,9 @@ const formatDebugError = (err) => {
   }
   if (err?.status === 403) {
     return "Kein Zugriff auf die Debug-Ansicht. Admin-Rechte erforderlich.";
+  }
+  if (err?.status === 404) {
+    return "Debug-Ansicht ist deaktiviert oder Tabelle nicht gefunden (DEBUG_ROUTE_ENABLED).";
   }
   return err?.message || "Unbekannter Fehler";
 };
@@ -57,23 +66,30 @@ const DebugTable = ({ tableName }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
-  const [page, setPage] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const pageSize = 100;
 
   // Track which cell is currently being edited: { rowIndex, columnName }
   const [editingCell, setEditingCell] = useState(null);
 
-  const fetchTableData = async () => {
+  const fetchTableData = async (nextOffset = offset) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.getDebugTableData(tableName);
+      const result = await api.getDebugTableData(tableName, {
+        limit: DEBUG_PAGE_SIZE,
+        offset: nextOffset,
+      });
       setData(result.data);
       setColumns(result.columns);
       setPrimaryKeys(result.primaryKeys);
+      setTotal(result.total);
+      setOffset(result.offset);
     } catch (err) {
-      setError(formatDebugError(err));
+      const message = formatDebugError(err);
+      setError(message);
+      toast.fehler(message);
     } finally {
       setLoading(false);
       setHasFetched(true);
@@ -188,11 +204,6 @@ const DebugTable = ({ tableName }) => {
     [columns, data, editingCell, primaryKeys],
   );
 
-  const totalPages = Math.ceil(filteredData.length / pageSize);
-  // Schrumpft die Trefferliste, bleibt die Seite gültig, ohne dass ein Effekt
-  // page nachträglich korrigieren muss
-  const aktuelleSeite = Math.min(page, Math.max(totalPages - 1, 0));
-
   const toggleExpanded = () => {
     // Beim ersten Aufklappen laden – im Handler statt in einem Effekt
     if (!expanded && !hasFetched && !loading) fetchTableData();
@@ -201,7 +212,6 @@ const DebugTable = ({ tableName }) => {
 
   const handleSearchChange = (wert) => {
     setSearch(wert);
-    setPage(0);
   };
 
   const renderContent = () => {
@@ -226,11 +236,6 @@ const DebugTable = ({ tableName }) => {
 
     if (!hasFetched) return null;
 
-    const paginatedData = filteredData.slice(
-      aktuelleSeite * pageSize,
-      (aktuelleSeite + 1) * pageSize,
-    );
-
     return (
       <div className="card-body" style={{ overflowX: "auto" }}>
         <TableToolbar
@@ -243,7 +248,7 @@ const DebugTable = ({ tableName }) => {
         {filteredData.length > 0 ? (
           <DataTable
             columns={tableColumns}
-            data={paginatedData}
+            data={filteredData}
             getRowKey={(row) => {
               if (primaryKeys.length > 0) {
                 return primaryKeys.map((pk) => String(row[pk])).join("|");
@@ -257,19 +262,20 @@ const DebugTable = ({ tableName }) => {
           </div>
         )}
 
-        {totalPages > 1 && (
+        {total > DEBUG_PAGE_SIZE && (
           <div className="pagination">
-            <button disabled={aktuelleSeite === 0} onClick={() => setPage(aktuelleSeite - 1)}>
-              Previous
+            <button
+              disabled={!hatVorherigeSeite(offset)}
+              onClick={() => fetchTableData(Math.max(offset - DEBUG_PAGE_SIZE, 0))}>
+              Zurück
             </button>
-            <span className="page-info">
-              Page {aktuelleSeite + 1} of {totalPages} (Gefilterte Zeilen:{" "}
-              {filteredData.length})
+            <span className="page-info debug-pagination-info">
+              {debugSeitenInfo(offset, data.length, total)}
             </span>
             <button
-              disabled={aktuelleSeite >= totalPages - 1}
-              onClick={() => setPage(aktuelleSeite + 1)}>
-              Next
+              disabled={!hatNaechsteSeite(offset, data.length, total)}
+              onClick={() => fetchTableData(offset + DEBUG_PAGE_SIZE)}>
+              Vor
             </button>
           </div>
         )}
@@ -293,6 +299,7 @@ const DebugTable = ({ tableName }) => {
 };
 
 const Debug = () => {
+  const toast = useToast();
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -303,13 +310,16 @@ const Debug = () => {
         const data = await api.getDebugTables();
         setTables(data);
       } catch (err) {
-        setError(formatDebugError(err));
+        const message = formatDebugError(err);
+        setError(message);
+        toast.fehler(message);
       } finally {
         setLoading(false);
       }
     };
 
     fetchTables();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading)

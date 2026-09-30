@@ -3098,3 +3098,8 @@ select.form-control {
   color: var(--text-secondary);
   font-size: 0.85em;
 }
+
+/* Debug-Pagination (#262) */
+.debug-pagination-info {
+  color: var(--text-secondary);
+}
