@@ -487,10 +487,12 @@ PUT    /users/:id                   Bearbeiten
 DELETE /users/:id                   Löschen
 
 GET    /etiketten                   Etiketten-Datei (Artikelnummer, Preis, Barcode, QR)
-GET    /debug/tables                DB-Tabellen auflisten
-GET    /debug/tables/:name          Tabelleninhalt
-PUT    /debug/tables/:name          Datensatz direkt bearbeiten
+GET    /debug/tables                DB-Tabellen auflisten (ohne gesperrte)
+GET    /debug/tables/:name          Tabelleninhalt (?limit=&offset=, ohne BYTEA)
+PUT    /debug/tables/:name          Einzelfeld direkt bearbeiten (geloggt)
 ```
+
+**Debug-Route (#262):** nur mit `DEBUG_ROUTE_ENABLED=true` (Default aus, sonst 404; in `docker-compose.dev.yml` aktiv, in Produktion nicht). Gesperrt (403, nicht in der Liste): `app_users`, `audit_log`, `bestellung*`, `schema_migrations`. GET paginiert (Default 100, max. 500), sortiert nach Primärschlüssel, liefert `total`/`limit`/`offset` und nie BYTEA-Spalten. PUT akzeptiert nur existierende Nicht-BYTEA-Spalten, den echten einspaltigen Primärschlüssel (Änderung des PK-Felds abgelehnt) und schreibt Benutzer, Tabelle, Feld, PK sowie alten/neuen Wert (auf 200 Zeichen gekürzt) per `logger.info`.
 
 ---
 
