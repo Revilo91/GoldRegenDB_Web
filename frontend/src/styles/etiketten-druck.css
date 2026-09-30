@@ -1,0 +1,241 @@
+/* ===== Druckvorschau ===== */
+/* Die Bühne zeigt genau ein Etikett in physischer Form – der iframe rendert
+   dasselbe Dokument, das auch an den Drucker geht. */
+
+.etikett-stage {
+  position: relative;
+  height: 260px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.02) 0 8px,
+      transparent 8px 16px
+    ),
+    var(--bg-primary);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.etikett-stage-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+}
+
+.etikett-stage-busy {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-stage-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.etikett-scale {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.etikett-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.etikett-nav-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.etikett-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.etikett-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Druckumfang: Anzahl Etiketten und Anzahl unterschiedlicher Artikel */
+.etikett-summary {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.etikett-summary-item {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  text-align: center;
+}
+
+.etikett-summary-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.etikett-summary-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.etikett-alert-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+
+/* Deaktivierte Buttons sollen auch deaktiviert aussehen */
+.etiketten-page .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.etiketten-page .btn:disabled:hover {
+  background: inherit;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.etikett-custom-hint .btn {
+  white-space: nowrap;
+}
+
+/* Unsichtbares iframe, über das der Druckauftrag läuft */
+.etikett-print-frame {
+  position: fixed;
+  width: 0;
+  height: 0;
+  border: 0;
+  visibility: hidden;
+}
+
+@media (max-width: 1100px) {
+  .etiketten-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .etiketten-preview {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .etikett-col-action {
+    width: auto;
+  }
+  /* Schmale Ansicht: Anzahl und Button untereinander, damit die Tabelle
+     nicht breiter wird als die Karte */
+  .etikett-row-action {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .etikett-qty {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  .etiketten-page .data-table th,
+  .etiketten-page .data-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .etikett-custom-hint {
+    flex-direction: column;
+  }
+}
+
+/* ===== end Etiketten ===== */
+
+.badge.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.badge.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.badge.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.badge.gold {
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+
+/* clickable badges used in Etiketten */
+.badge.clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: var(--transition);
+}
+.badge.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+/* small adjustments for Etikett component */
+.etikett-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.card-body h4 {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+

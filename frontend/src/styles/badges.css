@@ -1,0 +1,19 @@
+/* ============ BADGES ============ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Zwei Badges nebeneinander, z.B. "Verkauft" + Kundenname im
+   Schmuckstück-Modal. Ersetzt ein style={{display:"flex",gap:"4px"}}
+   (CLAUDE.md verbietet Inline-Styles). */
+.badge-gruppe {
+  display: flex;
+  gap: 4px;
+}
+

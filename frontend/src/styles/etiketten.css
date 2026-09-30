@@ -1,0 +1,218 @@
+/* ===== Etiketten ===== */
+
+.etiketten-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  align-items: start;
+}
+
+.etiketten-workflow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.etiketten-preview {
+  position: sticky;
+  top: 16px;
+}
+
+.etiketten-page .card-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.etikett-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.etikett-search {
+  margin-bottom: 10px;
+}
+
+.etikett-options {
+  max-height: 340px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+}
+
+.etikett-hint-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 8px 4px;
+}
+
+.etikett-col-qty {
+  width: 96px;
+}
+
+.etikett-col-action {
+  width: 190px;
+  text-align: right;
+}
+
+.etikett-row-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.etikett-qty {
+  flex: 0 0 80px;
+  width: 80px;
+  padding: 6px 10px;
+}
+
+.etikett-row-active td {
+  background: var(--accent-glow);
+}
+
+.etikett-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.etikett-link:hover {
+  color: var(--accent-hover);
+}
+
+.etikett-file-input {
+  display: none;
+}
+
+/* ===== Gestaltung ===== */
+
+.etikett-design {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.etikett-fieldset {
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+.etikett-fieldset legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.etikett-size-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.etikett-size-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "radio name"
+    "radio dim"
+    "radio meta";
+  column-gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.etikett-size-option:hover {
+  border-color: var(--accent-hover);
+}
+
+.etikett-size-option.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.etikett-size-option input {
+  grid-area: radio;
+  align-self: center;
+  accent-color: var(--accent);
+}
+
+.etikett-size-name {
+  grid-area: name;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.etikett-size-dim {
+  grid-area: dim;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.etikett-size-meta {
+  grid-area: meta;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.etikett-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.etikett-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.etikett-chip:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--text-primary);
+}
+
+.etikett-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.etikett-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.etikett-custom-hint {
+  display: flex;
+  gap: 8px;
+}
+

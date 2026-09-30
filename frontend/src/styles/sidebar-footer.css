@@ -1,0 +1,180 @@
+/* ============ SIDEBAR FOOTER ============ */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-hair);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-account-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-version {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+.sidebar-version:hover {
+  color: var(--accent-hover);
+  background: var(--bg-hover);
+}
+
+.sidebar-version .fa-code-branch {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.user-menu-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  justify-content: flex-start;
+  transition: background 0.15s ease;
+}
+
+.user-menu-btn:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  overflow: hidden;
+}
+
+.sidebar-username {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.role-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.role-badge.role-admin {
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+
+.role-badge.role-bearbeiter {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.role-badge.role-user {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.logout-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* User Menu Modal */
+.user-menu-modal {
+  max-width: 400px;
+  width: 90%;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.user-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.user-info-row strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.user-info-row span {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.user-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ============ GROUP HEADER ROW ============ */
+.group-header-row {
+  user-select: none;
+  transition: var(--transition);
+}
+
+.group-header-row:hover {
+  background: var(--bg-hover);
+}
+
+.group-header-row td {
+  background: var(--bg-input);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  border-top: 2px solid var(--border);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.group-header-row:hover td {
+  background: var(--bg-card);
+  color: var(--accent-hover);
+}
+

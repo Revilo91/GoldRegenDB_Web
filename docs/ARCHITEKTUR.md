@@ -868,7 +868,8 @@ GoldRegenDB_Web/
     └── src/
         ├── App.jsx                   # Router + Layout
         ├── api.js                    # Zentraler API-Client
-        ├── index.css                 # Globale Styles (alle Klassen hier; Inline-Styles per ESLint verboten, nur CSS-Variablen)
+        ├── index.css                 # Nur @import-Liste (Reihenfolge = Kaskade); Inline-Styles per ESLint verboten, nur CSS-Variablen
+        ├── styles/                   # CSS je Seite/Komponente (variables, layout, buttons, forms, modal, inventur, dashboard, toast …), je Datei max. ca. 400 Zeilen
         ├── context/AuthContext.jsx   # JWT-Auth-State + Rollen
         ├── components/               # DataTable, TableToolbar, PhotoUpload, ProtectedRoute, Toast
         ├── hooks/useFoto.js          # Foto per Artikelnummer laden (Tabelle, Modal, Detail, Upload)
