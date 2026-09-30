@@ -369,3 +369,104 @@ Siehe `README.md`, Abschnitt „Synology NAS".
 - **Health-Check**: `GET /api/health`
 - **JWT-Probleme**: Middleware loggt den Ablehnungsgrund; httpOnly-Cookie `jwt` im Browser prüfen (DevTools → Application → Cookies)
 - **Foto-Upload schlägt fehl**: 400 kommt aus der Magic-Byte-/Größenprüfung in `utils/fotoService.js`
+
+
+---
+
+## CLAUDE.md – Globale Arbeitsregeln
+
+### 1. Arbeitsablauf (immer in dieser Reihenfolge)
+
+1. **Verstehen**: Bei unklarer Anforderung genau EINE Rückfrage stellen.
+2. **Planen**: Bei mehr als 2 Dateien oder neuer Architektur zuerst einen kurzen Plan zeigen und auf OK warten.
+3. **Test zuerst**: Erst fehlschlagenden Test schreiben, dann Implementierung (TDD), wo sinnvoll.
+4. **Klein umsetzen**: Ein Schritt = ein Commit. Keine Sammel-Änderungen.
+5. **Prüfen**: Tests/Linter/Build wirklich ausführen, bevor "fertig" gesagt wird. Ausgabe zeigen.
+6. **Zusammenfassen**: 2–3 Zeilen: was geht jetzt, wie ausprobieren, was ist offen.
+
+### 2. Grenzen (nicht ohne Rückfrage)
+
+- Keine Änderungen außerhalb des besprochenen Umfangs (kein "nebenbei" Refactoring).
+- Keine neuen Abhängigkeiten ohne Begründung (Standardbibliothek zuerst).
+- Keine destruktiven Aktionen: `rm -rf`, `git push --force`, `git reset --hard`, DB-Migrationen, Löschen von Dateien.
+- Keine Secrets, Passwörter, Tokens im Code oder in Commits. Immer `.env` / Secret-Store, `.env` in `.gitignore`.
+- Keine Netzwerk-/Systemänderungen an Proxmox, Home Assistant oder NAS ohne ausdrückliches OK.
+
+### 3. Code-Qualität
+
+- Klar vor clever. Kleine Funktionen, eine Aufgabe pro Funktion, sprechende Namen.
+- Keine Magic Numbers, Konstanten benennen.
+- Fehler behandeln, nie still schlucken. Fehlermeldungen mit Ursache + Kontext.
+- Kommentare erklären das *Warum*, nicht das *Was*.
+- Eingaben von außen immer validieren.
+- Kein toter Code, keine auskommentierten Blöcke.
+
+#### JavaScript (React/Vite, Node.js/Express)
+- `const`/`let`, nie `var`. Strikte Vergleiche (`===`). `async/await` statt Callback-Ketten.
+- Lint/Format: ESLint + Prettier. Abhängigkeiten über `package.json` + Lockfile, Node-Version festlegen (`.nvmrc`).
+- Tests: Playwright für E2E, Vitest für Unit-Tests (Vite-Projekte).
+- React: kleine Komponenten, Hooks-Regeln beachten, Zustand nicht doppelt halten.
+- Auth/Routing: Race Conditions beim Laden beachten (Auth-Guard erst nach geladenem Zustand entscheiden).
+- Backend: Eingaben validieren, Fehler zentral in Middleware behandeln, nie Roh-Fehler an den Client geben.
+
+#### SQL / Datenbank
+- Nur parametrisierte Queries. Schema-Änderungen ausschließlich per Migration, nie direkt live.
+- Vor Migrationen Backup. Indizes für Fremdschlüssel und häufige Filter.
+- Datensätze einmal laden und im Speicher halten, nicht bei jedem Aufruf neu abfragen (sofern Konsistenz nicht leidet).
+
+#### Docker / Compose
+- Feste Image-Tags statt `latest`. Secrets über `.env`/Secrets, nicht ins Image.
+- Volumes für Daten, Healthchecks für Dienste. Änderungen an Produktiv-Containern (Synology) erst nach OK.
+
+### 4. Tests
+
+- Neue Funktion oder Bugfix = mindestens ein Test.
+- Bugfix: erst Test, der den Fehler reproduziert, dann Fix.
+- Abdecken: Normalfall, Grenzwerte, Fehlerfall, leere/ungültige Eingabe.
+- Tests unabhängig voneinander, keine Reihenfolge-Abhängigkeit, keine echten externen Dienste (mocken).
+
+### 5. Git
+
+- Commits nach Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
+- Eine logische Änderung pro Commit, Betreff maximal 72 Zeichen, Imperativ.
+- Feature-Arbeit auf eigenem Branch, nie direkt auf `main`.
+- Vor Commit: `git diff` prüfen, keine Debug-Reste, keine Secrets.
+
+### 6. Debugging
+
+- Erst reproduzieren, dann Ursache finden, dann fixen. Kein Raten und Herumprobieren.
+- Nach 3 erfolglosen Versuchen: stoppen, Annahme benennen, die vermutlich falsch ist, EINE Diagnosefrage stellen.
+- Root Cause beheben, nicht das Symptom.
+
+### 7. Sicherheit
+
+- Kein `eval`/`exec` auf externen Eingaben, keine SQL-String-Konkatenation (parametrisierte Queries).
+- Abhängigkeiten aktuell halten, bekannte Schwachstellen prüfen.
+- Logs ohne Passwörter/Tokens/personenbezogene Daten.
+
+### 8. Arbeiten mit KI (Vibe-Coding-Regeln für mich)
+
+- Ich bleibe verantwortlich: jeden KI-Diff lesen, bevor er committet wird.
+- Kleine, klar beschriebene Aufgaben statt "bau mir alles".
+- Kontext geben: Ziel, Randbedingungen, Beispiel für erwartetes Verhalten.
+- Bei langem Chat mit Drift: neue Session starten, Stand in 5 Zeilen zusammenfassen.
+- Wiederkehrende Fehler der KI hier in die Datei eintragen (Abschnitt 9).
+- Sessionende: Wurde ich korrigiert oder ist derselbe Fehler zweimal passiert, schlage genau EINE Zeile für Abschnitt 9 vor (Datum, Fehler → Regel). Nur nach meinem OK eintragen, als eigener Commit `docs:`.
+
+### 9. Gelernte Korrekturen (laufend ergänzen)
+
+- _(noch leer)_
+
+### 10. Delegation & Modellwahl (nur Claude Code)
+
+- Hauptagent: plant, delegiert, prüft, spricht mit mir. Umfangreiche oder parallele Arbeit macht ein Subagent.
+- Selbst erledigen (kein Subagent): Rückfragen an mich, Pläne, Einzeiler, eine einzelne Datei lesen, Commit, Endkontrolle.
+- Parallel nur bei unabhängigen Aufgaben (keine gemeinsamen Dateien).
+- Auftrag an Subagenten immer vollständig: Ziel, betroffene Dateien, erwartetes Ergebnisformat, Grenzen aus Abschnitt 2.
+- Ergebnis nie ungeprüft übernehmen: Diff lesen, Tests selbst ausführen (Abschnitt 1, Schritt 5).
+
+Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
+- **haiku**: Dateien suchen/lesen, Logs zusammenfassen, Formatierung, Doku-Kleinkram.
+- **sonnet** (Standard): Implementieren, Tests schreiben, Refactoring, Code-Review.
+- **opus**: Architektur, schwieriges Debugging, Security-Review, oder wenn sonnet nach 3 Versuchen scheitert (Abschnitt 6).
+- Im Zweifel eine Stufe niedriger starten, bei Misserfolg hochstufen.
