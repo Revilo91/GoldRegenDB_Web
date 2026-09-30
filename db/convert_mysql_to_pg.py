@@ -168,6 +168,9 @@ ALTER TABLE "Schmuckstück" ENABLE TRIGGER ALL;
 
 
 if __name__ == "__main__":
-    input_file = sys.argv[1] if len(sys.argv) > 1 else "GoldRegenDB.sql"
+    if len(sys.argv) < 2:
+        sys.exit("Aufruf: python3 convert_mysql_to_pg.py <mysql_dump.sql> [ausgabe_seed.sql]")
+
+    input_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else "db/seed.sql"
     convert_mysql_to_pg(input_file, output_file)
