@@ -552,6 +552,7 @@ PUT    /debug/tables/:name          Datensatz direkt bearbeiten
 - Unbekannte Benutzernamen laufen gegen Dummy-Hash (timing-sicher)
 - Reset-Link wird über `POST /api/auth/admin/generate-reset-link` (admin-only) erzeugt und direkt im Response zurückgegeben — das Token erscheint nicht im Log
 - Admin kopiert den Link und gibt ihn an den Benutzer weiter; kein SMTP konfiguriert
+- Entscheidung (Issue #258): Der Admin-Reset in der Benutzerverwaltung ist der offizielle Weg, es gibt bewusst keinen Mailversand. `POST /api/auth/forgot-password` antwortet immer identisch und legt nur den Token-Hash ab; SMTP wäre ein eigenes Issue
 - Nur SHA-256-Hash des Reset-Tokens wird in der DB gespeichert
 
 ### Passwort-Migration
