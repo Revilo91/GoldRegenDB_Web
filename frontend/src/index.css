@@ -3105,6 +3105,20 @@ select.form-control {
    jede Regel, das muss auch für die Klassen gelten. Dynamische Werte laufen nur über
    CSS-Variablen (style={{ "--name": wert }}). */
 
+/* AuditLog */
+.audit-log-deco-none {
+  text-decoration: none;
+}
+
+.audit-log-mb-12 {
+  margin-bottom: 12px;
+}
+
+.data-table th.audit-log-th-geaendert-von {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
