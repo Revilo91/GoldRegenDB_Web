@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { where } = require('../utils/whereClauseBuilder');
+const { lagereZurueck } = require('../utils/statusUebergaenge');
 const { validate } = require('../middleware/validate');
 const { kundeSchema, restockSelectiveSchema } = require('../schemas');
 
@@ -249,13 +250,7 @@ router.put('/:id/restock', async (req, res) => {
     //   2. "Lieferschein_ID" blieb gesetzt. Das Stück war danach gleichzeitig
     //      verfügbar UND Position eines Lieferscheins -- es konnte ein zweites
     //      Mal ausgeliefert werden.
-    const builder = where();
-    builder.aktivAusgelagert(parseInt(req.params.id));
-
-    const { rowCount } = await db.query(
-      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0, "Lieferschein_ID" = 0 ${builder.build()}`,
-      builder.getParams()
-    );
+    const rowCount = await lagereZurueck(db, parseInt(req.params.id));
     logger.info('KUNDEN', 'Artikel zurückgelagert', { id: req.params.id, anzahl: rowCount });
     res.json({ message: `${rowCount} Artikel zurückgelagert` });
   } catch (err) {
@@ -308,15 +303,7 @@ router.put('/:id/restock-selective', validate(restockSelectiveSchema), async (re
     }
 
     // Gleiche Korrektur wie in /restock (Befund C7)
-    const builder = where();
-    builder.artikelnummerIn(artikelnummern);
-    builder.aktivAusgelagert(parseInt(req.params.id));
-
-    // Use parameterized query with ANY for IN clause
-    const { rowCount } = await db.query(
-      `UPDATE "Schmuckstück" SET "Ausgelagert" = 0, "Lieferschein_ID" = 0 ${builder.build()}`,
-      builder.getParams()
-    );
+    const rowCount = await lagereZurueck(db, parseInt(req.params.id), artikelnummern);
     logger.info('KUNDEN', 'Artikel selektiv zurückgelagert', {
       id: req.params.id,
       angefragt: artikelnummern.length,
