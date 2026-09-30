@@ -711,7 +711,7 @@ Fotos liegen als BYTEA in PostgreSQL, **nicht** im Dateisystem:
 - Lesen/Schreiben nur über `backend/src/utils/fotoService.js`
 - Listen prüfen Vorhandensein per `EXISTS`-Subquery (`hatFotoSql()`) — kein BYTEA in Listenabfragen
 - Max. 5 MB pro Foto; Typ per **Magic Bytes** geprüft (nicht Dateiendung)
-- Upload: `multer.memoryStorage()` in `schmuckstuecke.js`
+- Upload: `multer.memoryStorage()` in `routes/schmuckstuecke/foto.js`
 - Auslieferung: ETag aus `Geaendert`-Timestamp, `Cache-Control: private, max-age=60`
 - Kein Datei-Fallback: ohne DB-Eintrag → 404
 
@@ -842,7 +842,10 @@ GoldRegenDB_Web/
 │       ├── config/db.js              # PostgreSQL-Pool + request-scoped Client
 │       ├── config/migrate.js         # Migrations-Runner (Advisory-Lock, Backup-Gate)
 │       ├── config/migrations/        # Nummerierte SQL-Migrationen (0001_baseline.sql, …)
-│       ├── routes/                   # REST-Endpunkte (auth, kunden, schmuckstuecke, …)
+│       ├── routes/                   # REST-Endpunkte (auth, kunden, …)
+│       │   ├── schmuckstuecke/       # index.js setzt zusammen (Reihenfolge relevant), foto, bulk, liste, anlegen, bearbeiten
+│       │   └── backup/               # index.js setzt zusammen: json, sql, fotos (Hintergrund-Job), import
+│       ├── services/                 # schmuckstueckService.js (Filter/Bulk-Helfer), backupService.js (Schema-Katalog, Checks)
 │       ├── middleware/               # auth.js, csrf.js, cors.js, validate.js, …
 │       ├── schemas/                  # Zod-Schemas für Input-Validierung
 │       └── utils/
