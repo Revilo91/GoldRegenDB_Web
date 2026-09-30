@@ -3610,6 +3610,71 @@ select.form-control {
   text-align: left;
 }
 
+/* SumUp */
+.sumup-mb-32-fs-1rem-lh-1_5.sumup-mb-32-fs-1rem-lh-1_5 {
+  margin-bottom: 32px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.sumup-mb-32 {
+  margin-bottom: 32px;
+}
+
+.sumup-p-20-24 {
+  padding: 20px 24px;
+}
+
+.sumup-p-24 {
+  padding: 24px;
+}
+
+.sumup-mb-20-lh-1_6 {
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.sumup-mb-20-lh-1_8 {
+  margin-bottom: 20px;
+  line-height: 1.8;
+}
+
+.sumup-ergebnis-box {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  display: block;
+  white-space: pre-line;
+}
+
+.sumup-mb-20-p-16-20-block {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  display: block;
+}
+
+.sumup-cursor-pointer-mt-12 {
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+.sumup-fw-bold {
+  font-weight: bold;
+}
+
+.sumup-details-trenner {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid currentColor;
+}
+
+.sumup-ml-20 {
+  margin-left: 20px;
+}
+
+.sumup-cursor-not-allowed {
+  cursor: not-allowed;
+}
+
 /* DataTable */
 .data-table th.data-table-th-sortable {
   cursor: pointer;
