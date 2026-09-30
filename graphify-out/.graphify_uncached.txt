@@ -1,0 +1,22 @@
+/home/olivers/Dokumente/GoldRegenDB_Web/.github/workflows/check-architektur.yml
+/home/olivers/Dokumente/GoldRegenDB_Web/.github/workflows/dependabot-auto-merge.yml
+/home/olivers/Dokumente/GoldRegenDB_Web/.github/workflows/tests.yml
+/home/olivers/Dokumente/GoldRegenDB_Web/AUDIT_LOGIK_DATENBANK.md
+/home/olivers/Dokumente/GoldRegenDB_Web/CLAUDE.md
+/home/olivers/Dokumente/GoldRegenDB_Web/README.md
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/TYPESCRIPT.md
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/utils/WHERE_BUILDER.md
+/home/olivers/Dokumente/GoldRegenDB_Web/db/README.md
+/home/olivers/Dokumente/GoldRegenDB_Web/docker-compose.dev.yml
+/home/olivers/Dokumente/GoldRegenDB_Web/docker-compose.synology.yml
+/home/olivers/Dokumente/GoldRegenDB_Web/docker-compose.yml
+/home/olivers/Dokumente/GoldRegenDB_Web/docs/ARCHITEKTUR.md
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/assets/erechnung/pdf/logo.png
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/assets/goldregen.png
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/assets/goldregen.svg
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/assets/goldregen_old.svg
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/assets/warn_0-3.svg
+/home/olivers/Dokumente/GoldRegenDB_Web/backend/src/assets/warn_0-3_old.svg
+/home/olivers/Dokumente/GoldRegenDB_Web/frontend/public/Logo transparent.svg
+/home/olivers/Dokumente/GoldRegenDB_Web/frontend/public/Schriftzug_Goldregen_dicker_kleiner.svg
+/home/olivers/Dokumente/GoldRegenDB_Web/frontend/public/warn_0-3.svg
