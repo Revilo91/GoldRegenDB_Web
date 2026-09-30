@@ -2230,7 +2230,7 @@ select.form-control {
   }
 
   /* Stats grid in modals: 2 columns on small phones */
-  .modal-body > div[style*="grid-template-columns"] {
+  .modal-body > div.benutzer-info-grid {
     grid-template-columns: 1fr 1fr !important;
   }
 }
@@ -3895,6 +3895,70 @@ select.form-control {
 
 .docmgr-minw-90 {
   min-width: 90px;
+}
+
+/* Benutzerverwaltung */
+.benutzer-flex-jc-space-between-ai-center-mb-12 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.benutzer-mb-12 {
+  margin-bottom: 12px;
+}
+
+.benutzer-block {
+  display: block;
+}
+
+.benutzer-m-0 {
+  margin: 0;
+}
+
+.benutzer-mb-10-color-text-secondary.benutzer-mb-10-color-text-secondary {
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+}
+
+.benutzer-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 20px;
+}
+
+.benutzer-mt-16-mb-8-color-text-secondary.benutzer-mt-16-mb-8-color-text-secondary {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.benutzer-mb-8-fs-0_875rem-color-text-secondary {
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.benutzer-mt-12 {
+  margin-top: 12px;
+}
+
+.benutzer-mr-auto.benutzer-mr-auto.benutzer-mr-auto.benutzer-mr-auto {
+  margin-right: auto;
+}
+
+.benutzer-flex-gap-10 {
+  display: flex;
+  gap: 10px;
+}
+
+.benutzer-jc-flex-end {
+  justify-content: flex-end;
+}
+
+.benutzer-jc-space-between {
+  justify-content: space-between;
 }
 
 /* DataTable */
