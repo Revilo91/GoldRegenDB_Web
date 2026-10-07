@@ -138,7 +138,7 @@ describe('deploy/install.sh', () => {
     });
 
     it('erzeugt fehlende Secrets, ohne vorhandene zu ändern', () => {
-      const { BESTELLUNG_ENCRYPTION_KEY, ...ohneKey } = EXISTING_ENV;
+      const { BESTELLUNG_ENCRYPTION_KEY: _entfernt, ...ohneKey } = EXISTING_ENV;
       sb.seedInstallation({ env: ohneKey, running: false });
       expect(sb.run(['v1.1.0']).status).toBe(0);
       const env = sb.readEnv();
