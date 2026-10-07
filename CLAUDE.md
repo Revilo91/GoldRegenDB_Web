@@ -376,7 +376,7 @@ Tests laufen automatisch bei jedem PR über GitHub Actions (`.github/workflows/t
 3. Filter-Options-Endpunkt aktualisieren, wenn neue Filter-Dimensionen hinzukommen
 
 ### Auf Synology NAS deployen
-Siehe `README.md`, Abschnitt „Synology NAS".
+Siehe `README.md`, Abschnitt „Synology NAS" und `deploy/README.md`. Installer: `deploy/install.sh` (Release-Asset, Standard für alle Projekte); Release-Dateien: `deploy/docker-compose.yml`, `deploy/.env.example`, `db/`.
 
 ---
 

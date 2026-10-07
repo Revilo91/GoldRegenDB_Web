@@ -1,7 +1,7 @@
-name: Release für Synology
+name: Release
 
 # tests → build + package → smoke-test → push → create-release.
-# Nach GHCR (inkl. latest) geht das Image erst, wenn das ZIP damit läuft.
+# Nach GHCR (inkl. latest) geht das Image erst, wenn die Release-Assets damit laufen.
 
 on:
   push:
@@ -72,7 +72,7 @@ jobs:
           retention-days: 1
 
   package:
-    name: Synology-Paket bauen
+    name: Release-Assets sammeln
     runs-on: ubuntu-latest
     needs: tests
     permissions:
@@ -82,20 +82,19 @@ jobs:
       - name: Code auschecken
         uses: actions/checkout@v4
 
-      - name: Synology-Deployment-Paket erstellen
-        run: scripts/build-release-package.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/paket"
+      - name: Release-Assets zusammenstellen
+        run: scripts/build-release-package.sh "$RUNNER_TEMP/assets"
 
-      # Das ZIP selbst hochladen: Verzeichnis-Artefakte verlieren die
-      # Ausführungsrechte von db/backup.sh und db/restore.sh.
-      - name: Paket als Artefakt ablegen
+      - name: Assets als Artefakt ablegen
         uses: actions/upload-artifact@v4
         with:
-          name: synology-paket
-          path: ${{ runner.temp }}/paket/goldregendb-synology-${{ github.ref_name }}.zip
+          name: release-assets
+          path: ${{ runner.temp }}/assets
           if-no-files-found: error
+          include-hidden-files: true  # .env.example ist eine Punktdatei
 
   smoke-test:
-    name: Smoke-Test des Pakets
+    name: Smoke-Test der Release-Assets
     runs-on: ubuntu-latest
     needs: [build, package]
     permissions:
@@ -114,15 +113,15 @@ jobs:
       - name: Image in Docker importieren
         run: docker load -i "$RUNNER_TEMP/image.tar"
 
-      - name: Paket laden
+      - name: Assets laden
         uses: actions/download-artifact@v4
         with:
-          name: synology-paket
-          path: ${{ runner.temp }}/paket
+          name: release-assets
+          path: ${{ runner.temp }}/assets
 
       # Zeigt bei Fehlern selbst die Compose-Logs und räumt mit down -v auf.
-      - name: Paket starten und prüfen
-        run: scripts/release-smoke-test.sh "$RUNNER_TEMP/paket/goldregendb-synology-$GITHUB_REF_NAME.zip"
+      - name: Assets starten und prüfen
+        run: scripts/release-smoke-test.sh "$RUNNER_TEMP/assets" "${GITHUB_REF_NAME#v}"
 
   push:
     name: Image nach GHCR veröffentlichen
@@ -164,10 +163,11 @@ jobs:
       contents: write
 
     steps:
-      - name: Paket laden
+      - name: Assets laden
         uses: actions/download-artifact@v4
         with:
-          name: synology-paket
+          name: release-assets
+          path: assets
 
       - name: GitHub Release erstellen
         uses: softprops/action-gh-release@v2
@@ -180,10 +180,19 @@ jobs:
             Das fertige Image ist im GitHub Container Registry verfügbar:
             - **Image:** `${{ needs.build.outputs.image }}`
 
-            ### Synology Deployment
-            Das Deployment-Paket (`goldregendb-synology-*.zip`) enthält alle benötigten Dateien.
-            Siehe `README.md` im Paket für die Installationsanleitung.
-          files: goldregendb-synology-${{ github.ref_name }}.zip
+            ### Installation und Update auf der Synology
+            Per SSH auf der NAS (legt den Ordner an, sichert die Datenbank, zieht das Image, startet mit Health-Check und Rollback):
+            ```bash
+            curl -fsSL https://github.com/Revilo91/GoldRegenDB_Web/releases/latest/download/install.sh | sudo bash
+            ```
+            Siehe `deploy/README.md` im Repository.
+          files: |
+            assets/docker-compose.yml
+            assets/.env.example
+            assets/install.sh
+            assets/init.sql
+            assets/backup.sh
+            assets/restore.sh
           draft: false
           prerelease: false
           generate_release_notes: true

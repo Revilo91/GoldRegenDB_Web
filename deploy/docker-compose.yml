@@ -1,24 +1,28 @@
+name: goldregendb
+
 services:
   db:
     image: postgres:16-alpine
+    container_name: goldregendb-db
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      # DATA_DIR in der .env setzen, wenn die Daten nicht auf /volume1 liegen sollen.
-      - ${DATA_DIR:-/volume1/docker/goldregendb}/data:/var/lib/postgresql/data
-      - ${DATA_DIR:-/volume1/docker/goldregendb}/backups:/backups
-      # Relativ zu dieser Datei: liegen im Release-ZIP neben docker-compose.yml.
+      # Alle Pfade relativ zum Installationsordner (legt install.sh an).
       # seed.sql bewusst nicht – init.sql legt nur das Schema und den Admin an.
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./backups:/backups
       - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./db/backup.sh:/backup.sh:ro
       - ./db/restore.sh:/restore.sh:ro
     ports:
       - "${DB_HOST_PORT:-15432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      # -h 127.0.0.1: der temporäre Init-Server von initdb lauscht nur auf dem Socket,
+      # so gilt die DB erst nach dem Lauf von init.sql als bereit.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -30,9 +34,10 @@ services:
     # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
     # Kompatibel mit Synology Container Manager (DSM). VITE_API_URL=/api ist bereits
     # im Image eingebettet; Express liefert Frontend und API same-origin aus.
-    # IMAGE_TAG trägt das Release-Paket in seine .env.example ein. Bewusst kein
-    # Default wie "latest": ein Neustart darf nicht still eine andere Version ziehen.
-    image: ghcr.io/revilo91/goldregendb:${IMAGE_TAG:?IMAGE_TAG in der .env setzen, z. B. 0.3.0}
+    # APP_VERSION setzt install.sh in der .env. Bewusst kein Default wie "latest":
+    # ein Neustart darf nicht still eine andere Version ziehen.
+    image: ghcr.io/revilo91/goldregendb:${APP_VERSION:?APP_VERSION in der .env setzen, z. B. 0.3.0}
+    container_name: goldregendb-app
     restart: always
     depends_on:
       db:
@@ -74,9 +79,9 @@ services:
       VERKAEUFER_IBAN: ${VERKAEUFER_IBAN:-}
       VERKAEUFER_BIC: ${VERKAEUFER_BIC:-}
     ports:
-      - "${APP_HOST_PORT:-3000}:${PORT}"
+      - "${APP_PORT:-3000}:${PORT}"
     volumes:
-      - ${DATA_DIR:-/volume1/docker/goldregendb}/backups:/backups
+      - ./backups:/backups
     networks:
       - goldregendb_net
 
@@ -85,22 +90,18 @@ networks:
     driver: bridge
 
 # ── Datei-basierte Secrets statt Klartext in .env (Issue #140) ──────────────
-# Auf DSM läuft nur `docker compose up`, kein Swarm – `external: true`-Secrets
-# funktionieren dort nicht, dateibasierte Secrets (`file: ...`) dagegen schon:
-# Compose mountet sie auch ohne Swarm nach /run/secrets/. Empfohlen für die
-# Synology, da die .env sonst dauerhaft im Klartext auf dem NAS-Volume liegt.
-# Aktivieren: Dateien unter ${DATA_DIR}/secrets/ anlegen
-# (0600, nur root), unten einkommentieren, und oben in der `app`-Umgebung
-# DATABASE_URL/JWT_SECRET/BESTELLUNG_ENCRYPTION_KEY durch die *_FILE-Variante
-# ersetzen. Details: README.md "Secrets rotieren".
+# `file:`-Secrets funktionieren auf DSM ohne Swarm; Compose mountet sie nach
+# /run/secrets/. Aktivieren: Dateien unter ./secrets/ anlegen (0600, nur root),
+# unten einkommentieren und in der `app`-Umgebung DATABASE_URL/JWT_SECRET/
+# BESTELLUNG_ENCRYPTION_KEY durch die *_FILE-Variante ersetzen (README.md "Secrets rotieren").
 #
 # secrets:
 #   jwt_secret:
-#     file: ${DATA_DIR:-/volume1/docker/goldregendb}/secrets/jwt_secret.txt
+#     file: ./secrets/jwt_secret.txt
 #   db_password:
-#     file: ${DATA_DIR:-/volume1/docker/goldregendb}/secrets/db_password.txt
+#     file: ./secrets/db_password.txt
 #   bestellung_encryption_key:
-#     file: ${DATA_DIR:-/volume1/docker/goldregendb}/secrets/bestellung_encryption_key.txt
+#     file: ./secrets/bestellung_encryption_key.txt
 #
 # app:
 #   secrets: [jwt_secret, db_password, bestellung_encryption_key]

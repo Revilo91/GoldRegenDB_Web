@@ -1,45 +1,28 @@
 #!/usr/bin/env bash
-# Baut das Synology-Release-ZIP ausschließlich aus Dateien im Repository.
-# Verwendung: scripts/build-release-package.sh <version> [ausgabeverzeichnis]
-#   <version>  Git-Tag, z. B. v1.2.3. IMAGE_TAG wird ohne führendes "v"
-#              eingetragen, denn so taggt docker/metadata-action
-#              (type=semver,pattern={{version}}) das Image in GHCR.
+# Sammelt die Release-Assets (flache Dateinamen) aus dem Repository in einem Ordner.
+# Verwendung: scripts/build-release-package.sh [ausgabeverzeichnis]   (Standard: dist/release)
 set -euo pipefail
 
-VERSION="${1:?Verwendung: $0 <version> [ausgabeverzeichnis]}"
-AUSGABE="${2:-dist}"
-IMAGE_TAG="${VERSION#v}"
+AUSGABE="${1:-dist/release}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-COMPOSE="$REPO/docker-compose.synology.yml"
-VORLAGE="$REPO/deploy/synology"
+COMPOSE="$REPO/deploy/docker-compose.yml"
+ENV_VORLAGE="$REPO/deploy/.env.example"
 
 # Jede ${VAR} ohne Default (auch ${VAR:?...}) muss die .env-Vorlage setzen,
-# sonst startet das Paket mit leeren Werten.
+# sonst startet der Stack mit leeren Werten.
 fehlend=""
 for var in $(grep -v '^[[:space:]]*#' "$COMPOSE" \
     | grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*(:?\?[^}]*)?\}' \
     | sed -E 's/^\$\{([A-Za-z0-9_]+).*/\1/' | sort -u); do
-  grep -qE "^${var}=" "$VORLAGE/.env.example" || fehlend="$fehlend $var"
+  grep -qE "^${var}=" "$ENV_VORLAGE" || fehlend="$fehlend $var"
 done
-grep -qE '^IMAGE_TAG=' "$VORLAGE/.env.example" || fehlend="$fehlend IMAGE_TAG"
 if [ -n "$fehlend" ]; then
-  echo "FEHLER: $VORLAGE/.env.example setzt nicht:$fehlend" >&2
+  echo "FEHLER: $ENV_VORLAGE setzt nicht:$fehlend" >&2
   exit 1
 fi
 
-NAME="goldregendb-synology-${VERSION}"
+rm -rf "${AUSGABE:?}"
 mkdir -p "$AUSGABE"
-rm -rf "${AUSGABE:?}/$NAME" "$AUSGABE/$NAME.zip"
-mkdir -p "$AUSGABE/$NAME/db"
-# Leere Ordner für den Standard-DATA_DIR (= Paketordner): Synology Container
-# Manager legt fehlende Bind-Mount-Quellen nicht an, sondern bricht ab.
-mkdir -p "$AUSGABE/$NAME/data" "$AUSGABE/$NAME/backups" "$AUSGABE/$NAME/uploads"
-
-cp "$COMPOSE" "$AUSGABE/$NAME/docker-compose.yml"
-sed "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" "$VORLAGE/.env.example" > "$AUSGABE/$NAME/.env.example"
-cp "$VORLAGE/README.md" "$AUSGABE/$NAME/README.md"
-cp "$REPO/scripts/synology-update.sh" "$AUSGABE/$NAME/"
-cp "$REPO/db/init.sql" "$REPO/db/backup.sh" "$REPO/db/restore.sh" "$AUSGABE/$NAME/db/"
-
-(cd "$AUSGABE" && zip -qr "$NAME.zip" "$NAME")
-echo "$AUSGABE/$NAME.zip"
+cp "$COMPOSE" "$ENV_VORLAGE" "$REPO/deploy/install.sh" \
+   "$REPO/db/init.sql" "$REPO/db/backup.sh" "$REPO/db/restore.sh" "$AUSGABE/"
+echo "$AUSGABE"
