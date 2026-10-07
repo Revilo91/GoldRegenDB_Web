@@ -49,8 +49,33 @@ Dump nach `data/postgres`; das alte Verzeichnis bleibt unverändert liegen. Die 
 `IMAGE_TAG` heißt jetzt `APP_VERSION` (setzt das Skript), `APP_HOST_PORT` heißt `APP_PORT` (Wert wird übernommen).
 Ein `DATA_DIR` in der `.env`, das nicht dem Installationsordner entspricht, bricht das Skript ab.
 
+## Backup
+
+`install.sh` sichert nur vor einem Update (`backups/pre-update_*.sql.gz`, die letzten 10).
+Den laufenden Plan übernimmt `db/backup.sh`: täglich (7 Tage) und wöchentlich (4 Wochen),
+mit geprüftem Dump. Ablage unter `backups/daily/` und `backups/weekly/` im Installationsordner.
+Es läuft nichts von allein, der Aufruf kommt vom DSM-Aufgabenplaner:
+
+1. DSM: Systemsteuerung → Aufgabenplaner → Erstellen → Geplante Aufgabe → Benutzerdefiniertes Skript.
+2. Benutzer `root`, Zeitplan täglich 02:00 Uhr.
+3. Befehl (Pfad = `INSTALL_DIR`):
+   ```bash
+   cd /volume1/docker/goldregendb && docker compose exec -T db /backup.sh >> backups/backup.log 2>&1
+   ```
+
+Einmal manuell: `docker compose exec db /backup.sh`.
+
+Wiederherstellen (ersetzt die komplette Datenbank, vorher die App stoppen):
+
+```bash
+cd /volume1/docker/goldregendb
+docker compose stop app
+docker compose exec db /restore.sh /backups/daily/goldregendb_<zeitstempel>.sql.gz
+docker compose start app
+```
+
 ## Hinweise
 
-- Backup: `docker compose exec db /backup.sh`, Wiederherstellen siehe `db/restore.sh`.
+- Backup und Wiederherstellen: siehe Abschnitt „Backup“.
 - Ohne vorgeschalteten Reverse Proxy läuft alles über unverschlüsseltes HTTP.
   HTTPS-Einrichtung: README.md im Repository, Abschnitt „HTTPS auf Synology“.
