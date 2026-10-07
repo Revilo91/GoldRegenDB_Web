@@ -813,6 +813,7 @@ GoldRegenDB_Web/
 ├── docker-compose.yml                # Produktion (ein app-Service)
 ├── docker-compose.dev.yml            # Entwicklung, voll containerisiert
 ├── docker-compose.proxy.yml          # Overlay: Caddy-Reverse-Proxy mit TLS
+├── deploy/                           # Release-Assets (Synology): docker-compose.yml, .env.example, install.sh (Release-Installer)
 ├── proxy/Caddyfile                   # Caddy-Konfiguration
 ├── package.json                      # Root npm Workspace (backend, frontend) + npm run dev
 ├── .env.example                      # Vorlage für Umgebungsvariablen
