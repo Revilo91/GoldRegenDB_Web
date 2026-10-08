@@ -338,6 +338,9 @@ Standard-Login nach dem ersten Start: **admin** / **admin** (bitte sofort änder
 
 ```
 GoldRegenDB_Web/
+├── CLAUDE.md                        # Projektkontext für Claude Code
+├── .mcp.json                        # MCP-Server für Claude Code (teamweit)
+├── .claude/                         # Claude Code: settings.json, rules/, commands/, skills/, agents/, hooks/
 ├── Dockerfile                       # Produktions-Build (Frontend gebaut + Backend)
 ├── Dockerfile.dev                   # Entwicklungs-Build (Frontend + Backend mit Hot-Reload)
 ├── docker-compose.yml               # Produktions-Stack (db + app)
