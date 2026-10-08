@@ -228,7 +228,27 @@ Diese Punkte brauchen keine fachliche Entscheidung, nur Priorisierung.
 
 ---
 
-## Nächster Schritt
+## Ergebnis (2026-10-08)
 
-Nach Rückmeldung zu den P1-Fragen (F1–F8, F19–F21) schreibe ich daraus
-User Stories mit Akzeptanzkriterien und lege je Story ein Issue an.
+Aus den Antworten entstandene Issues:
+
+| Fragen | Issue |
+|--------|-------|
+| F1, F5, F6, F11 | #283 Finale Rechnung sperren, Preis/Provision/Aufteilung festschreiben |
+| F12, F13 | #284 Lieferschein: kein stilles Überschreiben, Positionen als Historie |
+| F14 | #285 Lagerinventur bucht Fehlbestand als Ausschuss |
+| F7, F16, F17 | #286 SumUp: doppelten Import erkennen |
+| F19 | #287 DSGVO: Anonymisierung nach Abschluss |
+| F20 | #288 Offsite-Backup |
+| F21, F22 | #289 Backup automatisch, Alarm, Restore-Test |
+| F23 | #290 Öffentlicher Zugriff: sichere Defaults und 2FA |
+| F15, F24 | #291 Handy-Tauglichkeit, Offline-Modus (Backlog) |
+
+Bewusst ohne Issue: F2, F3, F4, F8 (Kleingewerbe, derzeit nicht nötig),
+F9, F10, F16 (Verhalten passt so), F18 (gewollt), F25 (siehe unten).
+
+**F25:** Empfehlung: so lassen. Beide gehören zur selben GbR und
+sollen alle Zahlen sehen. Eine Trennung nach Herstellerin würde nur Aufwand
+machen. Sinnvoll wäre höchstens, Helferinnen auf die Rolle `user` zu setzen.
+
+Teil B und C sind noch offen und brauchen eine Priorisierung.
