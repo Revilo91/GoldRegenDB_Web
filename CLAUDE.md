@@ -6,11 +6,25 @@ Dieses Dokument gibt Claude Code Kontext und Regeln für die Arbeit in diesem Re
 
 ## Regeln für Claude
 
-1. Umfangreiche oder parallele Arbeit geht an Subagenten; Rückfragen, Pläne, Einzeiler und Commits macht die Haupt-KI selbst (Details: Abschnitt „Delegation & Modellwahl“ unten).
-2. Die Haupt-KI hat immer das letzte Wort: Subagenten committen nie, den Commit macht die Haupt-KI nach Diff-Prüfung und Tests.
-3. Mehr Details: Abschnitt „Delegation & Modellwahl“ unten
+Die Regeln liegen modular in `.claude/rules/`. Claude Code lädt sie automatisch: Dateien ohne `paths` immer, die anderen beim Lesen oder Bearbeiten passender Dateien.
 
+| Datei | Inhalt | Geladen |
+|---|---|---|
+| `arbeitsweise.md` | Arbeitsablauf, Grenzen, Git, Commit-Stil, Debugging, Delegation & Modellwahl | immer |
+| `code-style.md` | Code-Qualität, JavaScript, Projektkonventionen, Typisierung | Code in `backend/`, `frontend/`, `e2e/`, `scripts/`, `mcp-server/` |
+| `testing.md` | Testregeln, Jest/Vitest, Integrationssuiten | `backend/`, `frontend/`, `e2e/` |
+| `api-conventions.md` | SQL, Sicherheit, WHERE-Clause-Builder, Migrationen, Rate-Limiter | `backend/`, `db/`, `frontend/src/api.js` |
+| `frontend-styling.md` | Keine Inline-Styles, CSS-Dateien, Klassennamen | `frontend/src/` |
+| `fotos.md` | Foto-Speicherung, Upload, Foto-ZIP, SQL-Dump | Foto- und Backup-Dateien |
+| `docker.md` | Docker/Compose, Verweis auf den Deploy-Skill | Dockerfiles, Compose, `deploy/` |
 
+Weitere Bausteine unter `.claude/`:
+
+- `commands/`: `/review-branch` (Branch gegen `main` prüfen), `/fix-issue <nummer>` (GitHub-Issue beheben)
+- `agents/`: `code-reviewer` (sonnet), `security-auditor` (opus)
+- `skills/`: `deploy` (Release und Synology), `expert-software-engineer`, `istqb-qa-architect-de`
+- `hooks/validate-bash.sh`: prüft jeden Bash-Befehl, eingetragen in `settings.json`
+- `settings.json`: Berechtigungen und Hooks für alle; persönliche Abweichungen in `settings.local.json` und `CLAUDE.local.md` (beide nicht versioniert)
 
 ## Graphify Knowledge Graph
 
@@ -168,88 +182,14 @@ docker compose -f docker-compose.dev.yml exec db /restore.sh
 
 ---
 
-## Code-Konventionen
-
-- **Keine Funktions-Wrapper:** `hersteller_Marina()` → direkt `hersteller("M")` verwenden
-- **Keine ausführlichen Docstrings:** Methodennamen sind selbsterklärend; ein einzeiliger Kommentar nur, wenn das WARUM nicht offensichtlich ist. Ausnahme: Typ-Annotationen in `@ts-check`-Dateien (siehe „Typisierung“)
-- **Duplikate zusammenführen:** Wenn Konstanten/Logik in 2+ Dateien existieren, in `utils/` auslagern
-- **Kein Debug-Logging:** `console.log/error` nur für echte Fehler; Debug-Traces nach Gebrauch löschen
-- **Rate-Limiter nur für unauthentifizierte Endpunkte** (Login, Passwort-Reset, öffentliches Bestellformular) mit echten Limits. Die angemeldete Anwendung bleibt bewusst ungedrosselt: die Tabellenansicht lädt jedes Foto einzeln, jedes Limit trifft dort den Normalbetrieb
-- **Kein `alert()`:** Fehler- und Erfolgsmeldungen laufen über `useToast()` aus `frontend/src/components/Toast.jsx`. ESLint erzwingt das per `no-restricted-globals` — `confirm()` bleibt für Löschabfragen erlaubt
-- **Kein JSDoc-Boilerplate:** Props per Inline-Kommentar beschreiben, kein Header-Block. Erlaubt und erwünscht sind nur Typ-Tags (`@param {Typ}`, `@returns`, `@typedef`) in `@ts-check`-Dateien, ohne Beschreibungsprosa
-
-**Commit-Stil (bisect-freundlich):**
-- Kleine, atomare Commits: eine logische Änderung pro Commit
-- Jeder Commit ist für sich lauffähig (Tests grün, App startet), damit `git bisect` eindeutig gut/schlecht liefert
-- Code, zugehörige Tests und Doku einer Änderung gehören in denselben Commit; unabhängige Änderungen in eigene Commits
-- Regeländerungen (CLAUDE.md) vorab und getrennt von der Code-Änderung committen
-
-**Branches:**
-- Nach GitHub wird **nur über eigene Branches** gepusht (`feat/…`, `fix/…`, `docs/…`), nie direkt auf `main`
-- `main` ändert sich ausschließlich über Pull Requests; lokale Commits auf `main` vor dem Push auf einen Branch verschieben
-
----
-
-## Typisierung
-
-- Backend bleibt JavaScript, kein TypeScript-Build. Typen kommen per JSDoc (`@param`, `@returns`, `@typedef`, `import('../types/…')`); Typdefinitionen (DB-Zeilen, geteilte Rückgabeformen) liegen in `backend/src/types/*.d.ts`
-- Opt-in pro Datei: `// @ts-check` als erste Zeile (`checkJs` bleibt `false`). `cd backend && npm run typecheck` (in CI) prüft genau diese Dateien
-- Neue Utils/Middleware mit `@ts-check` anlegen und in `backend/__tests__/tsCheckOptIn.test.js` eintragen; Typfehler nur per Annotation/Cast beheben, nie durch Logikänderung. Details: `backend/TYPESCRIPT.md`
-
----
-
 ## Kritische Projektregeln
 
-### 1. WHERE-Clause-Builder (Backend)
-**Alle WHERE-Filter auf den Status von Schmuckstücken müssen `whereClauseBuilder` verwenden** für konsistente Filterlogik in der gesamten App. Statusübergänge (UPDATE) laufen über `backend/src/utils/statusUebergaenge.js`; Beziehungs-JOINs wie `s."Ausgelagert" = k."ID"` sind erlaubt.
+Kurzfassung. Die vollständigen Regeln mit Beispielen lädt Claude Code aus `.claude/rules/`, sobald passende Dateien gelesen oder bearbeitet werden.
 
-```javascript
-const { where } = require('../utils/whereClauseBuilder');
-
-const builder = where();
-builder.verfuegbar();              // Verfügbar: nicht verkauft, kein Ausschuss, nicht ausgelagert
-builder.aktivAusgelagert(kundeId); // Aktiv ausgelagert an bestimmten Kunden
-const { rows } = await db.query(
-  `SELECT * FROM "Schmuckstück" ${builder.build()}`,
-  builder.getParams()
-);
-```
-
-**Status-Mappings** (kritische Geschäftslogik):
-- **Verfügbar**: `Verkauft = FALSE AND Ausschuss = FALSE AND Ausgelagert = 0`
-- **Verkauft**: `Verkauft = TRUE AND Ausschuss = FALSE`
-- **Ausschuss**: `Ausschuss = TRUE`
-- **Aktiv Ausgelagert**: `Ausgelagert > 0 AND Verkauft = FALSE AND Ausschuss = FALSE`
-
-Vollständige API: `backend/src/utils/WHERE_BUILDER.md`
-
-### 2. Frontend-Styling (React)
-**Strikte Regel: Keine Inline-Styles**
-```jsx
-// ❌ VERBOTEN
-<div style={{ marginTop: 24, display: "flex" }}>
-
-// ✅ ERFORDERLICH
-<div className="my-container">
-```
-
-Alle Styles gehören als Klassendefinitionen in die passende Datei unter `frontend/src/styles/` (`<seite>.css`, Basis: `variables.css`, `layout.css`, `buttons.css`, `forms.css`, `modal.css` …). `frontend/src/index.css` ist nur die Import-Liste; die Reihenfolge der `@import`s bildet die Kaskade ab und darf nicht verändert werden. Neue Dateien am Ende einhängen, keine Datei über ca. 400 Zeilen.
-
-**Ausnahme:** Dynamische Werte (aus Daten/State berechnet) nur als CSS-Variable: `style={{ "--balken-breite": `${x}%` }}` mit `width: var(--balken-breite)` in der Klasse. Bedingte Styles zwischen festen Werten sind bedingte Klassennamen, keine Variablen. ESLint (`no-restricted-syntax`) erzwingt das.
-**Klassennamen** je Seite/Komponente einheitlich präfixiert (`inventur-…`, `dashboard-…`, `docmgr-…`) und in der jeweiligen `styles/<seite>.css` in einem eigenen kommentierten Block gruppiert; vorhandene Klassen (z. B. `cursor-pointer`, `mr-8`) wiederverwenden. Ein doppelter Klassenname im Selektor (`.a.a`) hebt die Spezifität, wo eine bestehende Regel sonst gewinnt.
-
-**Ausnahme:** Dynamische Werte (aus Daten/State berechnet) nur als CSS-Variable: `style={{ "--balken-breite": `${x}%` }}` mit `width: var(--balken-breite)` in der Klasse. Bedingte Styles zwischen festen Werten sind bedingte Klassennamen, keine Variablen. ESLint (`no-restricted-syntax`) erzwingt das.
-**Klassennamen** je Seite/Komponente einheitlich präfixiert (`inventur-…`, `dashboard-…`, `docmgr-…`) und in `index.css` in einem eigenen kommentierten Block je Datei gruppiert; vorhandene Klassen (z. B. `cursor-pointer`, `mr-8`) wiederverwenden. Ein doppelter Klassenname im Selektor (`.a.a`) hebt die Spezifität, wo eine bestehende Regel sonst gewinnt.
-
-### 3. Fotos
-- Fotos liegen **in PostgreSQL**: Tabelle `"Foto"` (Schmuckstücke, Schlüssel = Basis-Artikelnummer, `MHO123` gilt für `MHO123_1`, `MHO123_2`) und `bestellung_foto` (Bestellformular)
-- Lesen/Schreiben nur über `backend/src/utils/fotoService.js`; Listen prüfen per `EXISTS`, damit keine BYTEA-Daten geladen werden
-- Liste, Detail und Inventur liefern je Stück `hatFoto` (boolean via `hatFotoSql()`); das Frontend lädt das Bild über die Artikelnummer
-- Max. 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft, nicht per Dateiendung
-- Upload: `multer.memoryStorage()` in `schmuckstuecke.js`; Auslieferung mit ETag aus `Geaendert` und `Cache-Control: private, max-age=60`
-- Fotos werden per **eigenem Foto-ZIP** gesichert (`utils/fotoZip.js`), nicht über den JSON-Export: `GET /api/backup/export-fotos` (REPEATABLE-READ-Snapshot), `POST /api/backup/import-fotos-zip` (Hintergrund-Job, Fortschritt: `GET /api/backup/import-fotos-jobs/:id`)
-- **SQL-Dump:** `GET /api/backup/export-sql` exportiert als COPY-Blöcke. `frontend/src/utils/sqlDump.js` liest beim Import nur COPY-Blöcke und schickt sie an `POST /api/backup/import` — SQL wird nie direkt ausgeführt
-- **Kein Datei-Fallback:** Fotos kommen nur aus der Datenbank; ohne Eintrag antwortet `GET /foto/:name` mit 404
+1. **WHERE-Clause-Builder (Backend):** Status-Filter auf Schmuckstücke nur über `whereClauseBuilder`, Statusübergänge nur über `backend/src/utils/statusUebergaenge.js`. Details: `.claude/rules/api-conventions.md`
+2. **Frontend-Styling (React):** Keine Inline-Styles. Klassen in `frontend/src/styles/<seite>.css`, dynamische Werte nur als CSS-Variable. Details: `.claude/rules/frontend-styling.md`
+3. **Fotos:** liegen in PostgreSQL, Zugriff nur über `backend/src/utils/fotoService.js`; max. 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft. Details: `.claude/rules/fotos.md`
+4. **Schema-Migrationen:** Neue Schemaänderung = neue Datei mit der nächsten Nummer in `backend/src/config/migrations/`. Veröffentlichte Migrationen nie ändern. Details: `.claude/rules/api-conventions.md`
 
 ---
 
@@ -292,11 +232,8 @@ db/
 - Fachlicher Unterschied: Der Lieferschein zeigt, was **an den Kunden gesendet** wurde (brutto/netto nach Provision, kein Rabatt); abgerechnet wird erst per Rechnung
 
 ### Datenbankabfragen
-- Kein ORM: Abfragen direkt mit `pg` (node-postgres)
-- Alle Einfüge-/Update-Operationen verwenden Prepared Statements gegen SQL-Injection
-- Session-Benutzer wird per `SET app.current_user = 'username'` im `authenticate`-Middleware gesetzt (fließt in Audit-Trigger)
-- **Schema-Migrationen:** `backend/src/config/migrations/NNNN_name.sql`, beim Start angewandt von `config/migrate.js` (Tabelle `schema_migrations`, eine Transaktion je Migration, `pg_advisory_lock`, vorher `pg_dump`-Backup bei Bestandsdatenbanken; `MIGRATION_BACKUP_DIR`, `MIGRATION_SKIP_BACKUP`)
-- **Neue Schemaänderung = neue Datei mit der nächsten Nummer.** Veröffentlichte Migrationen nie ändern, `db/init.sql` nicht erweitern, kein Schema-Code (CREATE/ALTER) in `db.js`. Datenumwandlungen als eigene, idempotente Migration
+
+Kein ORM, Abfragen direkt mit `pg` (node-postgres). Regeln zu Prepared Statements, Audit-Benutzer und Schema-Migrationen: `.claude/rules/api-conventions.md`.
 
 ### Authentifizierung
 1. Frontend sendet Passwort im Klartext über TLS — kein clientseitiges Hashing
@@ -330,27 +267,13 @@ db/
 | **Passwort-Hashing** | `backend/src/utils/passwordService.js` |
 | **Fotos** | `backend/src/utils/fotoService.js` |
 | **Ausführliche Doku** | `docs/ARCHITEKTUR.md` |
+| **Regeln für Claude** | `.claude/rules/` |
 
 ---
 
 ## Tests
 
-**Backend** (Jest):
-```bash
-cd backend && npm test
-# Tests in: __tests__/**/*.test.js
-# Mocks: db.js, logger.js via jest.mock()
-```
-
-Für Backup/Restore gibt es eine Integrationssuite gegen echtes Postgres (`__tests__/backup.integration.test.js`), die nur mit `TEST_DATABASE_URL` läuft und Datenbanken ohne „test" im Namen ablehnt. Ebenso `__tests__/migrations.integration.test.js` (Rolle braucht `CREATEDB`): vergleicht Neuinstallation, init.sql + Migrationen und Bestandsdatenbank auf identisches Schema.
-
-**Frontend** (Vitest):
-```bash
-cd frontend && npm test
-# Tests in: src/__tests__/**/*.test.js
-```
-
-Tests laufen automatisch bei jedem PR über GitHub Actions (`.github/workflows/tests.yml`).
+Befehle stehen im Abschnitt „Befehle“, Regeln und Integrationssuiten in `.claude/rules/testing.md`. Tests laufen bei jedem PR über GitHub Actions (`.github/workflows/tests.yml`).
 
 ---
 
@@ -388,105 +311,3 @@ Siehe `README.md`, Abschnitt „Synology NAS" und `deploy/README.md`. Installer:
 - **Health-Check**: `GET /api/health`
 - **JWT-Probleme**: Middleware loggt den Ablehnungsgrund; httpOnly-Cookie `jwt` im Browser prüfen (DevTools → Application → Cookies)
 - **Foto-Upload schlägt fehl**: 400 kommt aus der Magic-Byte-/Größenprüfung in `utils/fotoService.js`
-
-
----
-
-## CLAUDE.md – Globale Arbeitsregeln
-
-### 1. Arbeitsablauf (immer in dieser Reihenfolge)
-
-1. **Verstehen**: Bei unklarer Anforderung genau EINE Rückfrage stellen.
-2. **Planen**: Bei mehr als 2 Dateien oder neuer Architektur zuerst einen kurzen Plan zeigen und auf OK warten.
-3. **Test zuerst**: Erst fehlschlagenden Test schreiben, dann Implementierung (TDD), wo sinnvoll.
-4. **Klein umsetzen**: Ein Schritt = ein Commit. Keine Sammel-Änderungen.
-5. **Prüfen**: Tests/Linter/Build wirklich ausführen, bevor "fertig" gesagt wird. Ausgabe zeigen.
-6. **Zusammenfassen**: 2–3 Zeilen: was geht jetzt, wie ausprobieren, was ist offen.
-
-### 2. Grenzen (nicht ohne Rückfrage)
-
-- Keine Änderungen außerhalb des besprochenen Umfangs (kein "nebenbei" Refactoring).
-- Keine neuen Abhängigkeiten ohne Begründung (Standardbibliothek zuerst).
-- Keine destruktiven Aktionen: `rm -rf`, `git push --force`, `git reset --hard`, DB-Migrationen, Löschen von Dateien.
-- Keine Secrets, Passwörter, Tokens im Code oder in Commits. Immer `.env` / Secret-Store, `.env` in `.gitignore`.
-- Keine Netzwerk-/Systemänderungen an Proxmox, Home Assistant oder NAS ohne ausdrückliches OK.
-
-### 3. Code-Qualität
-
-- Klar vor clever. Kleine Funktionen, eine Aufgabe pro Funktion, sprechende Namen.
-- Keine Magic Numbers, Konstanten benennen.
-- Fehler behandeln, nie still schlucken. Fehlermeldungen mit Ursache + Kontext.
-- Kommentare erklären das *Warum*, nicht das *Was*.
-- Eingaben von außen immer validieren.
-- Kein toter Code, keine auskommentierten Blöcke.
-
-#### JavaScript (React/Vite, Node.js/Express)
-- `const`/`let`, nie `var`. Strikte Vergleiche (`===`). `async/await` statt Callback-Ketten.
-- Lint/Format: ESLint + Prettier. Abhängigkeiten über `package.json` + Lockfile, Node-Version festlegen (`.nvmrc`).
-- Tests: Playwright für E2E, Vitest für Unit-Tests (Vite-Projekte).
-- React: kleine Komponenten, Hooks-Regeln beachten, Zustand nicht doppelt halten.
-- Auth/Routing: Race Conditions beim Laden beachten (Auth-Guard erst nach geladenem Zustand entscheiden).
-- Backend: Eingaben validieren, Fehler zentral in Middleware behandeln, nie Roh-Fehler an den Client geben.
-
-#### SQL / Datenbank
-- Nur parametrisierte Queries. Schema-Änderungen ausschließlich per Migration, nie direkt live.
-- Vor Migrationen Backup. Indizes für Fremdschlüssel und häufige Filter.
-- Datensätze einmal laden und im Speicher halten, nicht bei jedem Aufruf neu abfragen (sofern Konsistenz nicht leidet).
-
-#### Docker / Compose
-- Feste Image-Tags statt `latest`. Secrets über `.env`/Secrets, nicht ins Image.
-- Volumes für Daten, Healthchecks für Dienste. Änderungen an Produktiv-Containern (Synology) erst nach OK.
-
-### 4. Tests
-
-- Neue Funktion oder Bugfix = mindestens ein Test.
-- Bugfix: erst Test, der den Fehler reproduziert, dann Fix.
-- Abdecken: Normalfall, Grenzwerte, Fehlerfall, leere/ungültige Eingabe.
-- Tests unabhängig voneinander, keine Reihenfolge-Abhängigkeit, keine echten externen Dienste (mocken).
-
-### 5. Git
-
-- Commits nach Conventional Commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
-- Eine logische Änderung pro Commit, Betreff maximal 72 Zeichen, Imperativ.
-- Feature-Arbeit auf eigenem Branch, nie direkt auf `main`.
-- Vor Commit: `git diff` prüfen, keine Debug-Reste, keine Secrets.
-
-### 6. Debugging
-
-- Erst reproduzieren, dann Ursache finden, dann fixen. Kein Raten und Herumprobieren.
-- Nach 3 erfolglosen Versuchen: stoppen, Annahme benennen, die vermutlich falsch ist, EINE Diagnosefrage stellen.
-- Root Cause beheben, nicht das Symptom.
-
-### 7. Sicherheit
-
-- Kein `eval`/`exec` auf externen Eingaben, keine SQL-String-Konkatenation (parametrisierte Queries).
-- Abhängigkeiten aktuell halten, bekannte Schwachstellen prüfen.
-- Logs ohne Passwörter/Tokens/personenbezogene Daten.
-
-### 8. Arbeiten mit KI (Vibe-Coding-Regeln für mich)
-
-- Ich bleibe verantwortlich: jeden KI-Diff lesen, bevor er committet wird.
-- Kleine, klar beschriebene Aufgaben statt "bau mir alles".
-- Kontext geben: Ziel, Randbedingungen, Beispiel für erwartetes Verhalten.
-- Bei langem Chat mit Drift: neue Session starten, Stand in 5 Zeilen zusammenfassen.
-- Wiederkehrende Fehler der KI hier in die Datei eintragen (Abschnitt 9).
-- Sessionende: Wurde ich korrigiert oder ist derselbe Fehler zweimal passiert, schlage genau EINE Zeile für Abschnitt 9 vor (Datum, Fehler → Regel). Nur nach meinem OK eintragen, als eigener Commit `docs:`.
-
-### 9. Gelernte Korrekturen (laufend ergänzen)
-
-- _(noch leer)_
-
-### 10. Delegation & Modellwahl (nur Claude Code)
-
-- Hauptagent: plant, delegiert, prüft, spricht mit mir. Umfangreiche oder parallele Arbeit macht ein Subagent.
-- Selbst erledigen (kein Subagent): Rückfragen an mich, Pläne, Einzeiler, eine einzelne Datei lesen, Commit, Endkontrolle.
-- Parallel nur bei unabhängigen Aufgaben (keine gemeinsamen Dateien).
-- Auftrag an Subagenten immer vollständig: Ziel, betroffene Dateien, erwartetes Ergebnisformat, Grenzen aus Abschnitt 2.
-- Ergebnis nie ungeprüft übernehmen: Diff lesen, Tests selbst ausführen (Abschnitt 1, Schritt 5).
-- Haupt-KI hat immer das letzte Wort: Subagenten ändern nur Dateien und committen nie; den Commit für ihre Änderungen macht die Haupt-KI nach Diff-Prüfung und Tests.
-
-Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
-- **haiku**: Dateien suchen/lesen, Logs zusammenfassen, Formatierung, Doku-Kleinkram.
-- **sonnet** (Standard): Implementieren, Tests schreiben, Refactoring, Code-Review.
-- **opus**: Architektur, schwieriges Debugging, Security-Review, oder wenn sonnet nach 3 Versuchen scheitert (Abschnitt 6).
-- Im Zweifel eine Stufe niedriger starten, bei Misserfolg hochstufen.
