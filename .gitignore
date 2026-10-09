@@ -38,3 +38,7 @@ migration-backups/
 /*.csv
 *_data.sql
 *.dump
+
+# Claude Code: persönliche, lokale Dateien (nicht versionieren)
+CLAUDE.local.md
+.claude/settings.local.json

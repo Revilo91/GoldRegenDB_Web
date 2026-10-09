@@ -813,9 +813,20 @@ GoldRegenDB_Web/
 ├── docker-compose.yml                # Produktion (ein app-Service)
 ├── docker-compose.dev.yml            # Entwicklung, voll containerisiert
 ├── docker-compose.proxy.yml          # Overlay: Caddy-Reverse-Proxy mit TLS
+├── deploy/                           # Release-Assets (Synology): docker-compose.yml, .env.example, install.sh (Release-Installer)
 ├── proxy/Caddyfile                   # Caddy-Konfiguration
 ├── package.json                      # Root npm Workspace (backend, frontend) + npm run dev
 ├── .env.example                      # Vorlage für Umgebungsvariablen
+├── CLAUDE.md                         # Projektkontext für Claude Code
+├── .mcp.json                         # MCP-Server für Claude Code (teamweit, derzeit leer)
+│
+├── .claude/                          # Claude-Code-Projektstruktur
+│   ├── settings.json                 # Berechtigungen, Plugins, Hook-Eintrag
+│   ├── rules/                        # Regeln nach Thema, teils auf Pfade beschränkt
+│   ├── commands/                     # /review-branch, /fix-issue
+│   ├── skills/                       # deploy, expert-software-engineer, istqb-qa-architect-de
+│   ├── agents/                       # code-reviewer, security-auditor
+│   └── hooks/validate-bash.sh        # PreToolUse-Hook (Test: backend/__tests__/claudeHook.test.js)
 │
 ├── .github/
 │   └── workflows/
