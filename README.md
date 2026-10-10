@@ -122,48 +122,42 @@ docker compose up --build -d
 
 ### Synology NAS
 
-Das einfachste Deployment nutzt das fertige Release-Paket. Es enthält `docker-compose.yml`
-(= `docker-compose.synology.yml`), eine `.env.example` mit der passenden `IMAGE_TAG`-Version,
-`synology-update.sh` sowie `db/init.sql`, `db/backup.sh` und `db/restore.sh`, die die Compose-Datei relativ zu sich
-selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
+Das Deployment läuft über den Installer `install.sh`, den jedes GitHub-Release zusammen mit
+`docker-compose.yml`, `.env.example`, `init.sql`, `backup.sh` und `restore.sh` anhängt (Quellen:
+`deploy/` und `db/`, Details in [deploy/README.md](deploy/README.md)). Per SSH auf der NAS:
 
-1. Neueste Version von der [Releases-Seite](https://github.com/Revilo91/GoldRegenDB_Web/releases) herunterladen: `goldregendb-synology-*.zip`
+```bash
+curl -fsSL https://github.com/Revilo91/GoldRegenDB_Web/releases/latest/download/install.sh | sudo bash
+```
 
-2. Paket auf die Synology kopieren und entpacken:
-   ```bash
-   scp goldregendb-synology-*.zip admin@<synology-ip>:/tmp/
-   ssh admin@<synology-ip>
-   mkdir -p /volume1/docker/goldregendb
-   unzip /tmp/goldregendb-synology-*.zip -d /tmp/goldregendb_pkg
-   cp -r /tmp/goldregendb_pkg/goldregendb-synology-*/. /volume1/docker/goldregendb/
-   ```
+Das Skript installiert und aktualisiert gleichermaßen: Es lädt das neueste Release, sichert die
+Datenbank (`backups/pre-update_*.sql.gz`), legt die Ordner unter `/volume1/docker/goldregendb` an,
+erzeugt bei der Erstinstallation die Secrets in der `.env`, startet den Stack, prüft den Health-Check
+und rollt bei Fehlern automatisch zurück. `sudo bash install.sh v1.2.3` wählt eine Version,
+`sudo bash install.sh --rollback` geht auf die Vorgängerversion zurück. Bestehende `.env`-Werte
+bleiben unverändert; neue Variablen aus der `.env.example` werden ergänzt.
 
-3. `.env`-Datei anlegen und Passwörter/Secrets setzen:
-   ```bash
-   cd /volume1/docker/goldregendb
-   cp .env.example .env
-   nano .env
-   ```
-   | Variable | Bedeutung | Standard |
-   |----------|-----------|----------|
-   | `DATA_DIR` | Wurzel für `data/` (Datenbank), `backups/` und `uploads/` (Foto-Import). Das Paket bringt die Ordner mit; bei anderem Pfad vorher anlegen, Container Manager tut es nicht | `/volume1/docker/goldregendb` |
-   | `IMAGE_TAG` | Version von `ghcr.io/revilo91/goldregendb` (ohne führendes `v`), Pflicht | Version des Pakets |
-   | `APP_HOST_PORT` / `DB_HOST_PORT` | Ports auf der Synology | `3000` / `15432` |
+Wichtige `.env`-Variablen:
 
-4. Container starten:
-   ```bash
-   docker compose up -d
-   ```
+| Variable | Bedeutung | Standard |
+|----------|-----------|----------|
+| `APP_VERSION` | Version von `ghcr.io/revilo91/goldregendb` (ohne führendes `v`), setzt `install.sh` | Release-Version |
+| `APP_PORT` / `DB_HOST_PORT` | Ports auf der Synology | `3000` / `15432` |
 
-5. Frontend aufrufen: `http://<synology-ip>:3000`, erster Login `admin` / `admin`
-   (das Passwort muss danach geändert werden).
+Daten liegen relativ zum Installationsordner: Datenbank in `data/postgres`, Backups in `backups/`.
+Erster Login nach der Installation: `http://<synology-ip>:3000`, `admin` / `admin`
+(das Passwort muss danach geändert werden).
+
+> **Update von älteren Installationen:** Lag die Datenbank bisher direkt in `data/`, übernimmt
+> `install.sh` sie per Dump nach `data/postgres` (das alte Verzeichnis bleibt unangetastet).
+> `IMAGE_TAG` heißt jetzt `APP_VERSION`, `APP_HOST_PORT` heißt `APP_PORT`; `DATA_DIR` entfällt.
 
 > **Update von einer Version mit Uploads-Ordner:** Fotos liegen seit #208 in der
 > Datenbank; der Ordner `uploads/` wird nicht mehr eingebunden, bis zum Bestandsimport
 > (#209) zeigt die Oberfläche keine Fotos. Beim ersten Start entfernt das Backend die
 > alte Spalte `"Schmuckstück"."Foto"` – der Import braucht sie nicht, er liest die
-> Artikelnummer aus dem Dateinamen. Import nach dem Update, im Ordner der Compose-Datei
-> (Pfad anpassen, falls `DATA_DIR` abweicht):
+> Artikelnummer aus dem Dateinamen. Import nach dem Update im Installationsordner
+> (Bilder vorher dort nach `uploads/` kopieren):
 > ```bash
 > # 1. Probelauf: schreibt nichts, listet Übersprungenes in uploads/import-fotos.log
 > docker compose run --rm -v /volume1/docker/goldregendb/uploads:/import app \
@@ -179,30 +173,14 @@ selbst einbindet. Weitere Dateien müssen nicht an feste Pfade kopiert werden.
 > mit `_` am Anfang, nur Namen der Form `ABC123`. Uneindeutige Namen und gleichnamige
 > Dateien mit anderem Inhalt landen in `<ordner>/_manuell/`, das der Import nicht liest.
 
-**Aktualisieren:** `docker-compose.yml`, `synology-update.sh` und `db/` aus dem neuen
-Paket übernehmen, die `.env` behalten und `./synology-update.sh <version>` ausführen
-(z. B. `./synology-update.sh 0.3.0`). Das Skript trägt die Version als `IMAGE_TAG` in die
-`.env` ein, legt fehlende Ordner unter `DATA_DIR` an, zieht das Image und startet die Container neu.
-
-**Migration bestehender Installationen** (Pakete bis v0.2.0 mit fest verdrahteten
-`/volume1/docker/goldregendb/...`-Pfaden): Neue `docker-compose.yml` und `db/` über die alten
-Dateien kopieren, die `.env` bleibt, und `./synology-update.sh <version>` ausführen – ohne
-`IMAGE_TAG` in der `.env` startet Compose nicht mehr, einen Rückfall auf `latest` gibt es
-nicht. Ohne `DATA_DIR` gilt `/volume1/docker/goldregendb`, Datenbank und Backups
-werden also am bisherigen Ort weiterverwendet. Liegt die Compose-Datei nicht in
-`/volume1/docker/goldregendb`, `DATA_DIR` auf den bisherigen Ordner setzen und `db/`
-neben die Compose-Datei legen. Alte Pakete verwiesen außerdem auf einen Image-Tag mit
-führendem `v` (`:v0.2.0`), der Release-Workflow pusht die Tags aber ohne `v` (`0.2.0`) –
-auch das ist mit `IMAGE_TAG` behoben.
-
 **Release bauen:** Ein Tag `vX.Y.Z` startet `.github/workflows/release.yml`: Tests, dann
-Image und ZIP bauen, das ZIP mit dem frischen Image starten und prüfen (Smoke-Test), erst
-danach das Image mit allen Tags inkl. `latest` nach GHCR pushen und das Release anlegen.
-Den Smoke-Test lokal nachstellen:
+Image bauen und die Release-Assets zusammenstellen, diese mit dem frischen Image starten und prüfen
+(Smoke-Test), erst danach das Image mit allen Tags inkl. `latest` nach GHCR pushen und das Release anlegen.
+Den Smoke-Test lokal nachstellen (braucht einen Docker-Daemon):
 ```bash
 docker build -t ghcr.io/revilo91/goldregendb:X.Y.Z --build-arg VITE_API_URL=/api .
-scripts/build-release-package.sh vX.Y.Z
-SMOKE_APP_PORT=13000 SMOKE_DB_PORT=25432 scripts/release-smoke-test.sh dist/goldregendb-synology-vX.Y.Z.zip
+scripts/build-release-package.sh dist/release
+SMOKE_APP_PORT=13000 SMOKE_DB_PORT=25432 scripts/release-smoke-test.sh dist/release X.Y.Z
 ```
 
 > **Hinweis:** `VITE_API_URL` muss nicht gesetzt werden – die API-URL ist bereits ins Image eingebettet. Ein einzelnes Image liefert Frontend und API same-origin aus (kein Nginx nötig).
@@ -304,7 +282,7 @@ Standardmäßig liegen Secrets als Klartext in der `.env`-Datei. Für ein produk
    ./scripts/rotate-secret.sh db_password
    ./scripts/rotate-secret.sh bestellung_encryption_key
    ```
-2. In `docker-compose.yml` (bzw. `docker-compose.synology.yml`) den einkommentierten `secrets:`-Block aktivieren und `DATABASE_URL`/`JWT_SECRET`/`BESTELLUNG_ENCRYPTION_KEY` in der `app`-Umgebung durch die `*_FILE`-Variante ersetzen (siehe Kommentare in der jeweiligen Datei).
+2. In `docker-compose.yml` (bzw. `deploy/docker-compose.yml`) den einkommentierten `secrets:`-Block aktivieren und `DATABASE_URL`/`JWT_SECRET`/`BESTELLUNG_ENCRYPTION_KEY` in der `app`-Umgebung durch die `*_FILE`-Variante ersetzen (siehe Kommentare in der jeweiligen Datei).
 3. `docker compose up -d` – das Backend liest die Werte dann über `getSecret()` (`backend/src/config/secrets.js`) aus den gemounteten Dateien.
 
 > Warum dateibasiert und nicht `external: true`-Docker-Secrets? Letztere funktionieren nur im Swarm-Modus. Auf einer Synology bzw. mit einfachem `docker compose up` sind file-basierte Secrets (`file: ./secrets/...`) der realistische Weg – Compose mountet sie auch ohne Swarm nach `/run/secrets/`.
@@ -360,11 +338,14 @@ Standard-Login nach dem ersten Start: **admin** / **admin** (bitte sofort änder
 
 ```
 GoldRegenDB_Web/
+├── CLAUDE.md                        # Projektkontext für Claude Code
+├── .mcp.json                        # MCP-Server für Claude Code (teamweit)
+├── .claude/                         # Claude Code: settings.json, rules/, commands/, skills/, agents/, hooks/
 ├── Dockerfile                       # Produktions-Build (Frontend gebaut + Backend)
 ├── Dockerfile.dev                   # Entwicklungs-Build (Frontend + Backend mit Hot-Reload)
 ├── docker-compose.yml               # Produktions-Stack (db + app)
 ├── docker-compose.dev.yml           # Entwicklungs-Stack mit Hot-Reload (db + app)
-├── docker-compose.synology.yml      # Synology-NAS-spezifisch
+├── deploy/                          # Synology-Release: docker-compose.yml, .env.example, install.sh
 ├── docker-compose.proxy.yml         # Optionales Overlay: Caddy-Reverse-Proxy mit TLS (Issue #138)
 ├── proxy/Caddyfile                  # Caddy-Konfiguration für docker-compose.proxy.yml
 ├── package.json                     # npm-Workspace-Root (`npm run dev` startet alles)
@@ -451,7 +432,7 @@ Parallele Starts warten per `pg_advisory_lock` aufeinander.
 **Backup-Gate:** Stehen Migrationen aus und enthält die Datenbank bereits Tabellen, legt das
 Backend vorher mit `pg_dump` (Custom-Format) ein Backup an – in Docker unter
 `/backups/migrations/vor_migration_<version>_<zeit>.dump`, also im selben Volume bzw.
-Synology-Ordner (`${DATA_DIR}/backups/migrations`) wie die täglichen Backups. Das Image bringt
+Synology-Ordner (`backups/migrations`) wie die täglichen Backups. Das Image bringt
 `pg_dump` mit (`postgresql16-client`). Schlägt das Backup fehl, startet das Backend **nicht**
 und nennt den Grund im Log; das Schema bleibt unverändert. Erst nach eigener Sicherung
 `MIGRATION_SKIP_BACKUP=true` setzen, dann läuft die Migration nur mit Warnung.

@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Startet ein Release-ZIP so, wie es auf der Synology läuft, und prüft die App.
-# Verwendung: scripts/release-smoke-test.sh <goldregendb-synology-*.zip>
+# Startet die Release-Assets so, wie install.sh sie auf der Synology anlegt, und prüft die App.
+# Verwendung: scripts/release-smoke-test.sh <asset-ordner> <version>
+#   <asset-ordner>  Ausgabe von scripts/build-release-package.sh
+#   <version>       Image-Tag ohne "v" (APP_VERSION), z. B. 1.2.3
 #
-# Das App-Image (IMAGE_TAG aus der .env.example des Pakets) muss lokal vorliegen
-# (docker load / docker build) – es wird nie aus der Registry gezogen.
+# Das App-Image muss lokal vorliegen (docker load / docker build) – es wird nie
+# aus der Registry gezogen.
 # Optional: SMOKE_PROJECT (Compose-Projektname), SMOKE_APP_PORT, SMOKE_DB_PORT,
 # SMOKE_TIMEOUT (Sekunden, bis /api/health 200 liefern muss).
 set -euo pipefail
 
-ZIP="$(realpath "${1:?Verwendung: $0 <goldregendb-synology-*.zip>}")"
+ASSETS="$(realpath "${1:?Verwendung: $0 <asset-ordner> <version>}")"
+VERSION="${2:?Verwendung: $0 <asset-ordner> <version>}"
 PROJEKT="${SMOKE_PROJECT:-goldregendb-smoke}"
 APP_PORT="${SMOKE_APP_PORT:-3000}"
 DB_PORT="${SMOKE_DB_PORT:-15432}"
@@ -16,21 +19,20 @@ TIMEOUT="${SMOKE_TIMEOUT:-180}"
 BASE="http://127.0.0.1:${APP_PORT}"
 
 ARBEIT="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/goldregendb-smoke.XXXXXX")"
-DATA_DIR="$ARBEIT/daten"
-PAKET=""
+PAKET="$ARBEIT/install"
 ERFOLG=0
 
 compose() { docker compose -f "$PAKET/docker-compose.yml" -p "$PROJEKT" "$@"; }
 
 aufraeumen() {
-  if [ -n "$PAKET" ]; then
+  if [ -f "$PAKET/docker-compose.yml" ]; then
     if [ "$ERFOLG" -ne 1 ]; then
       echo "──── docker compose logs ────"
       compose logs --no-color || true
     fi
     compose down -v --remove-orphans || true
     # data/ gehört dem postgres-Benutzer, das Import-Log root – daher im Container löschen.
-    docker run --rm -v "$ARBEIT:/arbeit" postgres:16-alpine rm -rf /arbeit/daten /arbeit/import || true
+    docker run --rm -v "$ARBEIT:/arbeit" postgres:16-alpine rm -rf /arbeit/install /arbeit/import || true
   fi
   rm -rf "$ARBEIT"
 }
@@ -43,20 +45,21 @@ setze() {
   grep -qxF "$1=$2" "$PAKET/.env" || fehler "$1 fehlt in der .env.example des Pakets"
 }
 
-unzip -q "$ZIP" -d "$ARBEIT"
-PAKET="$(find "$ARBEIT" -mindepth 1 -maxdepth 1 -type d -name 'goldregendb-synology-*')"
-[ -f "$PAKET/docker-compose.yml" ] || fehler "kein goldregendb-synology-*/docker-compose.yml in $ZIP"
-for ordner in data backups uploads; do
-  [ -d "$PAKET/$ordner" ] || fehler "Ordner $ordner/ fehlt im Paket"
+# Layout wie install.sh: Assets flach laden, db-Dateien nach db/, Daten relativ zum Ordner.
+for datei in docker-compose.yml .env.example install.sh init.sql backup.sh restore.sh; do
+  [ -f "$ASSETS/$datei" ] || fehler "Release-Asset $datei fehlt in $ASSETS"
 done
+mkdir -p "$PAKET/db" "$PAKET/data/postgres" "$PAKET/backups"
+cp "$ASSETS/docker-compose.yml" "$ASSETS/.env.example" "$PAKET/"
+cp "$ASSETS/init.sql" "$ASSETS/backup.sh" "$ASSETS/restore.sh" "$PAKET/db/"
+chmod +x "$PAKET/db/backup.sh" "$PAKET/db/restore.sh"
 
-# Einmal-Secrets wie bei einer echten Installation. Hex, weil Compose das
-# Passwort unkodiert in DATABASE_URL einsetzt.
+# Einmal-Secrets wie bei einer echten Installation (install.sh: openssl rand -hex 32).
 cp "$PAKET/.env.example" "$PAKET/.env"
-setze DATA_DIR "$DATA_DIR"
-setze APP_HOST_PORT "$APP_PORT"
+setze APP_VERSION "$VERSION"
+setze APP_PORT "$APP_PORT"
 setze DB_HOST_PORT "$DB_PORT"
-setze DB_PASSWORD "$(openssl rand -hex 16)"
+setze DB_PASSWORD "$(openssl rand -hex 32)"
 setze JWT_SECRET "$(openssl rand -hex 32)"
 setze BESTELLUNG_ENCRYPTION_KEY "$(openssl rand -hex 32)"
 if grep -nE '^[^#]*(change-this|changeme)' "$PAKET/.env"; then
@@ -66,7 +69,7 @@ fi
 APP_IMAGE="$(compose config --images | grep '/goldregendb:')"
 docker image inspect "$APP_IMAGE" >/dev/null 2>&1 \
   || fehler "$APP_IMAGE liegt lokal nicht vor (docker load oder docker build)"
-echo "Teste $APP_IMAGE mit $(basename "$ZIP")"
+echo "Teste $APP_IMAGE mit den Release-Assets aus $ASSETS"
 
 compose pull --quiet db
 compose up -d --pull never
@@ -115,9 +118,9 @@ api "$BASE/api/schmuckstuecke/foto/$nummer" -o /dev/null \
 echo "ok   import-fotos.js importiert Foto für $nummer"
 
 compose exec -T db /backup.sh || fehler "backup.sh fehlgeschlagen"
-ls "$DATA_DIR"/backups/daily/*.sql.gz >/dev/null 2>&1 \
-  || fehler "backup.sh hat keine Datei unter DATA_DIR/backups/daily erzeugt"
-echo "ok   backup.sh schreibt nach DATA_DIR/backups"
+ls "$PAKET"/backups/daily/*.sql.gz >/dev/null 2>&1 \
+  || fehler "backup.sh hat keine Datei unter ./backups/daily erzeugt"
+echo "ok   backup.sh schreibt nach ./backups"
 
 ERFOLG=1
 echo "Smoke-Test bestanden."
