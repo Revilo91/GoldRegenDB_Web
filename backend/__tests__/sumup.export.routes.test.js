@@ -19,6 +19,7 @@ const logger = require('../src/utils/logger');
 const { buildTestApp } = require('./helpers/buildTestApp');
 const { createTxClientMock, sqlVerlauf } = require('./helpers/txClientMock');
 const sumupRoutes = require('../src/routes/sumup');
+const { parseCSVLines } = sumupRoutes;
 
 const app = buildTestApp({
   router: sumupRoutes,
@@ -72,7 +73,7 @@ describe('GET /api/sumup/export', () => {
     expect(zeile).toContain('Ohrring');
   });
 
-  it('erzeugt für mehrere Varianten eine Gruppenzeile ohne Preis und je eine Zeile pro Variante', async () => {
+  it('gibt mehrere Varianten unter gleichem Item name mit Variations aus, ohne Gruppenzeile', async () => {
     db.query.mockResolvedValueOnce({
       rows: [
         { Artikelnummer: 'MBH028_1', Verkaufspreis: '20' },
@@ -83,13 +84,39 @@ describe('GET /api/sumup/export', () => {
 
     const res = await request(app).get('/api/sumup/export');
 
-    const [, gruppe, ...varianten] = zeilen(res);
-    const g = gruppe.split(',');
+    const [, ...varianten] = zeilen(res);
+    const spalten = varianten.map((v) => v.split(','));
     expect(varianten).toHaveLength(3);
-    expect(g[0]).toBe('MBH028');
-    expect(g[11]).toBe('');
-    expect(g[16]).toBe('3');
-    expect(varianten.map((v) => v.split(',')[0])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
+    expect(spalten.map((c) => c[0])).toEqual(['MBH028', 'MBH028', 'MBH028']);
+    expect(spalten.map((c) => c[1])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
+    expect(spalten.map((c) => c[11])).toEqual(['20.00', '20.00', '20.00']);
+    expect(spalten.map((c) => c[18])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
+    expect(spalten.every((c) => c[10] === '')).toBe(true);
+  });
+
+  it('lässt Variations bei Einzelstücken leer', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001_1', Verkaufspreis: '5' }] });
+
+    const res = await request(app).get('/api/sumup/export');
+
+    const spalten = zeilen(res)[1].split(',');
+    expect(spalten[0]).toBe('MHO001');
+    expect(spalten[1]).toBe('');
+  });
+
+  it('hat in jeder Zeile genau 36 Spalten', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [
+        { Artikelnummer: 'MBH028_1', Verkaufspreis: '20' },
+        { Artikelnummer: 'MBH028_2', Verkaufspreis: '20' },
+        { Artikelnummer: 'MHO001_1', Verkaufspreis: '5' },
+      ],
+    });
+
+    const res = await request(app).get('/api/sumup/export');
+
+    // Beschreibungen enthalten Kommas in Anführungszeichen, daher echter CSV-Parser
+    parseCSVLines(res.text.replace(/^\uFEFF/, '')).forEach((z) => expect(z).toHaveLength(36));
   });
 
   it('maskiert Kommas und Anführungszeichen in Feldern', async () => {
