@@ -32,7 +32,7 @@ const zeilen = (res) => res.text.replace(/^\uFEFF/, '').split('\n');
 beforeEach(() => jest.clearAllMocks());
 
 describe('GET /api/sumup/export', () => {
-  it('liefert eine CSV mit BOM, Kopfzeile mit 36 Spalten und Download-Header', async () => {
+  it('liefert eine CSV mit BOM, Kopfzeile mit 47 Spalten und Download-Header', async () => {
     db.query.mockResolvedValueOnce({ rows: [] });
 
     const res = await request(app).get('/api/sumup/export');
@@ -42,7 +42,7 @@ describe('GET /api/sumup/export', () => {
     expect(res.headers['content-disposition']).toMatch(/attachment; filename=Sumup_Export_\d{4}-\d{2}-\d{2}\.csv/);
     expect(res.text.startsWith('\uFEFF')).toBe(true);
     expect(zeilen(res)).toHaveLength(1);
-    expect(zeilen(res)[0].split(',')).toHaveLength(36);
+    expect(zeilen(res)[0].split(',')).toHaveLength(47);
   });
 
   it('fragt nur verfügbare Stücke über den whereClauseBuilder ab', async () => {
@@ -64,47 +64,63 @@ describe('GET /api/sumup/export', () => {
     const res = await request(app).get('/api/sumup/export');
 
     const [, zeile] = zeilen(res);
-    const spalten = zeile.split(',');
+    const spalten = parseCSVLines(zeile)[0];
     expect(zeilen(res)).toHaveLength(2);
     expect(spalten[0]).toBe('MHO001');
+    expect(spalten[1]).toBe('');
     expect(spalten[11]).toBe('12.50');
-    expect(spalten[18]).toBe('MHO001_1');
-    expect(zeile).toContain('"Stecker rund Silber rot, -"');
-    expect(zeile).toContain('Ohrring');
+    expect(spalten[22]).toBe('1');
+    expect(spalten[24]).toBe('MHO001_1');
+    expect(spalten[27]).toBe('Stecker rund Silber rot, -');
+    expect(spalten[28]).toBe('Ohrring');
   });
 
-  it('gibt mehrere Varianten unter gleichem Item name mit Variations aus, ohne Gruppenzeile', async () => {
+  it('übernimmt die SumUp-Vorbelegung (Einheit, Bestandsführung, Online-Shop, Buchungen)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001_1', Verkaufspreis: '5' }] });
+
+    const res = await request(app).get('/api/sumup/export');
+
+    const spalten = parseCSVLines(zeilen(res)[1])[0];
+    expect(spalten[13]).toBe('No'); // Variable price
+    expect(spalten[15]).toBe('No'); // On sale
+    expect(spalten[17]).toBe('No'); // Takeaway
+    expect(spalten[20]).toBe('each.each');
+    expect(spalten[21]).toBe('Yes');
+    expect(spalten[29]).toBe('Yes');
+    expect(spalten[38]).toBe('No');
+    expect(spalten[39]).toBe('MHO001');
+    expect(spalten.slice(42, 45)).toEqual(['Yes', '5', 'customer']);
+    expect(spalten.slice(45)).toEqual(['', '']);
+  });
+
+  it('gibt mehrere Exemplare als Gruppenzeile ohne Preis plus je eine Variante aus', async () => {
     db.query.mockResolvedValueOnce({
       rows: [
         { Artikelnummer: 'MBH028_1', Verkaufspreis: '20' },
-        { Artikelnummer: 'MBH028_2', Verkaufspreis: '20' },
-        { Artikelnummer: 'MBH028_3', Verkaufspreis: '20' },
+        { Artikelnummer: 'MBH028_2', Verkaufspreis: '21' },
+        { Artikelnummer: 'MBH028_3', Verkaufspreis: '22' },
       ],
     });
 
     const res = await request(app).get('/api/sumup/export');
 
-    const [, ...varianten] = zeilen(res);
-    const spalten = varianten.map((v) => v.split(','));
+    const [gruppe, ...varianten] = parseCSVLines(res.text.replace(/^\uFEFF/, '')).slice(1);
+    expect(gruppe[0]).toBe('MBH028');
+    expect(gruppe[1]).toBe('');
+    expect(gruppe[11]).toBe('');
+    expect(gruppe[24]).toBe('');
+    expect(gruppe[28]).toBe('Halskette');
     expect(varianten).toHaveLength(3);
-    expect(spalten.map((c) => c[0])).toEqual(['MBH028', 'MBH028', 'MBH028']);
-    expect(spalten.map((c) => c[1])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
-    expect(spalten.map((c) => c[11])).toEqual(['20.00', '20.00', '20.00']);
-    expect(spalten.map((c) => c[18])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
-    expect(spalten.every((c) => c[10] === '')).toBe(true);
+    expect(varianten.map((c) => c[0])).toEqual(['', '', '']);
+    expect(varianten.map((c) => c[1])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
+    expect(varianten.map((c) => c[10])).toEqual(['Yes', 'Yes', 'Yes']);
+    expect(varianten.map((c) => c[11])).toEqual(['20.00', '21.00', '22.00']);
+    expect(varianten.map((c) => c[22])).toEqual(['1', '1', '1']);
+    expect(varianten.map((c) => c[23])).toEqual(['0', '0', '0']);
+    expect(varianten.map((c) => c[24])).toEqual(['MBH028_1', 'MBH028_2', 'MBH028_3']);
   });
 
-  it('lässt Variations bei Einzelstücken leer', async () => {
-    db.query.mockResolvedValueOnce({ rows: [{ Artikelnummer: 'MHO001_1', Verkaufspreis: '5' }] });
-
-    const res = await request(app).get('/api/sumup/export');
-
-    const spalten = zeilen(res)[1].split(',');
-    expect(spalten[0]).toBe('MHO001');
-    expect(spalten[1]).toBe('');
-  });
-
-  it('hat in jeder Zeile genau 36 Spalten', async () => {
+  it('hat in jeder Zeile genau 47 Spalten', async () => {
     db.query.mockResolvedValueOnce({
       rows: [
         { Artikelnummer: 'MBH028_1', Verkaufspreis: '20' },
@@ -116,7 +132,7 @@ describe('GET /api/sumup/export', () => {
     const res = await request(app).get('/api/sumup/export');
 
     // Beschreibungen enthalten Kommas in Anführungszeichen, daher echter CSV-Parser
-    parseCSVLines(res.text.replace(/^\uFEFF/, '')).forEach((z) => expect(z).toHaveLength(36));
+    parseCSVLines(res.text.replace(/^\uFEFF/, '')).forEach((z) => expect(z).toHaveLength(47));
   });
 
   it('maskiert Kommas und Anführungszeichen in Feldern', async () => {
