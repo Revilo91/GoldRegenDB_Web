@@ -260,7 +260,7 @@ Kein ORM, Abfragen direkt mit `pg` (node-postgres). Regeln zu Prepared Statement
 | Zweck | Pfad |
 |-------|------|
 | **Datenbankschema** | `backend/src/config/migrations/` (maßgeblich), `db/init.sql` (eingefrorener Start-Stand) |
-| **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & DB_PASSWORD setzen) |
+| **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & POSTGRES_PASSWORD setzen) |
 | **WHERE-Builder-Doku** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel-Export** | `backend/src/utils/excelService.js` |
 | **Logging** | `backend/src/utils/logger.js` |
