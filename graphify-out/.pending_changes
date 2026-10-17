@@ -1,0 +1,8 @@
+frontend/package.json
+frontend/src/App.jsx
+frontend/src/__tests__/Hilfe.test.jsx
+frontend/src/help/etikettendrucker.md
+frontend/src/index.css
+frontend/src/pages/Hilfe.jsx
+frontend/src/styles/hilfe.css
+package-lock.json
