@@ -7,7 +7,7 @@ const { validateProductionSecrets } = require('../src/config/secrets');
 const EXISTING_ENV = {
   APP_VERSION: '1.0.0',
   APP_HOST_PORT: '8080',
-  DB_PASSWORD: 'dbpass-keep-0123456789',
+  POSTGRES_PASSWORD: 'dbpass-keep-0123456789',
   JWT_SECRET: 'jwt-keep-0123456789-0123456789-0123456789',
   BESTELLUNG_ENCRYPTION_KEY: 'k'.repeat(64),
   POSTGRES_DB: 'goldregendb',
@@ -29,8 +29,8 @@ describe('deploy/install.sh', () => {
       const env = sb.readEnv();
       expect(env.APP_VERSION).toBe('1.2.3');
       expect(env.APP_PORT).toBe('3000');
-      ['DB_PASSWORD', 'JWT_SECRET', 'BESTELLUNG_ENCRYPTION_KEY'].forEach((key) => expect(env[key]).toMatch(/^[0-9a-f]{64}$/));
-      expect(new Set([env.DB_PASSWORD, env.JWT_SECRET, env.BESTELLUNG_ENCRYPTION_KEY]).size).toBe(3);
+      ['POSTGRES_PASSWORD', 'JWT_SECRET', 'BESTELLUNG_ENCRYPTION_KEY'].forEach((key) => expect(env[key]).toMatch(/^[0-9a-f]{64}$/));
+      expect(new Set([env.POSTGRES_PASSWORD, env.JWT_SECRET, env.BESTELLUNG_ENCRYPTION_KEY]).size).toBe(3);
 
       ['data/postgres', 'backups', 'db'].forEach((dir) => expect(fs.statSync(sb.file(dir)).isDirectory()).toBe(true));
       ['init.sql', 'backup.sh', 'restore.sh'].forEach((f) => expect(fs.existsSync(sb.file('db', f))).toBe(true));
@@ -51,7 +51,7 @@ describe('deploy/install.sh', () => {
       try {
         expect(validateProductionSecrets([
           { name: 'JWT_SECRET', value: env.JWT_SECRET, minLength: 32 },
-          { name: 'DB_PASSWORD', value: env.DB_PASSWORD, minLength: 12 },
+          { name: 'POSTGRES_PASSWORD', value: env.POSTGRES_PASSWORD, minLength: 12 },
           { name: 'BESTELLUNG_ENCRYPTION_KEY', value: env.BESTELLUNG_ENCRYPTION_KEY, minLength: 64 },
         ])).toEqual([]);
       } finally {
@@ -128,7 +128,7 @@ describe('deploy/install.sh', () => {
 
       const env = sb.readEnv();
       expect(env.JWT_SECRET).toBe(EXISTING_ENV.JWT_SECRET);
-      expect(env.DB_PASSWORD).toBe(EXISTING_ENV.DB_PASSWORD);
+      expect(env.POSTGRES_PASSWORD).toBe(EXISTING_ENV.POSTGRES_PASSWORD);
       expect(env.BESTELLUNG_ENCRYPTION_KEY).toBe(EXISTING_ENV.BESTELLUNG_ENCRYPTION_KEY);
       expect(env.COOKIE_SECURE).toBe('true');
       expect(env.APP_PORT).toBe('8080');

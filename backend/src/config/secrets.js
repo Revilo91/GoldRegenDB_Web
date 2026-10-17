@@ -45,8 +45,8 @@ function validateProductionSecrets(secrets) {
 }
 
 // Extrahiert das Passwort aus einer postgresql://user:pass@host/db-URL – für
-// Fälle, in denen nur DATABASE_URL gesetzt ist (nicht DB_PASSWORD direkt,
-// z.B. weil Docker Compose sie aus DB_PASSWORD zusammensetzt).
+// Fälle, in denen nur DATABASE_URL gesetzt ist (nicht POSTGRES_PASSWORD direkt,
+// z.B. weil Docker Compose sie aus POSTGRES_PASSWORD zusammensetzt).
 function extractDatabaseUrlPassword(url) {
   const match = url ? url.match(/:\/\/[^:/@]+:([^@]+)@/) : null;
   return match ? decodeURIComponent(match[1]) : undefined;

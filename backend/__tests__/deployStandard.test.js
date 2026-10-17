@@ -49,7 +49,7 @@ describe('Deploy-Standard: deploy/docker-compose.yml', () => {
 
 describe('Deploy-Standard: deploy/.env.example', () => {
   it('Secrets sind leer, APP_VERSION ist vorhanden', () => {
-    ['DB_PASSWORD', 'JWT_SECRET', 'BESTELLUNG_ENCRYPTION_KEY', 'APP_VERSION'].forEach((key) => {
+    ['POSTGRES_PASSWORD', 'JWT_SECRET', 'BESTELLUNG_ENCRYPTION_KEY', 'APP_VERSION'].forEach((key) => {
       expect(envExample).toMatch(new RegExp(`^${key}=$`, 'm'));
     });
   });

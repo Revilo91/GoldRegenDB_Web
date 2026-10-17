@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       # Alle Pfade relativ zum Installationsordner (legt install.sh an).
       # seed.sql bewusst nicht – init.sql legt nur das Schema und den Admin an.
@@ -43,7 +43,10 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Die App baut die DB-URL selbst aus diesen drei Werten (backend/src/config/connectionString.js)
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       NODE_ENV: production
       PORT: ${PORT}
       JWT_SECRET: ${JWT_SECRET}
@@ -92,7 +95,7 @@ networks:
 # ── Datei-basierte Secrets statt Klartext in .env (Issue #140) ──────────────
 # `file:`-Secrets funktionieren auf DSM ohne Swarm; Compose mountet sie nach
 # /run/secrets/. Aktivieren: Dateien unter ./secrets/ anlegen (0600, nur root),
-# unten einkommentieren und in der `app`-Umgebung DATABASE_URL/JWT_SECRET/
+# unten einkommentieren und in der `app`-Umgebung POSTGRES_PASSWORD/JWT_SECRET/
 # BESTELLUNG_ENCRYPTION_KEY durch die *_FILE-Variante ersetzen (README.md "Secrets rotieren").
 #
 # secrets:
