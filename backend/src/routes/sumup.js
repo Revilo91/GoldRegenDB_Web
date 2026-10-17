@@ -438,13 +438,13 @@ router.get("/export", async (req, res) => {
       groupedItems[baseArtikelnummer].push(item);
     });
 
-    // SumUp CSV-Header (vollständiges Format)
+    // SumUp-Items-Export (47 Spalten); Reihenfolge und Schreibweise wie im SumUp-Original
     const headers = [
       "Item name",
       "Variations",
       "Option set 1",
       "Option 1",
-      "Option set 2 ",
+      "Option set 2",
       "Option 2",
       "Option set 3",
       "Option 3",
@@ -452,17 +452,25 @@ router.get("/export", async (req, res) => {
       "Option 4",
       "Is variation visible? (Yes/No)",
       "Price",
+      "Cost price",
+      "Variable price? (Yes/No)",
+      "Tax rate (%)",
       "On sale in Online Store?",
       "Regular price (before sale)",
-      "Tax rate (%)",
+      "Set up different prices and VAT for takeaway",
+      "Takeaway price",
+      "Takeaway tax rate",
+      "Unit",
       "Track inventory? (Yes/No)",
       "Quantity",
       "Low stock threshold",
       "SKU",
       "Barcode",
+      "Modifiers",
       "Description (Online Store and Invoices only)",
       "Category",
-      "Display colour in POS checkout ",
+      "Display item at Checkout? (Yes/No)",
+      "Display colour in POS checkout",
       "Image 1",
       "Image 2",
       "Image 3",
@@ -474,9 +482,29 @@ router.get("/export", async (req, res) => {
       "SEO title (Online Store only)",
       "SEO description (Online Store only)",
       "Shipping weight [kg] (Online Store only)",
+      "Display service in Bookings? (Yes/No)",
+      "Duration [minutes] (Bookings only)",
+      "Location [business/customer] (Bookings only)",
       "Item id (Do not change)",
       "Variant id (Do not change)",
     ];
+
+    // Spalten, die SumUp bei jedem Artikel (Einzelstück oder Gruppenzeile) gleich vorbelegt
+    const artikelDefaults = {
+      "Variable price? (Yes/No)": "No",
+      "On sale in Online Store?": "No",
+      "Set up different prices and VAT for takeaway": "No",
+      Unit: "each.each",
+      "Track inventory? (Yes/No)": "Yes",
+      "Display item at Checkout? (Yes/No)": "Yes",
+      "Display item in Online Store? (Yes/No)": "No",
+      "Display service in Bookings? (Yes/No)": "Yes",
+      "Duration [minutes] (Bookings only)": "5",
+      "Location [business/customer] (Bookings only)": "customer",
+    };
+
+    const zeile = (werte) =>
+      headers.map((h) => escape(werte[h])).join(",");
 
     const lines = [headers.join(",")];
 
@@ -485,81 +513,34 @@ router.get("/export", async (req, res) => {
 
     sortedBaseIds.forEach((baseId) => {
       const items = groupedItems[baseId];
-      const category = PRODUKTART[baseId[2]] || "";
+      const artikel = {
+        ...artikelDefaults,
+        "Item name": baseId,
+        Category: PRODUKTART[baseId[2]] || "",
+        "SEO title (Online Store only)": baseId,
+        "Description (Online Store and Invoices only)": getDescription(items[0]),
+      };
+      const bestand = (item) => ({
+        Price: (Number(item.Verkaufspreis) || 0).toFixed(2),
+        Quantity: "1",
+        "Low stock threshold": "0",
+        SKU: item.Artikelnummer,
+      });
 
-      // Hauptzeile für die Gruppe (wenn mehrere Varianten)
-      if (items.length > 1) {
-        const groupRow = [
-          escape(baseId), // Item name
-          "", // Variations
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "", // Option sets
-          "", // Is variation visible
-          "", // Price (leer für Gruppe)
-          "No", // On sale
-          "", // Regular price
-          "", // Tax rate
-          "Yes", // Track inventory
-          escape(items.length), // Quantity = Anzahl Varianten
-          "1", // Low stock threshold
-          "", // SKU (leer für Gruppe)
-          "", // Barcode
-          "", // Description
-          escape(category), // Category
-          ...Array(8).fill(""), // Display colour + Images
-          "Yes", // Display in Online Store
-          "",
-          "",
-          "", // SEO
-          "",
-          "", // Item/Variant ID
-        ];
-        lines.push(groupRow.join(","));
+      // Einzelstück: eine Zeile; mehrere Exemplare: Gruppenzeile ohne Preis + je Exemplar eine Variante
+      if (items.length === 1) {
+        lines.push(zeile({ ...artikel, ...bestand(items[0]) }));
+        return;
       }
-
-      // Zeilen für jede Variante
+      lines.push(zeile(artikel));
       items.forEach((item) => {
-        const price = Number(item.Verkaufspreis) || 0;
-        const description = getDescription(item);
-
-        const row = [
-          escape(items.length > 1 ? item.Artikelnummer : baseId), // Item name
-          "", // Variations
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "", // Option sets
-          "Yes", // Is variation visible
-          escape(price.toFixed(2)), // Price
-          "No", // On sale
-          escape(price.toFixed(2)), // Regular price
-          "", // Tax rate
-          "Yes", // Track inventory
-          "1", // Quantity
-          "1", // Low stock threshold
-          escape(item.Artikelnummer), // SKU
-          escape(item.Artikelnummer), // Barcode
-          escape(description), // Description
-          escape(category), // Category
-          ...Array(8).fill(""), // Display colour + Images
-          "Yes", // Display in Online Store
-          "",
-          "",
-          "", // SEO
-          "",
-          "", // Item/Variant ID
-        ];
-        lines.push(row.join(","));
+        lines.push(
+          zeile({
+            Variations: item.Artikelnummer,
+            "Is variation visible? (Yes/No)": "Yes",
+            ...bestand(item),
+          }),
+        );
       });
     });
 

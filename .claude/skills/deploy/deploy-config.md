@@ -9,7 +9,7 @@ Quelle der Werte: Konfigurationskopf von `deploy/install.sh`. Bei Abweichung gil
 | Installationsordner | `/volume1/docker/goldregendb` (änderbar mit `INSTALL_DIR`) |
 | Host-Port | `3000` (`.env`-Variable `APP_PORT`) |
 | Datenordner | `data/postgres`, `backups`, `db` |
-| Vom Installer erzeugte Secrets | `DB_PASSWORD`, `JWT_SECRET`, `BESTELLUNG_ENCRYPTION_KEY` |
+| Vom Installer erzeugte Secrets | `POSTGRES_PASSWORD`, `JWT_SECRET`, `BESTELLUNG_ENCRYPTION_KEY` |
 | Umbenannte `.env`-Variablen (alt:neu) | `APP_HOST_PORT:APP_PORT` |
 | Release-Dateien | `docker-compose.yml`, `.env.example`, `install.sh`, `init.sql`, `backup.sh`, `restore.sh` |
 | Release-Auslöser | Tag `vX.Y.Z` → `.github/workflows/release.yml` |

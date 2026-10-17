@@ -382,7 +382,7 @@ services:
     environment:
       POSTGRES_DB: goldregendb
       POSTGRES_USER: goldregen
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - ./db/backup.sh:/backup.sh:ro
       - ./db/restore.sh:/restore.sh:ro

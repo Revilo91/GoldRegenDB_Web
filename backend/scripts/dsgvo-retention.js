@@ -14,7 +14,7 @@
 const path = require("path");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
-const { getSecret } = require("../src/config/secrets");
+const { buildConnectionString } = require("../src/config/connectionString");
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -22,12 +22,12 @@ const dryRun = args.includes("--dry-run");
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const databaseUrl = getSecret("DATABASE_URL");
+const databaseUrl = buildConnectionString();
 const retentionTageOhneRechnung = parseInt(process.env.BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG || "90", 10);
 const retentionJahreMitRechnung = parseInt(process.env.BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG || "10", 10);
 
 if (!databaseUrl) {
-  console.error("❌ DATABASE_URL ist nicht gesetzt. Bitte .env prüfen.");
+  console.error("❌ Datenbank-Zugang unvollständig (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB). Bitte .env prüfen.");
   process.exit(1);
 }
 

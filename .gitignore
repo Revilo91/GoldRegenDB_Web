@@ -42,3 +42,6 @@ migration-backups/
 # Claude Code: persönliche, lokale Dateien (nicht versionieren)
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Graphify-Wissensgraph (generiert, per /graphify neu erzeugbar)
+graphify-out/

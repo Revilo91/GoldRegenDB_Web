@@ -29,6 +29,7 @@ import {
   faAnglesLeft,
   faAnglesRight,
   faCodeBranch,
+  faCircleQuestion,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
@@ -44,6 +45,7 @@ import BestellungPublic from "./pages/BestellungPublic";
 import Rechnungen from "./pages/Rechnungen";
 import Sumup from "./pages/Sumup";
 import Etiketten from "./pages/Etiketten";
+import Hilfe from "./pages/Hilfe";
 import AuditLog from "./pages/AuditLog";
 import Debug from "./pages/Debug";
 import Benutzerverwaltung from "./pages/Benutzerverwaltung";
@@ -232,6 +234,9 @@ function AppLayout() {
         { to: "/bestelluebersicht", icon: faTruck, label: "Bestell\u00fcbersicht", show: isBearbeiter },
         { to: "/sumup", icon: faCreditCard, label: "SumUp", show: isBearbeiter },
       ],
+    },
+    {
+      links: [{ to: "/hilfe", icon: faCircleQuestion, label: "Hilfe", show: isBearbeiter }],
     },
   ];
   if (isAdmin) {
@@ -611,6 +616,14 @@ function AppLayout() {
             element={
               <ProtectedRoute bearbeiterOnly>
                 <Etiketten />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/hilfe"
+            element={
+              <ProtectedRoute bearbeiterOnly>
+                <Hilfe />
               </ProtectedRoute>
             }
           />

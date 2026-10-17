@@ -59,7 +59,7 @@ cp "$PAKET/.env.example" "$PAKET/.env"
 setze APP_VERSION "$VERSION"
 setze APP_PORT "$APP_PORT"
 setze DB_HOST_PORT "$DB_PORT"
-setze DB_PASSWORD "$(openssl rand -hex 32)"
+setze POSTGRES_PASSWORD "$(openssl rand -hex 32)"
 setze JWT_SECRET "$(openssl rand -hex 32)"
 setze BESTELLUNG_ENCRYPTION_KEY "$(openssl rand -hex 32)"
 if grep -nE '^[^#]*(change-this|changeme)' "$PAKET/.env"; then

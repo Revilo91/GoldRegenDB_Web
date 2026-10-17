@@ -9,8 +9,8 @@ const { getSecret, validateProductionSecrets, extractDatabaseUrlPassword } = req
 const secretProbleme = validateProductionSecrets([
   { name: 'JWT_SECRET', value: getSecret('JWT_SECRET'), minLength: 32 },
   {
-    name: 'DB_PASSWORD',
-    value: getSecret('DB_PASSWORD') || extractDatabaseUrlPassword(getSecret('DATABASE_URL')),
+    name: 'POSTGRES_PASSWORD',
+    value: getSecret('POSTGRES_PASSWORD') || extractDatabaseUrlPassword(getSecret('DATABASE_URL')),
     minLength: 12,
   },
   { name: 'BESTELLUNG_ENCRYPTION_KEY', value: getSecret('BESTELLUNG_ENCRYPTION_KEY'), minLength: 64 },
@@ -25,6 +25,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const db = require('./config/db');
+const { dbFehlerHinweis } = require('./utils/dbFehlerHinweis');
 
 const securityHeaders = require('./middleware/securityHeaders');
 const httpsRedirect = require('./middleware/httpsRedirect');
@@ -68,7 +69,7 @@ app.set('trust proxy', trustProxySetting);
 logger.info('SERVER', '=== GoldRegenDB Backend startet ===');
 logger.info('SERVER', `Umgebung: ${process.env.NODE_ENV || 'development'}`);
 logger.info('SERVER', `Port: ${PORT}`);
-logger.info('SERVER', `DATABASE_URL: ${db.connectionString ? '(gesetzt)' : '(NICHT GESETZT)'}`);
+logger.info('SERVER', `DB-Verbindung: ${db.connectionString ? '(gesetzt)' : '(NICHT GESETZT)'}`);
 logger.info('SERVER', `JWT_SECRET: ${getSecret('JWT_SECRET') ? '(gesetzt)' : '(NICHT GESETZT)'}${getSecret('JWT_SECRET_OLD') ? ' + JWT_SECRET_OLD (Rollover aktiv)' : ''}`);
 logger.info('SERVER', `ALLOWED_ORIGINS: ${process.env.ALLOWED_ORIGINS || '(nicht gesetzt – Standard-Dev-Origins)'}`);
 logger.info('SERVER', `COOKIE_SECURE: ${process.env.COOKIE_SECURE === 'true' ? 'true (Cookie nur über HTTPS)' : 'false (auch über HTTP)'}`);
@@ -279,6 +280,7 @@ db.initializeDatabase()
     logger.error('SERVER', 'FATAL: Datenbankschema konnte nicht hergestellt werden – Start abgebrochen.', {
       message: err.message,
       code: err.code,
+      hinweis: dbFehlerHinweis(err) ?? undefined,
     });
     process.exit(1);
   });
