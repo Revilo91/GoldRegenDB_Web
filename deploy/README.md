@@ -25,7 +25,7 @@ Ablauf: Release laden und Image ziehen (noch nichts verändert), dann
 1. Datenbank sichern nach `backups/pre-update_*.sql.gz` (letzte 10 bleiben),
 2. Ordner anlegen, 3. Stack stoppen, `:previous` merken, alte Images löschen,
 4. Release-Dateien einspielen, `.env` anlegen bzw. um neue Variablen ergänzen
-(`DB_PASSWORD`, `JWT_SECRET`, `BESTELLUNG_ENCRYPTION_KEY` erzeugt das Skript selbst),
+(`POSTGRES_PASSWORD`, `JWT_SECRET`, `BESTELLUNG_ENCRYPTION_KEY` erzeugt das Skript selbst),
 5. starten, Health-Check, bei Fehler automatischer Rollback.
 
 Bestehende `.env`-Werte werden nie überschrieben. Aufrufen: `http://<synology-ip>:3000`,

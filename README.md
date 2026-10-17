@@ -240,8 +240,8 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 |-----------------|----------------------------------------------------|--------------------------------------------------------|
 | `POSTGRES_DB`   | Datenbankname                                      | `goldregendb`                                          |
 | `POSTGRES_USER` | PostgreSQL-Superuser                               | `goldregen`                                            |
-| `DB_PASSWORD`   | Passwort des PostgreSQL-Superusers                 | `changeme`                                             |
-| `DATABASE_URL`  | Verbindungs-URL für den nativen Backend-Prozess (`npm run dev`); Docker-Compose überschreibt dies selbst mit dem Netzwerknamen `db` | `postgresql://goldregen:changeme@localhost:5432/goldregendb` |
+| `POSTGRES_PASSWORD`   | Passwort des PostgreSQL-Superusers                 | `changeme`                                             |
+| `DB_HOST`       | Host der Datenbank. Nativ (`npm run dev`) auf `localhost` setzen; im Container nichts eintragen (Standard `db`, der Compose-Netzwerkname) | `localhost` |
 | `PORT`          | Backend-Port                                       | `3001`                                                 |
 | `JWT_SECRET`    | Geheimer Schlüssel für JWT-Tokens (lang & zufällig)| `change-this-to-a-long-random-secret`                  |
 | `JWT_SECRET_OLD`| Optional: vorheriges `JWT_SECRET` während einer Rotation (Graceful Rollover) | – |
@@ -262,9 +262,9 @@ Alle Variablen werden in der `.env`-Datei im Projekt­wurzel­verzeichnis gesetz
 | `MIGRATION_BACKUP_DIR` | Ziel des automatischen `pg_dump` vor ausstehenden [Schema-Migrationen](#schema-migrationen). Compose: `/backups/migrations`; nativ ohne Angabe `<Arbeitsverzeichnis>/migration-backups` | `/backups/migrations` |
 | `MIGRATION_SKIP_BACKUP` | `true` überspringt dieses Backup (nur Warnung im Log). Nur mit eigenem, aktuellem Backup oder in der nativen Entwicklung ohne `pg_dump` | `false` |
 
-> ⚠️ **`JWT_SECRET`**, **`DB_PASSWORD`** und **`BESTELLUNG_ENCRYPTION_KEY`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden. Mit `NODE_ENV=production` verweigert das Backend den Start, solange noch ein Platzhalterwert aus `.env.example` oder ein zu kurzes Secret gesetzt ist (`backend/src/config/secrets.js`).
+> ⚠️ **`JWT_SECRET`**, **`POSTGRES_PASSWORD`** und **`BESTELLUNG_ENCRYPTION_KEY`** müssen vor dem ersten Start auf sichere, zufällige Werte gesetzt werden. Mit `NODE_ENV=production` verweigert das Backend den Start, solange noch ein Platzhalterwert aus `.env.example` oder ein zu kurzes Secret gesetzt ist (`backend/src/config/secrets.js`).
 
-**Secrets aus Dateien statt Klartext-Env-Vars** (Docker Secrets/NAS-Deployments): Für jede der obigen Variablen kann zusätzlich `<NAME>_FILE` gesetzt werden, z. B. `JWT_SECRET_FILE=/run/secrets/jwt_secret` – der Dateiinhalt hat dann Vorrang vor `JWT_SECRET`. Unterstützt für `JWT_SECRET`, `JWT_SECRET_OLD`, `DB_PASSWORD`, `DATABASE_URL` und `BESTELLUNG_ENCRYPTION_KEY`. Details und ein Beispiel für `docker-compose.yml` siehe [Secrets rotieren](#secrets-rotieren).
+**Secrets aus Dateien statt Klartext-Env-Vars** (Docker Secrets/NAS-Deployments): Für jede der obigen Variablen kann zusätzlich `<NAME>_FILE` gesetzt werden, z. B. `JWT_SECRET_FILE=/run/secrets/jwt_secret` – der Dateiinhalt hat dann Vorrang vor `JWT_SECRET`. Unterstützt für `JWT_SECRET`, `JWT_SECRET_OLD`, `POSTGRES_PASSWORD`, `DATABASE_URL` und `BESTELLUNG_ENCRYPTION_KEY`. Details und ein Beispiel für `docker-compose.yml` siehe [Secrets rotieren](#secrets-rotieren).
 
 ---
 
@@ -282,7 +282,7 @@ Standardmäßig liegen Secrets als Klartext in der `.env`-Datei. Für ein produk
    ./scripts/rotate-secret.sh db_password
    ./scripts/rotate-secret.sh bestellung_encryption_key
    ```
-2. In `docker-compose.yml` (bzw. `deploy/docker-compose.yml`) den einkommentierten `secrets:`-Block aktivieren und `DATABASE_URL`/`JWT_SECRET`/`BESTELLUNG_ENCRYPTION_KEY` in der `app`-Umgebung durch die `*_FILE`-Variante ersetzen (siehe Kommentare in der jeweiligen Datei).
+2. In `docker-compose.yml` (bzw. `deploy/docker-compose.yml`) den einkommentierten `secrets:`-Block aktivieren und `POSTGRES_PASSWORD`/`JWT_SECRET`/`BESTELLUNG_ENCRYPTION_KEY` in der `app`-Umgebung durch die `*_FILE`-Variante ersetzen (siehe Kommentare in der jeweiligen Datei).
 3. `docker compose up -d` – das Backend liest die Werte dann über `getSecret()` (`backend/src/config/secrets.js`) aus den gemounteten Dateien.
 
 > Warum dateibasiert und nicht `external: true`-Docker-Secrets? Letztere funktionieren nur im Swarm-Modus. Auf einer Synology bzw. mit einfachem `docker compose up` sind file-basierte Secrets (`file: ./secrets/...`) der realistische Weg – Compose mountet sie auch ohne Swarm nach `/run/secrets/`.
@@ -298,15 +298,15 @@ Ein hartes Rotieren würde alle angemeldeten Nutzer sofort ausloggen (bestehende
 
 **Auswirkung für angemeldete Nutzer:** keine – niemand wird während der Rotation ausgeloggt, solange Schritt 4 erst nach Ablauf der Alt-Tokens erfolgt.
 
-### `DB_PASSWORD` rotieren
+### `POSTGRES_PASSWORD` rotieren
 
 1. Neues Passwort erzeugen: `./scripts/rotate-secret.sh db_password`.
 2. Passwort in PostgreSQL selbst ändern (Downtime-frei möglich):
    ```bash
    docker compose exec db psql -U "$POSTGRES_USER" -c "ALTER USER \"$POSTGRES_USER\" WITH PASSWORD 'NEUES_PASSWORT';"
    ```
-3. `DB_PASSWORD` (bzw. `DB_PASSWORD_FILE`) in der `.env`/den Secrets aktualisieren.
-4. Backend-Container neu starten, damit der Connection-Pool die neue `DATABASE_URL` verwendet: `docker compose restart app`.
+3. `POSTGRES_PASSWORD` (bzw. `POSTGRES_PASSWORD_FILE`) in der `.env`/den Secrets aktualisieren.
+4. Backend-Container neu starten, damit der Connection-Pool das neue `POSTGRES_PASSWORD` verwendet: `docker compose restart app`.
 
 Es gibt hier keinen Graceful Rollover – der Connection-Pool baut bei jedem Neustart eine neue Verbindung auf, ein kurzer Verbindungsabbruch während des Neustarts ist normal.
 

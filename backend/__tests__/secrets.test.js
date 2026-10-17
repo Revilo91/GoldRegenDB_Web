@@ -69,10 +69,10 @@ describe('validateProductionSecrets', () => {
   it('meldet zu kurze Secrets in production', () => {
     process.env.NODE_ENV = 'production';
     const probleme = validateProductionSecrets([
-      { name: 'DB_PASSWORD', value: 'kurz', minLength: 12 },
+      { name: 'POSTGRES_PASSWORD', value: 'kurz', minLength: 12 },
     ]);
     expect(probleme).toEqual(
-      expect.arrayContaining([expect.stringContaining('DB_PASSWORD ist zu kurz')]),
+      expect.arrayContaining([expect.stringContaining('POSTGRES_PASSWORD ist zu kurz')]),
     );
   });
 

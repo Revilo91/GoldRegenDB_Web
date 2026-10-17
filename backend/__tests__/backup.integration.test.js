@@ -9,7 +9,7 @@
 // "test" enthält. Einrichten (einmalig, Schema lädt die Suite selbst):
 //   docker compose -f docker-compose.dev.yml exec db \
 //     psql -U goldregen -d postgres -c 'CREATE DATABASE goldregendb_test'
-//   TEST_DATABASE_URL=postgresql://goldregen:<DB_PASSWORD>@localhost:5432/goldregendb_test \
+//   TEST_DATABASE_URL=postgresql://goldregen:<POSTGRES_PASSWORD>@localhost:5432/goldregendb_test \
 //     npm test -- backup.integration
 
 process.env.JWT_SECRET = 'test-secret-do-not-use-in-prod';

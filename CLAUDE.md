@@ -28,7 +28,7 @@ Weitere Bausteine unter `.claude/`:
 
 ## Graphify Knowledge Graph
 
-**Die Graphify-Daten liegen im Projekt** (Verzeichnis `graphify-out/`). Bei **jeder** Frage zu diesem Projekt — Codebase, Architektur, Dateien, Abhängigkeiten, Features, Geschäftslogik — **sofort `/graphify` aufrufen, bevor geantwortet wird**, auch wenn die Antwort vermeintlich bekannt ist. Das stellt sicher:
+**Die Graphify-Daten liegen lokal im Projekt** (Verzeichnis `graphify-out/`, generiert und nicht versioniert; fehlt er, mit `/graphify` neu erzeugen). Bei **jeder** Frage zu diesem Projekt — Codebase, Architektur, Dateien, Abhängigkeiten, Features, Geschäftslogik — **sofort `/graphify` aufrufen, bevor geantwortet wird**, auch wenn die Antwort vermeintlich bekannt ist. Das stellt sicher:
 
 - Vollständiger, aktueller Kontext aus dem Knowledge Graph
 - Korrekte Dateireferenzen und Abhängigkeiten
@@ -260,7 +260,7 @@ Kein ORM, Abfragen direkt mit `pg` (node-postgres). Regeln zu Prepared Statement
 | Zweck | Pfad |
 |-------|------|
 | **Datenbankschema** | `backend/src/config/migrations/` (maßgeblich), `db/init.sql` (eingefrorener Start-Stand) |
-| **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & DB_PASSWORD setzen) |
+| **Umgebungsvariablen** | `.env.example` (nach `.env` kopieren, JWT_SECRET & POSTGRES_PASSWORD setzen) |
 | **WHERE-Builder-Doku** | `backend/src/utils/WHERE_BUILDER.md` |
 | **Excel-Export** | `backend/src/utils/excelService.js` |
 | **Logging** | `backend/src/utils/logger.js` |
