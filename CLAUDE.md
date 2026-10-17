@@ -28,7 +28,7 @@ Weitere Bausteine unter `.claude/`:
 
 ## Graphify Knowledge Graph
 
-**Die Graphify-Daten liegen im Projekt** (Verzeichnis `graphify-out/`). Bei **jeder** Frage zu diesem Projekt — Codebase, Architektur, Dateien, Abhängigkeiten, Features, Geschäftslogik — **sofort `/graphify` aufrufen, bevor geantwortet wird**, auch wenn die Antwort vermeintlich bekannt ist. Das stellt sicher:
+**Die Graphify-Daten liegen lokal im Projekt** (Verzeichnis `graphify-out/`, generiert und nicht versioniert; fehlt er, mit `/graphify` neu erzeugen). Bei **jeder** Frage zu diesem Projekt — Codebase, Architektur, Dateien, Abhängigkeiten, Features, Geschäftslogik — **sofort `/graphify` aufrufen, bevor geantwortet wird**, auch wenn die Antwort vermeintlich bekannt ist. Das stellt sicher:
 
 - Vollständiger, aktueller Kontext aus dem Knowledge Graph
 - Korrekte Dateireferenzen und Abhängigkeiten
