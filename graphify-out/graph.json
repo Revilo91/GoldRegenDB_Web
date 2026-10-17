@@ -1460,6 +1460,26 @@
       "norm_label": "mockabfragen()"
     },
     {
+      "label": "dbFehlerHinweis.test.js",
+      "file_type": "code",
+      "source_file": "backend/__tests__/dbFehlerHinweis.test.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "tests_dbfehlerhinweis_test",
+      "community": 166,
+      "norm_label": "dbfehlerhinweis.test.js"
+    },
+    {
+      "label": "{ dbFehlerHinweis }",
+      "file_type": "code",
+      "source_file": "backend/__tests__/dbFehlerHinweis.test.js",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "tests_dbfehlerhinweis_test_dbfehlerhinweis",
+      "community": 166,
+      "norm_label": "{ dbfehlerhinweis }"
+    },
+    {
       "label": "debug.routes.test.js",
       "file_type": "code",
       "source_file": "backend/__tests__/debug.routes.test.js",
@@ -1926,7 +1946,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_fotodateiname_test",
-      "community": 208,
+      "community": 153,
       "norm_label": "fotodateiname.test.js"
     },
     {
@@ -1936,7 +1956,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "tests_fotodateiname_test_analysieredateiname",
-      "community": 208,
+      "community": 153,
       "norm_label": "{ analysieredateiname }"
     },
     {
@@ -2006,7 +2026,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_fotozip_test",
-      "community": 213,
+      "community": 96,
       "norm_label": "fotozip.test.js"
     },
     {
@@ -2016,7 +2036,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "tests_fotozip_test_fs",
-      "community": 213,
+      "community": 96,
       "norm_label": "fs"
     },
     {
@@ -2026,7 +2046,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "tests_fotozip_test_os",
-      "community": 213,
+      "community": 96,
       "norm_label": "os"
     },
     {
@@ -2036,7 +2056,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tests_fotozip_test_path",
-      "community": 213,
+      "community": 96,
       "norm_label": "path"
     },
     {
@@ -2046,7 +2066,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "tests_fotozip_test_yazl",
-      "community": 213,
+      "community": 96,
       "norm_label": "yazl"
     },
     {
@@ -2056,7 +2076,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "tests_fotozip_test_eintragsname_zerlegeeintragsname_erstellefotozip_importierefotozip",
-      "community": 213,
+      "community": 96,
       "norm_label": "{\n  eintragsname,\n  zerlegeeintragsname,\n  erstellefotozip,\n  importierefotozip,\n}"
     },
     {
@@ -2066,7 +2086,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "tests_fotozip_test_png",
-      "community": 213,
+      "community": 96,
       "norm_label": "png"
     },
     {
@@ -2076,7 +2096,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "tests_fotozip_test_jpg",
-      "community": 213,
+      "community": 96,
       "norm_label": "jpg"
     },
     {
@@ -2086,7 +2106,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "tests_fotozip_test_speicherdb",
-      "community": 213,
+      "community": 96,
       "norm_label": "speicherdb()"
     },
     {
@@ -2096,7 +2116,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "tests_fotozip_test_alsbuffer",
-      "community": 213,
+      "community": 96,
       "norm_label": "alsbuffer()"
     },
     {
@@ -2106,7 +2126,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "tests_fotozip_test_schreibezip",
-      "community": 213,
+      "community": 96,
       "norm_label": "schreibezip()"
     },
     {
@@ -2386,7 +2406,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_importfotos_test",
-      "community": 153,
+      "community": 165,
       "norm_label": "importfotos.test.js"
     },
     {
@@ -2396,7 +2416,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "tests_importfotos_test_fs",
-      "community": 153,
+      "community": 165,
       "norm_label": "fs"
     },
     {
@@ -2406,7 +2426,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "tests_importfotos_test_os",
-      "community": 153,
+      "community": 165,
       "norm_label": "os"
     },
     {
@@ -2416,7 +2436,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tests_importfotos_test_path",
-      "community": 153,
+      "community": 165,
       "norm_label": "path"
     },
     {
@@ -2426,7 +2446,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "tests_importfotos_test_importierefotos_logzeilen",
-      "community": 153,
+      "community": 165,
       "norm_label": "{ importierefotos, logzeilen }"
     },
     {
@@ -2436,7 +2456,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "tests_importfotos_test_max_foto_bytes",
-      "community": 153,
+      "community": 165,
       "norm_label": "{ max_foto_bytes }"
     },
     {
@@ -2446,7 +2466,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "tests_importfotos_test_jpeg",
-      "community": 153,
+      "community": 165,
       "norm_label": "jpeg"
     },
     {
@@ -2456,7 +2476,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "tests_importfotos_test_png",
-      "community": 153,
+      "community": 165,
       "norm_label": "png"
     },
     {
@@ -2466,7 +2486,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "tests_importfotos_test_mockclient",
-      "community": 153,
+      "community": 165,
       "norm_label": "mockclient()"
     },
     {
@@ -2476,7 +2496,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "tests_importfotos_test_grund",
-      "community": 153,
+      "community": 165,
       "norm_label": "grund()"
     },
     {
@@ -2616,7 +2636,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_kunden_routes_test",
-      "community": 166,
+      "community": 34,
       "norm_label": "kunden.routes.test.js"
     },
     {
@@ -2626,7 +2646,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tests_kunden_routes_test_request",
-      "community": 166,
+      "community": 34,
       "norm_label": "request"
     },
     {
@@ -2636,7 +2656,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "tests_kunden_routes_test_express",
-      "community": 166,
+      "community": 34,
       "norm_label": "express"
     },
     {
@@ -2646,7 +2666,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "tests_kunden_routes_test_db",
-      "community": 166,
+      "community": 34,
       "norm_label": "db"
     },
     {
@@ -2656,7 +2676,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "tests_kunden_routes_test_requirebearbeiter",
-      "community": 166,
+      "community": 34,
       "norm_label": "{ requirebearbeiter }"
     },
     {
@@ -2666,7 +2686,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "tests_kunden_routes_test_kundenroutes",
-      "community": 166,
+      "community": 34,
       "norm_label": "kundenroutes"
     },
     {
@@ -2676,7 +2696,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "tests_kunden_routes_test_buildapp",
-      "community": 166,
+      "community": 34,
       "norm_label": "buildapp()"
     },
     {
@@ -3596,7 +3616,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_statusuebergaenge_test",
-      "community": 165,
+      "community": 61,
       "norm_label": "statusuebergaenge.test.js"
     },
     {
@@ -3606,7 +3626,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_statusuebergaenge_test_markiereverkauft_hebeverkauftauf_lagereaus_lagereoffeneaus_hebeauslagerungauf_lagerezurueck",
-      "community": 165,
+      "community": 61,
       "norm_label": "{\n  markiereverkauft,\n  hebeverkauftauf,\n  lagereaus,\n  lagereoffeneaus,\n  hebeauslagerungauf,\n  lagerezurueck,\n}"
     },
     {
@@ -3616,7 +3636,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "tests_statusuebergaenge_test_mockclient",
-      "community": 165,
+      "community": 61,
       "norm_label": "mockclient()"
     },
     {
@@ -3693,7 +3713,7 @@
       "label": "app",
       "file_type": "code",
       "source_file": "backend/__tests__/sumup.export.routes.test.js",
-      "source_location": "L23",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "tests_sumup_export_routes_test_app",
       "community": 53,
@@ -3703,7 +3723,7 @@
       "label": "zeilen()",
       "file_type": "code",
       "source_file": "backend/__tests__/sumup.export.routes.test.js",
-      "source_location": "L29",
+      "source_location": "L30",
       "_origin": "ast",
       "id": "tests_sumup_export_routes_test_zeilen",
       "community": 53,
@@ -3963,7 +3983,7 @@
       "label": "SRC",
       "file_type": "code",
       "source_file": "backend/__tests__/tsCheckOptIn.test.js",
-      "source_location": "L23",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "tests_tscheckoptin_test_src",
       "community": 211,
@@ -3973,7 +3993,7 @@
       "label": "findeJsDateien()",
       "file_type": "code",
       "source_file": "backend/__tests__/tsCheckOptIn.test.js",
-      "source_location": "L25",
+      "source_location": "L26",
       "_origin": "ast",
       "id": "tests_tscheckoptin_test_findejsdateien",
       "community": 211,
@@ -3983,7 +4003,7 @@
       "label": "traegtTsCheck()",
       "file_type": "code",
       "source_file": "backend/__tests__/tsCheckOptIn.test.js",
-      "source_location": "L33",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "tests_tscheckoptin_test_traegttscheck",
       "community": 211,
@@ -4116,7 +4136,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_whereclausebuilder_test",
-      "community": 194,
+      "community": 46,
       "norm_label": "whereclausebuilder.test.js"
     },
     {
@@ -4126,7 +4146,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_whereclausebuilder_test_where",
-      "community": 194,
+      "community": 46,
       "norm_label": "{ where }"
     },
     {
@@ -4956,14 +4976,14 @@
       "norm_label": "{ pool }"
     },
     {
-      "label": "{ getSecret }",
+      "label": "{ buildConnectionString }",
       "file_type": "code",
       "source_file": "backend/scripts/dsgvo-retention.js",
       "source_location": "L17",
       "_origin": "ast",
-      "id": "scripts_dsgvo_retention_getsecret",
+      "id": "scripts_dsgvo_retention_buildconnectionstring",
       "community": 63,
-      "norm_label": "{ getsecret }"
+      "norm_label": "{ buildconnectionstring }"
     },
     {
       "label": "args",
@@ -5176,14 +5196,14 @@
       "norm_label": "{ pool }"
     },
     {
-      "label": "{ getSecret }",
+      "label": "{ buildConnectionString }",
       "file_type": "code",
       "source_file": "backend/scripts/import-fotos.js",
       "source_location": "L11",
       "_origin": "ast",
-      "id": "scripts_import_fotos_getsecret",
+      "id": "scripts_import_fotos_buildconnectionstring",
       "community": 153,
-      "norm_label": "{ getsecret }"
+      "norm_label": "{ buildconnectionstring }"
     },
     {
       "label": "logger",
@@ -5232,7 +5252,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "scripts_import_fotos_gruppierenachbasis",
-      "community": 208,
+      "community": 153,
       "norm_label": "gruppierenachbasis()"
     },
     {
@@ -5426,6 +5446,36 @@
       "norm_label": "main()"
     },
     {
+      "label": "connectionString.js",
+      "file_type": "code",
+      "source_file": "backend/src/config/connectionString.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "config_connectionstring",
+      "community": 153,
+      "norm_label": "connectionstring.js"
+    },
+    {
+      "label": "{ getSecret }",
+      "file_type": "code",
+      "source_file": "backend/src/config/connectionString.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "config_connectionstring_getsecret",
+      "community": 153,
+      "norm_label": "{ getsecret }"
+    },
+    {
+      "label": "buildConnectionString()",
+      "file_type": "code",
+      "source_file": "backend/src/config/connectionString.js",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "config_connectionstring_buildconnectionstring",
+      "community": 153,
+      "norm_label": "buildconnectionstring()"
+    },
+    {
       "label": "db.js",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
@@ -5466,14 +5516,14 @@
       "norm_label": "logger"
     },
     {
-      "label": "{ getSecret }",
+      "label": "{ buildConnectionString }",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
       "source_location": "L4",
       "_origin": "ast",
-      "id": "config_db_getsecret",
+      "id": "config_db_buildconnectionstring",
       "community": 0,
-      "norm_label": "{ getsecret }"
+      "norm_label": "{ buildconnectionstring }"
     },
     {
       "label": "{ runMigrations }",
@@ -5486,20 +5536,10 @@
       "norm_label": "{ runmigrations }"
     },
     {
-      "label": "buildConnectionString()",
-      "file_type": "code",
-      "source_file": "backend/src/config/db.js",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "config_db_buildconnectionstring",
-      "community": 0,
-      "norm_label": "buildconnectionstring()"
-    },
-    {
       "label": "connectionString",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L28",
+      "source_location": "L7",
       "_origin": "ast",
       "id": "config_db_connectionstring",
       "community": 0,
@@ -5509,7 +5549,7 @@
       "label": "requestContext",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L46",
+      "source_location": "L25",
       "_origin": "ast",
       "id": "config_db_requestcontext",
       "community": 0,
@@ -5519,7 +5559,7 @@
       "label": "requestContextMiddleware()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L48",
+      "source_location": "L27",
       "_origin": "ast",
       "id": "config_db_requestcontextmiddleware",
       "community": 0,
@@ -5529,7 +5569,7 @@
       "label": "setCurrentDbUsername()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L74",
+      "source_location": "L53",
       "_origin": "ast",
       "id": "config_db_setcurrentdbusername",
       "community": 0,
@@ -5539,7 +5579,7 @@
       "label": "getCurrentDbUsername()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L82",
+      "source_location": "L61",
       "_origin": "ast",
       "id": "config_db_getcurrentdbusername",
       "community": 0,
@@ -5549,7 +5589,7 @@
       "label": "connect()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L90",
+      "source_location": "L69",
       "_origin": "ast",
       "id": "config_db_connect",
       "community": 0,
@@ -5559,7 +5599,7 @@
       "label": "query()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L105",
+      "source_location": "L84",
       "_origin": "ast",
       "id": "config_db_query",
       "community": 0,
@@ -5569,7 +5609,7 @@
       "label": "isSchemaReady()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L159",
+      "source_location": "L138",
       "_origin": "ast",
       "id": "config_db_isschemaready",
       "community": 0,
@@ -5579,7 +5619,7 @@
       "label": "initializeDatabase()",
       "file_type": "code",
       "source_file": "backend/src/config/db.js",
-      "source_location": "L163",
+      "source_location": "L142",
       "_origin": "ast",
       "id": "config_db_initializedatabase",
       "community": 0,
@@ -5956,10 +5996,20 @@
       "norm_label": "db"
     },
     {
+      "label": "{ dbFehlerHinweis }",
+      "file_type": "code",
+      "source_file": "backend/src/index.js",
+      "source_location": "L28",
+      "_origin": "ast",
+      "id": "src_index_dbfehlerhinweis",
+      "community": 8,
+      "norm_label": "{ dbfehlerhinweis }"
+    },
+    {
       "label": "securityHeaders",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L29",
+      "source_location": "L30",
       "_origin": "ast",
       "id": "src_index_securityheaders",
       "community": 8,
@@ -5969,7 +6019,7 @@
       "label": "httpsRedirect",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L30",
+      "source_location": "L31",
       "_origin": "ast",
       "id": "src_index_httpsredirect",
       "community": 8,
@@ -5979,7 +6029,7 @@
       "label": "cors",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L31",
+      "source_location": "L32",
       "_origin": "ast",
       "id": "src_index_cors",
       "community": 8,
@@ -5989,7 +6039,7 @@
       "label": "{ csrfProtection, csrfTokenHandler }",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L32",
+      "source_location": "L33",
       "_origin": "ast",
       "id": "src_index_csrfprotection_csrftokenhandler",
       "community": 8,
@@ -5999,7 +6049,7 @@
       "label": "{ authenticate, requireAdmin, requireBearbeiter }",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L33",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "src_index_authenticate_requireadmin_requirebearbeiter",
       "community": 8,
@@ -6009,7 +6059,7 @@
       "label": "kundenRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L34",
+      "source_location": "L35",
       "_origin": "ast",
       "id": "src_index_kundenroutes",
       "community": 8,
@@ -6019,7 +6069,7 @@
       "label": "schmuckstueckeRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L35",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "src_index_schmuckstueckeroutes",
       "community": 8,
@@ -6029,7 +6079,7 @@
       "label": "lieferscheineRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast",
       "id": "src_index_lieferscheineroutes",
       "community": 8,
@@ -6039,7 +6089,7 @@
       "label": "rechnungenRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L37",
+      "source_location": "L38",
       "_origin": "ast",
       "id": "src_index_rechnungenroutes",
       "community": 8,
@@ -6049,7 +6099,7 @@
       "label": "auditLogRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L38",
+      "source_location": "L39",
       "_origin": "ast",
       "id": "src_index_auditlogroutes",
       "community": 8,
@@ -6059,7 +6109,7 @@
       "label": "dashboardRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L39",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "src_index_dashboardroutes",
       "community": 8,
@@ -6069,7 +6119,7 @@
       "label": "authRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L40",
+      "source_location": "L41",
       "_origin": "ast",
       "id": "src_index_authroutes",
       "community": 8,
@@ -6079,7 +6129,7 @@
       "label": "usersRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L41",
+      "source_location": "L42",
       "_origin": "ast",
       "id": "src_index_usersroutes",
       "community": 8,
@@ -6089,7 +6139,7 @@
       "label": "sumupRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L42",
+      "source_location": "L43",
       "_origin": "ast",
       "id": "src_index_sumuproutes",
       "community": 8,
@@ -6099,7 +6149,7 @@
       "label": "inventurRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L43",
+      "source_location": "L44",
       "_origin": "ast",
       "id": "src_index_inventurroutes",
       "community": 8,
@@ -6109,7 +6159,7 @@
       "label": "lagerinventurRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L44",
+      "source_location": "L45",
       "_origin": "ast",
       "id": "src_index_lagerinventurroutes",
       "community": 8,
@@ -6119,7 +6169,7 @@
       "label": "etikettenRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L45",
+      "source_location": "L46",
       "_origin": "ast",
       "id": "src_index_etikettenroutes",
       "community": 8,
@@ -6129,7 +6179,7 @@
       "label": "bestelluebersichtRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L46",
+      "source_location": "L47",
       "_origin": "ast",
       "id": "src_index_bestelluebersichtroutes",
       "community": 8,
@@ -6139,7 +6189,7 @@
       "label": "bestellungPublicRoutes",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L47",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "src_index_bestellungpublicroutes",
       "community": 8,
@@ -6149,7 +6199,7 @@
       "label": "app",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L49",
+      "source_location": "L50",
       "_origin": "ast",
       "id": "src_index_app",
       "community": 8,
@@ -6159,7 +6209,7 @@
       "label": "trustProxySetting",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L58",
+      "source_location": "L59",
       "_origin": "ast",
       "id": "src_index_trustproxysetting",
       "community": 8,
@@ -6169,7 +6219,7 @@
       "label": "loginLimiter",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L130",
+      "source_location": "L131",
       "_origin": "ast",
       "id": "src_index_loginlimiter",
       "community": 8,
@@ -6179,7 +6229,7 @@
       "label": "publicOrderLimiter",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L143",
+      "source_location": "L144",
       "_origin": "ast",
       "id": "src_index_publicorderlimiter",
       "community": 8,
@@ -6189,7 +6239,7 @@
       "label": "swaggerSpec",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L217",
+      "source_location": "L218",
       "_origin": "ast",
       "id": "src_index_swaggerspec",
       "community": 8,
@@ -6199,7 +6249,7 @@
       "label": "publicDir",
       "file_type": "code",
       "source_file": "backend/src/index.js",
-      "source_location": "L233",
+      "source_location": "L234",
       "_origin": "ast",
       "id": "src_index_publicdir",
       "community": 8,
@@ -6522,7 +6572,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "middleware_securityheaders",
-      "community": 86,
+      "community": 8,
       "norm_label": "securityheaders.js"
     },
     {
@@ -6532,7 +6582,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "middleware_securityheaders_helmet",
-      "community": 86,
+      "community": 8,
       "norm_label": "helmet"
     },
     {
@@ -6542,7 +6592,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "middleware_securityheaders_securityheaders",
-      "community": 86,
+      "community": 8,
       "norm_label": "securityheaders"
     },
     {
@@ -6762,7 +6812,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backup_fotos",
-      "community": 96,
+      "community": 86,
       "norm_label": "fotos.js"
     },
     {
@@ -6772,7 +6822,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backup_fotos_router",
-      "community": 96,
+      "community": 86,
       "norm_label": "router"
     },
     {
@@ -6782,7 +6832,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backup_fotos_fs",
-      "community": 96,
+      "community": 86,
       "norm_label": "fs"
     },
     {
@@ -6792,7 +6842,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backup_fotos_os",
-      "community": 96,
+      "community": 86,
       "norm_label": "os"
     },
     {
@@ -6802,7 +6852,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backup_fotos_pipeline",
-      "community": 96,
+      "community": 86,
       "norm_label": "{ pipeline }"
     },
     {
@@ -6812,7 +6862,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backup_fotos_randomuuid",
-      "community": 96,
+      "community": 86,
       "norm_label": "{ randomuuid }"
     },
     {
@@ -6822,7 +6872,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backup_fotos_multer",
-      "community": 96,
+      "community": 86,
       "norm_label": "multer"
     },
     {
@@ -6832,7 +6882,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backup_fotos_db",
-      "community": 96,
+      "community": 86,
       "norm_label": "db"
     },
     {
@@ -6842,7 +6892,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backup_fotos_logger",
-      "community": 96,
+      "community": 86,
       "norm_label": "logger"
     },
     {
@@ -6852,7 +6902,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backup_fotos_erstellefotozip_importierefotozip",
-      "community": 96,
+      "community": 86,
       "norm_label": "{ erstellefotozip, importierefotozip }"
     },
     {
@@ -6862,7 +6912,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backup_fotos_fotozipupload",
-      "community": 96,
+      "community": 86,
       "norm_label": "fotozipupload"
     },
     {
@@ -6872,7 +6922,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backup_fotos_fotoimportjobs",
-      "community": 96,
+      "community": 86,
       "norm_label": "fotoimportjobs"
     },
     {
@@ -7322,7 +7372,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "routes_dashboard",
-      "community": 194,
+      "community": 188,
       "norm_label": "dashboard.js"
     },
     {
@@ -7332,7 +7382,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "routes_dashboard_express",
-      "community": 194,
+      "community": 188,
       "norm_label": "express"
     },
     {
@@ -7342,7 +7392,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "routes_dashboard_router",
-      "community": 194,
+      "community": 188,
       "norm_label": "router"
     },
     {
@@ -7352,7 +7402,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "routes_dashboard_db",
-      "community": 194,
+      "community": 188,
       "norm_label": "db"
     },
     {
@@ -7362,7 +7412,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "routes_dashboard_logger",
-      "community": 194,
+      "community": 188,
       "norm_label": "logger"
     },
     {
@@ -7372,7 +7422,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "routes_dashboard_where",
-      "community": 194,
+      "community": 188,
       "norm_label": "{ where }"
     },
     {
@@ -7382,7 +7432,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "routes_dashboard_preisnachallenrabattensql",
-      "community": 194,
+      "community": 188,
       "norm_label": "{ preisnachallenrabattensql }"
     },
     {
@@ -7952,7 +8002,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "routes_inventur_mitalias",
-      "community": 194,
+      "community": 46,
       "norm_label": "mitalias()"
     },
     {
@@ -8092,7 +8142,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_src_routes_lagerinventur_js_routes_lagerinventur",
-      "community": 79,
+      "community": 46,
       "norm_label": "lagerinventur.js"
     },
     {
@@ -8102,7 +8152,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "routes_lagerinventur_express",
-      "community": 79,
+      "community": 46,
       "norm_label": "express"
     },
     {
@@ -8112,7 +8162,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "routes_lagerinventur_router",
-      "community": 79,
+      "community": 46,
       "norm_label": "router"
     },
     {
@@ -8122,7 +8172,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "routes_lagerinventur_db",
-      "community": 79,
+      "community": 46,
       "norm_label": "db"
     },
     {
@@ -8132,7 +8182,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "routes_lagerinventur_logger",
-      "community": 79,
+      "community": 46,
       "norm_label": "logger"
     },
     {
@@ -8142,7 +8192,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "routes_lagerinventur_validate",
-      "community": 79,
+      "community": 46,
       "norm_label": "{ validate }"
     },
     {
@@ -8152,7 +8202,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "routes_lagerinventur_lagerinventurschema",
-      "community": 79,
+      "community": 46,
       "norm_label": "{ lagerinventurschema }"
     },
     {
@@ -8162,7 +8212,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "routes_lagerinventur_where",
-      "community": 79,
+      "community": 46,
       "norm_label": "{ where }"
     },
     {
@@ -8462,7 +8512,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen",
-      "community": 202,
+      "community": 67,
       "norm_label": "anlegen.js"
     },
     {
@@ -8472,7 +8522,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen_router",
-      "community": 202,
+      "community": 67,
       "norm_label": "router"
     },
     {
@@ -8482,7 +8532,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen_db",
-      "community": 202,
+      "community": 67,
       "norm_label": "db"
     },
     {
@@ -8492,7 +8542,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen_logger",
-      "community": 202,
+      "community": 67,
       "norm_label": "logger"
     },
     {
@@ -8502,7 +8552,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen_validate",
-      "community": 202,
+      "community": 67,
       "norm_label": "{ validate }"
     },
     {
@@ -8512,7 +8562,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen_schmuckstueckcreateschema",
-      "community": 202,
+      "community": 67,
       "norm_label": "{ schmuckstueckcreateschema }"
     },
     {
@@ -8522,7 +8572,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "schmuckstuecke_anlegen_ausschuss_grund_constraint_resolveausschussgrund",
-      "community": 202,
+      "community": 67,
       "norm_label": "{\n  ausschuss_grund_constraint,\n  resolveausschussgrund,\n}"
     },
     {
@@ -8532,7 +8582,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten",
-      "community": 186,
+      "community": 67,
       "norm_label": "bearbeiten.js"
     },
     {
@@ -8542,7 +8592,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_router",
-      "community": 186,
+      "community": 67,
       "norm_label": "router"
     },
     {
@@ -8552,7 +8602,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_db",
-      "community": 186,
+      "community": 67,
       "norm_label": "db"
     },
     {
@@ -8562,7 +8612,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_logger",
-      "community": 186,
+      "community": 67,
       "norm_label": "logger"
     },
     {
@@ -8572,7 +8622,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_validate",
-      "community": 186,
+      "community": 67,
       "norm_label": "{ validate }"
     },
     {
@@ -8582,7 +8632,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_schmuckstueckupdateschema",
-      "community": 186,
+      "community": 67,
       "norm_label": "{ schmuckstueckupdateschema }"
     },
     {
@@ -8592,7 +8642,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_requirebearbeiter",
-      "community": 186,
+      "community": 67,
       "norm_label": "{ requirebearbeiter }"
     },
     {
@@ -8602,7 +8652,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "schmuckstuecke_bearbeiten_ausschuss_grund_constraint_resolveausschussgrund",
-      "community": 186,
+      "community": 67,
       "norm_label": "{\n  ausschuss_grund_constraint,\n  resolveausschussgrund,\n}"
     },
     {
@@ -8822,7 +8872,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "schmuckstuecke_liste",
-      "community": 12,
+      "community": 79,
       "norm_label": "liste.js"
     },
     {
@@ -8832,7 +8882,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "schmuckstuecke_liste_router",
-      "community": 12,
+      "community": 79,
       "norm_label": "router"
     },
     {
@@ -8842,7 +8892,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "schmuckstuecke_liste_db",
-      "community": 12,
+      "community": 79,
       "norm_label": "db"
     },
     {
@@ -8852,7 +8902,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "schmuckstuecke_liste_logger",
-      "community": 12,
+      "community": 79,
       "norm_label": "logger"
     },
     {
@@ -8862,7 +8912,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "schmuckstuecke_liste_where",
-      "community": 12,
+      "community": 79,
       "norm_label": "{ where }"
     },
     {
@@ -8872,7 +8922,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "schmuckstuecke_liste_grundmaterial_produktart",
-      "community": 12,
+      "community": 79,
       "norm_label": "{ grundmaterial, produktart }"
     },
     {
@@ -8882,7 +8932,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "schmuckstuecke_liste_hat_foto_sql_searchable_fields_statusfilteranwenden_vergleichefilterwerte_filter_option_fields",
-      "community": 12,
+      "community": 79,
       "norm_label": "{\n  hat_foto_sql,\n  searchable_fields,\n  statusfilteranwenden,\n  vergleichefilterwerte,\n  filter_option_fields,\n}"
     },
     {
@@ -8989,7 +9039,7 @@
       "label": "parseCSVLines()",
       "file_type": "code",
       "source_file": "backend/src/routes/sumup.js",
-      "source_location": "L581",
+      "source_location": "L546",
       "_origin": "ast",
       "id": "routes_sumup_parsecsvlines",
       "community": 47,
@@ -8999,7 +9049,7 @@
       "label": "extractArtikelnummer()",
       "file_type": "code",
       "source_file": "backend/src/routes/sumup.js",
-      "source_location": "L635",
+      "source_location": "L600",
       "_origin": "ast",
       "id": "routes_sumup_extractartikelnummer",
       "community": 47,
@@ -9012,7 +9062,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "routes_users",
-      "community": 58,
+      "community": 17,
       "norm_label": "users.js"
     },
     {
@@ -9022,7 +9072,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "routes_users_express",
-      "community": 58,
+      "community": 17,
       "norm_label": "express"
     },
     {
@@ -9032,7 +9082,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "routes_users_router",
-      "community": 58,
+      "community": 17,
       "norm_label": "router"
     },
     {
@@ -9042,7 +9092,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "routes_users_db",
-      "community": 58,
+      "community": 17,
       "norm_label": "db"
     },
     {
@@ -9052,7 +9102,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "routes_users_logger",
-      "community": 58,
+      "community": 17,
       "norm_label": "logger"
     },
     {
@@ -9062,7 +9112,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "routes_users_validate",
-      "community": 58,
+      "community": 17,
       "norm_label": "{ validate }"
     },
     {
@@ -9072,7 +9122,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "routes_users_usercreateschema_userupdateschema_resetpasswordschema",
-      "community": 58,
+      "community": 17,
       "norm_label": "{\n  usercreateschema,\n  userupdateschema,\n  resetpasswordschema,\n}"
     },
     {
@@ -9082,7 +9132,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "routes_users_hashpassword",
-      "community": 58,
+      "community": 17,
       "norm_label": "{ hashpassword }"
     },
     {
@@ -9092,7 +9142,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "routes_users_valid_roles",
-      "community": 58,
+      "community": 17,
       "norm_label": "valid_roles"
     },
     {
@@ -9192,7 +9242,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "schemas_common_artikelnummer",
-      "community": 67,
+      "community": 17,
       "norm_label": "artikelnummer"
     },
     {
@@ -9202,7 +9252,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "schemas_common_vollstaendigeartikelnummer",
-      "community": 67,
+      "community": 17,
       "norm_label": "vollstaendigeartikelnummer"
     },
     {
@@ -9312,7 +9362,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "schemas_index_schmuckstueckcreateschema",
-      "community": 202,
+      "community": 67,
       "norm_label": "schmuckstueckcreateschema"
     },
     {
@@ -9322,7 +9372,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "schemas_index_schmuckstueckupdateschema",
-      "community": 186,
+      "community": 67,
       "norm_label": "schmuckstueckupdateschema"
     },
     {
@@ -9402,7 +9452,7 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "schemas_index_usercreateschema",
-      "community": 58,
+      "community": 17,
       "norm_label": "usercreateschema"
     },
     {
@@ -9412,7 +9462,7 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "schemas_index_userupdateschema",
-      "community": 58,
+      "community": 17,
       "norm_label": "userupdateschema"
     },
     {
@@ -9422,7 +9472,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "schemas_index_resetpasswordschema",
-      "community": 58,
+      "community": 17,
       "norm_label": "resetpasswordschema"
     },
     {
@@ -9542,7 +9592,7 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "schemas_index_lagerinventurschema",
-      "community": 79,
+      "community": 46,
       "norm_label": "lagerinventurschema"
     },
     {
@@ -9652,7 +9702,7 @@
       "source_location": "L148",
       "_origin": "ast",
       "id": "services_backupservice_jsonwertzudb",
-      "community": 6,
+      "community": 50,
       "norm_label": "jsonwertzudb()"
     },
     {
@@ -9662,7 +9712,7 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "services_backupservice_ermittlenichtvalidiertechecks",
-      "community": 50,
+      "community": 173,
       "norm_label": "ermittlenichtvalidiertechecks()"
     },
     {
@@ -9672,7 +9722,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "services_backupservice_loesenichtvalidiertechecks",
-      "community": 50,
+      "community": 173,
       "norm_label": "loesenichtvalidiertechecks()"
     },
     {
@@ -9682,7 +9732,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "services_backupservice_checkwiederanlegen",
-      "community": 173,
+      "community": 50,
       "norm_label": "checkwiederanlegen()"
     },
     {
@@ -9692,7 +9742,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "services_backupservice_stellecheckswiederher",
-      "community": 173,
+      "community": 50,
       "norm_label": "stellecheckswiederher()"
     },
     {
@@ -9732,7 +9782,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "services_schmuckstueckservice",
-      "community": 12,
+      "community": 79,
       "norm_label": "schmuckstueckservice.js"
     },
     {
@@ -9742,7 +9792,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_hatfotosql",
-      "community": 12,
+      "community": 79,
       "norm_label": "{ hatfotosql }"
     },
     {
@@ -9752,7 +9802,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_hat_foto_sql",
-      "community": 12,
+      "community": 79,
       "norm_label": "hat_foto_sql"
     },
     {
@@ -9762,7 +9812,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_searchable_fields",
-      "community": 12,
+      "community": 79,
       "norm_label": "searchable_fields"
     },
     {
@@ -9772,7 +9822,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_flag_werte",
-      "community": 12,
+      "community": 79,
       "norm_label": "flag_werte"
     },
     {
@@ -9782,7 +9832,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_istleer",
-      "community": 12,
+      "community": 79,
       "norm_label": "istleer()"
     },
     {
@@ -9792,7 +9842,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_statusfilteranwenden",
-      "community": 12,
+      "community": 79,
       "norm_label": "statusfilteranwenden()"
     },
     {
@@ -9802,7 +9852,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_resolveausschussgrund",
-      "community": 202,
+      "community": 67,
       "norm_label": "resolveausschussgrund()"
     },
     {
@@ -9812,7 +9862,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_normalizebulkartikelnummern",
-      "community": 12,
+      "community": 79,
       "norm_label": "normalizebulkartikelnummern()"
     },
     {
@@ -9822,7 +9872,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_parsebulkitemsfrompayload",
-      "community": 12,
+      "community": 79,
       "norm_label": "parsebulkitemsfrompayload()"
     },
     {
@@ -9832,7 +9882,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_vergleichefilterwerte",
-      "community": 12,
+      "community": 79,
       "norm_label": "vergleichefilterwerte()"
     },
     {
@@ -9842,7 +9892,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "services_schmuckstueckservice_filter_option_fields",
-      "community": 12,
+      "community": 79,
       "norm_label": "filter_option_fields"
     },
     {
@@ -10232,7 +10282,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "utils_bestellungservice_validatedatenminimierung",
-      "community": 43,
+      "community": 57,
       "norm_label": "validatedatenminimierung()"
     },
     {
@@ -10274,6 +10324,36 @@
       "id": "utils_constants_produktart",
       "community": 12,
       "norm_label": "produktart"
+    },
+    {
+      "label": "dbFehlerHinweis.js",
+      "file_type": "code",
+      "source_file": "backend/src/utils/dbFehlerHinweis.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "utils_dbfehlerhinweis",
+      "community": 166,
+      "norm_label": "dbfehlerhinweis.js"
+    },
+    {
+      "label": "HINWEIS_PASSWORT_FEHLGESCHLAGEN",
+      "file_type": "code",
+      "source_file": "backend/src/utils/dbFehlerHinweis.js",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "utils_dbfehlerhinweis_hinweis_passwort_fehlgeschlagen",
+      "community": 166,
+      "norm_label": "hinweis_passwort_fehlgeschlagen"
+    },
+    {
+      "label": "dbFehlerHinweis()",
+      "file_type": "code",
+      "source_file": "backend/src/utils/dbFehlerHinweis.js",
+      "source_location": "L20",
+      "_origin": "ast",
+      "id": "utils_dbfehlerhinweis_dbfehlerhinweis",
+      "community": 166,
+      "norm_label": "dbfehlerhinweis()"
     },
     {
       "label": "cii.js",
@@ -10412,7 +10492,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "erechnung_index",
-      "community": 214,
+      "community": 164,
       "norm_label": "index.js"
     },
     {
@@ -10422,7 +10502,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "erechnung_index_profile_buildrechnungsmodell_pruefepflichtangaben",
-      "community": 214,
+      "community": 164,
       "norm_label": "{ profile, buildrechnungsmodell, pruefepflichtangaben }"
     },
     {
@@ -10432,7 +10512,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "erechnung_index_tocii",
-      "community": 214,
+      "community": 164,
       "norm_label": "{ tocii }"
     },
     {
@@ -10442,7 +10522,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "erechnung_index_validierecii",
-      "community": 214,
+      "community": 164,
       "norm_label": "{ validierecii }"
     },
     {
@@ -10452,7 +10532,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "erechnung_index_erstellezugferdpdf",
-      "community": 214,
+      "community": 164,
       "norm_label": "{ erstellezugferdpdf }"
     },
     {
@@ -10462,7 +10542,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "erechnung_index_getverkaeufer",
-      "community": 214,
+      "community": 164,
       "norm_label": "{ getverkaeufer }"
     },
     {
@@ -10472,7 +10552,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "erechnung_index_formate",
-      "community": 214,
+      "community": 164,
       "norm_label": "formate"
     },
     {
@@ -10482,7 +10562,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "erechnung_index_erechnungfehler",
-      "community": 214,
+      "community": 164,
       "norm_label": "erechnungfehler"
     },
     {
@@ -10492,7 +10572,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "erechnung_index_erechnungfehler_constructor",
-      "community": 214,
+      "community": 164,
       "norm_label": ".constructor()"
     },
     {
@@ -10532,7 +10612,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "erechnung_modell_profile",
-      "community": 214,
+      "community": 164,
       "norm_label": "profile"
     },
     {
@@ -10802,7 +10882,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "erechnung_verkaeufer_formatiban",
-      "community": 54,
+      "community": 16,
       "norm_label": "formatiban()"
     },
     {
@@ -11272,7 +11352,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "utils_fotodateiname",
-      "community": 208,
+      "community": 153,
       "norm_label": "fotodateiname.js"
     },
     {
@@ -11282,7 +11362,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "utils_fotodateiname_path",
-      "community": 208,
+      "community": 153,
       "norm_label": "path"
     },
     {
@@ -11292,7 +11372,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "utils_fotodateiname_basisartikelnummer",
-      "community": 208,
+      "community": 153,
       "norm_label": "{ basisartikelnummer }"
     },
     {
@@ -11302,7 +11382,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "utils_fotodateiname_erlaubte_endungen",
-      "community": 208,
+      "community": 153,
       "norm_label": "erlaubte_endungen"
     },
     {
@@ -11312,7 +11392,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "utils_fotodateiname_analysieredateiname",
-      "community": 208,
+      "community": 153,
       "norm_label": "analysieredateiname()"
     },
     {
@@ -11372,7 +11452,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "utils_fotoservice_foto_tabellen",
-      "community": 50,
+      "community": 73,
       "norm_label": "foto_tabellen"
     },
     {
@@ -11412,7 +11492,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "utils_fotoservice_basisartikelnummer",
-      "community": 208,
+      "community": 96,
       "norm_label": "basisartikelnummer()"
     },
     {
@@ -11422,7 +11502,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "utils_fotoservice_hatfotosql",
-      "community": 46,
+      "community": 79,
       "norm_label": "hatfotosql()"
     },
     {
@@ -11482,7 +11562,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "utils_fotoservice_ladefotodaten",
-      "community": 73,
+      "community": 96,
       "norm_label": "ladefotodaten()"
     },
     {
@@ -11602,7 +11682,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "utils_fotozip_zerlegeeintragsname",
-      "community": 208,
+      "community": 96,
       "norm_label": "zerlegeeintragsname()"
     },
     {
@@ -11892,7 +11972,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "utils_statusuebergaenge",
-      "community": 165,
+      "community": 61,
       "norm_label": "statusuebergaenge.js"
     },
     {
@@ -11902,7 +11982,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_where",
-      "community": 165,
+      "community": 61,
       "norm_label": "{ where }"
     },
     {
@@ -11912,7 +11992,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_leer",
-      "community": 165,
+      "community": 61,
       "norm_label": "leer()"
     },
     {
@@ -11922,7 +12002,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_markiereverkauft",
-      "community": 165,
+      "community": 61,
       "norm_label": "markiereverkauft()"
     },
     {
@@ -11932,7 +12012,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_hebeverkauftauf",
-      "community": 165,
+      "community": 61,
       "norm_label": "hebeverkauftauf()"
     },
     {
@@ -11942,7 +12022,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_lagereaus",
-      "community": 165,
+      "community": 61,
       "norm_label": "lagereaus()"
     },
     {
@@ -11952,7 +12032,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_lagereoffeneaus",
-      "community": 165,
+      "community": 61,
       "norm_label": "lagereoffeneaus()"
     },
     {
@@ -11962,7 +12042,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_hebeauslagerungauf",
-      "community": 165,
+      "community": 61,
       "norm_label": "hebeauslagerungauf()"
     },
     {
@@ -11972,7 +12052,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "utils_statusuebergaenge_lagerezurueck",
-      "community": 165,
+      "community": 61,
       "norm_label": "lagerezurueck()"
     },
     {
@@ -11982,7 +12062,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "utils_whereclausebuilder",
-      "community": 194,
+      "community": 46,
       "norm_label": "whereclausebuilder.js"
     },
     {
@@ -12302,7 +12382,7 @@
       "source_location": "L316",
       "_origin": "ast",
       "id": "utils_whereclausebuilder_where",
-      "community": 194,
+      "community": 46,
       "norm_label": "where()"
     },
     {
@@ -13550,7 +13630,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_datatable_test",
-      "community": 113,
+      "community": 160,
       "norm_label": "datatable.test.jsx"
     },
     {
@@ -13560,7 +13640,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "tests_datatable_test_columns",
-      "community": 113,
+      "community": 160,
       "norm_label": "columns"
     },
     {
@@ -13570,7 +13650,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "tests_datatable_test_data",
-      "community": 113,
+      "community": 160,
       "norm_label": "data"
     },
     {
@@ -13710,7 +13790,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_etikettphomemo_test",
-      "community": 32,
+      "community": 28,
       "norm_label": "etikettphomemo.test.jsx"
     },
     {
@@ -13730,7 +13810,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_inventur_test",
-      "community": 52,
+      "community": 20,
       "norm_label": "inventur.test.jsx"
     },
     {
@@ -13740,7 +13820,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "tests_inventur_test_kunden",
-      "community": 52,
+      "community": 20,
       "norm_label": "kunden"
     },
     {
@@ -13750,7 +13830,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "tests_inventur_test_detail",
-      "community": 52,
+      "community": 20,
       "norm_label": "detail"
     },
     {
@@ -13760,7 +13840,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "tests_inventur_test_eur",
-      "community": 52,
+      "community": 20,
       "norm_label": "eur()"
     },
     {
@@ -13770,7 +13850,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "tests_inventur_test_oeffnedetail",
-      "community": 52,
+      "community": 20,
       "norm_label": "oeffnedetail()"
     },
     {
@@ -13780,7 +13860,7 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "tests_inventur_test_oeffnelager",
-      "community": 52,
+      "community": 20,
       "norm_label": "oeffnelager()"
     },
     {
@@ -13790,7 +13870,7 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "tests_inventur_test_oeffneeditor",
-      "community": 52,
+      "community": 20,
       "norm_label": "oeffneeditor()"
     },
     {
@@ -13800,7 +13880,7 @@
       "source_location": "L335",
       "_origin": "ast",
       "id": "tests_inventur_test_scanne",
-      "community": 52,
+      "community": 20,
       "norm_label": "scanne()"
     },
     {
@@ -13810,7 +13890,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_kunden_test",
-      "community": 20,
+      "community": 160,
       "norm_label": "kunden.test.jsx"
     },
     {
@@ -13820,7 +13900,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "tests_kunden_test_kunden",
-      "community": 20,
+      "community": 160,
       "norm_label": "kunden"
     },
     {
@@ -13830,7 +13910,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "tests_kunden_test_feld",
-      "community": 20,
+      "community": 113,
       "norm_label": "feld()"
     },
     {
@@ -13840,7 +13920,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "tests_kunden_test_oeffneanna",
-      "community": 52,
+      "community": 160,
       "norm_label": "oeffneanna()"
     },
     {
@@ -13880,7 +13960,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_schmuckstueckmodal_test",
-      "community": 28,
+      "community": 20,
       "norm_label": "schmuckstueckmodal.test.jsx"
     },
     {
@@ -13890,7 +13970,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "tests_schmuckstueckmodal_test_artikel",
-      "community": 28,
+      "community": 20,
       "norm_label": "artikel"
     },
     {
@@ -13950,7 +14030,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_authapi_test",
-      "community": 220,
+      "community": 32,
       "norm_label": "authapi.test.js"
     },
     {
@@ -13960,7 +14040,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "tests_authapi_test_mockfetchok",
-      "community": 220,
+      "community": 32,
       "norm_label": "mockfetchok()"
     },
     {
@@ -13970,7 +14050,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "tests_authapi_test_setcsrfcookie",
-      "community": 220,
+      "community": 32,
       "norm_label": "setcsrfcookie()"
     },
     {
@@ -13980,7 +14060,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "tests_authapi_test_clearcookies",
-      "community": 220,
+      "community": 32,
       "norm_label": "clearcookies()"
     },
     {
@@ -13990,7 +14070,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "tests_authapi_test_bodyof",
-      "community": 220,
+      "community": 32,
       "norm_label": "bodyof()"
     },
     {
@@ -14020,7 +14100,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "helpers_rendern_renderemittoast",
-      "community": 52,
+      "community": 20,
       "norm_label": "renderemittoast()"
     },
     {
@@ -14060,7 +14140,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_zahlen_test",
-      "community": 28,
+      "community": 58,
       "norm_label": "zahlen.test.js"
     },
     {
@@ -14240,7 +14320,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "components_datatable",
-      "community": 113,
+      "community": 160,
       "norm_label": "datatable.jsx"
     },
     {
@@ -14250,7 +14330,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "components_datatable_datatable",
-      "community": 113,
+      "community": 160,
       "norm_label": "datatable()"
     },
     {
@@ -14260,7 +14340,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "components_empfaengermodal",
-      "community": 20,
+      "community": 113,
       "norm_label": "empfaengermodal.jsx"
     },
     {
@@ -14270,7 +14350,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "components_empfaengermodal_leer",
-      "community": 20,
+      "community": 113,
       "norm_label": "leer"
     },
     {
@@ -14280,7 +14360,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "components_empfaengermodal_pflichtfelder",
-      "community": 20,
+      "community": 113,
       "norm_label": "pflichtfelder"
     },
     {
@@ -14290,7 +14370,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "components_empfaengermodal_empfaengermodal",
-      "community": 20,
+      "community": 113,
       "norm_label": "empfaengermodal()"
     },
     {
@@ -14350,7 +14430,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "components_schmuckstueckmodal_schmuckstueckmodal",
-      "community": 28,
+      "community": 58,
       "norm_label": "schmuckstueckmodal()"
     },
     {
@@ -14450,7 +14530,7 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "components_toast_usetoast",
-      "community": 20,
+      "community": 58,
       "norm_label": "usetoast()"
     },
     {
@@ -14620,7 +14700,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pages_bestelluebersicht",
-      "community": 11,
+      "community": 160,
       "norm_label": "bestelluebersicht.jsx"
     },
     {
@@ -14630,7 +14710,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "pages_bestelluebersicht_versandart_label",
-      "community": 11,
+      "community": 160,
       "norm_label": "versandart_label"
     },
     {
@@ -14640,7 +14720,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "pages_bestelluebersicht_status_label",
-      "community": 11,
+      "community": 160,
       "norm_label": "status_label"
     },
     {
@@ -14650,7 +14730,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "pages_bestelluebersicht_status_badge",
-      "community": 11,
+      "community": 160,
       "norm_label": "status_badge"
     },
     {
@@ -14660,7 +14740,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "pages_bestelluebersicht_empty_form",
-      "community": 11,
+      "community": 160,
       "norm_label": "empty_form"
     },
     {
@@ -14670,7 +14750,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "pages_bestelluebersicht_erlaubte_foto_typen",
-      "community": 11,
+      "community": 160,
       "norm_label": "erlaubte_foto_typen"
     },
     {
@@ -14980,7 +15060,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pages_etiketten",
-      "community": 32,
+      "community": 28,
       "norm_label": "etiketten.jsx"
     },
     {
@@ -14990,7 +15070,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "pages_etiketten_preset_hints",
-      "community": 32,
+      "community": 28,
       "norm_label": "preset_hints"
     },
     {
@@ -15000,7 +15080,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "pages_etiketten_etiketten",
-      "community": 32,
+      "community": 28,
       "norm_label": "etiketten()"
     },
     {
@@ -15040,7 +15120,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pages_inventur",
-      "community": 28,
+      "community": 58,
       "norm_label": "inventur.jsx"
     },
     {
@@ -15050,7 +15130,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "pages_inventur_tabs",
-      "community": 28,
+      "community": 58,
       "norm_label": "tabs"
     },
     {
@@ -15060,7 +15140,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "pages_inventur_getbelegdatumfortab",
-      "community": 28,
+      "community": 58,
       "norm_label": "getbelegdatumfortab()"
     },
     {
@@ -15070,7 +15150,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "pages_inventur_getbelegdatumlabel",
-      "community": 28,
+      "community": 58,
       "norm_label": "getbelegdatumlabel()"
     },
     {
@@ -15080,7 +15160,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "pages_inventur_formatdatede",
-      "community": 28,
+      "community": 58,
       "norm_label": "formatdatede()"
     },
     {
@@ -15090,7 +15170,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "pages_inventur_itemstable",
-      "community": 28,
+      "community": 58,
       "norm_label": "itemstable()"
     },
     {
@@ -15100,7 +15180,7 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "pages_inventur_detailmodal",
-      "community": 28,
+      "community": 58,
       "norm_label": "detailmodal()"
     },
     {
@@ -15110,7 +15190,7 @@
       "source_location": "L572",
       "_origin": "ast",
       "id": "pages_inventur_inventurdiffmodal",
-      "community": 20,
+      "community": 58,
       "norm_label": "inventurdiffmodal()"
     },
     {
@@ -15120,7 +15200,7 @@
       "source_location": "L844",
       "_origin": "ast",
       "id": "pages_inventur_lagerinventureditor",
-      "community": 20,
+      "community": 58,
       "norm_label": "lagerinventureditor()"
     },
     {
@@ -15130,7 +15210,7 @@
       "source_location": "L1141",
       "_origin": "ast",
       "id": "pages_inventur_lagerinventurui",
-      "community": 20,
+      "community": 58,
       "norm_label": "lagerinventurui()"
     },
     {
@@ -15140,7 +15220,7 @@
       "source_location": "L1239",
       "_origin": "ast",
       "id": "pages_inventur_inventur",
-      "community": 28,
+      "community": 58,
       "norm_label": "inventur()"
     },
     {
@@ -15160,7 +15240,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pages_kunden",
-      "community": 20,
+      "community": 160,
       "norm_label": "kunden.jsx"
     },
     {
@@ -15170,7 +15250,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "pages_kunden_kunden",
-      "community": 20,
+      "community": 160,
       "norm_label": "kunden()"
     },
     {
@@ -15330,7 +15410,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "pages_schmuckstuecke_normalisiertezahlenfelder",
-      "community": 28,
+      "community": 58,
       "norm_label": "normalisiertezahlenfelder()"
     },
     {
@@ -15560,7 +15640,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "utils_zahlen",
-      "community": 28,
+      "community": 58,
       "norm_label": "zahlen.js"
     },
     {
@@ -15570,7 +15650,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "utils_zahlen_parsezahl",
-      "community": 28,
+      "community": 58,
       "norm_label": "parsezahl()"
     },
     {
@@ -15580,7 +15660,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "utils_zahlen_parsezahlodernull",
-      "community": 28,
+      "community": 58,
       "norm_label": "parsezahlodernull()"
     },
     {
@@ -15590,7 +15670,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "utils_zahlen_zahlfuereingabe",
-      "community": 28,
+      "community": 58,
       "norm_label": "zahlfuereingabe()"
     },
     {
@@ -15600,7 +15680,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "utils_zahlen_formateur",
-      "community": 28,
+      "community": 58,
       "norm_label": "formateur()"
     },
     {
@@ -15610,7 +15690,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "utils_zahlen_formatzahl",
-      "community": 28,
+      "community": 58,
       "norm_label": "formatzahl()"
     },
     {
@@ -15620,7 +15700,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "utils_zahlen_summeeur",
-      "community": 28,
+      "community": 58,
       "norm_label": "summeeur()"
     },
     {
@@ -21226,24 +21306,34 @@
       "norm_label": "now.md"
     },
     {
-      "label": "13:53 | main",
+      "label": "18:34 | feat/hilfe-seite",
       "file_type": "document",
       "source_file": ".remember/now.md",
       "source_location": "L2",
       "_origin": "ast",
-      "id": "remember_now_13_53_main",
+      "id": "remember_now_18_34_feat_hilfe_seite",
       "community": 230,
-      "norm_label": "13:53 | main"
+      "norm_label": "18:34 | feat/hilfe-seite"
     },
     {
-      "label": "14:05 | main",
+      "label": "18:54 | feat/hilfe-seite",
       "file_type": "document",
       "source_file": ".remember/now.md",
       "source_location": "L4",
       "_origin": "ast",
-      "id": "remember_now_14_05_main",
+      "id": "remember_now_18_54_feat_hilfe_seite",
       "community": 230,
-      "norm_label": "14:05 | main"
+      "norm_label": "18:54 | feat/hilfe-seite"
+    },
+    {
+      "label": "19:01 | feat/hilfe-seite",
+      "file_type": "document",
+      "source_file": ".remember/now.md",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "remember_now_19_01_feat_hilfe_seite",
+      "community": 230,
+      "norm_label": "19:01 | feat/hilfe-seite"
     },
     {
       "label": "today-2026-10-17.md",
@@ -21264,6 +21354,26 @@
       "id": "remember_today_2026_10_17_13_53_main",
       "community": 231,
       "norm_label": "13:53 | main"
+    },
+    {
+      "label": "13:53-14:05 | main",
+      "file_type": "document",
+      "source_file": ".remember/today-2026-10-17.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "remember_today_2026_10_17_13_53_14_05_main",
+      "community": 231,
+      "norm_label": "13:53-14:05 | main"
+    },
+    {
+      "label": "18:32 | feat/hilfe-seite",
+      "file_type": "document",
+      "source_file": ".remember/today-2026-10-17.md",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "remember_today_2026_10_17_18_32_feat_hilfe_seite",
+      "community": 231,
+      "norm_label": "18:32 | feat/hilfe-seite"
     },
     {
       "label": "AUDIT_LOGIK_DATENBANK.md",
@@ -23176,14 +23286,14 @@
       "norm_label": "`jwt_secret` rotieren (graceful rollover)"
     },
     {
-      "label": "`DB_PASSWORD` rotieren",
+      "label": "`POSTGRES_PASSWORD` rotieren",
       "file_type": "document",
       "source_file": "README.md",
       "source_location": "L301",
       "_origin": "ast",
-      "id": "readme_db_password_rotieren",
+      "id": "readme_postgres_password_rotieren",
       "community": 2,
-      "norm_label": "`db_password` rotieren"
+      "norm_label": "`postgres_password` rotieren"
     },
     {
       "label": "`BESTELLUNG_ENCRYPTION_KEY` rotieren \u2013 **dokumentierte Grenze**",
@@ -25252,7 +25362,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_readme_goldregendb_frontend",
-      "community": 224,
+      "community": 11,
       "norm_label": "goldregendb \u2013 frontend"
     },
     {
@@ -25262,7 +25372,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "frontend_readme_entwicklung",
-      "community": 224,
+      "community": 11,
       "norm_label": "entwicklung"
     },
     {
@@ -25272,7 +25382,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_readme_produktion_build",
-      "community": 224,
+      "community": 11,
       "norm_label": "produktion (build)"
     },
     {
@@ -25282,7 +25392,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "frontend_readme_lint",
-      "community": 224,
+      "community": 11,
       "norm_label": "lint"
     },
     {
@@ -25292,7 +25402,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "frontend_readme_wichtige_dateien",
-      "community": 224,
+      "community": 11,
       "norm_label": "wichtige dateien"
     },
     {
@@ -26556,7 +26666,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 194,
+      "community": 46,
       "community_name": "WHERE-Builder-Pflicht",
       "norm_label": "aequivalenzklassen fuer whereclausebuilder (null/undefined/leer/like-sonderzeichen)",
       "id": "testplan_verbesserung_where_builder_aequivalenzklassen"
@@ -28240,9 +28350,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "home_olivers_dokumente_goldregendb_web_claude_hooks_validate_bash_sh__entry",
-      "confidence_score": 1.0
+      "target": "home_olivers_dokumente_goldregendb_web_claude_hooks_validate_bash_sh__entry"
     },
     {
       "relation": "defines",
@@ -28250,9 +28360,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L40",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_aktueller_branch",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_aktueller_branch"
     },
     {
       "relation": "defines",
@@ -28260,9 +28370,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L44",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_ist_hauptbranch",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_ist_hauptbranch"
     },
     {
       "relation": "defines",
@@ -28270,9 +28380,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_merke_frage",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_merke_frage"
     },
     {
       "relation": "defines",
@@ -28280,9 +28390,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L132",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_pruefe_compose",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_compose"
     },
     {
       "relation": "defines",
@@ -28290,9 +28400,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L82",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_pruefe_git",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_git"
     },
     {
       "relation": "defines",
@@ -28300,9 +28410,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_pruefe_git_push",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_git_push"
     },
     {
       "relation": "defines",
@@ -28310,9 +28420,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_pruefe_rm",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_rm"
     },
     {
       "relation": "defines",
@@ -28320,9 +28430,9 @@
       "source_file": ".claude/hooks/validate-bash.sh",
       "source_location": "L144",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash",
-      "target": "hooks_validate_bash_pruefe_teilbefehl",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_teilbefehl"
     },
     {
       "relation": "calls",
@@ -28331,9 +28441,9 @@
       "source_location": "L172",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_claude_hooks_validate_bash_sh__entry",
-      "target": "hooks_validate_bash_pruefe_teilbefehl",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_teilbefehl"
     },
     {
       "relation": "calls",
@@ -28342,9 +28452,9 @@
       "source_location": "L140",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_compose",
-      "target": "hooks_validate_bash_merke_frage",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_merke_frage"
     },
     {
       "relation": "calls",
@@ -28353,9 +28463,9 @@
       "source_location": "L99",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_git",
-      "target": "hooks_validate_bash_merke_frage",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_merke_frage"
     },
     {
       "relation": "calls",
@@ -28364,9 +28474,9 @@
       "source_location": "L78",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_git_push",
-      "target": "hooks_validate_bash_merke_frage",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_merke_frage"
     },
     {
       "relation": "calls",
@@ -28375,9 +28485,9 @@
       "source_location": "L128",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_rm",
-      "target": "hooks_validate_bash_merke_frage",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_merke_frage"
     },
     {
       "relation": "calls",
@@ -28386,9 +28496,9 @@
       "source_location": "L65",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_git_push",
-      "target": "hooks_validate_bash_ist_hauptbranch",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_ist_hauptbranch"
     },
     {
       "relation": "calls",
@@ -28397,9 +28507,9 @@
       "source_location": "L96",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_git",
-      "target": "hooks_validate_bash_pruefe_git_push",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_git_push"
     },
     {
       "relation": "calls",
@@ -28408,9 +28518,9 @@
       "source_location": "L159",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_teilbefehl",
-      "target": "hooks_validate_bash_pruefe_git",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_git"
     },
     {
       "relation": "calls",
@@ -28419,9 +28529,9 @@
       "source_location": "L158",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_teilbefehl",
-      "target": "hooks_validate_bash_pruefe_rm",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_rm"
     },
     {
       "relation": "calls",
@@ -28430,9 +28540,9 @@
       "source_location": "L160",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "hooks_validate_bash_pruefe_teilbefehl",
-      "target": "hooks_validate_bash_pruefe_compose",
-      "confidence_score": 1.0
+      "target": "hooks_validate_bash_pruefe_compose"
     },
     {
       "relation": "contains",
@@ -29657,9 +29767,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_entscheidung",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_entscheidung"
     },
     {
       "relation": "contains",
@@ -29667,9 +29777,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_faelle",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_faelle"
     },
     {
       "relation": "contains",
@@ -29677,9 +29787,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_fs",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_fs"
     },
     {
       "relation": "contains",
@@ -29687,9 +29797,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L45",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_gitrepo",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_gitrepo"
     },
     {
       "relation": "contains",
@@ -29697,9 +29807,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_hook",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_hook"
     },
     {
       "relation": "contains",
@@ -29707,9 +29817,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_os",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_os"
     },
     {
       "relation": "contains",
@@ -29717,9 +29827,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_path",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_path"
     },
     {
       "relation": "contains",
@@ -29727,9 +29837,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_root",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_root"
     },
     {
       "relation": "contains",
@@ -29737,9 +29847,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_settings",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_settings"
     },
     {
       "relation": "contains",
@@ -29747,9 +29857,9 @@
       "source_file": "backend/__tests__/claudeHook.test.js",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_claudehook_test",
-      "target": "tests_claudehook_test_spawnsync",
-      "confidence_score": 1.0
+      "target": "tests_claudehook_test_spawnsync"
     },
     {
       "relation": "contains",
@@ -30117,6 +30227,38 @@
       "target": "utils_logger"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/__tests__/dbFehlerHinweis.test.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "tests_dbfehlerhinweis_test",
+      "target": "tests_dbfehlerhinweis_test_dbfehlerhinweis",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/__tests__/dbFehlerHinweis.test.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "tests_dbfehlerhinweis_test",
+      "target": "utils_dbfehlerhinweis",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/__tests__/dbFehlerHinweis.test.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "tests_dbfehlerhinweis_test",
+      "target": "utils_dbfehlerhinweis_dbfehlerhinweis",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -30257,9 +30399,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "helpers_installerstub",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub"
     },
     {
       "relation": "imports",
@@ -30268,9 +30410,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "helpers_installerstub_asset_sources",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_asset_sources"
     },
     {
       "relation": "imports",
@@ -30279,9 +30421,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "helpers_installerstub_repo",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_repo"
     },
     {
       "relation": "contains",
@@ -30289,9 +30431,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_activelines",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_activelines"
     },
     {
       "relation": "contains",
@@ -30299,9 +30441,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_compose",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_compose"
     },
     {
       "relation": "contains",
@@ -30309,9 +30451,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_envexample",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_envexample"
     },
     {
       "relation": "contains",
@@ -30319,9 +30461,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_fs",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_fs"
     },
     {
       "relation": "contains",
@@ -30329,9 +30471,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_os",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_os"
     },
     {
       "relation": "contains",
@@ -30339,9 +30481,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_path",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_path"
     },
     {
       "relation": "contains",
@@ -30349,9 +30491,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_read",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_read"
     },
     {
       "relation": "contains",
@@ -30359,9 +30501,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_releaseworkflow",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_releaseworkflow"
     },
     {
       "relation": "contains",
@@ -30369,9 +30511,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_repo_asset_sources",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_repo_asset_sources"
     },
     {
       "relation": "contains",
@@ -30379,9 +30521,9 @@
       "source_file": "backend/__tests__/deployStandard.test.js",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_deploystandard_test",
-      "target": "tests_deploystandard_test_spawnsync",
-      "confidence_score": 1.0
+      "target": "tests_deploystandard_test_spawnsync"
     },
     {
       "relation": "imports_from",
@@ -31392,9 +31534,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_asset_sources",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_asset_sources"
     },
     {
       "relation": "contains",
@@ -31402,9 +31544,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L85",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_createsandbox",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_createsandbox"
     },
     {
       "relation": "contains",
@@ -31412,9 +31554,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_fs",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_fs"
     },
     {
       "relation": "contains",
@@ -31422,9 +31564,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_installer",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_installer"
     },
     {
       "relation": "contains",
@@ -31432,9 +31574,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_os",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_os"
     },
     {
       "relation": "contains",
@@ -31442,9 +31584,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_path",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_path"
     },
     {
       "relation": "contains",
@@ -31452,9 +31594,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_repo",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_repo"
     },
     {
       "relation": "contains",
@@ -31462,9 +31604,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_spawnsync",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_spawnsync"
     },
     {
       "relation": "contains",
@@ -31472,9 +31614,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L81",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub",
-      "target": "helpers_installerstub_writeexecutable",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_writeexecutable"
     },
     {
       "relation": "imports_from",
@@ -31483,9 +31625,9 @@
       "source_file": "backend/__tests__/installer.test.js",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_installer_test",
-      "target": "helpers_installerstub",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub"
     },
     {
       "relation": "calls",
@@ -31494,9 +31636,9 @@
       "source_file": "backend/__tests__/helpers/installerStub.js",
       "source_location": "L92",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "helpers_installerstub_createsandbox",
-      "target": "helpers_installerstub_writeexecutable",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_writeexecutable"
     },
     {
       "relation": "imports",
@@ -31505,9 +31647,9 @@
       "source_file": "backend/__tests__/installer.test.js",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_installer_test",
-      "target": "helpers_installerstub_createsandbox",
-      "confidence_score": 1.0
+      "target": "helpers_installerstub_createsandbox"
     },
     {
       "relation": "contains",
@@ -31895,9 +32037,9 @@
       "source_file": "backend/__tests__/installer.test.js",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_installer_test",
-      "target": "tests_installer_test_createsandbox_image",
-      "confidence_score": 1.0
+      "target": "tests_installer_test_createsandbox_image"
     },
     {
       "relation": "contains",
@@ -31905,9 +32047,9 @@
       "source_file": "backend/__tests__/installer.test.js",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_installer_test",
-      "target": "tests_installer_test_existing_env",
-      "confidence_score": 1.0
+      "target": "tests_installer_test_existing_env"
     },
     {
       "relation": "contains",
@@ -31915,9 +32057,9 @@
       "source_file": "backend/__tests__/installer.test.js",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_installer_test",
-      "target": "tests_installer_test_fs",
-      "confidence_score": 1.0
+      "target": "tests_installer_test_fs"
     },
     {
       "relation": "contains",
@@ -31925,9 +32067,9 @@
       "source_file": "backend/__tests__/installer.test.js",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_installer_test",
-      "target": "tests_installer_test_validateproductionsecrets",
-      "confidence_score": 1.0
+      "target": "tests_installer_test_validateproductionsecrets"
     },
     {
       "relation": "imports_from",
@@ -35150,6 +35292,28 @@
       "target": "scripts_build_erechnung_regeln_saxon"
     },
     {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/scripts/dsgvo-retention.js",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "scripts_dsgvo_retention",
+      "target": "config_connectionstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/scripts/dsgvo-retention.js",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "scripts_dsgvo_retention",
+      "target": "config_connectionstring_buildconnectionstring",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/scripts/dsgvo-retention.js",
@@ -35158,6 +35322,16 @@
       "confidence_score": 1.0,
       "source": "scripts_dsgvo_retention",
       "target": "scripts_dsgvo_retention_args"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/scripts/dsgvo-retention.js",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "scripts_dsgvo_retention",
+      "target": "scripts_dsgvo_retention_buildconnectionstring",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -35198,16 +35372,6 @@
       "confidence_score": 1.0,
       "source": "scripts_dsgvo_retention",
       "target": "scripts_dsgvo_retention_findcandidates"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/scripts/dsgvo-retention.js",
-      "source_location": "L17",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "scripts_dsgvo_retention",
-      "target": "scripts_dsgvo_retention_getsecret"
     },
     {
       "relation": "contains",
@@ -35363,6 +35527,28 @@
       "target": "scripts_erechnung_beispiele_stueck"
     },
     {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/scripts/import-fotos.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "scripts_import_fotos",
+      "target": "config_connectionstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/scripts/import-fotos.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "scripts_import_fotos",
+      "target": "config_connectionstring_buildconnectionstring",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/scripts/import-fotos.js",
@@ -35371,6 +35557,16 @@
       "confidence_score": 1.0,
       "source": "scripts_import_fotos",
       "target": "scripts_import_fotos_analysieredateiname"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/scripts/import-fotos.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "source": "scripts_import_fotos",
+      "target": "scripts_import_fotos_buildconnectionstring",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -35391,16 +35587,6 @@
       "confidence_score": 1.0,
       "source": "scripts_import_fotos",
       "target": "scripts_import_fotos_fs"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/scripts/import-fotos.js",
-      "source_location": "L11",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "scripts_import_fotos",
-      "target": "scripts_import_fotos_getsecret"
     },
     {
       "relation": "contains",
@@ -35688,6 +35874,17 @@
       "target": "scripts_import_fotos_verbinde"
     },
     {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/scripts/import-fotos.js",
+      "source_location": "L179",
+      "weight": 1.0,
+      "source": "scripts_import_fotos_main",
+      "target": "config_connectionstring_buildconnectionstring"
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/scripts/sammle-fotos.js",
@@ -35917,6 +36114,48 @@
       "target": "utils_fotodateiname_analysieredateiname"
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/config/connectionString.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "config_connectionstring",
+      "target": "config_connectionstring_buildconnectionstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/config/connectionString.js",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "config_connectionstring",
+      "target": "config_connectionstring_getsecret",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/config/db.js",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "config_db",
+      "target": "config_connectionstring",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/config/db.js",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "config_db",
+      "target": "config_connectionstring_buildconnectionstring",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -36031,16 +36270,6 @@
       "confidence_score": 1.0,
       "source": "config_db",
       "target": "config_db_getcurrentdbusername"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/src/config/db.js",
-      "source_location": "L5",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "config_db",
-      "target": "config_db_getsecret"
     },
     {
       "relation": "contains",
@@ -37167,6 +37396,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/src/index.js",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "backend_src_index_js_src_index",
+      "target": "src_index_dbfehlerhinweis",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/index.js",
       "source_location": "L45",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -37392,6 +37631,28 @@
       "confidence_score": 1.0,
       "source": "backend_src_index_js_src_index",
       "target": "src_index_usersroutes"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/index.js",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "backend_src_index_js_src_index",
+      "target": "utils_dbfehlerhinweis",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/index.js",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "backend_src_index_js_src_index",
+      "target": "utils_dbfehlerhinweis_dbfehlerhinweis",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -44423,6 +44684,26 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "backend/src/utils/dbFehlerHinweis.js",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "utils_dbfehlerhinweis",
+      "target": "utils_dbfehlerhinweis_dbfehlerhinweis",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/utils/dbFehlerHinweis.js",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "utils_dbfehlerhinweis",
+      "target": "utils_dbfehlerhinweis_hinweis_passwort_fehlgeschlagen",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "backend/src/utils/eRechnung/cii.js",
       "source_location": "L7",
       "weight": 1.0,
@@ -48317,9 +48598,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L198",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_download_asset",
-      "confidence_score": 1.0
+      "target": "deploy_install_download_asset"
     },
     {
       "relation": "defines",
@@ -48327,9 +48608,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L119",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_dump_db",
-      "confidence_score": 1.0
+      "target": "deploy_install_dump_db"
     },
     {
       "relation": "defines",
@@ -48337,9 +48618,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L61",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_env_value",
-      "confidence_score": 1.0
+      "target": "deploy_install_env_value"
     },
     {
       "relation": "defines",
@@ -48347,9 +48628,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L55",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_fail",
-      "confidence_score": 1.0
+      "target": "deploy_install_fail"
     },
     {
       "relation": "defines",
@@ -48357,9 +48638,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L73",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_is_secret_key",
-      "confidence_score": 1.0
+      "target": "deploy_install_is_secret_key"
     },
     {
       "relation": "defines",
@@ -48367,9 +48648,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L54",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_log",
-      "confidence_score": 1.0
+      "target": "deploy_install_log"
     },
     {
       "relation": "defines",
@@ -48377,9 +48658,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L89",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_merge_env_defaults",
-      "confidence_score": 1.0
+      "target": "deploy_install_merge_env_defaults"
     },
     {
       "relation": "defines",
@@ -48387,9 +48668,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L80",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_needs_secret",
-      "confidence_score": 1.0
+      "target": "deploy_install_needs_secret"
     },
     {
       "relation": "defines",
@@ -48397,9 +48678,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L131",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_previous_image_exists",
-      "confidence_score": 1.0
+      "target": "deploy_install_previous_image_exists"
     },
     {
       "relation": "defines",
@@ -48407,9 +48688,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L59",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_random_secret",
-      "confidence_score": 1.0
+      "target": "deploy_install_random_secret"
     },
     {
       "relation": "defines",
@@ -48417,9 +48698,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L139",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_report_success",
-      "confidence_score": 1.0
+      "target": "deploy_install_report_success"
     },
     {
       "relation": "defines",
@@ -48427,9 +48708,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L125",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_restore_dump",
-      "confidence_score": 1.0
+      "target": "deploy_install_restore_dump"
     },
     {
       "relation": "defines",
@@ -48437,9 +48718,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L65",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_set_env_value",
-      "confidence_score": 1.0
+      "target": "deploy_install_set_env_value"
     },
     {
       "relation": "defines",
@@ -48447,9 +48728,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L133",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_start_with_tag",
-      "confidence_score": 1.0
+      "target": "deploy_install_start_with_tag"
     },
     {
       "relation": "defines",
@@ -48457,9 +48738,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L57",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_usage",
-      "confidence_score": 1.0
+      "target": "deploy_install_usage"
     },
     {
       "relation": "defines",
@@ -48467,9 +48748,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L105",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "deploy_install_wait_for_health",
-      "confidence_score": 1.0
+      "target": "deploy_install_wait_for_health"
     },
     {
       "relation": "contains",
@@ -48477,9 +48758,9 @@
       "source_file": "deploy/install.sh",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_install",
-      "target": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "confidence_score": 1.0
+      "target": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry"
     },
     {
       "relation": "calls",
@@ -48488,9 +48769,9 @@
       "source_location": "L202",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_download_asset",
-      "confidence_score": 1.0
+      "target": "deploy_install_download_asset"
     },
     {
       "relation": "calls",
@@ -48499,9 +48780,9 @@
       "source_location": "L230",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_dump_db",
-      "confidence_score": 1.0
+      "target": "deploy_install_dump_db"
     },
     {
       "relation": "calls",
@@ -48510,9 +48791,9 @@
       "source_location": "L155",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_fail",
-      "confidence_score": 1.0
+      "target": "deploy_install_fail"
     },
     {
       "relation": "calls",
@@ -48521,9 +48802,9 @@
       "source_location": "L177",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_log",
-      "confidence_score": 1.0
+      "target": "deploy_install_log"
     },
     {
       "relation": "calls",
@@ -48532,9 +48813,9 @@
       "source_location": "L292",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_merge_env_defaults",
-      "confidence_score": 1.0
+      "target": "deploy_install_merge_env_defaults"
     },
     {
       "relation": "calls",
@@ -48543,9 +48824,9 @@
       "source_location": "L175",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_previous_image_exists",
-      "confidence_score": 1.0
+      "target": "deploy_install_previous_image_exists"
     },
     {
       "relation": "calls",
@@ -48554,9 +48835,9 @@
       "source_location": "L179",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_report_success",
-      "confidence_score": 1.0
+      "target": "deploy_install_report_success"
     },
     {
       "relation": "calls",
@@ -48565,9 +48846,9 @@
       "source_location": "L303",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_restore_dump",
-      "confidence_score": 1.0
+      "target": "deploy_install_restore_dump"
     },
     {
       "relation": "calls",
@@ -48576,9 +48857,9 @@
       "source_location": "L290",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_set_env_value",
-      "confidence_score": 1.0
+      "target": "deploy_install_set_env_value"
     },
     {
       "relation": "calls",
@@ -48587,9 +48868,9 @@
       "source_location": "L178",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_start_with_tag",
-      "confidence_score": 1.0
+      "target": "deploy_install_start_with_tag"
     },
     {
       "relation": "calls",
@@ -48598,9 +48879,9 @@
       "source_location": "L149",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_usage",
-      "confidence_score": 1.0
+      "target": "deploy_install_usage"
     },
     {
       "relation": "calls",
@@ -48609,9 +48890,9 @@
       "source_location": "L302",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "home_olivers_dokumente_goldregendb_web_deploy_install_sh__entry",
-      "target": "deploy_install_wait_for_health",
-      "confidence_score": 1.0
+      "target": "deploy_install_wait_for_health"
     },
     {
       "relation": "calls",
@@ -48620,9 +48901,9 @@
       "source_location": "L142",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_report_success",
-      "target": "deploy_install_log",
-      "confidence_score": 1.0
+      "target": "deploy_install_log"
     },
     {
       "relation": "calls",
@@ -48631,9 +48912,9 @@
       "source_location": "L200",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_download_asset",
-      "target": "deploy_install_fail",
-      "confidence_score": 1.0
+      "target": "deploy_install_fail"
     },
     {
       "relation": "calls",
@@ -48642,9 +48923,9 @@
       "source_location": "L101",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_merge_env_defaults",
-      "target": "deploy_install_set_env_value",
-      "confidence_score": 1.0
+      "target": "deploy_install_set_env_value"
     },
     {
       "relation": "calls",
@@ -48653,9 +48934,9 @@
       "source_location": "L134",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_start_with_tag",
-      "target": "deploy_install_set_env_value",
-      "confidence_score": 1.0
+      "target": "deploy_install_set_env_value"
     },
     {
       "relation": "calls",
@@ -48664,9 +48945,9 @@
       "source_location": "L95",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_merge_env_defaults",
-      "target": "deploy_install_is_secret_key",
-      "confidence_score": 1.0
+      "target": "deploy_install_is_secret_key"
     },
     {
       "relation": "calls",
@@ -48675,9 +48956,9 @@
       "source_location": "L101",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_merge_env_defaults",
-      "target": "deploy_install_needs_secret",
-      "confidence_score": 1.0
+      "target": "deploy_install_needs_secret"
     },
     {
       "relation": "calls",
@@ -48686,9 +48967,9 @@
       "source_location": "L136",
       "weight": 1.0,
       "context": "call",
+      "confidence_score": 1.0,
       "source": "deploy_install_start_with_tag",
-      "target": "deploy_install_wait_for_health",
-      "confidence_score": 1.0
+      "target": "deploy_install_wait_for_health"
     },
     {
       "relation": "contains",
@@ -48926,9 +49207,9 @@
       "source_file": "frontend/package.json",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "frontend_package_dependencies",
-      "target": "frontend_package_dependencies_react_markdown",
-      "confidence_score": 1.0
+      "target": "frontend_package_dependencies_react_markdown"
     },
     {
       "relation": "contains",
@@ -48956,9 +49237,9 @@
       "source_file": "frontend/package.json",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "frontend_package_dependencies",
-      "target": "frontend_package_dependencies_remark_gfm",
-      "confidence_score": 1.0
+      "target": "frontend_package_dependencies_remark_gfm"
     },
     {
       "relation": "contains",
@@ -49348,9 +49629,9 @@
       "source_file": "frontend/src/App.jsx",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app",
-      "target": "pages_hilfe",
-      "confidence_score": 1.0
+      "target": "pages_hilfe"
     },
     {
       "relation": "imports",
@@ -49359,9 +49640,9 @@
       "source_file": "frontend/src/App.jsx",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app",
-      "target": "pages_hilfe_hilfe",
-      "confidence_score": 1.0
+      "target": "pages_hilfe_hilfe"
     },
     {
       "relation": "imports_from",
@@ -50098,9 +50379,9 @@
       "source_file": "frontend/src/__tests__/Hilfe.test.jsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_hilfe_test",
-      "target": "pages_hilfe",
-      "confidence_score": 1.0
+      "target": "pages_hilfe"
     },
     {
       "relation": "imports",
@@ -50109,9 +50390,9 @@
       "source_file": "frontend/src/__tests__/Hilfe.test.jsx",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_hilfe_test",
-      "target": "pages_hilfe_hilfe",
-      "confidence_score": 1.0
+      "target": "pages_hilfe_hilfe"
     },
     {
       "relation": "imports_from",
@@ -54226,9 +54507,9 @@
       "source_file": "frontend/src/pages/Hilfe.jsx",
       "source_location": "L7",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pages_hilfe",
-      "target": "pages_hilfe_hilfe",
-      "confidence_score": 1.0
+      "target": "pages_hilfe_hilfe"
     },
     {
       "relation": "contains",
@@ -54236,9 +54517,9 @@
       "source_file": "frontend/src/pages/Hilfe.jsx",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "pages_hilfe",
-      "target": "pages_hilfe_hilfe_themen",
-      "confidence_score": 1.0
+      "target": "pages_hilfe_hilfe_themen"
     },
     {
       "relation": "contains",
@@ -55552,9 +55833,9 @@
       "source_file": "package.json",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "package_overrides",
-      "target": "package_overrides_shell_quote",
-      "confidence_score": 1.0
+      "target": "package_overrides_shell_quote"
     },
     {
       "relation": "contains",
@@ -55838,9 +56119,9 @@
       "source_file": ".claude/agents/code-reviewer.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "agents_code_reviewer",
-      "target": "agents_code_reviewer_checkliste",
-      "confidence_score": 1.0
+      "target": "agents_code_reviewer_checkliste"
     },
     {
       "relation": "contains",
@@ -55848,9 +56129,9 @@
       "source_file": ".claude/agents/code-reviewer.md",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "agents_code_reviewer",
-      "target": "agents_code_reviewer_ergebnisformat",
-      "confidence_score": 1.0
+      "target": "agents_code_reviewer_ergebnisformat"
     },
     {
       "relation": "contains",
@@ -55858,9 +56139,9 @@
       "source_file": ".claude/agents/code-reviewer.md",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "agents_code_reviewer",
-      "target": "agents_code_reviewer_vorgehen",
-      "confidence_score": 1.0
+      "target": "agents_code_reviewer_vorgehen"
     },
     {
       "relation": "contains",
@@ -55868,9 +56149,9 @@
       "source_file": ".claude/agents/security-auditor.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "agents_security_auditor",
-      "target": "agents_security_auditor_checkliste",
-      "confidence_score": 1.0
+      "target": "agents_security_auditor_checkliste"
     },
     {
       "relation": "contains",
@@ -55878,9 +56159,9 @@
       "source_file": ".claude/agents/security-auditor.md",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "agents_security_auditor",
-      "target": "agents_security_auditor_ergebnisformat",
-      "confidence_score": 1.0
+      "target": "agents_security_auditor_ergebnisformat"
     },
     {
       "relation": "contains",
@@ -55888,9 +56169,9 @@
       "source_file": ".claude/agents/security-auditor.md",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "agents_security_auditor",
-      "target": "agents_security_auditor_vorgehen",
-      "confidence_score": 1.0
+      "target": "agents_security_auditor_vorgehen"
     },
     {
       "relation": "contains",
@@ -55898,9 +56179,9 @@
       "source_file": ".claude/rules/api-conventions.md",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_api_conventions",
-      "target": "rules_api_conventions_api_und_datenbank_konventionen",
-      "confidence_score": 1.0
+      "target": "rules_api_conventions_api_und_datenbank_konventionen"
     },
     {
       "relation": "contains",
@@ -55908,9 +56189,9 @@
       "source_file": ".claude/rules/api-conventions.md",
       "source_location": "L48",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_api_conventions_api_und_datenbank_konventionen",
-      "target": "rules_api_conventions_datenbankabfragen_und_migrationen",
-      "confidence_score": 1.0
+      "target": "rules_api_conventions_datenbankabfragen_und_migrationen"
     },
     {
       "relation": "contains",
@@ -55918,9 +56199,9 @@
       "source_file": ".claude/rules/api-conventions.md",
       "source_location": "L56",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_api_conventions_api_und_datenbank_konventionen",
-      "target": "rules_api_conventions_rate_limiter",
-      "confidence_score": 1.0
+      "target": "rules_api_conventions_rate_limiter"
     },
     {
       "relation": "contains",
@@ -55928,9 +56209,9 @@
       "source_file": ".claude/rules/api-conventions.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_api_conventions_api_und_datenbank_konventionen",
-      "target": "rules_api_conventions_sicherheit",
-      "confidence_score": 1.0
+      "target": "rules_api_conventions_sicherheit"
     },
     {
       "relation": "contains",
@@ -55938,9 +56219,9 @@
       "source_file": ".claude/rules/api-conventions.md",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_api_conventions_api_und_datenbank_konventionen",
-      "target": "rules_api_conventions_sql_datenbank",
-      "confidence_score": 1.0
+      "target": "rules_api_conventions_sql_datenbank"
     },
     {
       "relation": "contains",
@@ -55948,9 +56229,9 @@
       "source_file": ".claude/rules/api-conventions.md",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_api_conventions_api_und_datenbank_konventionen",
-      "target": "rules_api_conventions_where_clause_builder",
-      "confidence_score": 1.0
+      "target": "rules_api_conventions_where_clause_builder"
     },
     {
       "relation": "contains",
@@ -55958,9 +56239,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise",
-      "target": "rules_arbeitsweise_arbeitsweise",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_arbeitsweise"
     },
     {
       "relation": "contains",
@@ -55968,9 +56249,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L37",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_arbeiten_mit_ki_vibe_coding_regeln_f\u00fcr_mich",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_arbeiten_mit_ki_vibe_coding_regeln_f\u00fcr_mich"
     },
     {
       "relation": "contains",
@@ -55978,9 +56259,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_arbeitsablauf_immer_in_dieser_reihenfolge",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_arbeitsablauf_immer_in_dieser_reihenfolge"
     },
     {
       "relation": "contains",
@@ -55988,9 +56269,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_debugging",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_debugging"
     },
     {
       "relation": "contains",
@@ -55998,9 +56279,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L50",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_delegation_modellwahl_nur_claude_code",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_delegation_modellwahl_nur_claude_code"
     },
     {
       "relation": "contains",
@@ -56008,9 +56289,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_gelernte_korrekturen_laufend_erg\u00e4nzen",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_gelernte_korrekturen_laufend_erg\u00e4nzen"
     },
     {
       "relation": "contains",
@@ -56018,9 +56299,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_git",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_git"
     },
     {
       "relation": "contains",
@@ -56028,9 +56309,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L65",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_git_in_diesem_projekt",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_git_in_diesem_projekt"
     },
     {
       "relation": "contains",
@@ -56038,9 +56319,9 @@
       "source_file": ".claude/rules/arbeitsweise.md",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_arbeitsweise_arbeitsweise",
-      "target": "rules_arbeitsweise_grenzen_nicht_ohne_r\u00fcckfrage",
-      "confidence_score": 1.0
+      "target": "rules_arbeitsweise_grenzen_nicht_ohne_r\u00fcckfrage"
     },
     {
       "relation": "contains",
@@ -56048,9 +56329,9 @@
       "source_file": ".claude/rules/code-style.md",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_code_style",
-      "target": "rules_code_style_code_stil",
-      "confidence_score": 1.0
+      "target": "rules_code_style_code_stil"
     },
     {
       "relation": "contains",
@@ -56058,9 +56339,9 @@
       "source_file": ".claude/rules/code-style.md",
       "source_location": "L14",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_code_style_code_stil",
-      "target": "rules_code_style_code_qualit\u00e4t",
-      "confidence_score": 1.0
+      "target": "rules_code_style_code_qualit\u00e4t"
     },
     {
       "relation": "contains",
@@ -56068,9 +56349,9 @@
       "source_file": ".claude/rules/code-style.md",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_code_style_code_stil",
-      "target": "rules_code_style_javascript_react_vite_node_js_express",
-      "confidence_score": 1.0
+      "target": "rules_code_style_javascript_react_vite_node_js_express"
     },
     {
       "relation": "contains",
@@ -56078,9 +56359,9 @@
       "source_file": ".claude/rules/code-style.md",
       "source_location": "L32",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_code_style_code_stil",
-      "target": "rules_code_style_projektkonventionen",
-      "confidence_score": 1.0
+      "target": "rules_code_style_projektkonventionen"
     },
     {
       "relation": "contains",
@@ -56088,9 +56369,9 @@
       "source_file": ".claude/rules/code-style.md",
       "source_location": "L41",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_code_style_code_stil",
-      "target": "rules_code_style_typisierung",
-      "confidence_score": 1.0
+      "target": "rules_code_style_typisierung"
     },
     {
       "relation": "contains",
@@ -56098,9 +56379,9 @@
       "source_file": ".claude/rules/docker.md",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_docker",
-      "target": "rules_docker_docker_und_deployment",
-      "confidence_score": 1.0
+      "target": "rules_docker_docker_und_deployment"
     },
     {
       "relation": "contains",
@@ -56108,9 +56389,9 @@
       "source_file": ".claude/rules/fotos.md",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_fotos",
-      "target": "rules_fotos_fotos",
-      "confidence_score": 1.0
+      "target": "rules_fotos_fotos"
     },
     {
       "relation": "contains",
@@ -56118,9 +56399,9 @@
       "source_file": ".claude/rules/frontend-styling.md",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_frontend_styling",
-      "target": "rules_frontend_styling_frontend_styling_react",
-      "confidence_score": 1.0
+      "target": "rules_frontend_styling_frontend_styling_react"
     },
     {
       "relation": "contains",
@@ -56128,9 +56409,9 @@
       "source_file": ".claude/rules/testing.md",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_testing",
-      "target": "rules_testing_tests",
-      "confidence_score": 1.0
+      "target": "rules_testing_tests"
     },
     {
       "relation": "contains",
@@ -56138,9 +56419,9 @@
       "source_file": ".claude/rules/testing.md",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_testing_tests",
-      "target": "rules_testing_grundregeln",
-      "confidence_score": 1.0
+      "target": "rules_testing_grundregeln"
     },
     {
       "relation": "contains",
@@ -56148,9 +56429,9 @@
       "source_file": ".claude/rules/testing.md",
       "source_location": "L20",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rules_testing_tests",
-      "target": "rules_testing_in_diesem_projekt",
-      "confidence_score": 1.0
+      "target": "rules_testing_in_diesem_projekt"
     },
     {
       "relation": "references",
@@ -56158,9 +56439,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill",
-      "target": "deploy_deploy_config",
-      "confidence_score": 1.0
+      "target": "deploy_deploy_config"
     },
     {
       "relation": "contains",
@@ -56168,9 +56449,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill",
-      "target": "deploy_skill_deploy_release_synology",
-      "confidence_score": 1.0
+      "target": "deploy_skill_deploy_release_synology"
     },
     {
       "relation": "contains",
@@ -56178,9 +56459,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill_deploy_release_synology",
-      "target": "deploy_skill_grenzen",
-      "confidence_score": 1.0
+      "target": "deploy_skill_grenzen"
     },
     {
       "relation": "contains",
@@ -56188,9 +56469,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L25",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill_deploy_release_synology",
-      "target": "deploy_skill_installation_und_update_auf_der_nas",
-      "confidence_score": 1.0
+      "target": "deploy_skill_installation_und_update_auf_der_nas"
     },
     {
       "relation": "contains",
@@ -56198,9 +56479,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill_deploy_release_synology",
-      "target": "deploy_skill_release_bauen",
-      "confidence_score": 1.0
+      "target": "deploy_skill_release_bauen"
     },
     {
       "relation": "contains",
@@ -56208,9 +56489,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill_deploy_release_synology",
-      "target": "deploy_skill_rollback",
-      "confidence_score": 1.0
+      "target": "deploy_skill_rollback"
     },
     {
       "relation": "contains",
@@ -56218,9 +56499,9 @@
       "source_file": ".claude/skills/deploy/SKILL.md",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_skill_deploy_release_synology",
-      "target": "deploy_skill_wenn_etwas_schiefgeht",
-      "confidence_score": 1.0
+      "target": "deploy_skill_wenn_etwas_schiefgeht"
     },
     {
       "relation": "contains",
@@ -56228,9 +56509,9 @@
       "source_file": ".claude/skills/deploy/deploy-config.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_deploy_config",
-      "target": "deploy_deploy_config_deploy_konfiguration_goldregendb",
-      "confidence_score": 1.0
+      "target": "deploy_deploy_config_deploy_konfiguration_goldregendb"
     },
     {
       "relation": "contains",
@@ -56238,9 +56519,9 @@
       "source_file": ".claude/skills/deploy/deploy-config.md",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_deploy_config_deploy_konfiguration_goldregendb",
-      "target": "deploy_deploy_config_hinweise",
-      "confidence_score": 1.0
+      "target": "deploy_deploy_config_hinweise"
     },
     {
       "relation": "contains",
@@ -56248,9 +56529,9 @@
       "source_file": ".claude/skills/deploy/deploy-config.md",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_deploy_config_deploy_konfiguration_goldregendb",
-      "target": "deploy_deploy_config_installation_und_update_per_ssh_auf_der_nas",
-      "confidence_score": 1.0
+      "target": "deploy_deploy_config_installation_und_update_per_ssh_auf_der_nas"
     },
     {
       "relation": "contains",
@@ -56258,9 +56539,9 @@
       "source_file": ".claude/skills/deploy/deploy-config.md",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_deploy_config_deploy_konfiguration_goldregendb",
-      "target": "deploy_deploy_config_neue_produktions_variablen",
-      "confidence_score": 1.0
+      "target": "deploy_deploy_config_neue_produktions_variablen"
     },
     {
       "relation": "contains",
@@ -56268,9 +56549,9 @@
       "source_file": ".claude/skills/deploy/deploy-config.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_deploy_config_deploy_konfiguration_goldregendb",
-      "target": "deploy_deploy_config_pr\u00fcfbefehle_vor_dem_release",
-      "confidence_score": 1.0
+      "target": "deploy_deploy_config_pr\u00fcfbefehle_vor_dem_release"
     },
     {
       "relation": "contains",
@@ -61309,7 +61590,7 @@
       "source_location": "L2",
       "weight": 1.0,
       "source": "remember_now",
-      "target": "remember_now_13_53_main",
+      "target": "remember_now_18_34_feat_hilfe_seite",
       "confidence_score": 1.0
     },
     {
@@ -61319,7 +61600,27 @@
       "source_location": "L4",
       "weight": 1.0,
       "source": "remember_now",
-      "target": "remember_now_14_05_main",
+      "target": "remember_now_18_54_feat_hilfe_seite",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".remember/now.md",
+      "source_location": "L6",
+      "weight": 1.0,
+      "source": "remember_now",
+      "target": "remember_now_19_01_feat_hilfe_seite",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".remember/today-2026-10-17.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "remember_today_2026_10_17",
+      "target": "remember_today_2026_10_17_13_53_14_05_main",
       "confidence_score": 1.0
     },
     {
@@ -61328,8 +61629,18 @@
       "source_file": ".remember/today-2026-10-17.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "remember_today_2026_10_17",
-      "target": "remember_today_2026_10_17_13_53_main",
+      "target": "remember_today_2026_10_17_13_53_main"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".remember/today-2026-10-17.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "remember_today_2026_10_17",
+      "target": "remember_today_2026_10_17_18_32_feat_hilfe_seite",
       "confidence_score": 1.0
     },
     {
@@ -63118,9 +63429,9 @@
       "source_file": "README.md",
       "source_location": "L127",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "readme",
-      "target": "deploy_readme",
-      "confidence_score": 1.0
+      "target": "deploy_readme"
     },
     {
       "relation": "contains",
@@ -63316,21 +63627,21 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L320",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "readme_secrets_rotieren",
-      "target": "readme_db_password_rotieren"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "README.md",
       "source_location": "L309",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "readme_secrets_rotieren",
       "target": "readme_jwt_secret_rotieren_graceful_rollover"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L301",
+      "weight": 1.0,
+      "source": "readme_secrets_rotieren",
+      "target": "readme_postgres_password_rotieren",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -64478,9 +64789,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme",
-      "target": "deploy_readme_goldregendb_synology_deployment",
-      "confidence_score": 1.0
+      "target": "deploy_readme_goldregendb_synology_deployment"
     },
     {
       "relation": "contains",
@@ -64488,9 +64799,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme_goldregendb_synology_deployment",
-      "target": "deploy_readme_backup",
-      "confidence_score": 1.0
+      "target": "deploy_readme_backup"
     },
     {
       "relation": "contains",
@@ -64498,9 +64809,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme_goldregendb_synology_deployment",
-      "target": "deploy_readme_hinweise",
-      "confidence_score": 1.0
+      "target": "deploy_readme_hinweise"
     },
     {
       "relation": "contains",
@@ -64508,9 +64819,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L10",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme_goldregendb_synology_deployment",
-      "target": "deploy_readme_installation_und_update",
-      "confidence_score": 1.0
+      "target": "deploy_readme_installation_und_update"
     },
     {
       "relation": "contains",
@@ -64518,9 +64829,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L34",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme_goldregendb_synology_deployment",
-      "target": "deploy_readme_ordner_relativ_zu_volume1_docker_goldregendb",
-      "confidence_score": 1.0
+      "target": "deploy_readme_ordner_relativ_zu_volume1_docker_goldregendb"
     },
     {
       "relation": "contains",
@@ -64528,9 +64839,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L45",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme_goldregendb_synology_deployment",
-      "target": "deploy_readme_update_von_\u00e4lteren_installationen",
-      "confidence_score": 1.0
+      "target": "deploy_readme_update_von_\u00e4lteren_installationen"
     },
     {
       "relation": "contains",
@@ -64538,9 +64849,9 @@
       "source_file": "deploy/README.md",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "deploy_readme_goldregendb_synology_deployment",
-      "target": "deploy_readme_voraussetzungen",
-      "confidence_score": 1.0
+      "target": "deploy_readme_voraussetzungen"
     },
     {
       "relation": "contains",
@@ -64548,9 +64859,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review",
-      "target": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken"
     },
     {
       "relation": "contains",
@@ -64558,9 +64869,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L231",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken",
-      "target": "docs_anforderungen_review_ergebnis_2026_10_08",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_ergebnis_2026_10_08"
     },
     {
       "relation": "contains",
@@ -64568,9 +64879,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken",
-      "target": "docs_anforderungen_review_kurzfassung_die_f\u00fcnf_gr\u00f6ssten_l\u00fccken",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_kurzfassung_die_f\u00fcnf_gr\u00f6ssten_l\u00fccken"
     },
     {
       "relation": "contains",
@@ -64578,9 +64889,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken",
-      "target": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite"
     },
     {
       "relation": "contains",
@@ -64588,9 +64899,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L192",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken",
-      "target": "docs_anforderungen_review_teil_b_verbesserungen_ohne_r\u00fcckfrage",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_teil_b_verbesserungen_ohne_r\u00fcckfrage"
     },
     {
       "relation": "contains",
@@ -64598,9 +64909,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L209",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_anforderungs_review_offene_fragen_und_l\u00fccken",
-      "target": "docs_anforderungen_review_teil_c_doku_hygiene_\u00fcbersehen",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_teil_c_doku_hygiene_\u00fcbersehen"
     },
     {
       "relation": "contains",
@@ -64608,9 +64919,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L142",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "target": "docs_anforderungen_review_bestellformular_und_dsgvo",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_bestellformular_und_dsgvo"
     },
     {
       "relation": "contains",
@@ -64618,9 +64929,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L156",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "target": "docs_anforderungen_review_betrieb_und_datensicherung",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_betrieb_und_datensicherung"
     },
     {
       "relation": "contains",
@@ -64628,9 +64939,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L103",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "target": "docs_anforderungen_review_lieferschein_und_lager",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_lieferschein_und_lager"
     },
     {
       "relation": "contains",
@@ -64638,9 +64949,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "target": "docs_anforderungen_review_rechnungen_und_belege",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_rechnungen_und_belege"
     },
     {
       "relation": "contains",
@@ -64648,9 +64959,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L183",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "target": "docs_anforderungen_review_rollen",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_rollen"
     },
     {
       "relation": "contains",
@@ -64658,9 +64969,9 @@
       "source_file": "docs/ANFORDERUNGEN_REVIEW.md",
       "source_location": "L130",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "docs_anforderungen_review_teil_a_fragen_an_die_fachseite",
-      "target": "docs_anforderungen_review_sumup_import",
-      "confidence_score": 1.0
+      "target": "docs_anforderungen_review_sumup_import"
     },
     {
       "relation": "contains",
@@ -65538,9 +65849,9 @@
       "source_file": "frontend/src/help/etikettendrucker.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "help_etikettendrucker",
-      "target": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten",
-      "confidence_score": 1.0
+      "target": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten"
     },
     {
       "relation": "contains",
@@ -65548,9 +65859,9 @@
       "source_file": "frontend/src/help/etikettendrucker.md",
       "source_location": "L61",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten",
-      "target": "help_etikettendrucker_drucken_aus_der_anwendung_chrome",
-      "confidence_score": 1.0
+      "target": "help_etikettendrucker_drucken_aus_der_anwendung_chrome"
     },
     {
       "relation": "contains",
@@ -65558,9 +65869,9 @@
       "source_file": "frontend/src/help/etikettendrucker.md",
       "source_location": "L70",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten",
-      "target": "help_etikettendrucker_fehlersuche",
-      "confidence_score": 1.0
+      "target": "help_etikettendrucker_fehlersuche"
     },
     {
       "relation": "contains",
@@ -65568,9 +65879,9 @@
       "source_file": "frontend/src/help/etikettendrucker.md",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten",
-      "target": "help_etikettendrucker_linux_cups",
-      "confidence_score": 1.0
+      "target": "help_etikettendrucker_linux_cups"
     },
     {
       "relation": "contains",
@@ -65578,9 +65889,9 @@
       "source_file": "frontend/src/help/etikettendrucker.md",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten",
-      "target": "help_etikettendrucker_vorbereitung_beide_systeme",
-      "confidence_score": 1.0
+      "target": "help_etikettendrucker_vorbereitung_beide_systeme"
     },
     {
       "relation": "contains",
@@ -65588,9 +65899,9 @@
       "source_file": "frontend/src/help/etikettendrucker.md",
       "source_location": "L47",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "help_etikettendrucker_etikettendrucker_phomemo_m220_einrichten",
-      "target": "help_etikettendrucker_windows",
-      "confidence_score": 1.0
+      "target": "help_etikettendrucker_windows"
     },
     {
       "relation": "contains",
@@ -67255,5 +67566,5 @@
       "source_file": "docker-compose.yml"
     }
   ],
-  "built_at_commit": "47eb0369386145f4d8a5862df8666cdaef05b6f9"
+  "built_at_commit": "7b4c5789841f3462fbb5c8dc57ad2047810fab0e"
 }

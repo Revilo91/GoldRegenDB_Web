@@ -1,16 +1,16 @@
 # Graph Report - GoldRegenDB_Web  (2026-10-17)
 
 ## Corpus Check
-- 265 files · ~678,432 words
+- 268 files · ~678,846 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2701 nodes · 3765 edges · 239 communities (194 shown, 45 thin omitted)
+- 2712 nodes · 3784 edges · 231 communities (189 shown, 42 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 67 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `47eb0369`
+- Built from commit: `7b4c5789`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -195,7 +195,6 @@
 - [[_COMMUNITY_Community 183|Community 183]]
 - [[_COMMUNITY_Community 184|Community 184]]
 - [[_COMMUNITY_Community 185|Community 185]]
-- [[_COMMUNITY_Community 186|Community 186]]
 - [[_COMMUNITY_Community 187|Community 187]]
 - [[_COMMUNITY_Community 188|Community 188]]
 - [[_COMMUNITY_Community 189|Community 189]]
@@ -203,7 +202,6 @@
 - [[_COMMUNITY_Community 191|Community 191]]
 - [[_COMMUNITY_Community 192|Community 192]]
 - [[_COMMUNITY_Community 193|Community 193]]
-- [[_COMMUNITY_Community 194|Community 194]]
 - [[_COMMUNITY_Community 195|Community 195]]
 - [[_COMMUNITY_Community 196|Community 196]]
 - [[_COMMUNITY_Community 197|Community 197]]
@@ -211,17 +209,13 @@
 - [[_COMMUNITY_Community 199|Community 199]]
 - [[_COMMUNITY_Community 200|Community 200]]
 - [[_COMMUNITY_Community 201|Community 201]]
-- [[_COMMUNITY_Community 202|Community 202]]
 - [[_COMMUNITY_Community 203|Community 203]]
 - [[_COMMUNITY_Community 204|Community 204]]
 - [[_COMMUNITY_Community 205|Community 205]]
-- [[_COMMUNITY_Community 208|Community 208]]
 - [[_COMMUNITY_Community 209|Community 209]]
 - [[_COMMUNITY_Community 210|Community 210]]
 - [[_COMMUNITY_Community 211|Community 211]]
 - [[_COMMUNITY_Community 212|Community 212]]
-- [[_COMMUNITY_Community 213|Community 213]]
-- [[_COMMUNITY_Community 214|Community 214]]
 - [[_COMMUNITY_Community 215|Community 215]]
 - [[_COMMUNITY_Community 216|Community 216]]
 - [[_COMMUNITY_Community 217|Community 217]]
@@ -230,7 +224,6 @@
 - [[_COMMUNITY_Community 221|Community 221]]
 - [[_COMMUNITY_Community 222|Community 222]]
 - [[_COMMUNITY_Community 223|Community 223]]
-- [[_COMMUNITY_Community 224|Community 224]]
 - [[_COMMUNITY_Community 225|Community 225]]
 - [[_COMMUNITY_Community 226|Community 226]]
 - [[_COMMUNITY_Community 227|Community 227]]
@@ -281,11 +274,11 @@
 - **Backup/Restore-Haertung (Audit E2/E3 -> backup.sh/restore.sh)** — db_readme_backup_sh, db_readme_restore_sh, db_readme_atomare_dump_pruefung, db_readme_altersbasierte_rotation, audit_logik_datenbank_e2_backup_rotation, audit_logik_datenbank_e3_restore_loescht_vor_pruefung, audit_logik_datenbank_bp_backup_restore_test [INFERRED 0.85]
 - **Docker-Compose-Deployment-Varianten (Prod, Dev, Synology, Proxy-Overlay)** — docker_compose, docker_compose_dev, docker_compose_synology, docker_compose_proxy [INFERRED 0.85]
 
-## Communities (239 total, 45 thin omitted)
+## Communities (231 total, 42 thin omitted)
 
 ### Community 0 - "DB-Pool & Audit-Log"
-Cohesion: 0.15
-Nodes (11): { AsyncLocalStorage }, connect(), connectionString, getCurrentDbUsername(), { getSecret }, initializeDatabase(), logger, { Pool } (+3 more)
+Cohesion: 0.16
+Nodes (11): { AsyncLocalStorage }, { buildConnectionString }, connect(), connectionString, getCurrentDbUsername(), initializeDatabase(), logger, { Pool } (+3 more)
 
 ### Community 1 - "Agent-Skill-Doku"
 Cohesion: 0.25
@@ -308,23 +301,23 @@ Cohesion: 0.05
 Nodes (39): dependencies, @fortawesome/free-regular-svg-icons, @fortawesome/free-solid-svg-icons, @fortawesome/react-fontawesome, react, react-dom, react-markdown, react-router-dom (+31 more)
 
 ### Community 6 - "Backup & Restore"
-Cohesion: 0.20
-Nodes (9): {
+Cohesion: 0.22
+Nodes (8): {
   AUDIT_HASH_TRIGGER,
   ermittleSchemaInfo,
   ermittleKaskade,
   jsonWertZuDb,
   loeseNichtValidierteChecks,
   stelleChecksWiederHer,
-}, { backupImportSchema }, db, logger, router, { validate }, backupImportSchema, ermittleKaskade() (+1 more)
+}, { backupImportSchema }, db, logger, router, { validate }, backupImportSchema, ermittleKaskade()
 
 ### Community 7 - "Root-Paket"
 Cohesion: 0.06
 Nodes (34): author, bugs, url, description, devDependencies, concurrently, dotenv, @playwright/test (+26 more)
 
 ### Community 8 - "Express-App & Routing"
-Cohesion: 0.06
-Nodes (34): app, auditLogRoutes, { authenticate, requireAdmin, requireBearbeiter }, authRoutes, bestelluebersichtRoutes, bestellungPublicRoutes, cookieParser, cors (+26 more)
+Cohesion: 0.05
+Nodes (37): helmet, securityHeaders, app, auditLogRoutes, { authenticate, requireAdmin, requireBearbeiter }, authRoutes, bestelluebersichtRoutes, bestellungPublicRoutes (+29 more)
 
 ### Community 10 - "Foto-ZIP"
 Cohesion: 0.06
@@ -332,15 +325,15 @@ Nodes (34): appliedVersions(), applyMigration(), backupBeforeMigration(), backup
 
 ### Community 11 - "Auth-Kontext & Routing (FE)"
 Cohesion: 0.12
-Nodes (16): ProtectedRoute(), AuthContext, AuthProvider(), useAuth(), Bestelluebersicht(), EMPTY_FORM, ERLAUBTE_FOTO_TYPEN, STATUS_BADGE (+8 more)
+Nodes (16): ProtectedRoute(), AuthContext, AuthProvider(), useAuth(), Entwicklung, GoldRegenDB – Frontend, Lint, Produktion (Build) (+8 more)
 
 ### Community 12 - "Schmuckstück-Routen"
-Cohesion: 0.07
-Nodes (36): schmuckstueckBulkSchema, {
+Cohesion: 0.10
+Nodes (20): schmuckstueckBulkSchema, {
   AUSSCHUSS_GRUND_CONSTRAINT,
   resolveAusschussGrund,
   parseBulkItemsFromPayload,
-}, db, { GRUNDMATERIAL, PRODUKTART }, logger, { requireBearbeiter }, router, { schmuckstueckBulkSchema } (+28 more)
+}, db, { GRUNDMATERIAL, PRODUKTART }, logger, { requireBearbeiter }, router, { schmuckstueckBulkSchema } (+12 more)
 
 ### Community 13 - "Login & Kontosperre"
 Cohesion: 0.11
@@ -367,14 +360,15 @@ Nodes (5): Bug Report Issue Template, Betroffener Bereich (Frontend/Backend/DB/D
 
 ### Community 16 - "Rechnungen & E-Rechnung-API"
 Cohesion: 0.13
-Nodes (18): belegZellen(), ExcelJS, { generateExcel }, addInventurSheet(), { artikelKategorie, artikelBezeichnung }, autoFitColumns(), DEFAULT_LOGO_PATH, ExcelJS (+10 more)
+Nodes (19): formatIban(), belegZellen(), ExcelJS, { generateExcel }, addInventurSheet(), { artikelKategorie, artikelBezeichnung }, autoFitColumns(), DEFAULT_LOGO_PATH (+11 more)
 
 ### Community 17 - "Zod-Validierungsschemas"
-Cohesion: 0.12
-Nodes (21): bestehendesPasswort, bool(), ganzzahl(), idParam, {
-  MIN_PASSWORT_LAENGE,
-  MAX_PASSWORT_LAENGE,
-}, neuesPasswort, pflichttext(), text() (+13 more)
+Cohesion: 0.07
+Nodes (34): db, express, { hashPassword }, logger, router, {
+  userCreateSchema,
+  userUpdateSchema,
+  resetPasswordSchema,
+}, VALID_ROLES, { validate } (+26 more)
 
 ### Community 18 - "E-Rechnung-Konzepte"
 Cohesion: 0.43
@@ -386,7 +380,7 @@ Nodes (23): dependencies, bcryptjs, cookie-parser, cors, dotenv, exceljs, expres
 
 ### Community 20 - "Admin-Seiten & Toolbar"
 Cohesion: 0.11
-Nodes (18): EmpfaengerModal(), LEER, PFLICHTFELDER, DAUER_MS, SYMBOL, ToastContext, ToastProvider(), useToast() (+10 more)
+Nodes (15): DAUER_MS, SYMBOL, ToastContext, ToastProvider(), index.html (Frontend Entry Point), rendereMitToast(), Sumup(), App() (+7 more)
 
 ### Community 21 - "Datensicherung-UI & Tests"
 Cohesion: 0.29
@@ -422,8 +416,8 @@ Cohesion: 0.33
 Nodes (6): Datei-basierte Secrets (Issue #140, /run/secrets), docker-compose.synology.yml (GHCR-Image, DATA_DIR-Bind-Mounts), IMAGE_TAG ohne Default (ghcr.io/revilo91/goldregendb), Synology-DB ohne seed.sql (nur Schema + Admin), DATA_DIR (data/, backups/, uploads/), synology-update.sh (setzt IMAGE_TAG, zieht Image)
 
 ### Community 28 - "Schmuckstückliste (FE)"
-Cohesion: 0.12
-Nodes (30): PhotoUpload(), SchmuckstueckModal(), TablePhoto(), useFoto(), DetailModal(), getBelegdatumLabel(), InlineItems(), Inventur() (+22 more)
+Cohesion: 0.17
+Nodes (18): PhotoUpload(), TablePhoto(), useFoto(), Etiketten(), PRESET_HINTS, InlineItems(), SchmuckstueckDetail(), createEmptyMehrfachRow() (+10 more)
 
 ### Community 29 - "Inventur & SumUp (FE)"
 Cohesion: 0.06
@@ -438,16 +432,16 @@ Cohesion: 0.22
 Nodes (9): A5: Kein Migrationsstand, Schema doppelt (init.sql vs db.js), B18: JSON-Backup kennt Bestelltabellen nicht, Best Practice: Ungetestetes Backup ist kein Backup, Best Practice: Ein logischer Schreibvorgang ist eine Transaktion, C1-C4: PUT/DELETE Lieferschein/Rechnung und SumUp ohne Transaktion, E1: Produktions-Compose verliert Fotos beim Update, E3: restore.sh loescht DB vor Backup-Pruefung, Reparaturplan (Teil 2, nach Aufwand/Wirkung) (+1 more)
 
 ### Community 32 - "API-Client (FE)"
-Cohesion: 0.12
-Nodes (18): BestellungPublic(), EMPTY_FORM, ERLAUBTE_FOTO_TYPEN, Etiketten(), PRESET_HINTS, AENDERNDE_METHODEN, bestellungFotoCache, csrfTokenAusCookie() (+10 more)
+Cohesion: 0.11
+Nodes (16): BestellungPublic(), EMPTY_FORM, ERLAUBTE_FOTO_TYPEN, AENDERNDE_METHODEN, bestellungFotoCache, csrfTokenAusCookie(), downloadBlob(), ensureCsrfToken() (+8 more)
 
 ### Community 33 - "DB-Typdefinitionen"
 Cohesion: 0.50
 Nodes (3): AppRole, AppUserRow, SchmuckstueckRow
 
 ### Community 34 - "JWT-Auth & Rollover"
-Cohesion: 0.11
-Nodes (17): { AUTH_COOKIE_NAME }, authenticate(), db, extractToken(), { getSecret }, jwt, JWT_SECRET, JWT_SECRET_OLD (+9 more)
+Cohesion: 0.09
+Nodes (23): { AUTH_COOKIE_NAME }, authenticate(), db, extractToken(), { getSecret }, jwt, JWT_SECRET, JWT_SECRET_OLD (+15 more)
 
 ### Community 35 - "MySQL→PG-Migration"
 Cohesion: 0.24
@@ -483,7 +477,7 @@ Nodes (11): AdmZip, buildApp(), db, express, FOTO_TABELLEN, KATALOG_FKS, KATALOG
 
 ### Community 43 - "Bestellung & Verschlüsselung"
 Cohesion: 0.09
-Nodes (31): { bestellungBasisSchema, bestellungUpdateSchema }, db, { encryptField }, express, {
+Nodes (30): { bestellungBasisSchema, bestellungUpdateSchema }, db, { encryptField }, express, {
   getNextBestellnummer,
   toBestellungResponse,
   validateDatenminimierung,
@@ -494,7 +488,7 @@ Nodes (31): { bestellungBasisSchema, bestellungUpdateSchema }, db, { encryptFiel
   speichereFoto,
   loescheFoto,
   sendeFoto,
-}, logger, path (+23 more)
+}, logger, path (+22 more)
 
 ### Community 44 - "Bestellübersicht-Route"
 Cohesion: 0.33
@@ -505,8 +499,8 @@ Cohesion: 0.40
 Nodes (5): Beispiele, Import-nahe Ausgabe wie in `seed_old.sql`, JSON zu SQL konvertieren (`db/json_to_sql.py`), Nützliche Optionen, oder `pgAdmin` nutzen
 
 ### Community 46 - "Inventur-Route"
-Cohesion: 0.13
-Nodes (14): aktivBedingung, ausschussBedingung, db, express, { generateInventurExcel }, { hatFotoSql }, { idParam }, logger (+6 more)
+Cohesion: 0.08
+Nodes (25): aktivBedingung, ausschussBedingung, db, express, { generateInventurExcel }, { hatFotoSql }, { idParam }, logger (+17 more)
 
 ### Community 47 - "SumUp-Import"
 Cohesion: 0.15
@@ -527,23 +521,23 @@ Nodes (15): db, {
   dbWertZuJson,
   selectListe,
   orderByPk,
-}, logger, router, dbWertZuJson(), ermittleNichtValidierteChecks(), ermittleSchemaInfo(), { FOTO_TABELLEN } (+7 more)
+}, logger, router, checkWiederAnlegen(), dbWertZuJson(), ermittleSchemaInfo(), { FOTO_TABELLEN } (+7 more)
 
 ### Community 51 - "CII-XML-Erzeugung"
 Cohesion: 0.07
 Nodes (29): G10 [S1] Wunschdatum verschiebt sich pro Bearbeitung um einen Tag, G11 [S2] State-Mutation im Render, G12 [S2] Stale State: `setState(wert)` statt Updater bei abhängigen Updates, G13 [S2] Sortieren sortiert nur die aktuelle Seite; eine Spalte sortiert gar nicht, G14 [S3] Drei Seiten schleppen eine zweite, tote Sortier-Implementierung mit, G15 [S2] Fußzeilen widersprechen der gefilterten Tabelle, G16 [S2] Endlos-Polling ohne Abbruchbedingung, G17 [S2] Zahl im Inventur-Editor löschen entfernt die Position (+21 more)
 
 ### Community 52 - "Test-Infrastruktur"
-Cohesion: 0.15
-Nodes (15): rendereMitToast(), buildApi(), eRechnungFormate, icons, labels, oeffneNeueRechnung(), renderManager(), speichereNeueRechnung() (+7 more)
+Cohesion: 0.29
+Nodes (8): buildApi(), eRechnungFormate, icons, labels, oeffneNeueRechnung(), renderManager(), speichereNeueRechnung(), waehleKunde()
 
 ### Community 53 - "MCP-Server (read-only)"
 Cohesion: 0.13
 Nodes (16): createTxClientMock(), sqlVerlauf(), buildApp(), { createTxClientMock, sqlVerlauf }, db, express, lieferscheineRoutes, request (+8 more)
 
 ### Community 54 - "Validierungs-Middleware"
-Cohesion: 0.12
-Nodes (21): formatIban(), A4, ASSETS, crypto, datumDe(), erstelleZugferdPdf(), euro(), fontkit (+13 more)
+Cohesion: 0.13
+Nodes (20): A4, ASSETS, crypto, datumDe(), erstelleZugferdPdf(), euro(), fontkit, { formatIban } (+12 more)
 
 ### Community 55 - "Auth-Cookie"
 Cohesion: 0.06
@@ -554,16 +548,12 @@ Cohesion: 0.22
 Nodes (11): logger, buildEntry(), formatPretty(), HOSTNAME, logger, normalizeKey(), os, redactMeta() (+3 more)
 
 ### Community 57 - "Öffentliches Bestellformular"
-Cohesion: 0.17
-Nodes (10): { bestellungPublicSchema }, db, express, { leseDataUrl, neuerBestellungFotoName, speichereFoto }, logger, router, { validate }, { validateDatenminimierung, insertBestellung } (+2 more)
+Cohesion: 0.15
+Nodes (11): { bestellungPublicSchema }, db, express, { leseDataUrl, neuerBestellungFotoName, speichereFoto }, logger, router, { validate }, { validateDatenminimierung, insertBestellung } (+3 more)
 
 ### Community 58 - "Benutzerverwaltung-Route"
-Cohesion: 0.17
-Nodes (11): db, express, { hashPassword }, logger, router, {
-  userCreateSchema,
-  userUpdateSchema,
-  resetPasswordSchema,
-}, VALID_ROLES, { validate } (+3 more)
+Cohesion: 0.18
+Nodes (17): SchmuckstueckModal(), useToast(), DetailModal(), getBelegdatumLabel(), Inventur(), InventurDiffModal(), ItemsTable(), LagerInventurEditor() (+9 more)
 
 ### Community 59 - "Konstanten & Konventionen"
 Cohesion: 0.13
@@ -574,8 +564,8 @@ Cohesion: 0.50
 Nodes (4): Modus 3 - Testmanagement (RTM, Risiko, Schaetzung, Berichte), Drei-Punkt-Schaetzung E=(a+4m+b)/6, Template Produktrisikoanalyse, Template Rueckverfolgbarkeitsmatrix
 
 ### Community 61 - "Lieferscheine-Route"
-Cohesion: 0.17
-Nodes (12): { belegSummen }, db, express, formatJahresNummer(), { generateExcel }, getNextLieferscheinnummer(), { lagereAus, hebeAuslagerungAuf }, { lieferscheinSchema } (+4 more)
+Cohesion: 0.12
+Nodes (21): { belegSummen }, db, express, formatJahresNummer(), { generateExcel }, getNextLieferscheinnummer(), { lagereAus, hebeAuslagerungAuf }, { lieferscheinSchema } (+13 more)
 
 ### Community 62 - "E-Rechnung-Tests"
 Cohesion: 0.29
@@ -583,7 +573,7 @@ Nodes (5): app, db, express, lagerinventurRoutes, request
 
 ### Community 63 - "CI-Tests & Coverage"
 Cohesion: 0.18
-Nodes (11): args, databaseUrl, dotenv, dryRun, findCandidates(), { getSecret }, main(), path (+3 more)
+Nodes (11): args, { buildConnectionString }, databaseUrl, dotenv, dryRun, findCandidates(), main(), path (+3 more)
 
 ### Community 64 - "Backend-Skripte"
 Cohesion: 0.18
@@ -598,8 +588,11 @@ Cohesion: 0.18
 Nodes (10): db, express, { kundeSchema, restockSelectiveSchema }, { lagereZurueck }, logger, router, { validate }, { where } (+2 more)
 
 ### Community 67 - "Lagerinventur"
-Cohesion: 0.22
-Nodes (10): logger, validate(), artikelnummer, vollstaendigeArtikelnummer, buildApp(), express, post(), request (+2 more)
+Cohesion: 0.09
+Nodes (24): logger, validate(), schmuckstueckCreateSchema, schmuckstueckUpdateSchema, {
+  AUSSCHUSS_GRUND_CONSTRAINT,
+  resolveAusschussGrund,
+}, db, logger, router (+16 more)
 
 ### Community 68 - "Foto-Import-Tests"
 Cohesion: 0.08
@@ -653,8 +646,14 @@ Cohesion: 0.67
 Nodes (3): B1: Geld als DOUBLE PRECISION, Best Practice: Geld ist numeric, nie float, Betraege in ganzen Cent (Positionsrabatt, Gesamtrabatt, Provision)
 
 ### Community 79 - "Lieferschein-Tests"
-Cohesion: 0.22
-Nodes (8): db, express, { lagerinventurSchema }, logger, router, { validate }, { where }, lagerinventurSchema
+Cohesion: 0.15
+Nodes (17): db, { GRUNDMATERIAL, PRODUKTART }, {
+  HAT_FOTO_SQL,
+  SEARCHABLE_FIELDS,
+  statusFilterAnwenden,
+  vergleicheFilterwerte,
+  FILTER_OPTION_FIELDS,
+}, logger, router, { where }, FILTER_OPTION_FIELDS, FLAG_WERTE (+9 more)
 
 ### Community 80 - "CORS-Allowlist"
 Cohesion: 0.12
@@ -667,6 +666,10 @@ Nodes (5): bestellungPublicRoutes, buildApp(), db, express, request
 ### Community 85 - "Utils-Typdefinitionen"
 Cohesion: 0.40
 Nodes (4): FehlversuchErgebnis, PasswortPruefErgebnis, ResetTokenErgebnis, SperrbarerUser
+
+### Community 86 - "Technologie-Überblick"
+Cohesion: 0.17
+Nodes (11): db, { erstelleFotoZip, importiereFotoZip }, fotoImportJobs, fotoZipUpload, fs, logger, multer, os (+3 more)
 
 ### Community 88 - "backup.sh"
 Cohesion: 0.60
@@ -689,16 +692,21 @@ Cohesion: 0.50
 Nodes (4): buildApp(), express, mockQuery, request
 
 ### Community 96 - "Community 96"
-Cohesion: 0.09
-Nodes (25): db, { erstelleFotoZip, importiereFotoZip }, fotoImportJobs, fotoZipUpload, fs, logger, multer, os (+17 more)
+Cohesion: 0.10
+Nodes (26): alsBuffer(), {
+  eintragsName,
+  zerlegeEintragsName,
+  erstelleFotoZip,
+  importiereFotoZip,
+}, fs, JPG, os, path, PNG, schreibeZip() (+18 more)
 
 ### Community 110 - "Community 110"
 Cohesion: 0.06
 Nodes (34): Add Database Indexes, API Endpoint Patterns, Artikelnummer Prefix Not Matching, Attribute Filters, Available Items (Verfügbar), Basic List with Filters, Basic Usage, Complete Documentation (+26 more)
 
 ### Community 113 - "Community 113"
-Cohesion: 0.20
-Nodes (9): DataTable(), DocumentManager(), Lieferscheine(), Rechnungen(), Frontend-Komponententests (DataTable, DocumentManager, SchmuckstueckModal), columns, data, waehleKunde() (+1 more)
+Cohesion: 0.16
+Nodes (10): EmpfaengerModal(), LEER, PFLICHTFELDER, DocumentManager(), Lieferscheine(), Rechnungen(), Frontend-Komponententests (DataTable, DocumentManager, SchmuckstueckModal), feld() (+2 more)
 
 ### Community 114 - "Community 114"
 Cohesion: 0.33
@@ -813,8 +821,8 @@ Cohesion: 0.13
 Nodes (14): dependencies, @modelcontextprotocol/sdk, pg, zod, description, engines, node, main (+6 more)
 
 ### Community 153 - "Community 153"
-Cohesion: 0.09
-Nodes (21): { analysiereDateiname }, dotenv, fs, { getSecret }, GRUENDE, logger, logZeilen(), logZusammenfassung() (+13 more)
+Cohesion: 0.10
+Nodes (22): buildConnectionString(), { getSecret }, { analysiereDateiname }, { buildConnectionString }, dotenv, fs, GRUENDE, gruppiereNachBasis() (+14 more)
 
 ### Community 155 - "Community 155"
 Cohesion: 0.24
@@ -840,8 +848,8 @@ Cohesion: 0.24
 Nodes (15): download_asset(), dump_db(), fail(), is_secret_key(), log(), merge_env_defaults(), needs_secret(), previous_image_exists() (+7 more)
 
 ### Community 160 - "Community 160"
-Cohesion: 0.15
-Nodes (10): TableToolbar(), AuditLog(), Benutzerverwaltung(), EMPTY_FORM, ROLES, PostgreSQL Trigger-Based Audit Log, Three Docker Compose Deployment Profiles, JWT + bcrypt Security Model (+2 more)
+Cohesion: 0.09
+Nodes (21): DataTable(), TableToolbar(), AuditLog(), Benutzerverwaltung(), EMPTY_FORM, ROLES, EMPTY_FORM, ERLAUBTE_FOTO_TYPEN (+13 more)
 
 ### Community 162 - "Community 162"
 Cohesion: 0.67
@@ -852,23 +860,16 @@ Cohesion: 0.11
 Nodes (15): pruefeKlammern(), app, { buildTestApp }, dashboardRoutes, db, logger, { pruefeKlammern }, request (+7 more)
 
 ### Community 164 - "Community 164"
-Cohesion: 0.17
-Nodes (14): erstelleERechnung(), validiereCII(), env(), getVerkaeufer(), beispielDaten(), { buildRechnungsModell, pruefePflichtangaben, ibanGueltig }, ENV_BACKUP, { erstelleERechnung, ERechnungFehler } (+6 more)
+Cohesion: 0.11
+Nodes (22): ERechnungFehler, erstelleERechnung(), { erstelleZugferdPdf }, FORMATE, { getVerkaeufer }, { PROFILE, buildRechnungsModell, pruefePflichtangaben }, { toCII }, { validiereCII } (+14 more)
 
 ### Community 165 - "Community 165"
-Cohesion: 0.32
-Nodes (9): {
-  markiereVerkauft,
-  hebeVerkauftAuf,
-  lagereAus,
-  lagereOffeneAus,
-  hebeAuslagerungAuf,
-  lagereZurueck,
-}, hebeAuslagerungAuf(), hebeVerkauftAuf(), lagereAus(), lagereOffeneAus(), lagereZurueck(), leer(), markiereVerkauft() (+1 more)
+Cohesion: 0.20
+Nodes (7): fs, { importiereFotos, logZeilen }, JPEG, { MAX_FOTO_BYTES }, os, path, PNG
 
 ### Community 166 - "Community 166"
-Cohesion: 0.33
-Nodes (6): buildApp(), db, express, kundenRoutes, request, { requireBearbeiter }
+Cohesion: 0.50
+Nodes (3): { dbFehlerHinweis }, dbFehlerHinweis(), HINWEIS_PASSWORT_FEHLGESCHLAGEN
 
 ### Community 168 - "Community 168"
 Cohesion: 0.67
@@ -890,7 +891,7 @@ Nodes (6): {
   ermittleNichtValidierteChecks,
   checkWiederAnlegen,
   orderByPk,
-}, db, logger, router, checkWiederAnlegen(), stelleChecksWiederHer()
+}, db, logger, router, ermittleNichtValidierteChecks(), loeseNichtValidierteChecks()
 
 ### Community 174 - "Community 174"
 Cohesion: 0.15
@@ -940,25 +941,18 @@ Nodes (8): D1 [S1] Preisfeld leeren ⇒ `NaN` ⇒ `NULL` in der Datenbank — *v
 Cohesion: 0.15
 Nodes (10): BLOCKED_TABLES, db, { debugUpdateSchema }, express, loadTableMeta(), logger, quoteIdent(), router (+2 more)
 
-### Community 186 - "Community 186"
-Cohesion: 0.22
-Nodes (8): schmuckstueckUpdateSchema, {
-  AUSSCHUSS_GRUND_CONSTRAINT,
-  resolveAusschussGrund,
-}, db, logger, { requireBearbeiter }, router, { schmuckstueckUpdateSchema }, { validate }
-
 ### Community 187 - "Community 187"
 Cohesion: 0.29
 Nodes (7): buildApp(), db, express, FOTO, fs, path, request
 
 ### Community 188 - "Community 188"
-Cohesion: 0.46
-Nodes (6): {
+Cohesion: 0.20
+Nodes (12): db, express, logger, { preisNachAllenRabattenSql }, router, { where }, {
   preisNachPositionsrabattSql,
   preisNachAllenRabattenSql,
   preisNachPositionsrabatt,
   belegSummen,
-}, BELEGE, belegSummen(), preisNachAllenRabattenSql(), preisNachPositionsrabatt(), preisNachPositionsrabattSql()
+}, BELEGE (+4 more)
 
 ### Community 189 - "Community 189"
 Cohesion: 0.57
@@ -979,10 +973,6 @@ Nodes (5): Datenmapping, E-Rechnung (EN 16931): XRechnung & ZUGFeRD, Einrichtung
 ### Community 193 - "Community 193"
 Cohesion: 0.15
 Nodes (12): Anforderungs-Review: offene Fragen und Lücken, Bestellformular und DSGVO, Betrieb und Datensicherung, Ergebnis (2026-10-08), Kurzfassung: die fünf größten Lücken, Lieferschein und Lager, Rechnungen und Belege, Rollen (+4 more)
-
-### Community 194 - "Community 194"
-Cohesion: 0.19
-Nodes (10): db, express, logger, { preisNachAllenRabattenSql }, router, { where }, mitAlias(), Aequivalenzklassen fuer whereClauseBuilder (null/undefined/leer/LIKE-Sonderzeichen) (+2 more)
 
 ### Community 195 - "Community 195"
 Cohesion: 0.40
@@ -1008,17 +998,6 @@ Nodes (4): Modus 4 - Testautomatisierung (CTAL-TAE), Page Object Model / Flow Mo
 Cohesion: 0.67
 Nodes (3): Testing Principles (Isolation, Determinism, Speed), Modus 1 - Testanalyse & Testentwurf, Template Testentwurf
 
-### Community 202 - "Community 202"
-Cohesion: 0.22
-Nodes (8): schmuckstueckCreateSchema, {
-  AUSSCHUSS_GRUND_CONSTRAINT,
-  resolveAusschussGrund,
-}, db, logger, router, { schmuckstueckCreateSchema }, { validate }, resolveAusschussGrund()
-
-### Community 208 - "Community 208"
-Cohesion: 0.24
-Nodes (8): gruppiereNachBasis(), { analysiereDateiname }, analysiereDateiname(), { basisArtikelnummer }, ERLAUBTE_ENDUNGEN, path, basisArtikelnummer(), zerlegeEintragsName()
-
 ### Community 209 - "Community 209"
 Cohesion: 0.25
 Nodes (5): app, { buildTestApp }, db, lagerinventurRoutes, request
@@ -1034,19 +1013,6 @@ Nodes (4): fs, path, SRC, TS_CHECK_DATEIEN
 ### Community 212 - "Community 212"
 Cohesion: 0.18
 Nodes (8): FAELLE, fs, HOOK, os, path, ROOT, SETTINGS, { spawnSync }
-
-### Community 213 - "Community 213"
-Cohesion: 0.20
-Nodes (9): alsBuffer(), {
-  eintragsName,
-  zerlegeEintragsName,
-  erstelleFotoZip,
-  importiereFotoZip,
-}, fs, JPG, os, path, PNG, schreibeZip() (+1 more)
-
-### Community 214 - "Community 214"
-Cohesion: 0.20
-Nodes (8): ERechnungFehler, { erstelleZugferdPdf }, FORMATE, { getVerkaeufer }, { PROFILE, buildRechnungsModell, pruefePflichtangaben }, { toCII }, { validiereCII }, PROFILE
 
 ### Community 215 - "Community 215"
 Cohesion: 0.33
@@ -1080,10 +1046,6 @@ Nodes (6): API- und Datenbank-Konventionen, Datenbankabfragen und Migrationen, R
 Cohesion: 0.33
 Nodes (5): Code-Qualität, Code-Stil, JavaScript (React/Vite, Node.js/Express), Projektkonventionen, Typisierung
 
-### Community 224 - "Community 224"
-Cohesion: 0.40
-Nodes (5): Entwicklung, GoldRegenDB – Frontend, Lint, Produktion (Build), Wichtige Dateien
-
 ### Community 225 - "Community 225"
 Cohesion: 0.50
 Nodes (3): Checkliste, Ergebnisformat, Vorgehen
@@ -1100,6 +1062,14 @@ Nodes (3): Checkliste, Ergebnisformat, Vorgehen
 Cohesion: 0.50
 Nodes (3): Grundregeln, In diesem Projekt, Tests
 
+### Community 230 - "Community 230"
+Cohesion: 0.50
+Nodes (3): 18:34 | feat/hilfe-seite, 18:54 | feat/hilfe-seite, 19:01 | feat/hilfe-seite
+
+### Community 231 - "Community 231"
+Cohesion: 0.50
+Nodes (3): 13:53-14:05 | main, 13:53 | main, 18:32 | feat/hilfe-seite
+
 ## Ambiguous Edges - Review These
 - `Rate Limiting` → `JWT Authentication Flow`  [AMBIGUOUS]
   .github/agents/authentication.md · relation: conceptually_related_to
@@ -1109,7 +1079,7 @@ Nodes (3): Grundregeln, In diesem Projekt, Tests
   TESTPLAN_VERBESSERUNG.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **1533 isolated node(s):** `{
+- **1540 isolated node(s):** `{
   MAX_FEHLVERSUCHE,
   SPERRDAUER_MINUTEN,
   RESET_TOKEN_GUELTIGKEIT_MINUTEN,
@@ -1118,9 +1088,9 @@ Nodes (3): Grundregeln, In diesem Projekt, Tests
   naechsterFehlversuch,
   erzeugeResetToken,
   hashResetToken,
-}`, `JETZT`, `{ artikelnummerBasis, artikelKategorie, artikelBezeichnung }`, `request`, `db` (+1528 more)
+}`, `JETZT`, `{ artikelnummerBasis, artikelKategorie, artikelBezeichnung }`, `request`, `db` (+1535 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **45 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **42 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -1131,8 +1101,8 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: references) - confidence is low._
 - **What is the exact relationship between `Backend-Tests mit Coverage-Schwelle (--coverage)` and `Coverage-Schwellen aktivieren (Vorschlag 70 %)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `WhereClauseBuilder` connect `WhereClauseBuilder` to `Community 194`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+- **Why does `restore.sh (Archivpruefung, Rueckfrage, Sicherheits-Dump, DROP/CREATE)` connect `Transaktions-Testmocks` to `DB-Backup-Skripte & Hash-Kette`, `Docker-Deployment`, `Healthcheck & E2E`, `Community 149`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Why does `jest` connect `Jest-Coverage-Schwellen` to `Community 140`?**
   _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **What connects `{
@@ -1145,6 +1115,6 @@ _Questions this graph is uniquely positioned to answer:_
   erzeugeResetToken,
   hashResetToken,
 }`, `JETZT`, `{ artikelnummerBasis, artikelKategorie, artikelBezeichnung }` to the rest of the system?**
-  _1549 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1556 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Release & Security-Härtung` be split into smaller, more focused modules?**
   _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._

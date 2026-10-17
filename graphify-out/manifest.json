@@ -55,14 +55,14 @@
     "semantic_hash": ""
   },
   "backend/src/config/db.js": {
-    "mtime": 1790791743.7507277,
-    "ast_hash": "af680701f5d0fbcdec54e95fe56bb53f",
+    "mtime": 1792256554.0137687,
+    "ast_hash": "0067bfb47846f91dd80e2eba93284a5a",
     "semantic_hash": ""
   },
   "backend/src/index.js": {
-    "mtime": 1790621085.9634254,
-    "ast_hash": "0b262fcc1a95a69167e8a330fe6d48df",
-    "semantic_hash": "0b262fcc1a95a69167e8a330fe6d48df"
+    "mtime": 1792256681.141757,
+    "ast_hash": "834a244a88f527ddf8e23eaaefaa3138",
+    "semantic_hash": ""
   },
   "backend/src/middleware/auth.js": {
     "mtime": 1789324086.690511,
@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "backend/src/routes/sumup.js": {
-    "mtime": 1790791743.7614195,
-    "ast_hash": "051723d41a0cdbcf7d9b656d2ae09371",
+    "mtime": 1792254805.019567,
+    "ast_hash": "a8261bcfe112bf0a5f8697b596014892",
     "semantic_hash": ""
   },
   "backend/src/routes/users.js": {
@@ -320,13 +320,13 @@
     "semantic_hash": "d234a89403ed241394db21b7d152704a"
   },
   "CLAUDE.md": {
-    "mtime": 1792238466.7238784,
-    "ast_hash": "50d3d80edf1123609f54bac0be227c56",
+    "mtime": 1792256571.1213858,
+    "ast_hash": "22f0d62d1b6207d9b9ad7bcbf335ccb9",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1792238466.7278783,
-    "ast_hash": "dbabd4c622948b6c78cfeb39430790d1",
+    "mtime": 1792256687.3957078,
+    "ast_hash": "9749295054572b8d69dbba4e2a2deef5",
     "semantic_hash": ""
   },
   "TECHNOLOGIE.md": {
@@ -350,13 +350,13 @@
     "semantic_hash": ""
   },
   "docker-compose.dev.yml": {
-    "mtime": 1790791743.7713685,
-    "ast_hash": "a9a1cc091ebfa3217736508003e1da30",
+    "mtime": 1792256582.4774427,
+    "ast_hash": "5ee238b9263d2de9cffd1507a4f425ae",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1790791743.7713685,
-    "ast_hash": "3c11bff505326c9fb3164bebcfefae7f",
+    "mtime": 1792256681.137757,
+    "ast_hash": "d11e8e70dd430596a2b6cbb44172d037",
     "semantic_hash": ""
   },
   "frontend/README.md": {
@@ -425,9 +425,9 @@
     "semantic_hash": "eb8f6a59673b545d6885149217d35e11"
   },
   ".github/agents/backup-recovery.md": {
-    "mtime": 1774980026.607869,
-    "ast_hash": "5794301be77030becacdb3d75c52874e",
-    "semantic_hash": "5794301be77030becacdb3d75c52874e"
+    "mtime": 1792256571.114628,
+    "ast_hash": "cf3289eea6356848b695e596627e72e9",
+    "semantic_hash": ""
   },
   ".github/agents/customer-management.md": {
     "mtime": 1790539170.1207933,
@@ -575,9 +575,9 @@
     "semantic_hash": "9d580ba5999604d48ef10d6cd4bd17cd"
   },
   "backend/scripts/dsgvo-retention.js": {
-    "mtime": 1789324086.6897254,
-    "ast_hash": "110f15d4be32b222c5ed24dbde0f9f50",
-    "semantic_hash": "110f15d4be32b222c5ed24dbde0f9f50"
+    "mtime": 1792256565.3656774,
+    "ast_hash": "0ed467c351ffc974ea91410d8123a933",
+    "semantic_hash": ""
   },
   "backend/src/config/swagger.js": {
     "mtime": 1790791743.7520394,
@@ -890,9 +890,9 @@
     "semantic_hash": "e0720e746c292b983801252393575a34"
   },
   "mcp-server/src/db.js": {
-    "mtime": 1790539170.475335,
-    "ast_hash": "ae3222b12cbd96cb50f410b0cf58280c",
-    "semantic_hash": "ae3222b12cbd96cb50f410b0cf58280c"
+    "mtime": 1792256571.28914,
+    "ast_hash": "90f9caf9a9df3eba8bedc65f40d9344f",
+    "semantic_hash": ""
   },
   "mcp-server/src/index.js": {
     "mtime": 1790539170.47581,
@@ -1075,9 +1075,9 @@
     "semantic_hash": "7c144d01d6174b53cdbea477531d999b"
   },
   "backend/__tests__/backup.integration.test.js": {
-    "mtime": 1790539170.1478283,
-    "ast_hash": "8c26c3a5d02f0ea4ea297d7b32ed854c",
-    "semantic_hash": "8c26c3a5d02f0ea4ea297d7b32ed854c"
+    "mtime": 1792256571.140696,
+    "ast_hash": "b96a9860a564707ec01c4a9ce65ef398",
+    "semantic_hash": ""
   },
   "backend/__tests__/fotoDateiname.test.js": {
     "mtime": 1790539170.1654093,
@@ -1100,9 +1100,9 @@
     "semantic_hash": "51fd3aef791c4014b0ba9830fe08cec7"
   },
   "backend/scripts/import-fotos.js": {
-    "mtime": 1790539170.188409,
-    "ast_hash": "862443ee6348c8533a9a3ead26a21328",
-    "semantic_hash": "862443ee6348c8533a9a3ead26a21328"
+    "mtime": 1792256681.142757,
+    "ast_hash": "64763c427a56bf0e766738d6a753e62b",
+    "semantic_hash": ""
   },
   "backend/src/utils/fotoDateiname.js": {
     "mtime": 1790791743.7660394,
@@ -1130,8 +1130,8 @@
     "semantic_hash": ""
   },
   "scripts/release-smoke-test.sh": {
-    "mtime": 1792238466.7715008,
-    "ast_hash": "6513676a44e74966034437f2f2b8a9ac",
+    "mtime": 1792256571.295906,
+    "ast_hash": "74c58745339c177c94e3b30038432e0d",
     "semantic_hash": ""
   },
   "frontend/src/__tests__/sqlDump.test.js": {
@@ -1185,8 +1185,8 @@
     "semantic_hash": ""
   },
   "docs/ARCHITEKTUR.md": {
-    "mtime": 1792238466.7458782,
-    "ast_hash": "4e16248eac633df6cbfbf9d2efe87952",
+    "mtime": 1792256681.1413763,
+    "ast_hash": "468d6cccbc9ddf2fffdbc6981fb78f5a",
     "semantic_hash": ""
   },
   "frontend/src/hooks/useFoto.js": {
@@ -1235,13 +1235,13 @@
     "semantic_hash": ""
   },
   "backend/__tests__/sumup.export.routes.test.js": {
-    "mtime": 1790791743.7410395,
-    "ast_hash": "befda6b12266ea41be9595a9ac89591e",
+    "mtime": 1792254805.0192919,
+    "ast_hash": "09513faf99aa8dd90434155ad270309c",
     "semantic_hash": ""
   },
   "backend/__tests__/tsCheckOptIn.test.js": {
-    "mtime": 1790791743.748671,
-    "ast_hash": "e5e6ab0930e5b6d2d664e2f174fd6cec",
+    "mtime": 1792254978.3215387,
+    "ast_hash": "e6cc44542a406c73b03e443a86d7b351",
     "semantic_hash": ""
   },
   "backend/src/config/migrate.js": {
@@ -1365,13 +1365,13 @@
     "semantic_hash": ""
   },
   ".remember/tmp/last-ndc.ts": {
-    "mtime": 1792238001.1318038,
-    "ast_hash": "a53509b0a7dcc6ea88a5b11cf7b0278f",
+    "mtime": 1792254781.443859,
+    "ast_hash": "9bc953ef77e85f532df100937130d6fb",
     "semantic_hash": ""
   },
   ".remember/tmp/last-save.json": {
-    "mtime": 1792238762.3623397,
-    "ast_hash": "3e6d4b657649ad8864f926b5c6a459b5",
+    "mtime": 1792256506.5172844,
+    "ast_hash": "17ea83b4fb9ab3278bf56675621a74df",
     "semantic_hash": ""
   },
   "backend/__tests__/claudeHook.test.js": {
@@ -1380,8 +1380,8 @@
     "semantic_hash": ""
   },
   "backend/__tests__/deployStandard.test.js": {
-    "mtime": 1792238466.7338784,
-    "ast_hash": "9456069400b42673e1b089e1358dc0ad",
+    "mtime": 1792256571.15874,
+    "ast_hash": "3edee5c314bedfa84f2bcf0afb733391",
     "semantic_hash": ""
   },
   "backend/__tests__/helpers/installerStub.js": {
@@ -1390,13 +1390,13 @@
     "semantic_hash": ""
   },
   "backend/__tests__/installer.test.js": {
-    "mtime": 1792238466.7398784,
-    "ast_hash": "d8146eae38be2bb535083d09ac694468",
+    "mtime": 1792256571.1680815,
+    "ast_hash": "2157f7cedd43aa8bd7a9c137623a6ac5",
     "semantic_hash": ""
   },
   "deploy/install.sh": {
-    "mtime": 1792238466.7411869,
-    "ast_hash": "83eb4de0f4708210af1c7c88878e70f1",
+    "mtime": 1792256571.250847,
+    "ast_hash": "1d1ab1c3f904769c5cb3079c1e2a818f",
     "semantic_hash": ""
   },
   "frontend/src/__tests__/Hilfe.test.jsx": {
@@ -1470,28 +1470,28 @@
     "semantic_hash": ""
   },
   ".claude/skills/deploy/deploy-config.md": {
-    "mtime": 1792238466.7197301,
-    "ast_hash": "7b1c9f4b40b51b3bd9236893ab4b026b",
+    "mtime": 1792256571.0868835,
+    "ast_hash": "b4c37bbabcc91450c09131ce462f6c97",
     "semantic_hash": ""
   },
   ".remember/now.md": {
-    "mtime": 1792238762.2926126,
-    "ast_hash": "dee07c7acad38d0de321fc463c684b81",
+    "mtime": 1792256506.4371524,
+    "ast_hash": "8a09e8fc20cd53ed34d675f0457b3cad",
     "semantic_hash": ""
   },
   ".remember/today-2026-10-17.md": {
-    "mtime": 1792238005.993859,
-    "ast_hash": "8d34cbf9c70ad63f0857efa0e9316dca",
+    "mtime": 1792254791.4477918,
+    "ast_hash": "18d0d0f5f9ad2400ae0368a6eaad31cb",
     "semantic_hash": ""
   },
   "deploy/README.md": {
-    "mtime": 1792238466.7409818,
-    "ast_hash": "63f1bf30f56758046b93a839d9c3a93d",
+    "mtime": 1792256571.235214,
+    "ast_hash": "bb44b9168714a9e985226a5c19d96c94",
     "semantic_hash": ""
   },
   "deploy/docker-compose.yml": {
-    "mtime": 1792238466.7409818,
-    "ast_hash": "8901f6b4d490b1d8ad6da2dc13ee4d75",
+    "mtime": 1792256681.138757,
+    "ast_hash": "8a2982aa6ec2171bbcaf291cf1dd1688",
     "semantic_hash": ""
   },
   "docs/ANFORDERUNGEN_REVIEW.md": {
@@ -1502,6 +1502,21 @@
   "frontend/src/help/etikettendrucker.md": {
     "mtime": 1792238739.3934534,
     "ast_hash": "d02340ce54c8f7f72acbf3b616bf6bee",
+    "semantic_hash": ""
+  },
+  "backend/__tests__/dbFehlerHinweis.test.js": {
+    "mtime": 1792256652.40595,
+    "ast_hash": "72ec6ea2a5bc3f0f0ff1c874f893672a",
+    "semantic_hash": ""
+  },
+  "backend/src/config/connectionString.js": {
+    "mtime": 1792256549.4626248,
+    "ast_hash": "dd9507eacd80f2b3fc4d9bb6646a6318",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/dbFehlerHinweis.js": {
+    "mtime": 1792256651.252941,
+    "ast_hash": "385dd0ce4f0badcb692f98c4aa95b944",
     "semantic_hash": ""
   }
 }
