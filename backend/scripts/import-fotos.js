@@ -8,7 +8,7 @@ const path = require("path");
 const { parseArgs } = require("util");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
-const { getSecret } = require("../src/config/secrets");
+const { buildConnectionString } = require("../src/config/connectionString");
 const logger = require("../src/utils/logger");
 const { MAX_FOTO_BYTES, FotoFehler, pruefeBild, speichereFoto } = require("../src/utils/fotoService");
 const { analysiereDateiname } = require("../src/utils/fotoDateiname");
@@ -140,7 +140,7 @@ async function verbinde(databaseUrl) {
   try {
     return { pool, client: await pool.connect() };
   } catch (error) {
-    // Lokal gestartet, aber DATABASE_URL zeigt auf den Compose-Host "db".
+    // Lokal gestartet, aber die Verbindungs-URL zeigt auf den Compose-Host "db".
     const dnsFehler = error.code === "EAI_AGAIN" || error.code === "ENOTFOUND";
     if (!dnsFehler || !/@db(?=[:/])/.test(databaseUrl)) throw error;
     await pool.end().catch(() => {});
@@ -176,9 +176,9 @@ async function main() {
 
   dotenv.config({ path: path.resolve(__dirname, "../../.env"), quiet: true });
   dotenv.config({ path: path.resolve(__dirname, "../.env"), quiet: true });
-  const databaseUrl = getSecret("DATABASE_URL");
+  const databaseUrl = buildConnectionString();
   if (!databaseUrl) {
-    logger.error(KOMPONENTE, "DATABASE_URL ist nicht gesetzt. Bitte .env prüfen.");
+    logger.error(KOMPONENTE, "Datenbank-Zugang unvollständig (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB). Bitte .env prüfen.");
     process.exitCode = 1;
     return;
   }

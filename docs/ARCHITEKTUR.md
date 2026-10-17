@@ -813,9 +813,20 @@ GoldRegenDB_Web/
 ├── docker-compose.yml                # Produktion (ein app-Service)
 ├── docker-compose.dev.yml            # Entwicklung, voll containerisiert
 ├── docker-compose.proxy.yml          # Overlay: Caddy-Reverse-Proxy mit TLS
+├── deploy/                           # Release-Assets (Synology): docker-compose.yml, .env.example, install.sh (Release-Installer)
 ├── proxy/Caddyfile                   # Caddy-Konfiguration
 ├── package.json                      # Root npm Workspace (backend, frontend) + npm run dev
 ├── .env.example                      # Vorlage für Umgebungsvariablen
+├── CLAUDE.md                         # Projektkontext für Claude Code
+├── .mcp.json                         # MCP-Server für Claude Code (teamweit, derzeit leer)
+│
+├── .claude/                          # Claude-Code-Projektstruktur
+│   ├── settings.json                 # Berechtigungen, Plugins, Hook-Eintrag
+│   ├── rules/                        # Regeln nach Thema, teils auf Pfade beschränkt
+│   ├── commands/                     # /review-branch, /fix-issue
+│   ├── skills/                       # deploy, expert-software-engineer, istqb-qa-architect-de
+│   ├── agents/                       # code-reviewer, security-auditor
+│   └── hooks/validate-bash.sh        # PreToolUse-Hook (Test: backend/__tests__/claudeHook.test.js)
 │
 ├── .github/
 │   └── workflows/
@@ -894,10 +905,10 @@ Frontend und Backend laufen als **eine App**: das Root-Dockerfile baut das Vite-
 
 ```
 # Datenbank
-DB_PASSWORD=changeme
+POSTGRES_PASSWORD=changeme
 POSTGRES_DB=goldregendb
 POSTGRES_USER=goldregen
-DATABASE_URL=postgresql://goldregen:changeme@localhost:5432/goldregendb
+DB_HOST=localhost
 
 # App
 NODE_ENV=development
@@ -919,7 +930,7 @@ MIGRATION_BACKUP_DIR=/backups/migrations   # Compose-Default, Volume der db-Back
 MIGRATION_SKIP_BACKUP=false                # true = Backup-Gate überspringen (nur Warnung)
 ```
 
-Secrets (`JWT_SECRET`, `DB_PASSWORD`, `BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext auch über `<NAME>_FILE` (Docker-Secret-Datei) gesetzt werden.
+Secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext auch über `<NAME>_FILE` (Docker-Secret-Datei) gesetzt werden.
 
 ---
 

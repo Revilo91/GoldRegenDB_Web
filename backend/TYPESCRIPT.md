@@ -15,7 +15,7 @@ npm run typecheck   # tsc --noEmit, läuft in CI (.github/workflows/tests.yml)
    in der **ersten Zeile** beginnen (plus alle `.d.ts`).
 2. Typen per JSDoc: `@param {Typ}`, `@returns`, `@typedef`, bei Bedarf
    `/** @type {X} */ (ausdruck)`-Casts. Beschreibungsprosa ist nicht nötig
-   (siehe CLAUDE.md, Code-Konventionen).
+   (siehe `.claude/rules/code-style.md`, Projektkonventionen).
 3. Gemeinsame Typen liegen in `src/types/*.d.ts` und werden per
    `import('../types')` referenziert:
    - `db.d.ts`: Zeilentypen, so wie `pg` sie liefert (NUMERIC → `string`,

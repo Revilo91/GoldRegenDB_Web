@@ -13,6 +13,7 @@ const TS_CHECK_DATEIEN = [
   'utils/artikelBezeichnung.js',
   'utils/authCookie.js',
   'utils/constants.js',
+  'utils/dbFehlerHinweis.js',
   'utils/encryptionService.js',
   'utils/fotoDateiname.js',
   'utils/passwordService.js',

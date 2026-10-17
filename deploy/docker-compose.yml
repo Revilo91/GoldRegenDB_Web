@@ -1,0 +1,114 @@
+name: goldregendb
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: goldregendb-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Alle Pfade relativ zum Installationsordner (legt install.sh an).
+      # seed.sql bewusst nicht – init.sql legt nur das Schema und den Admin an.
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./backups:/backups
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/backup.sh:/backup.sh:ro
+      - ./db/restore.sh:/restore.sh:ro
+    ports:
+      - "${DB_HOST_PORT:-15432}:5432"
+    healthcheck:
+      # -h 127.0.0.1: der temporäre Init-Server von initdb lauscht nur auf dem Socket,
+      # so gilt die DB erst nach dem Lauf von init.sql als bereit.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 1m
+    networks:
+      - goldregendb_net
+
+  app:
+    # Vorgefertigtes Image aus GitHub Container Registry – kein lokaler Build nötig.
+    # Kompatibel mit Synology Container Manager (DSM). VITE_API_URL=/api ist bereits
+    # im Image eingebettet; Express liefert Frontend und API same-origin aus.
+    # APP_VERSION setzt install.sh in der .env. Bewusst kein Default wie "latest":
+    # ein Neustart darf nicht still eine andere Version ziehen.
+    image: ghcr.io/revilo91/goldregendb:${APP_VERSION:?APP_VERSION in der .env setzen, z. B. 0.3.0}
+    container_name: goldregendb-app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Die App baut die DB-URL selbst aus diesen drei Werten (backend/src/config/connectionString.js)
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NODE_ENV: production
+      PORT: ${PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      # Während einer JWT-Secret-Rotation zusätzlich das alte Secret setzen,
+      # damit noch gültige Alt-Tokens akzeptiert werden (siehe README "Secrets rotieren").
+      JWT_SECRET_OLD: ${JWT_SECRET_OLD:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-15552000}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      BESTELLUNG_ENCRYPTION_KEY: ${BESTELLUNG_ENCRYPTION_KEY}
+      # Backup (pg_dump) vor ausstehenden Schema-Migrationen, siehe README
+      # "Schema-Migrationen". Landet neben den täglichen db-Backups.
+      MIGRATION_BACKUP_DIR: /backups/migrations
+      MIGRATION_SKIP_BACKUP: ${MIGRATION_SKIP_BACKUP:-false}
+      PRIVACY_POLICY_VERSION: ${PRIVACY_POLICY_VERSION}
+      BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG: ${BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG}
+      BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG: ${BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG}
+      # E-Rechnung: Stammdaten des Rechnungsstellers (siehe .env.example / docs/E-RECHNUNG.md)
+      VERKAEUFER_STEUERNUMMER: ${VERKAEUFER_STEUERNUMMER:-}
+      VERKAEUFER_USTIDNR: ${VERKAEUFER_USTIDNR:-}
+      VERKAEUFER_FIRMA: ${VERKAEUFER_FIRMA:-}
+      VERKAEUFER_NAME: ${VERKAEUFER_NAME:-}
+      VERKAEUFER_STRASSE: ${VERKAEUFER_STRASSE:-}
+      VERKAEUFER_PLZ: ${VERKAEUFER_PLZ:-}
+      VERKAEUFER_ORT: ${VERKAEUFER_ORT:-}
+      VERKAEUFER_LAND: ${VERKAEUFER_LAND:-}
+      VERKAEUFER_TELEFON: ${VERKAEUFER_TELEFON:-}
+      VERKAEUFER_EMAIL: ${VERKAEUFER_EMAIL:-}
+      VERKAEUFER_WEBSITE: ${VERKAEUFER_WEBSITE:-}
+      VERKAEUFER_BANK: ${VERKAEUFER_BANK:-}
+      VERKAEUFER_IBAN: ${VERKAEUFER_IBAN:-}
+      VERKAEUFER_BIC: ${VERKAEUFER_BIC:-}
+    ports:
+      - "${APP_PORT:-3000}:${PORT}"
+    volumes:
+      - ./backups:/backups
+    networks:
+      - goldregendb_net
+
+networks:
+  goldregendb_net:
+    driver: bridge
+
+# ── Datei-basierte Secrets statt Klartext in .env (Issue #140) ──────────────
+# `file:`-Secrets funktionieren auf DSM ohne Swarm; Compose mountet sie nach
+# /run/secrets/. Aktivieren: Dateien unter ./secrets/ anlegen (0600, nur root),
+# unten einkommentieren und in der `app`-Umgebung POSTGRES_PASSWORD/JWT_SECRET/
+# BESTELLUNG_ENCRYPTION_KEY durch die *_FILE-Variante ersetzen (README.md "Secrets rotieren").
+#
+# secrets:
+#   jwt_secret:
+#     file: ./secrets/jwt_secret.txt
+#   db_password:
+#     file: ./secrets/db_password.txt
+#   bestellung_encryption_key:
+#     file: ./secrets/bestellung_encryption_key.txt
+#
+# app:
+#   secrets: [jwt_secret, db_password, bestellung_encryption_key]
+# db:
+#   secrets: [db_password]
+#   environment:
+#     POSTGRES_PASSWORD_FILE: /run/secrets/db_password  # vom offiziellen postgres-Image nativ unterstützt
