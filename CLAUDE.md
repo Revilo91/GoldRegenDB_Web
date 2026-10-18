@@ -190,6 +190,7 @@ Kurzfassung. Die vollständigen Regeln mit Beispielen lädt Claude Code aus `.cl
 2. **Frontend-Styling (React):** Keine Inline-Styles. Klassen in `frontend/src/styles/<seite>.css`, dynamische Werte nur als CSS-Variable. Details: `.claude/rules/frontend-styling.md`
 3. **Fotos:** liegen in PostgreSQL, Zugriff nur über `backend/src/utils/fotoService.js`; max. 5 MB (jpg/png/gif), Typ per Magic Bytes geprüft. Details: `.claude/rules/fotos.md`
 4. **Schema-Migrationen:** Neue Schemaänderung = neue Datei mit der nächsten Nummer in `backend/src/config/migrations/`. Veröffentlichte Migrationen nie ändern. Details: `.claude/rules/api-conventions.md`
+5. **Basis-Dateien aus `Revilo91/project-base`:** `.claude/hooks/validate-bash.sh`, `deploy/install.sh` ab `# --- Standard`, `.claude/rules/arbeitsweise.md` zwischen `base:start`/`base:end` und `.github/workflows/sync-base.yml` kommen per wöchentlichem Sync. Nur in project-base ändern. Eigene CI (`tests.yml`) und eigener Smoke-Test bleiben, abgewählt in `.project-base-ignore`.
 
 ---
 
