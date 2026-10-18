@@ -1,0 +1,4 @@
+# Eigene CI (tests.yml mit E-Rechnung-Prüfung) und eigener, gründlicherer
+# Release-Smoke-Test (scripts/release-smoke-test.sh) statt der Basis-Fassungen.
+.github/workflows/ci.yml
+deploy/smoke-test.sh
