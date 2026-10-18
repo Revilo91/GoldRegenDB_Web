@@ -1,5 +1,8 @@
 # Arbeitsweise
 
+<!-- base:start -->
+<!-- Quelle: project-base. Dieser Block wird vom Sync überschrieben, Änderungen nur in project-base. -->
+
 Gilt in jeder Session und für alle Dateien. Der allgemeine Teil ist in allen Projekten gleich.
 
 ## Arbeitsablauf (immer in dieser Reihenfolge)
@@ -43,10 +46,6 @@ Technisch abgesichert durch `.claude/hooks/validate-bash.sh` (eingetragen in `.c
 - Wiederkehrende Fehler der KI hier in die Datei eintragen (Abschnitt „Gelernte Korrekturen“).
 - Sessionende: Wurde ich korrigiert oder ist derselbe Fehler zweimal passiert, schlage genau EINE Zeile für den Abschnitt „Gelernte Korrekturen“ vor (Datum, Fehler → Regel). Nur nach meinem OK eintragen, als eigener Commit `docs:`.
 
-## Gelernte Korrekturen (laufend ergänzen)
-
-- _(noch leer)_
-
 ## Delegation & Modellwahl (nur Claude Code)
 
 - Hauptagent: plant, delegiert, prüft, spricht mit mir. Umfangreiche oder parallele Arbeit macht ein Subagent.
@@ -61,6 +60,13 @@ Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
 - **sonnet** (Standard): Implementieren, Tests schreiben, Refactoring, Code-Review.
 - **opus**: Architektur, schwieriges Debugging, Security-Review, oder wenn sonnet nach 3 Versuchen scheitert (Abschnitt „Debugging“).
 - Im Zweifel eine Stufe niedriger starten, bei Misserfolg hochstufen.
+<!-- base:end -->
+
+<!-- Projektspezifische Ergänzungen unterhalb dieser Zeile (werden vom Sync nicht angefasst). -->
+
+## Gelernte Korrekturen (laufend ergänzen)
+
+- _(noch leer)_
 
 ## Git in diesem Projekt
 

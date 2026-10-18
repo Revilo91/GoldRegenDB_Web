@@ -80,11 +80,12 @@ describe('.claude/hooks/validate-bash.sh', () => {
     expect(res.stderr).toMatch(/Blockiert: Push auf 'main'/);
   });
 
-  test('lässt Eingaben ohne Befehl und ungültiges JSON nicht als Block durch', () => {
+  test('lässt Eingaben ohne Befehl durch und blockiert ungültiges JSON (fail-closed)', () => {
     const leer = spawnSync('bash', [HOOK], { cwd: repos.feature, input: '{"tool_input":{}}', encoding: 'utf8' });
     expect(leer.status).toBe(0);
     const kaputt = spawnSync('bash', [HOOK], { cwd: repos.feature, input: 'kein json', encoding: 'utf8' });
-    expect(kaputt.status).toBe(1);
+    // Exit 2 blockiert; Exit 1 würde Claude Code nur als Hinweis werten und den Befehl ausführen.
+    expect(kaputt.status).toBe(2);
   });
 
   test('ist in .claude/settings.json als PreToolUse-Hook für Bash eingetragen', () => {

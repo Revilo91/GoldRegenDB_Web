@@ -42,6 +42,7 @@ ENV_RENAMES=(APP_HOST_PORT:APP_PORT)                # "ALT:NEU" – Wert wird in
 INSTALL_DIR="${INSTALL_DIR:-/volume1/docker/$PROJEKT}"
 GITHUB_API="${GITHUB_API:-https://api.github.com}"
 GITHUB_DL="${GITHUB_DL:-https://github.com}"
+GH_TOKEN="${GH_TOKEN:-}"           # nur für private Repos/Images; wird nie gespeichert
 ASSETS=(docker-compose.yml .env.example)     # install.sh selbst wird nicht ersetzt
 PREVIOUS_TAG="previous"
 BACKUP_KEEP=10
@@ -49,12 +50,22 @@ SECRET_BYTES=32
 PLACEHOLDER_RE='change|replace|xxx|^<'
 HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-120}"
 HEALTH_POLL_S="${HEALTH_POLL_S:-5}"
-APP_CONTAINER="$PROJEKT-app"
 
 log()  { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nFEHLER: %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '3,11p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; }
+# Nutzungstext aus Variablen statt aus dem Kopfkommentar: Zeilennummern wären je Projekt verschieden.
+usage() {
+  cat <<TEXT
+Installation/Update $PROJEKT auf der Synology (als root ausführen):
+  curl -fsSL $GITHUB_DL/$REPO/releases/latest/download/install.sh | sudo bash
+  sudo bash install.sh                 # neuestes Release
+  sudo bash install.sh v1.2.3          # bestimmtes Release
+  sudo bash install.sh --rollback      # zurück auf die Version vor dem letzten Update
+  sudo INSTALL_DIR=$INSTALL_DIR bash install.sh
+Privates Repo/Image: GH_TOKEN (PAT mit Contents:read + Packages:read) setzen.
+TEXT
+}
 
 random_secret() { openssl rand -hex "$SECRET_BYTES"; }
 
@@ -116,12 +127,15 @@ wait_for_health() { # wait_for_health SERVICE -> 0 = gesund (ohne Healthcheck: l
   return 1
 }
 
+# Die $POSTGRES_*-Variablen sollen erst im DB-Container expandieren, daher einfache Anführungszeichen.
+# shellcheck disable=SC2016
 dump_db() { # dump_db DATEI
   # </dev/null: bei `curl | bash` ist stdin das Skript selbst, exec -T würde es sonst verschlucken.
   "${DC[@]}" exec -T "$DB_SERVICE" sh -c 'pg_dump --no-owner --no-privileges -U "$POSTGRES_USER" "$POSTGRES_DB"' </dev/null | gzip > "$1" \
     && [[ -s "$1" ]]
 }
 
+# shellcheck disable=SC2016  # wie dump_db: Expansion im DB-Container
 restore_dump() { # restore_dump DATEI -> legt die DB neu an und spielt den Dump ein
   "${DC[@]}" exec -T "$DB_SERVICE" sh -c \
     'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\" WITH (FORCE)" -c "CREATE DATABASE \"$POSTGRES_DB\""' </dev/null
@@ -182,10 +196,19 @@ if [[ "$MODE" == "rollback" ]]; then
 fi
 
 # --- 0. Release ermitteln, laden, Image ziehen (noch nichts verändert) -------
+AUTH_HINT="Bei privatem Repo: GH_TOKEN setzen (sudo GH_TOKEN=... bash install.sh)."
+gh_curl() { # curl mit Token (falls gesetzt)
+  if [[ -n "$GH_TOKEN" ]]; then
+    curl -H "Authorization: Bearer $GH_TOKEN" "$@"
+  else
+    curl "$@"
+  fi
+}
+
 if [[ -z "$TAG" ]]; then
   log "Ermittle neuestes Release von $REPO"
-  RELEASE_JSON="$(curl -fsSL "$GITHUB_API/repos/$REPO/releases/latest")" \
-    || fail "GitHub-API nicht erreichbar oder kein Release vorhanden. Version angeben: sudo bash install.sh v1.2.3"
+  RELEASE_JSON="$(gh_curl -fsSL "$GITHUB_API/repos/$REPO/releases/latest")" \
+    || fail "GitHub-API nicht erreichbar oder kein Release vorhanden. Version angeben: sudo bash install.sh v1.2.3. $AUTH_HINT"
   TAG="$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' <<< "$RELEASE_JSON" | head -n1)"
   [[ -n "$TAG" ]] || fail "Release-Tag konnte nicht gelesen werden."
 fi
@@ -195,19 +218,50 @@ log "Release: $RELEASE_TAG (Image-Tag: $VERSION)"
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-download_asset() { # download_asset DATEI
-  curl -fsSL "$GITHUB_DL/$REPO/releases/download/$RELEASE_TAG/$1" -o "$STAGE/$1" \
-    || fail "Release-Datei '$1' nicht ladbar ($RELEASE_TAG). Nichts wurde verändert."
+# GitHub benennt Dateien mit führendem Punkt beim Upload um (.env.example -> default.env.example);
+# der Originalname bleibt als "label" erhalten.
+asset_id() { # asset_id DATEI -> Asset-ID aus dem Release-JSON (ohne jq)
+  tr ',' '\n' <<< "$ASSETS_JSON" | awk -v n="$1" '
+    /\/releases\/assets\/[0-9]+"/ { match($0, /assets\/[0-9]+/); id = substr($0, RSTART + 7, RLENGTH - 7) }
+    (index($0, "\"name\":") || index($0, "\"label\":")) && index($0, "\"" n "\"") && id != "" { print id; exit }'
 }
+download_asset() { # download_asset DATEI
+  if [[ -n "$GH_TOKEN" ]]; then # private Repos: Download nur über die API (Asset-ID)
+    local id
+    id="$(asset_id "$1")"
+    [[ -n "$id" ]] || fail "Release-Datei '$1' nicht im Release $RELEASE_TAG gefunden. Nichts wurde verändert."
+    gh_curl -fsSL -H "Accept: application/octet-stream" "$GITHUB_API/repos/$REPO/releases/assets/$id" -o "$STAGE/$1" \
+      || fail "Release-Datei '$1' nicht ladbar ($RELEASE_TAG). Nichts wurde verändert."
+  else
+    curl -fsSL "$GITHUB_DL/$REPO/releases/download/$RELEASE_TAG/$1" -o "$STAGE/$1" 2>/dev/null \
+      || curl -fsSL "$GITHUB_DL/$REPO/releases/download/$RELEASE_TAG/default$1" -o "$STAGE/$1" \
+      || fail "Release-Datei '$1' nicht ladbar ($RELEASE_TAG). Nichts wurde verändert. $AUTH_HINT"
+  fi
+}
+if [[ -n "$GH_TOKEN" ]]; then
+  ASSETS_JSON="$(gh_curl -fsSL "$GITHUB_API/repos/$REPO/releases/tags/$RELEASE_TAG")" \
+    || fail "Release $RELEASE_TAG nicht gefunden oder Token ohne Zugriff. Nichts wurde verändert."
+fi
 for asset in "${ASSETS[@]}"; do download_asset "$asset"; done
 for entry in ${EXTRA_ASSETS[@]+"${EXTRA_ASSETS[@]}"}; do download_asset "${entry%%:*}"; done
 
 log "Ziehe Image $IMAGE_REPO:$VERSION"
-docker pull "$IMAGE_REPO:$VERSION" || fail "Image-Download fehlgeschlagen - die laufende Version wurde nicht angefasst."
+PULL_ENV=()
+if [[ -n "$GH_TOKEN" ]]; then # Login nur in temporärem Docker-Config-Ordner, wird mit $STAGE gelöscht
+  mkdir -p "$STAGE/docker"
+  PULL_ENV=(env "DOCKER_CONFIG=$STAGE/docker")
+  printf '%s' "$GH_TOKEN" | "${PULL_ENV[@]}" docker login "${IMAGE_REPO%%/*}" -u "${REPO%%/*}" --password-stdin >/dev/null \
+    || fail "Docker-Login bei ${IMAGE_REPO%%/*} fehlgeschlagen (Token braucht read:packages). Nichts wurde verändert."
+fi
+${PULL_ENV[@]+"${PULL_ENV[@]}"} docker pull "$IMAGE_REPO:$VERSION" || fail "Image-Download fehlgeschlagen - die laufende Version wurde nicht angefasst."
 
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 [[ -f .env ]] || FIRST_INSTALL=true
+
+# Ältere Installationen haben noch kein APP_VERSION in der .env; ohne Wert bricht jeder
+# `compose`-Aufruf (ps/down) an der Image-Interpolation ab. Nur bis zu Schritt 4 gesetzt.
+if [[ "$FIRST_INSTALL" == false && -z "$(env_value APP_VERSION)" ]]; then export APP_VERSION="$PREVIOUS_TAG"; fi
 
 # DATA_DIR aus älteren Installationen darf nicht woanders hinzeigen, sonst startet eine leere DB.
 if [[ "$FIRST_INSTALL" == false ]]; then
@@ -229,6 +283,8 @@ if [[ "$FIRST_INSTALL" == false && -f docker-compose.yml ]]; then
     log "1/5 Sichere Datenbank nach $INSTALL_DIR/$BACKUP_FILE"
     if dump_db "$BACKUP_FILE"; then
       chmod 600 "$BACKUP_FILE"
+      # Dateinamen sind selbst erzeugt (Zeitstempel), ls -t ist hier sicher und sortiert nach Alter.
+      # shellcheck disable=SC2012
       ls -1t backups/pre-update_*.sql.gz 2>/dev/null | tail -n +"$((BACKUP_KEEP + 1))" | xargs -r rm -f --
     else
       rm -f "$BACKUP_FILE"
@@ -258,6 +314,7 @@ if [[ -f docker-compose.yml ]]; then
   fi
   "${DC[@]}" down
 fi
+unset APP_VERSION # sonst überschreibt die Umgebung später den Wert aus der .env
 # Alle Tags des Images außer neuer Version und :previous entfernen (Volumes bleiben).
 while IFS= read -r ref; do
   [[ -z "$ref" || "$ref" == "$IMAGE_REPO:$VERSION" || "$ref" == "$IMAGE_REPO:$PREVIOUS_TAG" ]] && continue

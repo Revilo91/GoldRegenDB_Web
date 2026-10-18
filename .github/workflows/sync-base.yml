@@ -1,0 +1,56 @@
+name: Sync project-base
+
+# Holt wöchentlich den Stand von project-base und öffnet einen PR (nie Push auf main).
+# BASE_SYNC_TOKEN (fine-grained PAT) ist nötig: Der GITHUB_TOKEN darf keine
+# Dateien unter .github/workflows ändern und kann das private project-base nicht lesen.
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch/Tag/SHA von project-base
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Projekt auschecken
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.BASE_SYNC_TOKEN }}
+
+      - name: project-base auschecken
+        uses: actions/checkout@v7
+        with:
+          repository: Revilo91/project-base
+          ref: ${{ inputs.ref || 'main' }}
+          path: .project-base
+          token: ${{ secrets.BASE_SYNC_TOKEN }}
+
+      - name: Setup-Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Synchronisieren
+        run: node .project-base/scripts/sync-base.mjs --target .
+
+      - name: Hilfs-Checkout entfernen
+        run: rm -rf .project-base
+
+      - name: Pull Request öffnen
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.BASE_SYNC_TOKEN }}
+          branch: chore/sync-base
+          commit-message: 'chore: sync project-base'
+          title: 'chore: sync project-base'
+          body: Automatischer Abgleich mit Revilo91/project-base.
+          delete-branch: true

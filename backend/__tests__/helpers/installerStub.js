@@ -137,6 +137,8 @@ function createSandbox() {
         STUB_LATEST_TAG: 'v9.9.9',
         HEALTH_TIMEOUT_S: '1',
         HEALTH_POLL_S: '1',
+        // Ein GH_TOKEN aus der Umgebung schaltet den API-Pfad für private Repos ein.
+        GH_TOKEN: '',
         ...env,
       };
       const options = { env: fullEnv, encoding: 'utf8' };

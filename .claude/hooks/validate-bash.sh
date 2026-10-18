@@ -6,13 +6,16 @@
 #                docker compose down -v
 # Eingabe: Hook-JSON auf stdin (Feld tool_input.command).
 # Ausgabe: Exit 2 + stderr blockt; JSON mit permissionDecision "ask" fragt nach.
-# In allen Projekten identisch. Test: backend/__tests__/claudeHook.test.js
+# Fail-closed: Ohne node oder bei ungültigem JSON Exit 2 (Exit 1 würde Claude Code
+# nur als nicht blockierenden Fehler werten und den Befehl trotzdem ausführen).
+# Quelle: project-base. Nicht im Projekt ändern, Sync überschreibt die Datei.
+# Test: tests/validate-bash.test.mjs in project-base
 
 set -uo pipefail
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "validate-bash.sh: node fehlt, Befehl wurde nicht geprüft" >&2
-  exit 1
+  echo "Blockiert: node fehlt, Befehle können nicht geprüft werden (node installieren)" >&2
+  exit 2
 fi
 
 befehl=$(node -e '
@@ -24,8 +27,8 @@ process.stdin.on("data", (teil) => { eingabe += teil; }).on("end", () => {
     process.exit(3);
   }
 });') || {
-  echo "validate-bash.sh: Hook-Eingabe ist kein gültiges JSON" >&2
-  exit 1
+  echo "Blockiert: Hook-Eingabe ist kein gültiges JSON, Befehl wird nicht ausgeführt" >&2
+  exit 2
 }
 [ -z "$befehl" ] && exit 0
 
@@ -162,6 +165,34 @@ pruefe_teilbefehl() {
   esac
   return 0
 }
+
+# .env-Dateien dürfen nicht per Shell gelesen werden (die Read-Sperre in settings.json
+# gilt nur für das Read-Tool). .env.example bleibt lesbar, "cp .env.example .env" erlaubt.
+pruefe_env() {
+  local text="$befehl"
+  text=$(printf '%s' "$text" | tr '\t\n' '  ' | sed -E 's#(^|[;&|(] *)cp( +-[a-zA-Z]+)* +([^ ]*/)?\.env\.example +([^ ;&|]*/)?\.env( |$|[;&|])#\1cp-vorlage-ok\5#g; s#\.env\.example#ENV-VORLAGE#g')
+  local ref='(^|[ /;&|(<>="'"'"'])\.env([.][A-Za-z0-9_-]+)?($|[ ;&|)<>"'"'"'])'
+  local leser='(^|[ ;&|(`])(sudo +)?(cat|tac|less|more|head|tail|grep|egrep|fgrep|rg|ag|ack|sed|awk|cut|sort|uniq|nl|od|xxd|strings|base64|cp|mv|scp|rsync|tar|zip|curl|wget|source|vi|vim|nano|bat|diff|\.)( |$)'
+  if printf '%s' "$text" | grep -Eq "$ref"; then
+    if printf '%s' "$text" | grep -Eq '<[ ]*[^ ]*\.env' || printf '%s' "$text" | grep -Eq "$leser"; then
+      blockgrund="Zugriff auf .env-Dateien ist gesperrt (nur .env.example)."
+    fi
+  fi
+  # Rekursive Suche und rg -u lesen .env mit.
+  if printf '%s' "$text" | grep -Eq '(^|[;&|(] *)(sudo +)?e?grep[^;&|]*( -[a-zA-Z]*[rR][a-zA-Z]*( |$)| --recursive)' \
+    && ! printf '%s' "$text" | grep -Eq -- "--exclude=['\"]?\.env"; then
+    blockgrund="Rekursives grep würde .env lesen. rg bzw. das Grep-Tool nutzen oder --exclude='.env*' setzen."
+  fi
+  if printf '%s' "$text" | grep -Eq '(^|[;&|(] *)(sudo +)?(rg|ag|ack)[^;&|]*( -[a-zA-Z]*u[a-zA-Z]*( |$)| --no-ignore)'; then
+    blockgrund="rg -u/--no-ignore würde .env lesen."
+  fi
+  # compose config gibt aufgelöste .env-Werte aus.
+  if printf '%s' "$text" | grep -Eq 'docker(-compose| +compose)( [^;&|]*)? +(config|convert)( |$)'; then
+    blockgrund="docker compose config gibt .env-Werte aus und ist gesperrt."
+  fi
+  return 0
+}
+pruefe_env
 
 # Verkettete Befehle (&&, ||, ;, |, Zeilenumbruch) einzeln prüfen.
 teilbefehle=${befehl//&&/$'\n'}
