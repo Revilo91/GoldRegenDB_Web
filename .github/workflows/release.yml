@@ -6,7 +6,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 env:
   REGISTRY: ghcr.io
@@ -33,14 +33,14 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Docker Buildx einrichten
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Metadaten für Image ermitteln
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/goldregendb
           tags: |
@@ -49,7 +49,7 @@ jobs:
             type=raw,value=latest
 
       - name: Image bauen
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -64,7 +64,7 @@ jobs:
             APP_VERSION=${{ github.ref_name }}
 
       - name: Image als Artefakt ablegen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: image
           path: ${{ runner.temp }}/image.tar
@@ -80,13 +80,13 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Release-Assets zusammenstellen
         run: scripts/build-release-package.sh "$RUNNER_TEMP/assets"
 
       - name: Assets als Artefakt ablegen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-assets
           path: ${{ runner.temp }}/assets
@@ -102,10 +102,10 @@ jobs:
 
     steps:
       - name: Code auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Image laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: image
           path: ${{ runner.temp }}
@@ -114,7 +114,7 @@ jobs:
         run: docker load -i "$RUNNER_TEMP/image.tar"
 
       - name: Assets laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-assets
           path: ${{ runner.temp }}/assets
@@ -132,7 +132,7 @@ jobs:
 
     steps:
       - name: Image laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: image
           path: ${{ runner.temp }}
@@ -164,13 +164,13 @@ jobs:
 
     steps:
       - name: Assets laden
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-assets
           path: assets
 
       - name: GitHub Release erstellen
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: GoldRegenDB ${{ github.ref_name }}
           body: |
