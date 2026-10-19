@@ -39,7 +39,7 @@ EXTRA_ASSETS=(init.sql:db/init.sql backup.sh:db/backup.sh restore.sh:db/restore.
 ENV_RENAMES=(APP_HOST_PORT:APP_PORT)                # "ALT:NEU" – Wert wird in der .env übernommen, falls NEU fehlt
 
 # --- Standard (für alle Projekte gleich) -------------------------------------
-INSTALL_DIR="${INSTALL_DIR:-/volume1/docker/$PROJEKT}"
+INSTALL_DIR="${INSTALL_DIR:-${DEFAULT_INSTALL_DIR:-/volume1/docker/$PROJEKT}}"
 GITHUB_API="${GITHUB_API:-https://api.github.com}"
 GITHUB_DL="${GITHUB_DL:-https://github.com}"
 GH_TOKEN="${GH_TOKEN:-}"           # nur für private Repos/Images; wird nie gespeichert
