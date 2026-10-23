@@ -24,6 +24,7 @@ import TablePhoto from "../components/TablePhoto";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
+import { naechsteVorlagenNummer } from "../utils/artikelnummer";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -331,18 +332,47 @@ export default function Schmuckstuecke() {
         );
       }
 
+      // Nur die in der Tabelle sichtbaren Felder kommen aus der Vorlage.
+      const neueZeile = {
+        ...createEmptyMehrfachRow(),
+        Name: item.Name || "",
+        Art: item.Art || "",
+        Material: item.Material || "",
+        Farbe: item.Farbe || "",
+        Verkaufspreis: item.Verkaufspreis || 0,
+        Form: item.Form || "",
+        Fassung: item.Fassung || "",
+      };
+
+      // Neue Laufnummer vom Server holen. Schlägt das fehl, bleibt die Zeile
+      // mit leerer Artikelnummer erhalten und wird von Hand ausgefüllt.
+      let serverArtikelnummer = "";
+      const prefix = String(item.Artikelnummer || "").slice(0, 3);
+      try {
+        if (!/^[A-Z]{3}$/.test(prefix)) {
+          throw new Error(
+            "Aus der Vorlage lässt sich keine neue Artikelnummer ableiten.",
+          );
+        }
+        const next = await api.getNextArtikelnummer(prefix);
+        serverArtikelnummer = next?.artikelnummer;
+        if (!naechsteVorlagenNummer(prefix, serverArtikelnummer, [])) {
+          throw new Error("Der Server lieferte keine gültige Artikelnummer.");
+        }
+      } catch (err) {
+        serverArtikelnummer = "";
+        toast.fehler(
+          `Neue Artikelnummer konnte nicht vergeben werden: ${err.message}`,
+        );
+      }
+
+      // Funktionale Form: Die Nummer wird gegen den aktuellen Stand der Zeilen
+      // bestimmt, damit zwei schnell geladene Vorlagen nicht dieselbe bekommen.
       setBulkRows((prev) => [
         ...prev,
         {
-          ...createEmptyMehrfachRow(),
-          Name: item.Name || "",
-          Art: item.Art || "",
-          Material: item.Material || "",
-          Farbe: item.Farbe || "",
-          Verkaufspreis: item.Verkaufspreis || 0,
-          Herstellungskosten: item.Herstellungskosten || 0,
-          Form: item.Form || "",
-          Fassung: item.Fassung || "",
+          ...neueZeile,
+          Artikelnummer: naechsteVorlagenNummer(prefix, serverArtikelnummer, prev),
         },
       ]);
     } catch (err) {
