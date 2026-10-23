@@ -313,6 +313,10 @@ export const api = {
     vergissFoto(artikelnummer);
     return request(`/schmuckstuecke/upload?${qs}`, { method: 'POST', body: formData });
   },
+  deleteFoto: (artikelnummer) => {
+    vergissFoto(artikelnummer);
+    return request(`/schmuckstuecke/foto/${encodeURIComponent(artikelnummer)}`, { method: 'DELETE' });
+  },
   loadPhotoAsDataUrl: async (artikelnummer, options = {}) => {
     const basis = fotoSchluessel(artikelnummer);
     if (!basis) return null;
