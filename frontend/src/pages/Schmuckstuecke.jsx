@@ -456,7 +456,9 @@ export default function Schmuckstuecke() {
 
     setForm({
       ...copyData,
-      Artikelnummer: baseArtikelnummer,
+      // Nur das 3-Buchstaben-Präfix: die Vorschau der nächsten freien Nummer
+      // startet ausschließlich bei einem Präfix, nicht bei der vollen Basisnummer.
+      Artikelnummer: baseArtikelnummer.slice(0, 3),
       HerstellerCode: baseArtikelnummer[0] || "",
       GrundmaterialCode: baseArtikelnummer[1] || "",
       ProduktartCode: baseArtikelnummer[2] || "",
