@@ -68,6 +68,43 @@ const normalisierteZahlenfelder = (form) =>
     ]),
   );
 
+// Beschreibende Felder, die beim Anlegen aus einer Vorlage mitkommen. Bewusst
+// eine Positivliste: ID, Datum, Belege, Status und Foto gehören dem Original.
+const KLONBARE_FELDER = [
+  "Name",
+  "Art",
+  "Material",
+  "Farbe",
+  "Form",
+  "Fassung",
+  "Länge",
+  "Grösse",
+  "Inhalt_Material",
+  "Inhalt_Farbe",
+  "Inhalt_Farbakzent",
+  "Inhalt_Zusatzmaterial",
+  "Anhänger",
+  "Anhänger_Fassung",
+  "Anhänger_Form",
+  "Anhänger_Farbe",
+  "Anhänger_Grösse",
+  "Anhänger_Inhalt_Material",
+  "Anhänger_Inhalt_Farbe",
+  "Anhänger_Inhalt_Farbakzente",
+  "Anhänger_Inhalt_Zusatzmaterial",
+  "Zwischenstück",
+  "Herstellungskosten",
+  "Verkaufspreis",
+];
+
+const klonbareFelderVon = (item) =>
+  Object.fromEntries(
+    KLONBARE_FELDER.map((feld) => [
+      feld,
+      item[feld] ?? (ZAHLENFELDER.includes(feld) ? 0 : ""),
+    ]),
+  );
+
 const normalizeMehrfachArtikelnummer = (value) => {
   const normalized = String(value || "").trim().toUpperCase();
   if (!normalized) return "";
@@ -332,16 +369,9 @@ export default function Schmuckstuecke() {
         );
       }
 
-      // Nur die in der Tabelle sichtbaren Felder kommen aus der Vorlage.
       const neueZeile = {
         ...createEmptyMehrfachRow(),
-        Name: item.Name || "",
-        Art: item.Art || "",
-        Material: item.Material || "",
-        Farbe: item.Farbe || "",
-        Verkaufspreis: item.Verkaufspreis || 0,
-        Form: item.Form || "",
-        Fassung: item.Fassung || "",
+        ...klonbareFelderVon(item),
       };
 
       // Neue Laufnummer vom Server holen. Schlägt das fehl, bleibt die Zeile

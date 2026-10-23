@@ -126,7 +126,16 @@ describe('Vorlage laden: neue Artikelnummer', () => {
     expect(nummernfelder.map((f) => f.value)).toEqual(['', 'MHO127_1', 'MHO128_1']);
   });
 
-  it('übernimmt die Herstellungskosten der Vorlage nicht', async () => {
+  it('klont alle Felder der Vorlage, auch die in der Tabelle nicht sichtbaren', async () => {
+    api.getSchmuckstueck.mockImplementation(async (nr) =>
+      vorlage(nr, {
+        Länge: 45,
+        Inhalt_Material: 'Blüten',
+        Anhänger_Form: 'Tropfen',
+        Zwischenstück: 'Perle',
+        Ausschuss_Grund: '',
+      }),
+    );
     await oeffneModal();
     await ladeVorlage('MHO123_1');
 
@@ -139,8 +148,50 @@ describe('Vorlage laden: neue Artikelnummer', () => {
       Artikelnummer: 'MHO127_1',
       Name: 'Tropfen',
       Verkaufspreis: 24.5,
-      Herstellungskosten: 0,
+      Herstellungskosten: 9.5,
+      Länge: 45,
+      Inhalt_Material: 'Blüten',
+      Anhänger_Form: 'Tropfen',
+      Zwischenstück: 'Perle',
     });
+  });
+
+  it('übernimmt keine Identitäts-, Beleg- oder Statusfelder der Vorlage', async () => {
+    api.getSchmuckstueck.mockImplementation(async (nr) =>
+      vorlage(nr, {
+        ID: 99,
+        Erstelldatum: '2025-01-01',
+        Letzte_Änderung: '2025-02-01',
+        Lieferschein_ID: 7,
+        Rechnung_ID: 8,
+        Ausgelagert: 3,
+        Verkauft: true,
+        Ausschuss: true,
+        Ausschuss_Grund: 'defekt',
+        hatFoto: true,
+      }),
+    );
+    await oeffneModal();
+    await ladeVorlage('MHO123_1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach speichern' }));
+
+    await waitFor(() => expect(api.createSchmuckstueckeBulk).toHaveBeenCalledTimes(1));
+    const [item] = api.createSchmuckstueckeBulk.mock.calls[0][0].items;
+    for (const feld of [
+      'ID',
+      'Erstelldatum',
+      'Letzte_Änderung',
+      'Lieferschein_ID',
+      'Rechnung_ID',
+      'Ausgelagert',
+      'Verkauft',
+      'Ausschuss',
+      'Ausschuss_Grund',
+      'hatFoto',
+    ]) {
+      expect(item).not.toHaveProperty(feld);
+    }
   });
 
   it('meldet das erfolgreiche Anlegen als Erfolg, nicht als Fehler', async () => {
