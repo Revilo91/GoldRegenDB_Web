@@ -143,6 +143,16 @@ describe('Vorlage laden: neue Artikelnummer', () => {
     });
   });
 
+  it('meldet das erfolgreiche Anlegen als Erfolg, nicht als Fehler', async () => {
+    await oeffneModal();
+    await ladeVorlage('MHO123_1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach speichern' }));
+
+    const meldung = await screen.findByText('1 Schmuckstücke wurden erfolgreich angelegt.');
+    expect(meldung.closest('.toast')).toHaveClass('toast-erfolg');
+  });
+
   it('fügt bei Fehler der Nummernvergabe eine Zeile ohne Artikelnummer ein und zeigt einen Fehlertoast', async () => {
     api.getNextArtikelnummer.mockRejectedValue(new Error('Server nicht erreichbar'));
     await oeffneModal();

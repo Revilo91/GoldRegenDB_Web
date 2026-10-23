@@ -402,7 +402,7 @@ export default function Schmuckstuecke() {
       setBulkSaving(true);
       const result = await api.createSchmuckstueckeBulk({ items });
 
-      toast.fehler(
+      toast.erfolg(
         `${result.createdCount} Schmuckstücke wurden erfolgreich angelegt.`,
       );
       setBulkModalOpen(false);
