@@ -403,7 +403,7 @@ export default function Schmuckstuecke() {
       const result = await api.createSchmuckstueckeBulk({ items });
 
       toast.fehler(
-        `${result.createdCount} Schmuckstücke wurden erfolgreich nachgetragen.`,
+        `${result.createdCount} Schmuckstücke wurden erfolgreich angelegt.`,
       );
       setBulkModalOpen(false);
       neuLaden();

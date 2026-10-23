@@ -51,5 +51,12 @@ describe('naechsteVorlagenNummer', () => {
     expect(naechsteVorlagenNummer('MH', 'MHO127', [])).toBe('');
     expect(naechsteVorlagenNummer('MHO', undefined, [])).toBe('');
     expect(naechsteVorlagenNummer('MHO', 'SHO127', [])).toBe('');
+    expect(naechsteVorlagenNummer('MHO', 'MHO1000', [])).toBe('');
+    expect(naechsteVorlagenNummer('MHO', {}, [])).toBe('');
+  });
+
+  it('liefert einen leeren String, wenn die Laufnummer 999 überschreiten würde', () => {
+    expect(naechsteVorlagenNummer('MHO', 'MHO999', [])).toBe('MHO999_1');
+    expect(naechsteVorlagenNummer('MHO', 'MHO999', [{ Artikelnummer: 'MHO999_1' }])).toBe('');
   });
 });
