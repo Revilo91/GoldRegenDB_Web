@@ -34,3 +34,27 @@ export function naechsteVorlagenNummer(prefix, serverArtikelnummer, rows) {
   if (laufnummer > MAX_LAUFNUMMER) return '';
   return `${prefix}${String(laufnummer).padStart(3, '0')}_1`;
 }
+
+// Zerlegt "MHO127_2" in Basis "MHO127" und Exemplar 2 (ohne Suffix: Exemplar 1).
+function exemplarVon(artikelnummer) {
+  const treffer = /^([A-Z]{3}\d{3})(?:_(\d+))?$/.exec(
+    String(artikelnummer ?? '').trim().toUpperCase(),
+  );
+  if (!treffer) return null;
+  return { basis: treffer[1], exemplar: treffer[2] ? parseInt(treffer[2], 10) : 1 };
+}
+
+// Artikelnummer für eine Kopie: gleiche Basisnummer, nächstes freies Exemplar
+// (MHO127_1 → MHO127_2, bei vorhandenem _3 → _4). Leer, wenn die Quelle keine
+// gültige Nummer hat.
+export function naechstesExemplar(artikelnummer, rows) {
+  const quelle = exemplarVon(artikelnummer);
+  if (!quelle) return '';
+
+  const hoechstes = (rows || []).reduce((hoechstes, row) => {
+    const nummer = exemplarVon(row?.Artikelnummer);
+    return nummer?.basis === quelle.basis ? Math.max(hoechstes, nummer.exemplar) : hoechstes;
+  }, quelle.exemplar);
+
+  return `${quelle.basis}_${hoechstes + 1}`;
+}

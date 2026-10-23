@@ -24,7 +24,7 @@ import TablePhoto from "../components/TablePhoto";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
-import { naechsteVorlagenNummer } from "../utils/artikelnummer";
+import { naechsteVorlagenNummer, naechstesExemplar } from "../utils/artikelnummer";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -374,9 +374,8 @@ export default function Schmuckstuecke() {
       const copiedRow = {
         ...source,
         _rowId: createRowId(),
-        // Artikelnummer bleibt absichtlich leer, damit keine Dublette gespeichert wird.
-        Artikelnummer: "",
-        fotoArtikelnummer: undefined,
+        // Gleiche Basisnummer, nächstes Exemplar; das Foto gehört zur Basisnummer.
+        Artikelnummer: naechstesExemplar(source.Artikelnummer, prev),
       };
 
       const insertIndex = prev.findIndex((row) => row._rowId === rowId);
