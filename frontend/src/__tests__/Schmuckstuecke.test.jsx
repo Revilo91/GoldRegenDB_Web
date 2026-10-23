@@ -18,6 +18,14 @@ vi.mock('../api', () => ({
 
 vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../components/TablePhoto', () => ({ default: () => null }));
+// Stellvertreter für den Upload: zeigt die übergebene Nummer und meldet auf Klick ein Foto.
+vi.mock('../components/PhotoUpload', () => ({
+  default: ({ artikelnummer, disabled, onPhotoSelected }) => (
+    <button disabled={disabled} onClick={() => onPhotoSelected('pfad')}>
+      Foto für {artikelnummer}
+    </button>
+  ),
+}));
 
 // Gemeinsamer Aufbau für alle Tests der Seite: API-Mocks, Rolle und Rendern.
 function rendereSeite(rolle = 'bearbeiter') {
@@ -213,5 +221,92 @@ describe('Vorlage laden: neue Artikelnummer', () => {
     const nummernfelder = screen.getAllByPlaceholderText('MBH001_2');
     expect(nummernfelder.map((f) => f.value)).toEqual(['', '']);
     expect(screen.getByDisplayValue('Tropfen')).toBeInTheDocument();
+  });
+});
+
+describe('Zeile mit allen Feldern bearbeiten', () => {
+  const vorlage = (artikelnummer) => ({
+    Artikelnummer: artikelnummer,
+    Name: 'Tropfen',
+    Art: 'Ohrring',
+    Material: 'Harz',
+    Farbe: 'Blau',
+    Verkaufspreis: 24.5,
+    Herstellungskosten: 9.5,
+    Länge: 45,
+    Inhalt_Material: 'Blüten',
+  });
+
+  async function ladeVorlageUndOeffneZeile() {
+    rendereSeite();
+    fireEvent.click(await screen.findByRole('button', { name: '+ Aus Vorlage anlegen' }));
+    fireEvent.change(screen.getByPlaceholderText('z.B. MBH001_1'), {
+      target: { value: 'MHO123_1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Als neue Zeile übernehmen' }));
+    await waitFor(() => expect(screen.getAllByPlaceholderText('MBH001_2')[1].value).toBe('MHO127_1'));
+    const knoepfe = screen.getAllByTitle('Alle Felder bearbeiten');
+    fireEvent.click(knoepfe[knoepfe.length - 1]);
+  }
+
+  async function speichereMehrfach() {
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach speichern' }));
+    await waitFor(() => expect(api.createSchmuckstueckeBulk).toHaveBeenCalledTimes(1));
+    return api.createSchmuckstueckeBulk.mock.calls[0][0].items[0];
+  }
+
+  beforeEach(() => {
+    api.getSchmuckstueck.mockImplementation(async (nr) => vorlage(nr));
+    api.getNextArtikelnummer.mockResolvedValue({ prefix: 'MHO', nextNum: 127, artikelnummer: 'MHO127' });
+    api.createSchmuckstueckeBulk.mockResolvedValue({ createdCount: 1 });
+  });
+
+  it('öffnet das Formular mit den geklonten Werten und gesperrter Artikelnummer', async () => {
+    await ladeVorlageUndOeffneZeile();
+
+    expect(await screen.findByRole('heading', { name: /MHO127_1/ })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('45')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Blüten')).toBeInTheDocument();
+    const nummer = screen.getAllByDisplayValue('MHO127_1').find((f) => f.disabled);
+    expect(nummer).toBeDefined();
+  });
+
+  it('übernimmt Änderungen aus dem Formular in die Zeile', async () => {
+    await ladeVorlageUndOeffneZeile();
+
+    fireEvent.change(await screen.findByDisplayValue('45'), { target: { value: '60' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    expect(screen.queryByRole('button', { name: 'Übernehmen' })).not.toBeInTheDocument();
+    const item = await speichereMehrfach();
+    expect(item).toMatchObject({ Artikelnummer: 'MHO127_1', Länge: 60, Inhalt_Material: 'Blüten' });
+  });
+
+  it('verwirft Änderungen bei Abbrechen', async () => {
+    await ladeVorlageUndOeffneZeile();
+
+    fireEvent.change(await screen.findByDisplayValue('45'), { target: { value: '60' } });
+    const abbrechen = screen.getAllByRole('button', { name: 'Abbrechen' });
+    fireEvent.click(abbrechen[abbrechen.length - 1]);
+
+    const item = await speichereMehrfach();
+    expect(item.Länge).toBe(45);
+  });
+
+  it('bietet den Foto-Upload mit der Artikelnummer der Zeile an, ohne Statusfelder', async () => {
+    await ladeVorlageUndOeffneZeile();
+
+    expect(await screen.findByRole('button', { name: 'Foto für MHO127_1' })).toBeEnabled();
+    expect(screen.queryByText('Ausschuss')).not.toBeInTheDocument();
+  });
+
+  it('merkt sich das Foto an der Zeile, schickt hatFoto aber nicht an den Server', async () => {
+    await ladeVorlageUndOeffneZeile();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Foto für MHO127_1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    const item = await speichereMehrfach();
+    expect(item).not.toHaveProperty('hatFoto');
   });
 });

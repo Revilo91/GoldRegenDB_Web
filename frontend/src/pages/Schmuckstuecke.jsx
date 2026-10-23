@@ -105,6 +105,9 @@ const klonbareFelderVon = (item) =>
     ]),
   );
 
+// Wert von `editing`, wenn das große Formular eine Zeile der Vorlagen-Tabelle bearbeitet.
+const BULK_ZEILE = "bulk-zeile";
+
 const normalizeMehrfachArtikelnummer = (value) => {
   const normalized = String(value || "").trim().toUpperCase();
   if (!normalized) return "";
@@ -165,6 +168,7 @@ export default function Schmuckstuecke() {
       : "";
 
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkEditRowId, setBulkEditRowId] = useState(null);
   const [bulkTemplateArtikelnummer, setBulkTemplateArtikelnummer] =
     useState("");
   const [bulkLoadingTemplate, setBulkLoadingTemplate] = useState(false);
@@ -277,6 +281,28 @@ export default function Schmuckstuecke() {
         row._rowId === rowId ? { ...row, [field]: value } : row,
       ),
     );
+  };
+
+  const openBulkRowForm = (row) => {
+    const { _rowId, ...felder } = row;
+    setForm(felder);
+    setBulkEditRowId(_rowId);
+    setEditing(BULK_ZEILE);
+  };
+
+  const closeBulkRowForm = () => {
+    setEditing(null);
+    setBulkEditRowId(null);
+  };
+
+  const applyBulkRowForm = () => {
+    const felder = { ...form, ...normalisierteZahlenfelder(form) };
+    setBulkRows((prev) =>
+      prev.map((row) =>
+        row._rowId === bulkEditRowId ? { ...row, ...felder } : row,
+      ),
+    );
+    closeBulkRowForm();
   };
 
   const addBulkRow = () => {
@@ -415,7 +441,7 @@ export default function Schmuckstuecke() {
   const handleBulkSave = async () => {
     const items = bulkRows
       .map((row) => {
-        const { _rowId, ...payloadRow } = row;
+        const { _rowId, hatFoto, ...payloadRow } = row;
         return {
           ...payloadRow,
           Artikelnummer: normalizeMehrfachArtikelnummer(row.Artikelnummer),
@@ -1127,6 +1153,13 @@ export default function Schmuckstuecke() {
                             <div className="schmuckstuecke-flex-gap-6">
                               <button
                                 className="btn btn-secondary btn-sm"
+                                onClick={() => openBulkRowForm(row)}
+                                disabled={bulkSaving}
+                                title="Alle Felder bearbeiten">
+                                <FontAwesomeIcon icon={faPen} />
+                              </button>
+                              <button
+                                className="btn btn-secondary btn-sm"
                                 onClick={() => duplicateBulkRow(row._rowId)}
                                 disabled={bulkSaving}
                                 title="Zeile kopieren">
@@ -1208,13 +1241,20 @@ export default function Schmuckstuecke() {
                   <>
                     <FontAwesomeIcon icon={faPlus} /> Neues Schmuckstück
                   </>
+                ) : editing === BULK_ZEILE ? (
+                  <>
+                    <FontAwesomeIcon icon={faPen} /> Alle Felder:{" "}
+                    {form.Artikelnummer || "ohne Artikelnummer"}
+                  </>
                 ) : (
                   <>
                     <FontAwesomeIcon icon={faPen} /> {editing} bearbeiten
                   </>
                 )}
               </h3>
-              <button className="modal-close" onClick={() => setEditing(null)}>
+              <button
+                className="modal-close"
+                onClick={editing === BULK_ZEILE ? closeBulkRowForm : () => setEditing(null)}>
                 ×
               </button>
             </div>
@@ -1422,7 +1462,11 @@ export default function Schmuckstuecke() {
                       ? nextArtikelnummerPreview
                       : form.Artikelnummer
                   }
-                  disabled={editing === "new" && !nextArtikelnummerPreview}
+                  disabled={
+                    editing === "new"
+                      ? !nextArtikelnummerPreview
+                      : editing === BULK_ZEILE && !form.Artikelnummer
+                  }
                   hatFoto={form.hatFoto}
                   onPhotoSelected={() => {
                     setForm({ ...form, hatFoto: true });
@@ -1803,7 +1847,7 @@ export default function Schmuckstuecke() {
                     <select
                       className="form-control"
                       value={form.Ausgelagert || 0}
-                      disabled={editing === "new"}
+                      disabled={editing === "new" || editing === BULK_ZEILE}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -1819,7 +1863,7 @@ export default function Schmuckstuecke() {
                     </select>
                   </div>
                 </div>
-                {editing !== "new" ? (
+                {editing !== "new" && editing !== BULK_ZEILE ? (
                   <>
                     <div className="form-row schmuckstuecke-mt-16">
                       <div className="form-group">
@@ -1879,10 +1923,14 @@ export default function Schmuckstuecke() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setEditing(null)}>
+                onClick={editing === BULK_ZEILE ? closeBulkRowForm : () => setEditing(null)}>
                 Abbrechen
               </button>
-              {editing === "new" ? (
+              {editing === BULK_ZEILE ? (
+                <button className="btn btn-primary" onClick={applyBulkRowForm}>
+                  Übernehmen
+                </button>
+              ) : editing === "new" ? (
                 <>
                   <button
                     className="btn btn-primary"
