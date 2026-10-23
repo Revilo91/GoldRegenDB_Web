@@ -1,4 +1,4 @@
-import { naechsteVorlagenNummer } from '../utils/artikelnummer';
+import { naechsteVorlagenNummer, naechstesExemplar } from '../utils/artikelnummer';
 
 describe('naechsteVorlagenNummer', () => {
   it('nimmt im Normalfall die Nummer des Servers und hängt _1 an', () => {
@@ -58,5 +58,44 @@ describe('naechsteVorlagenNummer', () => {
   it('liefert einen leeren String, wenn die Laufnummer 999 überschreiten würde', () => {
     expect(naechsteVorlagenNummer('MHO', 'MHO999', [])).toBe('MHO999_1');
     expect(naechsteVorlagenNummer('MHO', 'MHO999', [{ Artikelnummer: 'MHO999_1' }])).toBe('');
+  });
+});
+
+describe('naechstesExemplar', () => {
+  it('zählt den Suffix der Quelle hoch und behält die Basisnummer', () => {
+    const rows = [{ Artikelnummer: 'MHO127_1' }];
+    expect(naechstesExemplar('MHO127_1', rows)).toBe('MHO127_2');
+  });
+
+  it('nimmt den höchsten Suffix der Basisnummer in der Tabelle', () => {
+    const rows = [
+      { Artikelnummer: 'MHO127_1' },
+      { Artikelnummer: 'MHO127_2' },
+      { Artikelnummer: 'MHO127_3' },
+    ];
+    expect(naechstesExemplar('MHO127_1', rows)).toBe('MHO127_4');
+  });
+
+  it('ignoriert andere Basisnummern, auch mit gleichem Anfang', () => {
+    const rows = [
+      { Artikelnummer: 'MHO127_1' },
+      { Artikelnummer: 'MHO1270_9' },
+      { Artikelnummer: 'MHO128_5' },
+    ];
+    expect(naechstesExemplar('MHO127_1', rows)).toBe('MHO127_2');
+  });
+
+  it('zählt eine Nummer ohne Suffix als Exemplar 1', () => {
+    expect(naechstesExemplar('MHO127', [{ Artikelnummer: 'MHO127' }])).toBe('MHO127_2');
+  });
+
+  it('erkennt Kleinschreibung und Leerzeichen', () => {
+    expect(naechstesExemplar(' mho127_1 ', [{ Artikelnummer: 'mho127_1' }])).toBe('MHO127_2');
+  });
+
+  it('liefert einen leeren String, wenn die Quelle keine gültige Nummer hat', () => {
+    expect(naechstesExemplar('', [])).toBe('');
+    expect(naechstesExemplar(undefined, [])).toBe('');
+    expect(naechstesExemplar('MHO', [])).toBe('');
   });
 });

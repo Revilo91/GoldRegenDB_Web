@@ -379,3 +379,74 @@ describe('Aus Vorlage anlegen: nur über Vorlagen', () => {
     expect(screen.getByRole('button', { name: 'Mehrfach speichern' })).toBeDisabled();
   });
 });
+
+describe('Zeile kopieren: weiteres Exemplar derselben Nummer', () => {
+  async function ladeVorlage() {
+    rendereSeite();
+    fireEvent.click(await screen.findByRole('button', { name: '+ Aus Vorlage anlegen' }));
+    fireEvent.change(screen.getByPlaceholderText('z.B. MBH001_1'), {
+      target: { value: 'MHO123_1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Als neue Zeile übernehmen' }));
+    await waitFor(() => expect(screen.getAllByPlaceholderText('MBH001_2')[0].value).toBe('MHO127_1'));
+  }
+
+  const nummern = () => screen.getAllByPlaceholderText('MBH001_2').map((feld) => feld.value);
+
+  beforeEach(() => {
+    api.getSchmuckstueck.mockImplementation(async (nr) => ({
+      Artikelnummer: nr,
+      Name: 'Tropfen',
+      Art: 'Ohrring',
+      Verkaufspreis: 24.5,
+    }));
+    api.getNextArtikelnummer.mockResolvedValue({ prefix: 'MHO', nextNum: 127, artikelnummer: 'MHO127' });
+    api.createSchmuckstueckeBulk.mockResolvedValue({ createdCount: 3 });
+  });
+
+  it('vergibt der Kopie die gleiche Nummer mit dem nächsten Exemplar', async () => {
+    await ladeVorlage();
+
+    fireEvent.click(screen.getByTitle('Zeile kopieren'));
+
+    expect(nummern()).toEqual(['MHO127_1', 'MHO127_2']);
+  });
+
+  it('zählt bei weiteren Kopien hoch, auch wenn von der ersten Zeile kopiert wird', async () => {
+    await ladeVorlage();
+
+    fireEvent.click(screen.getByTitle('Zeile kopieren'));
+    fireEvent.click(screen.getAllByTitle('Zeile kopieren')[0]);
+
+    expect(nummern()).toEqual(['MHO127_1', 'MHO127_3', 'MHO127_2']);
+  });
+
+  it('übernimmt die Felder der Quelle und speichert alle Exemplare', async () => {
+    await ladeVorlage();
+    fireEvent.click(screen.getByTitle('Zeile kopieren'));
+    fireEvent.click(screen.getAllByTitle('Zeile kopieren')[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach speichern' }));
+
+    await waitFor(() => expect(api.createSchmuckstueckeBulk).toHaveBeenCalledTimes(1));
+    const items = api.createSchmuckstueckeBulk.mock.calls[0][0].items;
+    expect(items.map((item) => item.Artikelnummer)).toEqual(['MHO127_1', 'MHO127_3', 'MHO127_2']);
+    expect(items.every((item) => item.Name === 'Tropfen')).toBe(true);
+  });
+
+  it('behält das Foto, solange noch ein Exemplar der Nummer in der Tabelle steht', async () => {
+    await ladeVorlage();
+    const knoepfe = screen.getAllByTitle('Alle Felder bearbeiten');
+    fireEvent.click(knoepfe[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Foto für MHO127_1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen' }));
+    fireEvent.click(screen.getByTitle('Zeile kopieren'));
+
+    fireEvent.click(screen.getAllByTitle('Zeile löschen')[1]);
+    await waitFor(() => expect(nummern()).toEqual(['MHO127_1']));
+    expect(api.deleteFoto).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTitle('Zeile löschen'));
+    await waitFor(() => expect(api.deleteFoto).toHaveBeenCalledWith('MHO127'));
+  });
+});
