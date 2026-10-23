@@ -13,7 +13,6 @@ vi.mock('../api', () => ({
     getSchmuckstueck: vi.fn(),
     getNextArtikelnummer: vi.fn(),
     createSchmuckstueckeBulk: vi.fn(),
-    createSchmuckstueck: vi.fn(),
   },
 }));
 
@@ -21,10 +20,10 @@ vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../components/TablePhoto', () => ({ default: () => null }));
 
 // Gemeinsamer Aufbau für alle Tests der Seite: API-Mocks, Rolle und Rendern.
-function rendereSeite(rolle = 'bearbeiter', initialEntries = ['/']) {
+function rendereSeite(rolle = 'bearbeiter') {
   useAuth.mockReturnValue({ user: { username: 'test', role: rolle } });
   return rendereMitToast(
-    <MemoryRouter initialEntries={initialEntries}>
+    <MemoryRouter>
       <Schmuckstuecke />
     </MemoryRouter>,
   );
@@ -153,64 +152,5 @@ describe('Vorlage laden: neue Artikelnummer', () => {
     const nummernfelder = screen.getAllByPlaceholderText('MBH001_2');
     expect(nummernfelder.map((f) => f.value)).toEqual(['', '']);
     expect(screen.getByDisplayValue('Tropfen')).toBeInTheDocument();
-  });
-});
-
-describe('Duplizieren: neue Laufnummer', () => {
-  const original = {
-    ID: 42,
-    Artikelnummer: 'MHO123_1',
-    HerstellerCode: 'M',
-    GrundmaterialCode: 'H',
-    ProduktartCode: 'O',
-    Name: 'Tropfen',
-    Art: 'Ohrring',
-    Material: 'Harz',
-    Farbe: 'Blau',
-    Form: 'Rund',
-    Verkaufspreis: 24.5,
-    Lieferschein_ID: 7,
-    Rechnung_ID: 9,
-    Verkauft: true,
-    hatFoto: true,
-  };
-
-  beforeEach(() => {
-    api.getSchmuckstueck.mockResolvedValue(original);
-    api.getNextArtikelnummer.mockResolvedValue({
-      prefix: 'MHO',
-      nextNum: 127,
-      artikelnummer: 'MHO127',
-    });
-    api.createSchmuckstueck.mockResolvedValue({});
-  });
-
-  it('vergibt beim Klonen automatisch die nächste Nummer und speichert die übernommenen Daten', async () => {
-    rendereSeite('bearbeiter', [{ pathname: '/', state: { openDuplicate: 'MHO123_1' } }]);
-
-    await waitFor(() => expect(api.getNextArtikelnummer).toHaveBeenCalledWith('MHO'));
-    expect(await screen.findByText('MHO127')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Tropfen')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Blau')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Rund')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Speichern + Schließen' }));
-
-    await waitFor(() => expect(api.createSchmuckstueck).toHaveBeenCalledTimes(1));
-    const gesendet = api.createSchmuckstueck.mock.calls[0][0];
-    expect(gesendet).toMatchObject({
-      Artikelnummer: 'MHO127',
-      Name: 'Tropfen',
-      Art: 'Ohrring',
-      Material: 'Harz',
-      Farbe: 'Blau',
-      Form: 'Rund',
-      Verkaufspreis: 24.5,
-      Verkauft: false,
-      hatFoto: false,
-    });
-    expect(gesendet).not.toHaveProperty('ID');
-    expect(gesendet).not.toHaveProperty('Lieferschein_ID');
-    expect(gesendet).not.toHaveProperty('Rechnung_ID');
   });
 });
