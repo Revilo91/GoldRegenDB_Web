@@ -108,6 +108,9 @@ const klonbareFelderVon = (item) =>
 // Wert von `editing`, wenn das große Formular eine Zeile der Vorlagen-Tabelle bearbeitet.
 const BULK_ZEILE = "bulk-zeile";
 
+// Foto und Artikelnummer teilen sich die Basisnummer: MHO127_1 und MHO127_2 haben ein Foto.
+const fotoBasis = (artikelnummer) => String(artikelnummer).split("_")[0];
+
 const normalizeMehrfachArtikelnummer = (value) => {
   const normalized = String(value || "").trim().toUpperCase();
   if (!normalized) return "";
@@ -176,7 +179,7 @@ export default function Schmuckstuecke() {
   const [saving, setSaving] = useState(false);
   const [gebremsteSuche, setGebremsteSuche] = useState("");
   const [ladeZaehler, setLadeZaehler] = useState(0);
-  const [bulkRows, setBulkRows] = useState([createEmptyMehrfachRow()]);
+  const [bulkRows, setBulkRows] = useState([]);
 
   const buildPrefixFromCodes = (hersteller, grundmaterial, produktart) => {
     if (!hersteller || !grundmaterial || !produktart) return "";
@@ -271,7 +274,7 @@ export default function Schmuckstuecke() {
 
   const openBulkCreate = () => {
     setBulkTemplateArtikelnummer("");
-    setBulkRows([createEmptyMehrfachRow()]);
+    setBulkRows([]);
     setBulkModalOpen(true);
   };
 
@@ -290,9 +293,59 @@ export default function Schmuckstuecke() {
     setEditing(BULK_ZEILE);
   };
 
+  // Fotos werden beim Hochladen sofort gespeichert. Wird die Erfassung
+  // abgebrochen, müssen sie wieder weg, sonst bleiben sie ohne Schmuckstück liegen.
+  // Fotos, die eine andere Zeile derselben Basisnummer noch braucht, bleiben.
+  const loescheFotos = async (artikelnummern, verbleibendeZeilen = []) => {
+    const gebraucht = new Set(
+      verbleibendeZeilen
+        .filter((row) => row.fotoArtikelnummer)
+        .map((row) => fotoBasis(row.fotoArtikelnummer)),
+    );
+    const zuLoeschen = [
+      ...new Set(
+        artikelnummern.filter(Boolean).map(fotoBasis),
+      ),
+    ].filter((basis) => !gebraucht.has(basis));
+
+    for (const basis of zuLoeschen) {
+      try {
+        await api.deleteFoto(basis);
+      } catch (err) {
+        if (err.status === 404) continue;
+        toast.fehler(`Foto ${basis} konnte nicht gelöscht werden: ${err.message}`);
+      }
+    }
+  };
+
   const closeBulkRowForm = () => {
     setEditing(null);
     setBulkEditRowId(null);
+  };
+
+  const cancelBulkRowForm = () => {
+    const zeile = bulkRows.find((row) => row._rowId === bulkEditRowId);
+    // Nur was in diesem Formular hochgeladen wurde, nicht das Foto einer früheren Übernahme.
+    const neuHochgeladen =
+      form.fotoArtikelnummer && form.fotoArtikelnummer !== zeile?.fotoArtikelnummer
+        ? form.fotoArtikelnummer
+        : null;
+    if (neuHochgeladen) {
+      setBulkRows((prev) =>
+        prev.map((row) =>
+          row._rowId === bulkEditRowId
+            ? { ...row, fotoArtikelnummer: undefined }
+            : row,
+        ),
+      );
+      loescheFotos([neuHochgeladen], bulkRows.filter((row) => row._rowId !== bulkEditRowId));
+    }
+    closeBulkRowForm();
+  };
+
+  const cancelBulkCreate = () => {
+    loescheFotos(bulkRows.map((row) => row.fotoArtikelnummer));
+    setBulkModalOpen(false);
   };
 
   const applyBulkRowForm = () => {
@@ -305,15 +358,12 @@ export default function Schmuckstuecke() {
     closeBulkRowForm();
   };
 
-  const addBulkRow = () => {
-    setBulkRows((prev) => [...prev, createEmptyMehrfachRow()]);
-  };
-
   const removeBulkRow = (rowId) => {
-    setBulkRows((prev) => {
-      if (prev.length <= 1) return prev;
-      return prev.filter((row) => row._rowId !== rowId);
-    });
+    const entfernt = bulkRows.find((row) => row._rowId === rowId);
+    if (!entfernt) return;
+    const verbleibend = bulkRows.filter((row) => row._rowId !== rowId);
+    setBulkRows(verbleibend);
+    loescheFotos([entfernt.fotoArtikelnummer], verbleibend);
   };
 
   const duplicateBulkRow = (rowId) => {
@@ -326,6 +376,7 @@ export default function Schmuckstuecke() {
         _rowId: createRowId(),
         // Artikelnummer bleibt absichtlich leer, damit keine Dublette gespeichert wird.
         Artikelnummer: "",
+        fotoArtikelnummer: undefined,
       };
 
       const insertIndex = prev.findIndex((row) => row._rowId === rowId);
@@ -441,7 +492,7 @@ export default function Schmuckstuecke() {
   const handleBulkSave = async () => {
     const items = bulkRows
       .map((row) => {
-        const { _rowId, hatFoto, ...payloadRow } = row;
+        const { _rowId, fotoArtikelnummer, ...payloadRow } = row;
         return {
           ...payloadRow,
           Artikelnummer: normalizeMehrfachArtikelnummer(row.Artikelnummer),
@@ -929,14 +980,14 @@ export default function Schmuckstuecke() {
               </h3>
               <button
                 className="modal-close"
-                onClick={() => setBulkModalOpen(false)}>
+                onClick={cancelBulkCreate}>
                 ×
               </button>
             </div>
             <div className="modal-body">
               <div className="form-section">
                 <h4>
-                  <FontAwesomeIcon icon={faCopy} /> Vorlage (optional)
+                  <FontAwesomeIcon icon={faCopy} /> Vorlage
                 </h4>
                 <div
                   className="form-row schmuckstuecke-cols-1fr-220-ai-end">
@@ -1168,7 +1219,7 @@ export default function Schmuckstuecke() {
                               <button
                                 className="btn btn-danger btn-sm"
                                 onClick={() => removeBulkRow(row._rowId)}
-                                disabled={bulkRows.length <= 1 || bulkSaving}
+                                disabled={bulkSaving}
                                 title="Zeile löschen">
                                 <FontAwesomeIcon icon={faTrash} />
                               </button>
@@ -1179,11 +1230,12 @@ export default function Schmuckstuecke() {
                     ]}
                   />
                 </div>
-                <div className="schmuckstuecke-mt-12-flex-gap-8">
-                  <button className="btn btn-secondary" onClick={addBulkRow}>
-                    <FontAwesomeIcon icon={faPlus} /> Zeile hinzufügen
-                  </button>
-                </div>
+                {bulkRows.length === 0 && (
+                  <p className="schmuckstuecke-mt-12">
+                    Noch keine Zeile. Lade oben ein bestehendes Schmuckstück
+                    als Vorlage.
+                  </p>
+                )}
               </div>
 
               <datalist id="bulk-arten-list">
@@ -1215,14 +1267,14 @@ export default function Schmuckstuecke() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={() => setBulkModalOpen(false)}
+                onClick={cancelBulkCreate}
                 disabled={bulkSaving}>
                 Abbrechen
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleBulkSave}
-                disabled={bulkSaving}>
+                disabled={bulkSaving || bulkRows.length === 0}>
                 {bulkSaving ? "Speichere..." : "Mehrfach speichern"}
               </button>
             </div>
@@ -1254,7 +1306,7 @@ export default function Schmuckstuecke() {
               </h3>
               <button
                 className="modal-close"
-                onClick={editing === BULK_ZEILE ? closeBulkRowForm : () => setEditing(null)}>
+                onClick={editing === BULK_ZEILE ? cancelBulkRowForm : () => setEditing(null)}>
                 ×
               </button>
             </div>
@@ -1467,9 +1519,17 @@ export default function Schmuckstuecke() {
                       ? !nextArtikelnummerPreview
                       : editing === BULK_ZEILE && !form.Artikelnummer
                   }
-                  hatFoto={form.hatFoto}
+                  hatFoto={
+                    editing === BULK_ZEILE
+                      ? Boolean(form.fotoArtikelnummer)
+                      : form.hatFoto
+                  }
                   onPhotoSelected={() => {
-                    setForm({ ...form, hatFoto: true });
+                    setForm(
+                      editing === BULK_ZEILE
+                        ? { ...form, fotoArtikelnummer: form.Artikelnummer }
+                        : { ...form, hatFoto: true },
+                    );
                   }}
                 />
               </div>
@@ -1923,7 +1983,7 @@ export default function Schmuckstuecke() {
             <div className="modal-footer">
               <button
                 className="btn btn-secondary"
-                onClick={editing === BULK_ZEILE ? closeBulkRowForm : () => setEditing(null)}>
+                onClick={editing === BULK_ZEILE ? cancelBulkRowForm : () => setEditing(null)}>
                 Abbrechen
               </button>
               {editing === BULK_ZEILE ? (

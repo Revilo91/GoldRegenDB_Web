@@ -13,6 +13,7 @@ vi.mock('../api', () => ({
     getSchmuckstueck: vi.fn(),
     getNextArtikelnummer: vi.fn(),
     createSchmuckstueckeBulk: vi.fn(),
+    deleteFoto: vi.fn(),
   },
 }));
 
@@ -42,6 +43,7 @@ beforeEach(() => {
   api.getFilterOptions.mockResolvedValue({ grundmaterialien: [], produktarten: [] });
   api.getKunden.mockResolvedValue([]);
   api.getSchmuckstuecke.mockResolvedValue({ data: [], pagination: { total: 0 } });
+  api.deleteFoto.mockResolvedValue({ message: 'Foto gelöscht' });
 });
 
 describe('Aus Vorlage anlegen', () => {
@@ -115,7 +117,7 @@ describe('Vorlage laden: neue Artikelnummer', () => {
 
     expect(api.getNextArtikelnummer).toHaveBeenCalledWith('MHO');
     const nummernfelder = screen.getAllByPlaceholderText('MBH001_2');
-    expect(nummernfelder.map((f) => f.value)).toEqual(['', 'MHO127_1']);
+    expect(nummernfelder.map((f) => f.value)).toEqual(['MHO127_1']);
     expect(screen.getByDisplayValue('Tropfen')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Ohrring')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Harz')).toBeInTheDocument();
@@ -131,7 +133,7 @@ describe('Vorlage laden: neue Artikelnummer', () => {
     await ladeVorlage('MHO124_1');
 
     const nummernfelder = screen.getAllByPlaceholderText('MBH001_2');
-    expect(nummernfelder.map((f) => f.value)).toEqual(['', 'MHO127_1', 'MHO128_1']);
+    expect(nummernfelder.map((f) => f.value)).toEqual(['MHO127_1', 'MHO128_1']);
   });
 
   it('klont alle Felder der Vorlage, auch die in der Tabelle nicht sichtbaren', async () => {
@@ -219,7 +221,7 @@ describe('Vorlage laden: neue Artikelnummer', () => {
 
     expect(await screen.findByText(/Server nicht erreichbar/)).toBeInTheDocument();
     const nummernfelder = screen.getAllByPlaceholderText('MBH001_2');
-    expect(nummernfelder.map((f) => f.value)).toEqual(['', '']);
+    expect(nummernfelder.map((f) => f.value)).toEqual(['']);
     expect(screen.getByDisplayValue('Tropfen')).toBeInTheDocument();
   });
 });
@@ -244,7 +246,7 @@ describe('Zeile mit allen Feldern bearbeiten', () => {
       target: { value: 'MHO123_1' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Als neue Zeile übernehmen' }));
-    await waitFor(() => expect(screen.getAllByPlaceholderText('MBH001_2')[1].value).toBe('MHO127_1'));
+    await waitFor(() => expect(screen.getAllByPlaceholderText('MBH001_2')[0].value).toBe('MHO127_1'));
     const knoepfe = screen.getAllByTitle('Alle Felder bearbeiten');
     fireEvent.click(knoepfe[knoepfe.length - 1]);
   }
@@ -308,5 +310,72 @@ describe('Zeile mit allen Feldern bearbeiten', () => {
 
     const item = await speichereMehrfach();
     expect(item).not.toHaveProperty('hatFoto');
+    expect(item).not.toHaveProperty('fotoArtikelnummer');
+  });
+
+  async function ladeFotoInZeilenFormular() {
+    await ladeVorlageUndOeffneZeile();
+    fireEvent.click(await screen.findByRole('button', { name: 'Foto für MHO127_1' }));
+  }
+
+  function klickeLetztenAbbrechen() {
+    const knoepfe = screen.getAllByRole('button', { name: 'Abbrechen' });
+    fireEvent.click(knoepfe[knoepfe.length - 1]);
+  }
+
+  it('löscht das Foto wieder, wenn das Zeilen-Formular abgebrochen wird', async () => {
+    await ladeFotoInZeilenFormular();
+
+    klickeLetztenAbbrechen();
+
+    await waitFor(() => expect(api.deleteFoto).toHaveBeenCalledWith('MHO127'));
+    expect(api.deleteFoto).toHaveBeenCalledTimes(1);
+  });
+
+  it('löscht kein Foto, wenn im Zeilen-Formular nichts hochgeladen wurde', async () => {
+    await ladeVorlageUndOeffneZeile();
+
+    klickeLetztenAbbrechen();
+
+    expect(api.deleteFoto).not.toHaveBeenCalled();
+  });
+
+  it('löscht das Foto nicht, wenn die Zeile übernommen und gespeichert wird', async () => {
+    await ladeFotoInZeilenFormular();
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    await speichereMehrfach();
+
+    expect(api.deleteFoto).not.toHaveBeenCalled();
+  });
+
+  it('löscht übernommene Fotos, wenn das Mehrfach-Modal abgebrochen wird', async () => {
+    await ladeFotoInZeilenFormular();
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
+
+    await waitFor(() => expect(api.deleteFoto).toHaveBeenCalledWith('MHO127'));
+    expect(screen.queryByRole('heading', { name: 'Schmuckstücke aus Vorlage anlegen' })).not.toBeInTheDocument();
+  });
+
+  it('löscht das Foto einer Zeile, wenn die Zeile entfernt wird', async () => {
+    await ladeFotoInZeilenFormular();
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen' }));
+
+    fireEvent.click(screen.getByTitle('Zeile löschen'));
+
+    await waitFor(() => expect(api.deleteFoto).toHaveBeenCalledWith('MHO127'));
+  });
+});
+
+describe('Aus Vorlage anlegen: nur über Vorlagen', () => {
+  it('startet ohne Zeile und bietet kein "Zeile hinzufügen" an', async () => {
+    rendereSeite();
+    fireEvent.click(await screen.findByRole('button', { name: '+ Aus Vorlage anlegen' }));
+
+    expect(screen.queryByPlaceholderText('MBH001_2')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Zeile hinzufügen/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mehrfach speichern' })).toBeDisabled();
   });
 });
