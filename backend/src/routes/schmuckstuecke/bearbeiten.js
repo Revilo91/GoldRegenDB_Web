@@ -4,6 +4,7 @@ const logger = require("../../utils/logger");
 const { validate } = require("../../middleware/validate");
 const { schmuckstueckUpdateSchema } = require("../../schemas");
 const { requireBearbeiter } = require("../../middleware/auth");
+const { basisArtikelnummer, loescheFoto } = require("../../utils/fotoService");
 const {
   AUSSCHUSS_GRUND_CONSTRAINT,
   resolveAusschussGrund,
@@ -175,6 +176,17 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
     );
     if (rowCount === 0) {
       return res.status(404).json({ error: "Schmuckstück nicht gefunden" });
+    }
+
+    // Das Foto gehört zur Basisnummer (MHO127 für MHO127_1, _2 …) und bleibt,
+    // solange noch ein Exemplar davon existiert.
+    const basis = basisArtikelnummer(req.params.artikelnummer);
+    if (basis) {
+      const { rows } = await db.query(
+        'SELECT 1 FROM "Schmuckstück" WHERE "Artikelnummer" = $1 OR "Artikelnummer" LIKE $2 LIMIT 1',
+        [basis, `${basis}\\_%`],
+      );
+      if (rows.length === 0) await loescheFoto(db, "schmuckstueck", basis);
     }
     res.json({ message: "Schmuckstück gelöscht" });
   } catch (err) {

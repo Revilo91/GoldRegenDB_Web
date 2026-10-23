@@ -316,3 +316,54 @@ describe('POST /api/schmuckstuecke (Duplizieren)', () => {
     expect(insert[1]).toContain(false); // Verkauft/Ausschuss
   });
 });
+
+describe('DELETE /api/schmuckstuecke/:artikelnummer', () => {
+  const sqlAufrufe = (muster) => db.query.mock.calls.filter(([sql]) => muster.test(sql));
+
+  it('löscht das Foto mit, wenn kein weiteres Exemplar der Basisnummer übrig bleibt', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // DELETE Schmuckstück
+      .mockResolvedValueOnce({ rows: [] }) // kein Exemplar mehr vorhanden
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // DELETE Foto
+
+    const res = await request(app).delete('/api/schmuckstuecke/MHO127_1');
+
+    expect(res.statusCode).toBe(200);
+    const fotoLoeschen = sqlAufrufe(/DELETE FROM "Foto"/);
+    expect(fotoLoeschen).toHaveLength(1);
+    expect(fotoLoeschen[0][1]).toEqual(['MHO127']);
+  });
+
+  it('behält das Foto, solange ein anderes Exemplar der Basisnummer existiert', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // DELETE Schmuckstück
+      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }); // MHO127_2 existiert
+
+    const res = await request(app).delete('/api/schmuckstuecke/MHO127_1');
+
+    expect(res.statusCode).toBe(200);
+    expect(sqlAufrufe(/DELETE FROM "Foto"/)).toHaveLength(0);
+  });
+
+  it('prüft Exemplare nur mit exakter Basisnummer, nicht mit längeren Laufnummern', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    await request(app).delete('/api/schmuckstuecke/MHO127_1');
+
+    const [, params] = sqlAufrufe(/FROM "Schmuckstück"/)[1];
+    // MHO127 selbst oder MHO127_<n>, aber nicht MHO1270
+    expect(params).toEqual(['MHO127', 'MHO127\\_%']);
+  });
+
+  it('fasst Foto und Exemplare nicht an, wenn das Schmuckstück nicht existiert', async () => {
+    db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const res = await request(app).delete('/api/schmuckstuecke/MHO999_1');
+
+    expect(res.statusCode).toBe(404);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+});
