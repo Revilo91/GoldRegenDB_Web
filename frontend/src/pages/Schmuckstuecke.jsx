@@ -583,7 +583,7 @@ export default function Schmuckstuecke() {
           <div className="schmuckstuecke-flex-gap-10">
           {canEdit && (
             <button className="btn btn-secondary" onClick={openBulkCreate}>
-              + Schmuckstücke nachtragen
+              + Aus Vorlage anlegen
             </button>
           )}
             <button className="btn btn-primary" onClick={openNew}>
@@ -838,8 +838,8 @@ export default function Schmuckstuecke() {
             onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <FontAwesomeIcon icon={faPlus} /> Mehrere Schmuckstücke
-                nachtragen
+                <FontAwesomeIcon icon={faPlus} /> Schmuckstücke aus Vorlage
+                anlegen
               </h3>
               <button
                 className="modal-close"
