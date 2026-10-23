@@ -60,6 +60,10 @@ Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
 - **sonnet** (Standard): Implementieren, Tests schreiben, Refactoring, Code-Review.
 - **opus**: Architektur, schwieriges Debugging, Security-Review, oder wenn sonnet nach 3 Versuchen scheitert (Abschnitt „Debugging“).
 - Im Zweifel eine Stufe niedriger starten, bei Misserfolg hochstufen.
+
+## Gelernte Korrekturen (alle Projekte)
+
+- 2026-10-19: GH_TOKEN aus der Umgebung ließ Installer-Tests scheitern → Tests, die install.sh starten, setzen GH_TOKEN immer leer.
 <!-- base:end -->
 
 <!-- Projektspezifische Ergänzungen unterhalb dieser Zeile (werden vom Sync nicht angefasst). -->
