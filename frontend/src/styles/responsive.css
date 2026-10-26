@@ -102,6 +102,11 @@
     margin-left: 0;
     padding: 80px 16px 20px;
   }
+  /* Flex-Item: ohne min-width: 0 weitet eine breite Tabelle den Inhalt über das Fenster (#327);
+     scrollen soll nur der .card-body. */
+  .main-content {
+    min-width: 0;
+  }
 
   /* Page header stacks vertically on mobile */
   .page-header {

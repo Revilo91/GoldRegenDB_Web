@@ -106,10 +106,9 @@ test.describe('Handy: Abläufe', () => {
     await feld('E-Mail').fill('e2e-mobil@example.com');
     await feld('Telefonnummer').fill('0123456789');
     await feld('Auftragsbeschreibung').fill('E2E-Test mobil: Ring');
-    // dispatchEvent statt check()/click(): Auf 390 px liegt die Foto-Zone über der Einwilligung
-    // und das Modal ist breiter als das Fenster (siehe Scroll-Tests unten).
-    await page.getByRole('checkbox').dispatchEvent('click');
-    await page.getByRole('button', { name: 'Speichern' }).dispatchEvent('click');
+    // Echte Klicks: Das Modal passt seit #327 in das Fenster, nichts überdeckt Checkbox und Button.
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: 'Speichern' }).click();
     await expect(page.locator('.modal-overlay')).toHaveCount(0, { timeout: 5_000 });
 
     await page.locator('input[placeholder*="Suche"]').first().fill(marker);
@@ -129,8 +128,9 @@ test.describe('Handy: kein horizontales Scrollen', () => {
     });
   });
 
-  // BEKANNT ROT bei vorhandenen Bestellungen: gemessen scrollWidth 453 > 390 (Tabelle/Modal breiter als
-  // das Fenster). Mit leerer Tabelle grün, das Ergebnis hängt also von den Daten in der DB ab.
+  // Behoben mit #327: Mit Bestellungen war scrollWidth 453 > 390, weil .main-content (Flex-Item) von der
+  // Tabelle aufgeweitet wurde. Der Test ist nur mit vorhandenen Bestellungen aussagekräftig; die
+  // Ablauf-Tests oben legen eine an.
   test('Bestellübersicht scrollt nicht seitlich', async ({ page }) => {
     await page.goto('/bestelluebersicht');
     await page.waitForLoadState('networkidle');

@@ -31,9 +31,10 @@ Zugangsdaten für `auth.setup.ts` und `smoke.spec.ts`.
   (`setInputFiles`), Bestellübersicht anlegen sowie je Seite ein eigener Test „scrollt nicht
   seitlich“. Die Prüfungen für die Schmuckstück-Seite laufen erst mit
   `MOBIL_SCROLL_SCHMUCKSTUECK=1`, weil sie bis zur Kompakt-Liste (#317) rot sind (620 px breit).
-  Bis dahin klicken die Ablauf-Tests Buttons per `dispatchEvent`, weil sie außerhalb des
-  Fensters liegen bzw. überdeckt sind. Der Test „Bestellübersicht scrollt nicht seitlich“ ist
-  bei vorhandenen Bestellungen rot (453 px) und zeigt einen echten Befund, kein Testfehler.
+  Bis dahin klicken die Schmuckstück-Ablauf-Tests Buttons per `dispatchEvent`, weil sie
+  außerhalb des Fensters liegen bzw. überdeckt sind; die Bestellübersicht klickt seit #327 echt.
+  Der Test „Bestellübersicht scrollt nicht seitlich“ ist nur mit vorhandenen Bestellungen
+  aussagekräftig (vor #327 war er dann mit 453 px rot, der Ablauf-Test legt eine Bestellung an).
 
 Chromium liegt vorinstalliert unter `/opt/pw-browsers`
 (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`) – kein `playwright install` nötig.
