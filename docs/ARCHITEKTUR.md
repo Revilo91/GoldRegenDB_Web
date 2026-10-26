@@ -138,6 +138,11 @@ Eingefrorene Positionen einer Rechnung (`services/rechnungSnapshot.js`, beim Anl
 | `einzelpreis` | NUMERIC(10,2) | Verkaufspreis zum Zeitpunkt des Snapshots |
 | `positionsrabatt` | NUMERIC(5,2) | Positionsrabatt in % |
 
+**Leser (#283, Schritt 3):** Für `status = 'final' AND snapshot_am IS NOT NULL` lesen alle Auswertungen den gespeicherten Stand; Entwürfe, Rechnungen ohne Snapshot und Lieferscheine rechnen weiter live.
+- `belegSummen()` (`utils/rabatt.js`): eine Abfrage, der CTE `snap` hat nur bei eingefrorenen Rechnungen eine Zeile. Brutto, Gesamtrabatt-, Provisions-, Versandbetrag und Provisionssatz kommen aus `Rechnung`, die Herstellerinnen-Aufteilung aus `Rechnung_Position`. `{ live: true }` rechnet ohne Snapshot (Pflicht in `schreibeSnapshot`).
+- `preisNachAllenRabattenSql()` (Dashboard-Umsatz, Inventur-`wert_verkauft`): Positionspreis per Subselect aus `Rechnung_Position`, Gesamtrabattfaktor `1 - rabatt_gesamt_betrag / summe_brutto`; keine zusätzlichen JOINs nötig.
+- Detail, Excel und E-Rechnung (`routes/rechnungen.js`): `wendeSnapshotAn()` ersetzt Preise, Positionsrabatte, Gesamtrabatt-%, Versand und Provision. Der Gesamtrabatt-% bleibt der gespeicherte Wert, solange er den gespeicherten Betrag reproduziert, sonst wird er aus dem Betrag zurückgerechnet.
+
 #### `Foto`
 
 | Spalte | Typ | Beschreibung |

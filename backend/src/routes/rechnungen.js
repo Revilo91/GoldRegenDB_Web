@@ -7,7 +7,9 @@ const { rechnungSchema, rechnungZuruecksetzenSchema } = require('../schemas');
 const { requireAdmin } = require('../middleware/auth');
 const { belegSummen } = require('../utils/rabatt');
 const { markiereVerkauft, hebeVerkauftAuf, gibVerkaufFrei } = require('../utils/statusUebergaenge');
-const { schreibeSnapshot, leereSnapshot } = require('../services/rechnungSnapshot');
+const {
+  schreibeSnapshot, leereSnapshot, wendeSnapshotAn, SNAPSHOT_SPALTEN, SNAPSHOT_JOIN,
+} = require('../services/rechnungSnapshot');
 const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
@@ -49,6 +51,17 @@ const empfaengerJson = (empfaenger) => (empfaenger ? JSON.stringify(empfaenger) 
 
 // Leer und 0 werden NULL, damit der Beleg keine Versandzeile über 0,00 € zeigt
 const versandkostenWert = (v) => (v > 0 ? Math.round(v * 100) / 100 : null);
+
+// Stücke einer Rechnung samt Snapshot-Positionen (für finale Rechnungen: eingefrorene Preise)
+const STUECKE_DER_RECHNUNG = `SELECT s.*, ${SNAPSHOT_SPALTEN}
+  FROM "Schmuckstück" s ${SNAPSHOT_JOIN}
+  WHERE s."Rechnung_ID" = $1`;
+const entferneSnapshotSpalten = (stueck) => {
+  const kopie = { ...stueck };
+  delete kopie.snapshot_einzelpreis;
+  delete kopie.snapshot_positionsrabatt;
+  return kopie;
+};
 
 const GESPERRT_MELDUNG = 'Finale Rechnung ist gesperrt; ein Admin kann sie mit Begründung zurücksetzen';
 
@@ -177,9 +190,10 @@ router.get('/:id', async (req, res) => {
     }
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      `${STUECKE_DER_RECHNUNG} ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       [req.params.id]
     );
+    const { stuecke } = wendeSnapshotAn(rows[0], pieces.rows);
 
     // Befund G7: die Auszahlungsaufteilung je Herstellerin wurde im Frontend
     // aus rohen Preisen summiert, ohne Positions- und Gesamtrabatt -- bei 20 %
@@ -188,7 +202,7 @@ router.get('/:id', async (req, res) => {
     // Reihenfolge wie auf dem Beleg.
     const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
-    res.json({ ...rows[0], schmuckstuecke: pieces.rows, summen });
+    res.json({ ...rows[0], schmuckstuecke: stuecke.map(entferneSnapshotSpalten), summen });
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
@@ -229,11 +243,14 @@ router.get('/:id/excel', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      `${STUECKE_DER_RECHNUNG} ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       [req.params.id]
     );
+    // r.* und k.* teilen sich Spaltennamen ("ID"); status/snapshot_am/rabatt_* gibt es nur an der Rechnung
+    const { rechnung: beleg, stuecke, provisionProzent } = wendeSnapshotAn(rows[0], pieces.rows);
+    if (provisionProzent !== null) beleg.Provision = provisionProzent;
 
-    const zeitraum = await ladeLeistungszeitraum(pieces.rows);
+    const zeitraum = await ladeLeistungszeitraum(stuecke);
     const deDatum = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     let rechungsZeitraum = null;
     if (zeitraum) {
@@ -245,11 +262,11 @@ router.get('/:id/excel', async (req, res) => {
     const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
     const buffer = await generateExcel('Rechnung', {
-      ...rows[0],
-      kunde: mitEmpfaenger(rows[0], rows[0].empfaenger),
+      ...beleg,
+      kunde: mitEmpfaenger(beleg, beleg.empfaenger),
       rechungsZeitraum,
       summen,
-      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
+      schmuckstuecke: stuecke.map(entferneSnapshotSpalten).sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -311,13 +328,16 @@ router.get('/:id/erechnung', async (req, res) => {
     const rechnung = rows[0];
 
     const kunde = await db.query('SELECT * FROM "Kunde" WHERE "ID" = $1', [rechnung.Kundennummer]);
-    const pieces = await db.query('SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1', [req.params.id]);
+    const pieces = await db.query(STUECKE_DER_RECHNUNG, [req.params.id]);
+    const { rechnung: beleg, stuecke, provisionProzent } = wendeSnapshotAn(rechnung, pieces.rows);
+    const kundeDaten = kunde.rows[0] || {};
+    if (provisionProzent !== null) kundeDaten.Provision = provisionProzent;
 
     const ergebnis = await erstelleERechnung({
-      rechnung,
-      kunde: mitEmpfaenger(kunde.rows[0] || {}, rechnung.empfaenger),
-      schmuckstuecke: pieces.rows,
-      leistungszeitraum: await ladeLeistungszeitraum(pieces.rows),
+      rechnung: beleg,
+      kunde: mitEmpfaenger(kundeDaten, rechnung.empfaenger),
+      schmuckstuecke: stuecke.map(entferneSnapshotSpalten),
+      leistungszeitraum: await ladeLeistungszeitraum(stuecke),
     }, format);
 
     logger.info('RECHNUNGEN', 'E-Rechnung erzeugt', {

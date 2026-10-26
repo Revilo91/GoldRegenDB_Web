@@ -12,8 +12,8 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 const { runMigrations } = require('../src/config/migrate');
-const { belegSummen } = require('../src/utils/rabatt');
-const { schreibeSnapshot } = require('../src/services/rechnungSnapshot');
+const { belegSummen, preisNachAllenRabattenSql } = require('../src/utils/rabatt');
+const { schreibeSnapshot, wendeSnapshotAn } = require('../src/services/rechnungSnapshot');
 
 const BASIS_URL = process.env.TEST_DATABASE_URL;
 const describeDb = BASIS_URL ? describe : describe.skip;
@@ -137,6 +137,126 @@ describeDb('Rechnungs-Snapshot gegen echte Datenbank', () => {
     });
     const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM "Rechnung_Position" WHERE rechnung_id = $1', [id]);
     expect(rows[0].n).toBe(3);
+  });
+
+  // Dieselbe Umsatzformel wie dashboard.js und inventur.js (Alias s/r, LEFT JOIN auf Rechnung)
+  const umsatz = async (id) => (await pool.query(
+    `SELECT round(COALESCE(SUM(${preisNachAllenRabattenSql('s', 'r')}), 0), 2) AS wert
+     FROM "Schmuckstück" s LEFT JOIN "Rechnung" r ON r."ID" = s."Rechnung_ID"
+     WHERE s."Rechnung_ID" = $1`, [id],
+  )).rows[0].wert;
+
+  // Spätere Änderungen an Preis, Kunden-Provision und Rabatten der Rechnung
+  async function aendereNachtraeglich(id) {
+    await pool.query('UPDATE "Schmuckstück" SET "Verkaufspreis" = "Verkaufspreis" * 2 + 1 WHERE "Rechnung_ID" = $1', [id]);
+    await pool.query('UPDATE "Kunde" SET "Provision" = 10 WHERE "ID" = 1');
+    await pool.query(
+      `UPDATE "Rechnung" SET rabatt_gesamt = 50, rabatt_positionen = '{"MLE1": 90, "MLF1": 90}'::jsonb WHERE "ID" = $1`, [id],
+    );
+  }
+
+  describe('Leser nutzen den eingefrorenen Stand (Issue #283, Schritt 3)', () => {
+    afterEach(async () => {
+      await pool.query('UPDATE "Kunde" SET "Provision" = 40 WHERE "ID" = 1');
+    });
+
+    it('finale Rechnung: Summen, Umsatz und Inventurwert bleiben nach nachträglichen Änderungen gleich', async () => {
+      const id = await legeRechnungAn({
+        nummer: '2026-930', status: 'final', rabattGesamt: 10, versand: 4.9,
+        rabattPositionen: { MLE1: 25 }, stuecke: [['MLE1_1', 20], ['MLE1_2', 20], ['SLE2_1', 33.33]],
+      });
+      await schreibeSnapshot(pool, id);
+      const summenVorher = await belegSummen(pool, 'Rechnung', id);
+      const umsatzVorher = await umsatz(id);
+      expect(summenVorher).toMatchObject({
+        gesamtwert: '63.33', gesamtrabatt_betrag: '6.33', summe_nach_rabatt: '57.00',
+        provision_betrag: '22.80', versandkosten: '4.90', ueberweisungsbetrag: '39.10',
+        marina_brutto: '27.00', saskia_brutto: '30.00', rabatt_gesamt: '10.00', provision: '40.00',
+      });
+      expect(umsatzVorher).toBe('57.00');
+
+      await aendereNachtraeglich(id);
+
+      // Live gerechnet wäre das ein ganz anderer Betrag
+      const live = await belegSummen(pool, 'Rechnung', id, { live: true });
+      expect(live.ueberweisungsbetrag).not.toBe(summenVorher.ueberweisungsbetrag);
+      expect(await belegSummen(pool, 'Rechnung', id)).toEqual(summenVorher);
+      expect(await umsatz(id)).toBe(umsatzVorher);
+    });
+
+    it('wendeSnapshotAn liefert eingefrorene Preise, Rabatte und Provision für Excel/E-Rechnung', async () => {
+      const id = await legeRechnungAn({
+        nummer: '2026-931', status: 'final', rabattGesamt: 10, versand: 4.9,
+        rabattPositionen: { MLF1: 25 }, stuecke: [['MLF1_1', 20], ['SLF2_1', 33.33]],
+      });
+      await schreibeSnapshot(pool, id);
+      await aendereNachtraeglich(id);
+
+      const { rows: [rechnung] } = await pool.query('SELECT * FROM "Rechnung" WHERE "ID" = $1', [id]);
+      const { rows: stuecke } = await pool.query(
+        `SELECT s.*, p.einzelpreis AS snapshot_einzelpreis, p.positionsrabatt AS snapshot_positionsrabatt
+         FROM "Schmuckstück" s LEFT JOIN "Rechnung_Position" p
+           ON p.rechnung_id = s."Rechnung_ID" AND p.artikelnummer_id = s."Artikelnummer"
+         WHERE s."Rechnung_ID" = $1 ORDER BY s."Artikelnummer"`, [id],
+      );
+      const eingefroren = wendeSnapshotAn(rechnung, stuecke);
+
+      expect(eingefroren.stuecke.map((s) => s.Verkaufspreis)).toEqual(['20.00', '33.33']);
+      expect(eingefroren.rechnung.rabatt_positionen).toEqual({ MLF1: 25, SLF2: 0 });
+      // rabatt_gesamt wurde auf 50 geändert; zurückgerechnet aus Betrag 4.83 / Brutto 48.33 (reproduziert den Betrag in Cent)
+      expect(eingefroren.rechnung.rabatt_gesamt).toBe(9.99);
+      expect(Math.round(4833 * eingefroren.rechnung.rabatt_gesamt / 100)).toBe(483);
+      expect(eingefroren.rechnung.versandkosten).toBe('4.90');
+      expect(eingefroren.provisionProzent).toBe('40.00');
+    });
+
+    it('Entwurf mit Snapshot rechnet weiter live', async () => {
+      const id = await legeRechnungAn({
+        nummer: '2026-932', status: 'entwurf', rabattGesamt: 10, versand: null,
+        rabattPositionen: {}, stuecke: [['MLE3_1', 100]],
+      });
+      await schreibeSnapshot(pool, id);
+      expect((await belegSummen(pool, 'Rechnung', id)).gesamtwert).toBe('100.00');
+      expect(await umsatz(id)).toBe('90.00');
+
+      await pool.query('UPDATE "Schmuckstück" SET "Verkaufspreis" = 200 WHERE "Rechnung_ID" = $1', [id]);
+      await pool.query('UPDATE "Rechnung" SET rabatt_gesamt = 50 WHERE "ID" = $1', [id]);
+
+      const summen = await belegSummen(pool, 'Rechnung', id);
+      expect(summen).toMatchObject({ gesamtwert: '200.00', gesamtrabatt_betrag: '100.00' });
+      expect(await umsatz(id)).toBe('100.00');
+    });
+
+    it('Lieferschein bleibt live', async () => {
+      const { rows } = await pool.query(
+        `INSERT INTO "Lieferschein" ("Nummer", "Kundennummer") VALUES ('2026-L930', 1) RETURNING "ID"`,
+      );
+      const lieferschein = rows[0].ID;
+      await pool.query(
+        `INSERT INTO "Schmuckstück" ("Artikelnummer", "Verkaufspreis", "Lieferschein_ID") VALUES ('MLE4_1', 10, $1)`,
+        [lieferschein],
+      );
+      expect((await belegSummen(pool, 'Lieferschein', lieferschein)).gesamtwert).toBe('10.00');
+
+      await pool.query('UPDATE "Schmuckstück" SET "Verkaufspreis" = 30 WHERE "Lieferschein_ID" = $1', [lieferschein]);
+
+      expect((await belegSummen(pool, 'Lieferschein', lieferschein)).gesamtwert).toBe('30.00');
+    });
+
+    it('Zurücksetzen auf Entwurf und erneutes Finalisieren friert den neuen Stand ein', async () => {
+      const id = await legeRechnungAn({
+        nummer: '2026-933', status: 'final', rabattGesamt: 0, versand: null,
+        rabattPositionen: {}, stuecke: [['MLE5_1', 10]],
+      });
+      await schreibeSnapshot(pool, id);
+      await pool.query('UPDATE "Schmuckstück" SET "Verkaufspreis" = 20 WHERE "Rechnung_ID" = $1', [id]);
+      expect((await belegSummen(pool, 'Rechnung', id)).gesamtwert).toBe('10.00');
+
+      // PUT-Ablauf: Status final, der alte Snapshot ist noch da -> schreibeSnapshot muss live rechnen
+      await schreibeSnapshot(pool, id);
+
+      expect((await belegSummen(pool, 'Rechnung', id)).gesamtwert).toBe('20.00');
+    });
   });
 
   it('löscht die Positionen mit der Rechnung (ON DELETE CASCADE)', async () => {

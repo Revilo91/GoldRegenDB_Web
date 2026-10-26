@@ -3,7 +3,7 @@
 jest.mock('../src/utils/rabatt', () => ({ belegSummen: jest.fn() }));
 
 const { belegSummen } = require('../src/utils/rabatt');
-const { schreibeSnapshot, leereSnapshot } = require('../src/services/rechnungSnapshot');
+const { schreibeSnapshot, leereSnapshot, wendeSnapshotAn, istEingefroren } = require('../src/services/rechnungSnapshot');
 const { createTxClientMock, sqlVerlauf } = require('./helpers/txClientMock');
 
 beforeEach(() => jest.clearAllMocks());
@@ -26,7 +26,7 @@ describe('schreibeSnapshot', () => {
     // Positionsrabatt je Basis-Artikelnummer
     expect(verlauf[1]).toContain("split_part(s.\"Artikelnummer\", '_', 1)");
     expect(verlauf[1]).toContain('rabatt_positionen ->>');
-    expect(belegSummen).toHaveBeenCalledWith(client, 'Rechnung', 7);
+    expect(belegSummen).toHaveBeenCalledWith(client, 'Rechnung', 7, { live: true });
     const update = client.query.mock.calls[2];
     expect(update[0]).toContain('UPDATE "Rechnung"');
     expect(update[1]).toEqual([7, '100.00', '10.00', '40', '36.00', '4.90', '58.90']);
@@ -63,5 +63,44 @@ describe('leereSnapshot', () => {
     expect(loeschen[1]).toEqual([3]);
     expect(update[0]).toContain('snapshot_am = NULL');
     expect(update[0]).toContain('summe_ueberweisung = NULL');
+  });
+});
+
+describe('wendeSnapshotAn', () => {
+  const eingefroren = {
+    status: 'final', snapshot_am: '2026-10-01T10:00:00Z', rabatt_gesamt: '10.00', rabatt_positionen: { MHO1: 5 },
+    summe_brutto: '100.00', rabatt_gesamt_betrag: '10.00', provision_prozent: '40.00', versand_betrag: '4.90',
+    versandkosten: '99.00',
+  };
+  const stuecke = [
+    { Artikelnummer: 'MHO1_1', Verkaufspreis: '99.00', snapshot_einzelpreis: '20.00', snapshot_positionsrabatt: '25.00' },
+    { Artikelnummer: 'SHO2_1', Verkaufspreis: '7.00', snapshot_einzelpreis: null, snapshot_positionsrabatt: null },
+  ];
+
+  it('legt bei finalen Rechnungen den gespeicherten Stand über Preise, Rabatte, Versand und Provision', () => {
+    const erg = wendeSnapshotAn(eingefroren, stuecke);
+
+    expect(erg.stuecke[0].Verkaufspreis).toBe('20.00');
+    expect(erg.stuecke[1].Verkaufspreis).toBe('7.00'); // ohne Snapshot-Zeile bleibt live
+    expect(erg.rechnung.rabatt_positionen).toEqual({ MHO1: 25 });
+    expect(erg.rechnung.versandkosten).toBe('4.90');
+    expect(erg.rechnung.rabatt_gesamt).toBe(10);
+    expect(erg.provisionProzent).toBe('40.00');
+  });
+
+  it('rechnet den Gesamtrabatt-Prozentwert aus dem Betrag zurück, wenn rabatt_gesamt nachträglich geändert wurde', () => {
+    const erg = wendeSnapshotAn({ ...eingefroren, rabatt_gesamt: '50.00' }, stuecke);
+
+    expect(erg.rechnung.rabatt_gesamt).toBe(10);
+  });
+
+  it('lässt Entwürfe und Rechnungen ohne Snapshot unverändert', () => {
+    const entwurf = { ...eingefroren, status: 'entwurf' };
+    const ohne = { ...eingefroren, snapshot_am: null };
+
+    expect(wendeSnapshotAn(entwurf, stuecke)).toEqual({ rechnung: entwurf, stuecke, provisionProzent: null });
+    expect(wendeSnapshotAn(ohne, stuecke)).toEqual({ rechnung: ohne, stuecke, provisionProzent: null });
+    expect(istEingefroren(entwurf)).toBe(false);
+    expect(istEingefroren(eingefroren)).toBe(true);
   });
 });

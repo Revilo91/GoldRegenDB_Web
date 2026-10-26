@@ -113,6 +113,41 @@ describe('GET /api/rechnungen/:id', () => {
   });
 });
 
+describe('GET /api/rechnungen/:id (Snapshot, Issue #283 Schritt 3)', () => {
+  const eingefroren = {
+    ID: 1, Nummer: '2026-001', status: 'final', snapshot_am: '2026-10-01T10:00:00Z',
+    rabatt_gesamt: '0.00', rabatt_positionen: {}, summe_brutto: '40.00', rabatt_gesamt_betrag: '0.00',
+    provision_prozent: '25.00', versand_betrag: '0.00',
+  };
+  const stueck = {
+    Artikelnummer: 'MHO001_1', Verkaufspreis: '99.00', snapshot_einzelpreis: '40.00', snapshot_positionsrabatt: '0.00',
+  };
+
+  it('liefert bei finalen Rechnungen die eingefrorenen Preise, ohne Hilfsspalten', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [eingefroren] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '40.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.schmuckstuecke).toEqual([{ Artikelnummer: 'MHO001_1', Verkaufspreis: '40.00' }]);
+    expect(String(db.query.mock.calls[1][0])).toContain('LEFT JOIN "Rechnung_Position" p');
+  });
+
+  it('lässt den Preis eines Entwurfs live', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ...eingefroren, status: 'entwurf' }] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '99.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1');
+
+    expect(res.body.schmuckstuecke[0].Verkaufspreis).toBe('99.00');
+  });
+});
+
 describe('GET /api/rechnungen/:id/excel', () => {
   it('liefert eine XLSX-Datei', async () => {
     db.query
@@ -674,6 +709,22 @@ describe('GET /api/rechnungen/:id/erechnung', () => {
     expect(res.headers['content-disposition']).toBe('attachment; filename="Rechnung_2026-003_XRechnung.xml"');
     expect(res.text).toContain('<ram:DuePayableAmount>30.00</ram:DuePayableAmount>');
     expect(res.text).toContain('<udt:DateTimeString format="102">20260801</udt:DateTimeString>');
+  }, 30000);
+
+  it('nimmt bei finaler Rechnung mit Snapshot Preis, Provision und Versand aus dem gespeicherten Stand', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ...rechnung, snapshot_am: '2026-10-01T10:00:00Z', summe_brutto: '40.00',
+        rabatt_gesamt_betrag: '0.00', provision_prozent: '25.00', versand_betrag: '0.00', versandkosten: '50.00',
+        rabatt_gesamt: '20.00' }] })
+      .mockResolvedValueOnce({ rows: [{ ...kunde, Provision: 90 }] })
+      .mockResolvedValueOnce({ rows: [{ ...stueck, Verkaufspreis: 999, snapshot_einzelpreis: '40.00', snapshot_positionsrabatt: '0.00' }] })
+      .mockResolvedValueOnce({ rows: [{ min_datum: '2026-08-01', max_datum: '2026-08-15' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung?format=xrechnung');
+
+    expect(res.statusCode).toBe(200);
+    // 40,00 - 25 % Provision, ohne Gesamtrabatt und ohne Versand
+    expect(res.text).toContain('<ram:DuePayableAmount>30.00</ram:DuePayableAmount>');
   }, 30000);
 
   it('liefert ein ZUGFeRD-PDF', async () => {

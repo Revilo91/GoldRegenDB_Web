@@ -23,7 +23,7 @@ const BELEG_SUMMEN_NULL = {
 };
 
 function createTxClientMock({ ergebnisse: eigene = {}, fehlerBei = null, fehler = null } = {}) {
-  const ergebnisse = { ...eigene, 'WITH positionen AS': BELEG_SUMMEN_NULL };
+  const ergebnisse = { ...eigene, 'WITH snap AS': BELEG_SUMMEN_NULL };
   const client = {
     query: jest.fn(async (sql) => {
       const text = String(sql);
