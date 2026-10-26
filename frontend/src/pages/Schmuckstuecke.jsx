@@ -22,6 +22,7 @@ import TableToolbar from "../components/TableToolbar";
 import StatusChips from "../components/StatusChips";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import TablePhoto from "../components/TablePhoto";
+import SchmuckstueckZeile from "../components/SchmuckstueckZeile";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
@@ -592,8 +593,8 @@ export default function Schmuckstuecke() {
 
   // Der Kunden-Filter kommt zuletzt und gewinnt über den Standort des Status-Chips.
   const listenFilter = useMemo(
-    () => ({ ...statusListenParams(status, kunden.map((k) => k.ID)), ...filters }),
-    [status, kunden, filters],
+    () => ({ ...statusListenParams(status), ...filters }),
+    [status, filters],
   );
   const anfrage = JSON.stringify([page, gebremsteSuche, listenFilter, ladeZaehler]);
   const loading = geladenFuer !== anfrage;
@@ -850,6 +851,13 @@ export default function Schmuckstuecke() {
               getRowKey={(r) => r.Artikelnummer}
               defaultSort={{ key: "Artikelnummer", direction: "asc" }}
               onRowClick={(s) => setSelected(s)}
+              mobileRow={(r) => (
+                <SchmuckstueckZeile
+                  stueck={r}
+                  kundenName={getKundenName}
+                  pauseLoading={isForegroundModalOpen}
+                />
+              )}
               columns={[
                 {
                   key: "foto",

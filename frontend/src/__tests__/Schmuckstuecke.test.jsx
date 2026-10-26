@@ -508,13 +508,13 @@ describe('Status-Chips statt Status-Dropdown', () => {
     );
   });
 
-  it('Chip "Ausgelagert" schickt alle Kunden-IDs; der Kunden-Filter engt ihn ein', async () => {
+  it('Chip "Ausgelagert" schickt ausgelagert=kunden; der Kunden-Filter engt ihn ein', async () => {
     rendereSeite();
     await screen.findByRole('option', { name: 'Laden A' });
 
     klickeChip(/^Ausgelagert/);
     await waitFor(() =>
-      expect(letzteListenParams()).toMatchObject({ ausgelagert: '3,7', verkauft: '0', ausschuss: '0' }),
+      expect(letzteListenParams()).toMatchObject({ ausgelagert: 'kunden', verkauft: '0', ausschuss: '0' }),
     );
 
     fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '7' } });
@@ -583,7 +583,7 @@ describe('Status-Chips statt Status-Dropdown', () => {
       stuecke.filter((s) => {
         if (p.verkauft !== undefined && (flag(p.verkauft) ? !(s.Verkauft && !s.Ausschuss) : s.Verkauft)) return false;
         if (p.ausschuss !== undefined && flag(p.ausschuss) !== s.Ausschuss) return false;
-        if (p.ausgelagert !== undefined && !p.ausgelagert.split(',').map(Number).includes(s.Ausgelagert)) return false;
+        if (p.ausgelagert === 'kunden' ? s.Ausgelagert === 0 : p.ausgelagert !== undefined && !p.ausgelagert.split(',').map(Number).includes(s.Ausgelagert)) return false;
         return true;
       });
     api.getSchmuckstuecke.mockImplementation(async (p) => ({ data: [], pagination: { total: liste(p).length } }));

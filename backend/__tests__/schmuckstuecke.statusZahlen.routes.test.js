@@ -164,6 +164,35 @@ describe('GET /api/schmuckstuecke/status-zahlen', () => {
     });
   });
 
+  describe('ausgelagert=kunden (bei irgendeinem Kunden)', () => {
+    it('filtert auf Ausgelagert > 0 ohne Parameter', async () => {
+      await request(app).get(`${URL}?ausgelagert=kunden`);
+
+      const { sql, params } = letzterAufruf();
+      expect(params).toEqual([]);
+      expect(sql).toMatch(/FROM "Schmuckstück"\s+WHERE "Ausgelagert" > 0\s*$/);
+    });
+
+    it('verschiebt die Parameter-Indizes der Suche nicht', async () => {
+      await request(app).get(`${URL}?search=Rosa&artikelnummer_art=A&ausgelagert=kunden`);
+
+      const { sql, params } = letzterAufruf();
+      expect(params).toEqual(['%Rosa%', 'A']);
+      expect(sql).toContain('ILIKE $1');
+      expect(sql).toContain('SUBSTRING("Artikelnummer", 3, 1) = $2');
+      expect(sql).toContain('"Ausgelagert" > 0');
+      expect(sql).not.toContain('$3');
+    });
+
+    it.each(['kunden,5', 'Kunden', '5,kunden'])('lehnt ausgelagert=%s ab (400)', async (wert) => {
+      const res = await request(app).get(`${URL}?ausgelagert=${wert}`);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.error).toMatch(/kunden/);
+      expect(db.query).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Fehlerfälle', () => {
     it.each(['abc', '0,', 'a,15', '0,-1', '-3'])('lehnt ausgelagert=%s ab (400)', async (wert) => {
       const res = await request(app).get(`${URL}?ausgelagert=${wert}`);

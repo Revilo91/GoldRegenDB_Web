@@ -70,7 +70,7 @@ builder.nichtVerkauft();      // Verkauft = FALSE
 builder.keinAusschuss();      // Ausschuss = FALSE
 
 // Auslagerungs-Filter
-builder.ausgelagert();        // Ausgelagert > 0
+builder.ausgelagert();        // Ausgelagert > 0 (Listen-Parameter ausgelagert=kunden)
 builder.ausgelagert(5);       // Ausgelagert = 5 (bei Kunde ID 5)
 builder.aktivAusgelagert();   // Ausgelagert > 0 AND Verkauft = FALSE AND Ausschuss = FALSE
 builder.aktivAusgelagert(5);  // Ausgelagert = 5 AND Verkauft = FALSE AND Ausschuss = FALSE

@@ -54,16 +54,24 @@ const FLAG_WERTE = { 1: true, 0: false, true: true, false: false };
 // (siehe leerZuNull in schemas/common.js).
 const istLeer = (wert) => wert === undefined || String(wert).trim() === "";
 
+const AUSGELAGERT_KUNDEN = "kunden";
+
 /**
  * Haengt den Kunden-/Lager-Filter (ausgelagert) an den Builder.
  * @returns {string|null} Fehlermeldung fuer HTTP 400, oder null
  */
 function ausgelagertFilterAnwenden(builder, query) {
+  // "kunden" = bei irgendeinem Kunden (Ausgelagert > 0), nicht mit Listen kombinierbar
+  if (query.ausgelagert === AUSGELAGERT_KUNDEN) {
+    builder.ausgelagert();
+    return null;
+  }
+
   // Mehrere Werte ("0,15") für Direktverkauf-Rechnungen: Lager plus Kunde
   if (!istLeer(query.ausgelagert)) {
     const kundeIds = String(query.ausgelagert).split(",").map((v) => (v.trim() === "" ? NaN : Number(v)));
     if (kundeIds.some((id) => !Number.isInteger(id) || id < 0)) {
-      return "ausgelagert muss eine Kundennummer oder 0 sein (mehrere durch Komma getrennt)";
+      return "ausgelagert muss eine Kundennummer, 0, eine Komma-Liste daraus oder \"kunden\" sein";
     }
     if (kundeIds.length > 1) builder.ausgelagertIn(kundeIds);
     else if (kundeIds[0] === 0) builder.imLager();

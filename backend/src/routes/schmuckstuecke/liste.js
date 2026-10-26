@@ -33,7 +33,7 @@ const {
  *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
  *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
  *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
- *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID; mehrere durch Komma ("0,15" = Lager plus Kunde 15)', schema: { type: string, example: '0,15' } }
+ *       - { name: ausgelagert, in: query, description: '0, eine Kunde.ID oder mehrere durch Komma ("0,15" = Lager plus Kunde 15); "kunden" = bei irgendeinem Kunden (Ausgelagert > 0), nicht mit Listen kombinierbar', schema: { type: string, example: '0,15' } }
  *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
  *     responses:
  *       200:
@@ -214,14 +214,14 @@ router.get("/filter-options", async (req, res) => {
  *       grundmaterial, artikelnummer_art und ausgelagert wie GET /schmuckstuecke; die Status-Filter
  *       verkauft und ausschuss werden ignoriert, damit jeder Chip seine Zahl behält. Ist ausgelagert
  *       gesetzt, gilt der Filter wie in der Liste: ausgelagert=<Kunde> liefert Lager 0 und Verkauft 0,
- *       ausgelagert=0 liefert nur Lager. Die vier Zustände sind disjunkt, ihre Summe ergibt alle.
+ *       ausgelagert=0 liefert nur Lager, ausgelagert=kunden Stücke bei irgendeinem Kunden. Die vier Zustände sind disjunkt, ihre Summe ergibt alle.
  *       Erfordert eine gültige Anmeldung (jede Rolle).'
  *     tags: [Schmuckstücke]
  *     parameters:
  *       - { name: search, in: query, schema: { type: string } }
  *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
  *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
- *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID; mehrere durch Komma', schema: { type: string, example: '15' } }
+ *       - { name: ausgelagert, in: query, description: '0, eine Kunde.ID, mehrere durch Komma oder "kunden" (bei irgendeinem Kunden, Ausgelagert > 0)', schema: { type: string, example: '15' } }
  *     responses:
  *       200:
  *         description: Zahlen je Status
@@ -287,7 +287,7 @@ router.get("/status-zahlen", async (req, res) => {
  *     tags: [Schmuckstücke]
  *     parameters:
  *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
- *       - { name: ausgelagert, in: query, description: '0 oder Kunde.ID, mehrere durch Komma', schema: { type: string } }
+ *       - { name: ausgelagert, in: query, description: '0, Kunde.ID, mehrere durch Komma oder "kunden" (Ausgelagert > 0)', schema: { type: string } }
  *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
  *       - { name: artikelnummer_art, in: query, schema: { type: string } }
  *       - { name: grundmaterial, in: query, schema: { type: string } }

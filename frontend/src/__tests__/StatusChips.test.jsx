@@ -67,27 +67,27 @@ describe('StatusChips', () => {
 
 describe('statusListenParams', () => {
   it('Alle: keine Statusparameter', () => {
-    expect(statusListenParams(STATUS_ALLE, [1, 2])).toEqual({});
+    expect(statusListenParams(STATUS_ALLE)).toEqual({});
   });
 
   it('Im Lager: Lager UND nicht verkauft UND kein Ausschuss', () => {
-    expect(statusListenParams(STATUS.LAGER, [1, 2])).toEqual({
+    expect(statusListenParams(STATUS.LAGER)).toEqual({
       ausgelagert: '0',
       verkauft: '0',
       ausschuss: '0',
     });
   });
 
-  it('Ausgelagert: alle Kunden als ID-Liste, nicht verkauft, kein Ausschuss', () => {
-    expect(statusListenParams(STATUS.AUSGELAGERT, [3, 7, 12])).toEqual({
-      ausgelagert: '3,7,12',
+  it('Ausgelagert: bei irgendeinem Kunden, nicht verkauft, kein Ausschuss', () => {
+    expect(statusListenParams(STATUS.AUSGELAGERT)).toEqual({
+      ausgelagert: 'kunden',
       verkauft: '0',
       ausschuss: '0',
     });
   });
 
   it('Verkauft und Ausschuss setzen je ihren Parameter', () => {
-    expect(statusListenParams(STATUS.VERKAUFT, [])).toEqual({ verkauft: '1' });
-    expect(statusListenParams(STATUS.AUSSCHUSS, [])).toEqual({ ausschuss: '1' });
+    expect(statusListenParams(STATUS.VERKAUFT)).toEqual({ verkauft: '1' });
+    expect(statusListenParams(STATUS.AUSSCHUSS)).toEqual({ ausschuss: '1' });
   });
 });
