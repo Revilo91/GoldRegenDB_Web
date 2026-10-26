@@ -19,11 +19,13 @@ import { api } from "../api";
 import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
+import StatusChips from "../components/StatusChips";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import TablePhoto from "../components/TablePhoto";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
+import { STATUS_ALLE, statusListenParams } from "../utils/statusFilter";
 import { naechsteVorlagenNummer, naechstesExemplar } from "../utils/artikelnummer";
 
 const HERSTELLER_OPTIONS = [
@@ -135,6 +137,8 @@ export default function Schmuckstuecke() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
+  const [status, setStatus] = useState(STATUS_ALLE);
+  const [statusZahlen, setStatusZahlen] = useState(null);
   const [filterOptions, setFilterOptions] = useState({});
   // Hersteller-, Grundmaterial- und Produktart-Codes kommen aus
   // backend/src/utils/constants.js und reisen über die Filter-Optionen mit.
@@ -586,7 +590,12 @@ export default function Schmuckstuecke() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const anfrage = JSON.stringify([page, gebremsteSuche, filters, ladeZaehler]);
+  // Der Kunden-Filter kommt zuletzt und gewinnt über den Standort des Status-Chips.
+  const listenFilter = useMemo(
+    () => ({ ...statusListenParams(status, kunden.map((k) => k.ID)), ...filters }),
+    [status, kunden, filters],
+  );
+  const anfrage = JSON.stringify([page, gebremsteSuche, listenFilter, ladeZaehler]);
   const loading = geladenFuer !== anfrage;
 
   useEffect(() => {
@@ -594,7 +603,7 @@ export default function Schmuckstuecke() {
     let verworfen = false;
     api
       .getSchmuckstuecke(
-        { page, limit: 50, search: gebremsteSuche, ...filters },
+        { page, limit: 50, search: gebremsteSuche, ...listenFilter },
         { signal: abbruch.signal },
       )
       .then((antwort) => {
@@ -612,7 +621,31 @@ export default function Schmuckstuecke() {
       verworfen = true;
       abbruch.abort();
     };
-  }, [anfrage, page, gebremsteSuche, filters, ladeZaehler, toast]);
+  }, [anfrage, page, gebremsteSuche, listenFilter, ladeZaehler, toast]);
+
+  // Die Zahlen hängen nur an Suche, Produktart und Standort, nicht am gewählten
+  // Chip; ladeZaehler holt sie nach jeder Änderung an den Stücken neu.
+  const zahlenProduktart = filters.artikelnummer_art;
+  const zahlenStandort = filters.ausgelagert;
+  useEffect(() => {
+    let verworfen = false;
+    const params = {
+      ...(gebremsteSuche && { search: gebremsteSuche }),
+      ...(zahlenProduktart && { artikelnummer_art: zahlenProduktart }),
+      ...(zahlenStandort && { ausgelagert: zahlenStandort }),
+    };
+    api
+      .getStatusZahlen(params)
+      .then((zahlen) => {
+        if (!verworfen) setStatusZahlen(zahlen);
+      })
+      .catch((err) => {
+        if (!verworfen) toast.fehler("Fehler beim Laden der Status-Zahlen: " + err.message);
+      });
+    return () => {
+      verworfen = true;
+    };
+  }, [gebremsteSuche, zahlenProduktart, zahlenStandort, ladeZaehler, toast]);
 
   useEffect(() => {
     if (!vorschauAktiv) return undefined;
@@ -792,24 +825,17 @@ export default function Schmuckstuecke() {
                 </option>
               ))}
             </select>
-            <select
-              className="form-control"
-              value={filters.verkauft ?? ""}
-              onChange={(e) => {
-                const { verkauft, ...rest } = filters;
-                setFilters(
-                  e.target.value !== ""
-                    ? { ...rest, verkauft: e.target.value }
-                    : rest,
-                );
-                setPage(1);
-              }}>
-              <option value="">Status</option>
-              <option value="0">Nicht verkauft</option>
-              <option value="1">Verkauft</option>
-            </select>
           </div>
         }
+      />
+
+      <StatusChips
+        wert={status}
+        zahlen={statusZahlen}
+        onChange={(neu) => {
+          setStatus(neu);
+          setPage(1);
+        }}
       />
 
       <div className="card">

@@ -1,0 +1,62 @@
+/* ============ SCHMUCKSTÜCKE: STATUS-CHIPS ============ */
+.status-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.status-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.status-chip:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.status-chip--aktiv {
+  background: var(--gold-bg);
+  border-color: var(--gold);
+  color: var(--text-primary);
+}
+
+.status-chip-punkt {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-chip-punkt--lager { background: var(--gold); }
+.status-chip-punkt--ausgelagert { background: var(--info); }
+.status-chip-punkt--verkauft { background: var(--success); }
+.status-chip-punkt--ausschuss { background: var(--danger); }
+
+.status-chip-zahl {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.status-chip--aktiv .status-chip-zahl {
+  color: var(--gold);
+}

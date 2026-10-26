@@ -1,4 +1,4 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { rendereMitToast } from './helpers/rendern';
 import Schmuckstuecke from '../pages/Schmuckstuecke';
@@ -10,6 +10,7 @@ vi.mock('../api', () => ({
     getFilterOptions: vi.fn(),
     getKunden: vi.fn(),
     getSchmuckstuecke: vi.fn(),
+    getStatusZahlen: vi.fn(),
     getSchmuckstueck: vi.fn(),
     getNextArtikelnummer: vi.fn(),
     createSchmuckstueckeBulk: vi.fn(),
@@ -43,6 +44,7 @@ beforeEach(() => {
   api.getFilterOptions.mockResolvedValue({ grundmaterialien: [], produktarten: [] });
   api.getKunden.mockResolvedValue([]);
   api.getSchmuckstuecke.mockResolvedValue({ data: [], pagination: { total: 0 } });
+  api.getStatusZahlen.mockResolvedValue({ alle: 0, lager: 0, ausgelagert: 0, verkauft: 0, ausschuss: 0 });
   api.deleteFoto.mockResolvedValue({ message: 'Foto gelöscht' });
 });
 
@@ -299,7 +301,8 @@ describe('Zeile mit allen Feldern bearbeiten', () => {
     await ladeVorlageUndOeffneZeile();
 
     expect(await screen.findByRole('button', { name: 'Foto für MHO127_1' })).toBeEnabled();
-    expect(screen.queryByText('Ausschuss')).not.toBeInTheDocument();
+    // Der Status-Chip "Ausschuss" liegt außerhalb des Modals und zählt nicht.
+    expect(within(document.querySelector('.modal')).queryByText('Ausschuss')).not.toBeInTheDocument();
   });
 
   it('merkt sich das Foto an der Zeile, schickt hatFoto aber nicht an den Server', async () => {
@@ -448,5 +451,164 @@ describe('Zeile kopieren: weiteres Exemplar derselben Nummer', () => {
 
     fireEvent.click(screen.getByTitle('Zeile löschen'));
     await waitFor(() => expect(api.deleteFoto).toHaveBeenCalledWith('MHO127'));
+  });
+});
+
+describe('Status-Chips statt Status-Dropdown', () => {
+  const letzteListenParams = () => api.getSchmuckstuecke.mock.calls.at(-1)[0];
+  const klickeChip = (name) => fireEvent.click(screen.getByRole('button', { name }));
+
+  beforeEach(() => {
+    api.getKunden.mockResolvedValue([
+      { ID: 3, Name: 'Laden A' },
+      { ID: 7, Name: 'Laden B' },
+    ]);
+    api.getStatusZahlen.mockResolvedValue({ alle: 10, lager: 4, ausgelagert: 3, verkauft: 2, ausschuss: 1 });
+  });
+
+  it('zeigt die Chips mit den Zahlen aus getStatusZahlen', async () => {
+    rendereSeite();
+
+    expect(await screen.findByRole('button', { name: /^Im Lager\s*4$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Alle\s*10$/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^Ausgelagert\s*3$/ })).toBeInTheDocument();
+  });
+
+  it('hat kein Status-Dropdown mehr, der Standort-Filter bleibt', async () => {
+    rendereSeite();
+
+    await screen.findByRole('button', { name: /^Alle\s*10$/ });
+    expect(screen.queryByRole('option', { name: 'Nicht verkauft' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Status' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Alle Standorte' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Laden A' })).toBeInTheDocument();
+  });
+
+  it('Chip "Verkauft" lädt die Liste mit verkauft=1; erneuter Klick setzt zurück', async () => {
+    rendereSeite();
+    await screen.findByRole('button', { name: /^Alle\s*10$/ });
+
+    klickeChip(/^Verkauft/);
+    await waitFor(() => expect(letzteListenParams()).toMatchObject({ verkauft: '1', page: 1 }));
+    expect(screen.getByRole('button', { name: /^Verkauft/ })).toHaveAttribute('aria-pressed', 'true');
+
+    klickeChip(/^Verkauft/);
+    await waitFor(() => expect(letzteListenParams()).not.toHaveProperty('verkauft'));
+    expect(screen.getByRole('button', { name: /^Alle/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Chip "Im Lager" lädt Lager, nicht verkauft, kein Ausschuss', async () => {
+    rendereSeite();
+    await screen.findByRole('button', { name: /^Alle\s*10$/ });
+
+    klickeChip(/^Im Lager/);
+
+    await waitFor(() =>
+      expect(letzteListenParams()).toMatchObject({ ausgelagert: '0', verkauft: '0', ausschuss: '0' }),
+    );
+  });
+
+  it('Chip "Ausgelagert" schickt alle Kunden-IDs; der Kunden-Filter engt ihn ein', async () => {
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+
+    klickeChip(/^Ausgelagert/);
+    await waitFor(() =>
+      expect(letzteListenParams()).toMatchObject({ ausgelagert: '3,7', verkauft: '0', ausschuss: '0' }),
+    );
+
+    fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '7' } });
+    await waitFor(() =>
+      expect(letzteListenParams()).toMatchObject({ ausgelagert: '7', verkauft: '0', ausschuss: '0' }),
+    );
+  });
+
+  it('holt die Zahlen mit Suche und Kunden-Filter, aber ohne Statusparameter', async () => {
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+    klickeChip(/^Verkauft/);
+    fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '3' } });
+
+    await waitFor(() => expect(api.getStatusZahlen).toHaveBeenLastCalledWith({ ausgelagert: '3' }));
+    expect(api.getStatusZahlen.mock.calls.every(([p]) => !('verkauft' in p) && !('ausschuss' in p))).toBe(true);
+  });
+
+  it('entprellt die Suche: ein Zahlen-Request statt einer je Tastendruck', async () => {
+    rendereSeite();
+    await screen.findByRole('button', { name: /^Alle\s*10$/ });
+    const vorher = api.getStatusZahlen.mock.calls.length;
+
+    const suche = screen.getByPlaceholderText(/Suche nach Artikelnummer/);
+    for (const wert of ['M', 'MH', 'MHO']) fireEvent.change(suche, { target: { value: wert } });
+
+    await waitFor(() => expect(api.getStatusZahlen).toHaveBeenLastCalledWith({ search: 'MHO' }));
+    expect(api.getStatusZahlen.mock.calls.length).toBe(vorher + 1);
+  });
+
+  it('aktualisiert die Zahlen nach einer Statusänderung (Stück angelegt)', async () => {
+    api.getSchmuckstueck.mockResolvedValue({ Artikelnummer: 'MHO123_1', Name: 'Tropfen' });
+    api.getNextArtikelnummer.mockResolvedValue({ artikelnummer: 'MHO127' });
+    api.createSchmuckstueckeBulk.mockResolvedValue({ createdCount: 1 });
+    rendereSeite();
+    await screen.findByRole('button', { name: /^Alle\s*10$/ });
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Aus Vorlage anlegen' }));
+    fireEvent.change(screen.getByPlaceholderText('z.B. MBH001_1'), { target: { value: 'MHO123_1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Als neue Zeile übernehmen' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Als neue Zeile übernehmen' })).toBeEnabled(),
+    );
+    api.getStatusZahlen.mockResolvedValue({ alle: 11, lager: 5, ausgelagert: 3, verkauft: 2, ausschuss: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach speichern' }));
+
+    expect(await screen.findByRole('button', { name: /^Alle\s*11$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Im Lager\s*5$/ })).toBeInTheDocument();
+  });
+
+  it('Chip-Zahl und Listen-Treffer sind für jeden Chip gleich (Verhalten des Backends nachgebildet)', async () => {
+    // Bildet statusFilterAnwenden/ausgelagertFilterAnwenden und die Zählung nach.
+    const stuecke = [
+      { Ausgelagert: 0, Verkauft: false, Ausschuss: false },
+      { Ausgelagert: 0, Verkauft: false, Ausschuss: false },
+      { Ausgelagert: 3, Verkauft: false, Ausschuss: false },
+      { Ausgelagert: 7, Verkauft: false, Ausschuss: false },
+      { Ausgelagert: 7, Verkauft: false, Ausschuss: false },
+      { Ausgelagert: 0, Verkauft: true, Ausschuss: false },
+      { Ausgelagert: 3, Verkauft: true, Ausschuss: false },
+      { Ausgelagert: 0, Verkauft: false, Ausschuss: true },
+      { Ausgelagert: 3, Verkauft: true, Ausschuss: true },
+    ];
+    const flag = (w) => w === '1';
+    const liste = (p) =>
+      stuecke.filter((s) => {
+        if (p.verkauft !== undefined && (flag(p.verkauft) ? !(s.Verkauft && !s.Ausschuss) : s.Verkauft)) return false;
+        if (p.ausschuss !== undefined && flag(p.ausschuss) !== s.Ausschuss) return false;
+        if (p.ausgelagert !== undefined && !p.ausgelagert.split(',').map(Number).includes(s.Ausgelagert)) return false;
+        return true;
+      });
+    api.getSchmuckstuecke.mockImplementation(async (p) => ({ data: [], pagination: { total: liste(p).length } }));
+    api.getStatusZahlen.mockResolvedValue({
+      alle: stuecke.length,
+      lager: stuecke.filter((s) => s.Ausgelagert === 0 && !s.Verkauft && !s.Ausschuss).length,
+      ausgelagert: stuecke.filter((s) => s.Ausgelagert > 0 && !s.Verkauft && !s.Ausschuss).length,
+      verkauft: stuecke.filter((s) => s.Verkauft && !s.Ausschuss).length,
+      ausschuss: stuecke.filter((s) => s.Ausschuss).length,
+    });
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+
+    for (const [name, erwartet] of [
+      [/^Alle/, 9],
+      [/^Im Lager/, 2],
+      [/^Ausgelagert/, 3],
+      [/^Verkauft/, 2],
+      [/^Ausschuss/, 2],
+    ]) {
+      klickeChip(name);
+      expect(await screen.findByText(`${erwartet} Stücke insgesamt`)).toBeInTheDocument();
+      const chip = screen.getByRole('button', { name });
+      expect(chip).toHaveTextContent(new RegExp(`${erwartet}$`));
+      if (name.source !== '^Alle') klickeChip(name);
+    }
   });
 });
