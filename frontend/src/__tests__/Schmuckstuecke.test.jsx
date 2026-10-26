@@ -513,4 +513,41 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
 
     expect(screen.getByDisplayValue('Silber')).toBeInTheDocument();
   });
+
+  it('zeigt beim Anlegen kein Standort-Feld', async () => {
+    await oeffneNeuesStueck();
+
+    expect(screen.queryByText('Standort / Ausgelagert')).not.toBeInTheDocument();
+  });
+
+  it('klappt die Anhänger-Inhalt-Felder erst auf Klick auf', async () => {
+    await oeffneNeuesStueck();
+    waehleProduktart('H');
+    expect(screen.queryByText('Anh. Inhalt Material')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Inhalt/ }));
+
+    expect(screen.getByText('Anh. Inhalt Material')).toBeInTheDocument();
+  });
+
+  it('zeigt die erzeugte Artikelnummer mit Anzahl im Kopf statt als Feld', async () => {
+    api.getNextArtikelnummer.mockResolvedValue({ prefix: 'MBO', nextNum: 127, artikelnummer: 'MBO127' });
+    api.getFilterOptions.mockResolvedValue({
+      grundmaterialien: [{ code: 'B', label: 'Beton' }],
+      produktarten,
+    });
+    rendereSeite('bearbeiter');
+    fireEvent.click(await screen.findByRole('button', { name: '+ Neues Schmuckstück' }));
+    await screen.findByRole('heading', { name: /Neues Schmuckstück/ });
+
+    fireEvent.change(screen.getByDisplayValue('Hersteller'), { target: { value: 'M' } });
+    fireEvent.change(screen.getByDisplayValue('Grundmaterial'), { target: { value: 'B' } });
+    waehleProduktart('O');
+    fireEvent.change(screen.getByText('Anzahl').parentElement.querySelector('input'), {
+      target: { value: '3' },
+    });
+
+    expect(await screen.findByRole('heading', { name: /MBO127 × 3/ })).toBeInTheDocument();
+    expect(screen.queryByText('Artikelnummer*')).not.toBeInTheDocument();
+  });
 });

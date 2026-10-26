@@ -26,6 +26,7 @@ import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
 import { naechsteVorlagenNummer, naechstesExemplar } from "../utils/artikelnummer";
 import { produktartCodeVon, zeigtFeldgruppe } from "../utils/produktartFelder";
+import Einklappbar from "../components/Einklappbar";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -105,6 +106,14 @@ const klonbareFelderVon = (item) =>
       item[feld] ?? (ZAHLENFELDER.includes(feld) ? 0 : ""),
     ]),
   );
+
+// Felder des Anhänger-Inhalts: bleiben eingeklappt, solange keines befüllt ist.
+const ANHAENGER_INHALT_FELDER = [
+  "Anhänger_Inhalt_Material",
+  "Anhänger_Inhalt_Farbe",
+  "Anhänger_Inhalt_Farbakzente",
+  "Anhänger_Inhalt_Zusatzmaterial",
+];
 
 // Wert von `editing`, wenn das große Formular eine Zeile der Vorlagen-Tabelle bearbeitet.
 const BULK_ZEILE = "bulk-zeile";
@@ -681,6 +690,7 @@ export default function Schmuckstuecke() {
   const formProduktart = produktartCodeVon(form);
   const zeigeLaenge = zeigtFeldgruppe(formProduktart, "laenge");
   const zeigeAnhaenger = zeigtFeldgruppe(formProduktart, "anhaenger");
+  const hatAnhaengerInhalt = ANHAENGER_INHALT_FELDER.some((feld) => form[feld]);
   const zeigeZwischenstueck = zeigtFeldgruppe(formProduktart, "zwischenstueck");
 
   const sortedData = useMemo(() => {
@@ -1299,6 +1309,12 @@ export default function Schmuckstuecke() {
                 {editing === "new" ? (
                   <>
                     <FontAwesomeIcon icon={faPlus} /> Neues Schmuckstück
+                    {nextArtikelnummerPreview && (
+                      <span className="schmuckstuecke-form-nummer">
+                        {nextArtikelnummerPreview}
+                        {form.Anzahl > 1 && ` × ${form.Anzahl}`}
+                      </span>
+                    )}
                   </>
                 ) : editing === BULK_ZEILE ? (
                   <>
@@ -1419,17 +1435,6 @@ export default function Schmuckstuecke() {
                             })
                           }
                         />
-                      </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Artikelnummer*</label>
-                        <div
-                          className="form-control schmuckstuecke-flex-ai-center">
-                          {nextArtikelnummerPreview ||
-                            form.Artikelnummer ||
-                            "---"}
-                        </div>
                       </div>
                     </div>
                   </>
@@ -1774,6 +1779,10 @@ export default function Schmuckstuecke() {
                           />
                         </div>
                       </div>
+                      <Einklappbar
+                        key={editing}
+                        titel="Inhalt des Anhängers"
+                        startOffen={hatAnhaengerInhalt}>
                       <div className="form-row">
                         <div className="form-group">
                           <label>Anh. Inhalt Material</label>
@@ -1858,6 +1867,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                       </div>
+                      </Einklappbar>
                     </>
                   )}
                   <div className="form-row">
@@ -1948,12 +1958,12 @@ export default function Schmuckstuecke() {
                       }
                     />
                   </div>
+                  {editing !== "new" && editing !== BULK_ZEILE && (
                   <div className="form-group">
                     <label>Standort / Ausgelagert</label>
                     <select
                       className="form-control"
                       value={form.Ausgelagert || 0}
-                      disabled={editing === "new" || editing === BULK_ZEILE}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -1968,6 +1978,7 @@ export default function Schmuckstuecke() {
                       ))}
                     </select>
                   </div>
+                  )}
                 </div>
                 {editing !== "new" && editing !== BULK_ZEILE ? (
                   <>

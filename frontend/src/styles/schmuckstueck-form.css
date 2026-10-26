@@ -118,3 +118,44 @@
 .schmuckstuecke-form-body .form-group:has(> input.form-control:focus) > label {
   color: var(--accent-hover);
 }
+
+/* Vorgeschlagene Artikelnummer (und Anzahl) im Kopf des Anlege-Modals */
+.schmuckstuecke-form-nummer {
+  margin-left: 12px;
+  padding: 2px 10px;
+  border: 1px solid var(--border-hair);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Einklappbarer Block (z. B. Inhalt des Anhängers) */
+.einklappbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--form-abstand);
+}
+
+.einklappbar-kopf {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.einklappbar-kopf:hover {
+  color: var(--accent-hover);
+}
+
+.einklappbar-inhalt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--form-abstand);
+}
