@@ -150,15 +150,12 @@ describe('GET /api/rechnungen/:id/excel', () => {
 
 describe('POST /api/rechnungen', () => {
   it('legt eine Rechnung mit gültigen Daten an', async () => {
-    const client = {
-      query: jest.fn()
-        .mockResolvedValueOnce({}) // BEGIN
-        .mockResolvedValueOnce({}) // LOCK
-        .mockResolvedValueOnce({ rows: [{ max_num: '0' }] }) // next-number
-        .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] }) // INSERT
-        .mockResolvedValueOnce({}), // COMMIT
-      release: jest.fn(),
-    };
+    const client = createTxClientMock({
+      ergebnisse: {
+        'SELECT COALESCE(MAX': { rows: [{ max_num: '0' }] },
+        'INSERT INTO "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001' }] },
+      },
+    });
     db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp())
@@ -365,6 +362,83 @@ describe('PUT /api/rechnungen/:id', () => {
     expect(verlauf).toContain('ROLLBACK');
     expect(verlauf).not.toContain('COMMIT');
     expect(client.release).toHaveBeenCalled();
+  });
+});
+
+describe('Snapshot (Issue #283, Schritt 2)', () => {
+  const snapshotGeschrieben = (client) => sqlVerlauf(client)
+    .some((sql) => sql.includes('INSERT INTO "Rechnung_Position"'));
+
+  it('schreibt beim Anlegen vor dem COMMIT einen Snapshot', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(buildApp()).post('/api/rechnungen').send({ Nummer: '2026-002', Kundennummer: 1 });
+
+    const verlauf = sqlVerlauf(client);
+    expect(snapshotGeschrieben(client)).toBe(true);
+    expect(verlauf.findIndex((s) => s.includes('INSERT INTO "Rechnung_Position"')))
+      .toBeLessThan(verlauf.indexOf('COMMIT'));
+  });
+
+  it('schreibt beim Ändern und beim Finalisieren einen Snapshot', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'final' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .put('/api/rechnungen/1')
+      .send({ Nummer: '2026-001', Kundennummer: 1, Artikelnummern: ['MHO001_1'], status: 'final' });
+
+    expect(res.statusCode).toBe(200);
+    const verlauf = sqlVerlauf(client);
+    // Snapshot erst nach dem Setzen von Verkauft, damit er den finalen Stand sieht
+    expect(verlauf.findIndex((s) => s.includes('INSERT INTO "Rechnung_Position"')))
+      .toBeGreaterThan(verlauf.findIndex((s) => s.includes('"Verkauft" = TRUE')));
+  });
+
+  it('lässt den Snapshot einer gesperrten Rechnung unangetastet', async () => {
+    const client = createTxClientMock({ ergebnisse: FINAL_VORHANDEN });
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 1 });
+
+    expect(snapshotGeschrieben(client)).toBe(false);
+    expect(sqlVerlauf(client).some((s) => s.includes('"Rechnung_Position"'))).toBe(false);
+  });
+
+  it('rollt zurück, wenn der Snapshot scheitert', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+      fehlerBei: 'INSERT INTO "Rechnung_Position"',
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp()).post('/api/rechnungen').send({ Nummer: '2026-002', Kundennummer: 1 });
+
+    expect(res.statusCode).toBe(500);
+    expect(sqlVerlauf(client)).toContain('ROLLBACK');
+    expect(sqlVerlauf(client)).not.toContain('COMMIT');
+  });
+
+  it('leert beim Admin-Reset Positionen und Summen', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { ...FINAL_VORHANDEN, 'UPDATE "Rechnung" SET status': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp('admin'))
+      .post('/api/rechnungen/1/zuruecksetzen')
+      .send({ begruendung: 'Falscher Kunde ausgewählt' });
+
+    expect(res.statusCode).toBe(200);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((s) => s.includes('DELETE FROM "Rechnung_Position"'))).toBe(true);
+    expect(verlauf.some((s) => s.includes('snapshot_am = NULL'))).toBe(true);
+    expect(verlauf).toContain('COMMIT');
   });
 });
 

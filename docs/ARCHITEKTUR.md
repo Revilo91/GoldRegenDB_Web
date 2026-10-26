@@ -123,6 +123,20 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `rabatt_gesamt` | NUMERIC | Gesamtrabatt auf den Beleg (%) |
 | `versandkosten` | NUMERIC(10,2) | Versandkosten brutto, NULL = keine |
 | `empfaenger` | JSONB | Anschrift eines Einmalkunden (Onlineshop), NULL = Kundenanschrift |
+| `summe_brutto`, `rabatt_gesamt_betrag`, `provision_prozent`, `provision_betrag`, `versand_betrag`, `summe_ueberweisung` | NUMERIC(10,2) | Snapshot der Summen (`belegSummen()`), NULL = nicht eingefroren (Migration 0006, #283) |
+| `snapshot_am` | TIMESTAMPTZ | Zeitpunkt des letzten Snapshots; NULL nach Admin-Reset |
+
+#### `Rechnung_Position`
+
+Eingefrorene Positionen einer Rechnung (`services/rechnungSnapshot.js`, beim Anlegen/Ändern in derselben Transaktion; finale Rechnungen sind gesperrt, der Admin-Reset leert den Snapshot).
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| `rechnung_id` | INTEGER | FK → Rechnung.ID, `ON DELETE CASCADE` |
+| `artikelnummer_id` | VARCHAR(20) | Artikelnummer des Stücks; UNIQUE mit `rechnung_id` |
+| `basis_artikelnummer` | VARCHAR(20) | Basis-Artikelnummer (Schlüssel des Positionsrabatts) |
+| `einzelpreis` | NUMERIC(10,2) | Verkaufspreis zum Zeitpunkt des Snapshots |
+| `positionsrabatt` | NUMERIC(5,2) | Positionsrabatt in % |
 
 #### `Foto`
 

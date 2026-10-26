@@ -7,6 +7,7 @@ const { rechnungSchema, rechnungZuruecksetzenSchema } = require('../schemas');
 const { requireAdmin } = require('../middleware/auth');
 const { belegSummen } = require('../utils/rabatt');
 const { markiereVerkauft, hebeVerkauftAuf, gibVerkaufFrei } = require('../utils/statusUebergaenge');
+const { schreibeSnapshot, leereSnapshot } = require('../services/rechnungSnapshot');
 const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
@@ -432,6 +433,8 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
       }
     }
 
+    await schreibeSnapshot(client, rechnungId);
+
     await client.query('COMMIT');
 
     logger.info('RECHNUNGEN', 'Rechnung erstellt', {
@@ -582,6 +585,9 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
         );
       }
     }
+
+    // Entwurf: Vorschau aktuell halten; Wechsel auf final friert den Stand ein
+    await schreibeSnapshot(client, req.params.id);
 
     await client.query('COMMIT');
 
@@ -744,6 +750,7 @@ router.post('/:id/zuruecksetzen', requireAdmin, validate(rechnungZuruecksetzenSc
       [req.params.id]
     );
     const freigegeben = await gibVerkaufFrei(client, req.params.id);
+    await leereSnapshot(client, req.params.id);
 
     // Audit-Trigger gibt es nur für "Schmuckstück"; wie beim Anlegen von Stücken
     // schreibt die Route den Eintrag selbst, die Hash-Kette bildet der Insert-Trigger.

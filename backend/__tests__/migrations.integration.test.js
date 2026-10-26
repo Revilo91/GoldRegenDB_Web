@@ -164,7 +164,7 @@ describeDb('Migrationen gegen echte Datenbank', () => {
     await migriere(a);
 
     schemaA = await schemaSnapshot(q(a.pool), { mitSpaltenreihenfolge: true });
-    expect(schemaA.migrationen.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005']);
+    expect(schemaA.migrationen.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005', '0006']);
     const { rows } = await a.pool.query('SELECT username, must_change_password FROM app_users');
     expect(rows).toEqual([{ username: 'admin', must_change_password: true }]);
   });
