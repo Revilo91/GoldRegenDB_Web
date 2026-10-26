@@ -1408,6 +1408,7 @@ export default function Schmuckstuecke() {
                         <label>Anzahl</label>
                         <input
                           className="form-control"
+                          placeholder=" "
                           type="number"
                           min="1"
                           value={form.Anzahl || 1}
@@ -1438,6 +1439,7 @@ export default function Schmuckstuecke() {
                       <label>Artikelnummer*</label>
                       <input
                         className="form-control"
+                        placeholder=" "
                         disabled
                         value={form.Artikelnummer || ""}
                       />
@@ -1454,6 +1456,7 @@ export default function Schmuckstuecke() {
                     <label>Name</label>
                     <input
                       className="form-control"
+                      placeholder=" "
                       value={form.Name || ""}
                       onChange={(e) =>
                         setForm({ ...form, Name: e.target.value })
@@ -1467,6 +1470,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="arten-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Art || ""}
                       onChange={(e) =>
                         setForm({ ...form, Art: e.target.value })
@@ -1483,6 +1487,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="material-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Material || ""}
                       onChange={(e) =>
                         setForm({ ...form, Material: e.target.value })
@@ -1499,6 +1504,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="farben-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Farbe || ""}
                       onChange={(e) =>
                         setForm({ ...form, Farbe: e.target.value })
@@ -1552,6 +1558,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="formen-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Form || ""}
                       onChange={(e) =>
                         setForm({ ...form, Form: e.target.value })
@@ -1567,6 +1574,7 @@ export default function Schmuckstuecke() {
                     <label>Größe</label>
                     <input
                       className="form-control"
+                      placeholder=" "
                       type="text"
                       inputMode="decimal"
                       value={form.Grösse ?? ""}
@@ -1580,6 +1588,7 @@ export default function Schmuckstuecke() {
                       <label>Länge ({getLengthUnit(form)})</label>
                       <input
                         className="form-control"
+                        placeholder=" "
                         type="text"
                         inputMode="decimal"
                         value={form.Länge ?? ""}
@@ -1594,6 +1603,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="fassungen-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Fassung || ""}
                       onChange={(e) =>
                         setForm({ ...form, Fassung: e.target.value })
@@ -1618,6 +1628,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="inhalt-material-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Inhalt_Material || ""}
                       onChange={(e) =>
                         setForm({ ...form, Inhalt_Material: e.target.value })
@@ -1634,6 +1645,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="inhalt-farbe-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Inhalt_Farbe || ""}
                       onChange={(e) =>
                         setForm({ ...form, Inhalt_Farbe: e.target.value })
@@ -1650,6 +1662,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="inhalt-farbakzent-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Inhalt_Farbakzent || ""}
                       onChange={(e) =>
                         setForm({ ...form, Inhalt_Farbakzent: e.target.value })
@@ -1666,6 +1679,7 @@ export default function Schmuckstuecke() {
                     <input
                       list="inhalt-zusatzmaterial-list"
                       className="form-control"
+                      placeholder=" "
                       value={form.Inhalt_Zusatzmaterial || ""}
                       onChange={(e) =>
                         setForm({
@@ -1697,6 +1711,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-fassung-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Fassung || ""}
                             onChange={(e) =>
                               setForm({ ...form, Anhänger_Fassung: e.target.value })
@@ -1713,6 +1728,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-form-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Form || ""}
                             onChange={(e) =>
                               setForm({ ...form, Anhänger_Form: e.target.value })
@@ -1729,6 +1745,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-farbe-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Farbe || ""}
                             onChange={(e) =>
                               setForm({ ...form, Anhänger_Farbe: e.target.value })
@@ -1744,6 +1761,7 @@ export default function Schmuckstuecke() {
                           <label>Anhänger Größe</label>
                           <input
                             className="form-control"
+                            placeholder=" "
                             type="text"
                             inputMode="decimal"
                             value={form.Anhänger_Grösse ?? ""}
@@ -1762,6 +1780,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-inhalt-material-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Inhalt_Material || ""}
                             onChange={(e) =>
                               setForm({
@@ -1781,6 +1800,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-inhalt-farbe-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Inhalt_Farbe || ""}
                             onChange={(e) =>
                               setForm({
@@ -1800,6 +1820,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-inhalt-farbakzent-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Inhalt_Farbakzente || ""}
                             onChange={(e) =>
                               setForm({
@@ -1819,6 +1840,7 @@ export default function Schmuckstuecke() {
                           <input
                             list="anhaenger-inhalt-zusatzmaterial-list"
                             className="form-control"
+                            placeholder=" "
                             value={form.Anhänger_Inhalt_Zusatzmaterial || ""}
                             onChange={(e) =>
                               setForm({
@@ -1845,6 +1867,7 @@ export default function Schmuckstuecke() {
                         <input
                           list="zwischenstuecke-list"
                           className="form-control"
+                          placeholder=" "
                           value={form.Zwischenstück || ""}
                           onChange={(e) =>
                             setForm({ ...form, Zwischenstück: e.target.value })
@@ -1871,6 +1894,7 @@ export default function Schmuckstuecke() {
                         <input
                           list="anhaenger-list"
                           className="form-control"
+                          placeholder=" "
                           value={form.Anhänger || ""}
                           onChange={(e) =>
                             setForm({ ...form, Anhänger: e.target.value })
@@ -1896,6 +1920,7 @@ export default function Schmuckstuecke() {
                     <label>Verkaufspreis (€)</label>
                     <input
                       className="form-control"
+                      placeholder=" "
                       type="text"
                       inputMode="decimal"
                       value={form.Verkaufspreis ?? ""}
@@ -1911,6 +1936,7 @@ export default function Schmuckstuecke() {
                     <label>Herstellungskosten (€)</label>
                     <input
                       className="form-control"
+                      placeholder=" "
                       type="text"
                       inputMode="decimal"
                       value={form.Herstellungskosten ?? ""}
@@ -1983,7 +2009,7 @@ export default function Schmuckstuecke() {
                                   Ausschuss_Grund: e.target.value,
                                 })
                               }
-                              placeholder="z.B. Defekt"
+                              placeholder=" "
                             />
                             <datalist id="ausschussgruende-list">
                               {filterOptions.ausschussgruende?.map((g) => (
