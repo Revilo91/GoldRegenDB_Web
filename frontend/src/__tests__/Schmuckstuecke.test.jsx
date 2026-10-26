@@ -529,6 +529,14 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
     expect(screen.getByText('Zusatzmaterial', { selector: 'label' })).toBeInTheDocument();
   });
 
+  it('trennt Zwischenstück und Anhänger (Allg.) per Linie von den Anhänger-Gruppen', async () => {
+    await oeffneNeuesStueck();
+    waehleProduktart('H');
+
+    const zeile = screen.getByText('Anhänger (Allg.)').closest('.form-row');
+    expect(zeile).toHaveClass('schmuckstuecke-anhaenger-trenner');
+  });
+
   it('zeigt die erzeugte Artikelnummer mit Anzahl im Kopf statt als Feld', async () => {
     api.getNextArtikelnummer.mockResolvedValue({ prefix: 'MBO', nextNum: 127, artikelnummer: 'MBO127' });
     api.getFilterOptions.mockResolvedValue({

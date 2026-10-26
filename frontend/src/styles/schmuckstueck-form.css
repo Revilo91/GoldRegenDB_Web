@@ -155,3 +155,9 @@
 .schmuckstuecke-anhaenger-gruppe .form-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+/* Trennlinie zwischen den Anhänger-Gruppen und den allgemeinen Feldern darunter */
+.schmuckstuecke-anhaenger-trenner {
+  padding-top: var(--form-abstand);
+  border-top: 1px solid var(--border-hair);
+}

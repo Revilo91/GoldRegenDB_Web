@@ -1861,7 +1861,12 @@ export default function Schmuckstuecke() {
                       </div>
                     </div>
                   )}
-                  <div className="form-row">
+                  <div
+                    className={
+                      zeigeAnhaenger
+                        ? "form-row schmuckstuecke-anhaenger-trenner"
+                        : "form-row"
+                    }>
                     {zeigeZwischenstueck && (
                       <div className="form-group">
                         <label>Zwischenstück</label>
