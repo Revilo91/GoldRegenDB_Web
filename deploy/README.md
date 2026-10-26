@@ -74,8 +74,96 @@ docker compose exec db /restore.sh /backups/daily/goldregendb_<zeitstempel>.sql.
 docker compose start app
 ```
 
+## Offsite-Backup (3-2-1)
+
+Die Dumps unter `backups/` liegen auf derselben NAS wie die Datenbank. Fällt die NAS aus
+(Defekt, Diebstahl, Feuer, Verschlüsselungstrojaner), sind Datenbank und Backups zusammen weg.
+Deshalb gilt 3-2-1: **3** Kopien, auf **2** verschiedenen Medien, davon **1** an einem anderen Standort.
+Umsetzung mit Synology Hyper Backup (kein neuer Code, keine zusätzliche Software):
+
+| Kopie | Ort | Zweck |
+|-------|-----|-------|
+| 1 | NAS, Ordner `backups/` (erzeugt von `db/backup.sh`) | schnelle Wiederherstellung |
+| 2 | Externes USB-Laufwerk an der NAS (Hyper Backup) | NAS-Defekt, versehentliches Löschen |
+| 3 | NAS bei Bekannten, anderer Standort (Hyper Backup) | Brand, Diebstahl, Einbruch |
+
+### Was gesichert wird
+
+Den Ordner `backups/` im Installationsordner (Standard `/volume1/docker/goldregendb/backups`),
+**nicht** das laufende Datenbank-Volume `data/postgres`: Ein Dateikopie-Backup einer laufenden
+PostgreSQL ist nicht konsistent, die geprüften Dumps schon. Der Ordner enthält:
+
+- `daily/`, `weekly/`: Dumps von `db/backup.sh`
+- `pre-update_*.sql.gz`: Sicherung vor jedem Update durch `install.sh`
+- `migrations/`: Dumps vor Schema-Migrationen (`MIGRATION_BACKUP_DIR`)
+- `backup.log` (Log des Aufgabenplaners)
+
+Fotos (ca. 1,6 GB) stecken in den Dumps, ein separater Foto-Ordner entfällt. Unterordner nicht
+einzeln abwählen: `migrations/` und `pre-update_*` sind bei einem fehlgeschlagenen Update die
+Rückfallebene. Ob `vor-restore/` (Sicherheits-Dump von `restore.sh`) vorhanden ist, hängt davon ab,
+ob schon einmal wiederhergestellt wurde; der Ordner liegt ebenfalls unter `backups/` und wird
+mitgesichert.
+
+### Kopie 2: externes USB-Laufwerk
+
+Das Laufwerk ist noch nicht vorhanden. Anschaffungsempfehlung:
+
+- Extern per USB, vorgesehen für Dauerbetrieb bzw. regelmäßigen Anschluss (kein USB-Stick).
+- Kapazität deutlich über dem Datenbestand: Jeder Stand enthält die Fotos (ca. 1,6 GB), dazu kommen
+  die Dumps und die vorgehaltenen Versionen. Großzügig dimensionieren, Reserve für Wachstum einplanen.
+- In DSM als Hyper-Backup-Ziel unterstützt (Dateisystem und Hinweise in der Hyper-Backup-Hilfe von
+  DSM prüfen, bevor das Laufwerk gekauft wird).
+
+Einrichtung in DSM: Paket-Zentrum → Hyper Backup installieren → Sicherungsaufgabe erstellen →
+Ziel „Lokaler Ordner und USB“ bzw. gleichwertig (Bezeichnung je nach DSM-Version in DSM prüfen) →
+Quelle: Ordner `backups` der Freigabe, in der der Installationsordner liegt.
+
+### Kopie 3: Offsite bei Bekannten
+
+Hyper Backup sichert auf ein entferntes Synology-NAS (Hyper Backup Vault) oder ein
+rsync-Ziel. Die Aufgabe wird auf der eigenen NAS angelegt, die NAS der Bekannten ist nur das Ziel.
+
+- **Verschlüsselung:** „Clientseitige Verschlüsselung“ aktivieren. Die Daten werden vor der
+  Übertragung verschlüsselt und liegen bei den Bekannten nur verschlüsselt.
+- **Versionierung/Aufbewahrung:** Versionsrotation aktivieren, **30 Tage** Aufbewahrung.
+  Die genauen Optionen der Rotation in DSM prüfen.
+- **Absprache mit den Bekannten:** Ziel-NAS mit Hyper Backup Vault bzw. rsync-Dienst, freier
+  Speicherplatz, dauerhafte Erreichbarkeit (eingeschaltet, Updates) und wer Zugriff auf die NAS hat.
+- **Erreichbarkeit:** über VPN (bevorzugt) oder eine Portfreigabe am Router der Bekannten. Die
+  Freigabe nur für das nötige Protokoll und nach Möglichkeit eingeschränkt auf die eigene IP-Adresse;
+  nichts ohne Absprache am fremden Router ändern. Die Verbindung in DSM testen, bevor der
+  Zeitplan aktiviert wird.
+- **Datenschutz:** Die Dumps enthalten Kundendaten (Bestellformular-Daten sind zusätzlich
+  verschlüsselt, der Rest der Datenbank nicht) und alle Fotos. Auch bei clientseitiger
+  Verschlüsselung ist der Standort ein weiterer Speicherort personenbezogener Daten; ob dafür eine
+  Vereinbarung (AVV bzw. gleichwertig) nötig ist, vorab klären. Offsite nur mit
+  clientseitiger Verschlüsselung betreiben.
+
+### Zeitplan
+
+Die Hyper-Backup-Aufgaben laufen **täglich nach** dem Dump von `db/backup.sh` (Aufgabenplaner
+siehe Abschnitt „Backup“), damit stets der aktuelle Dump mitgesichert wird. Die genaue Uhrzeit
+und der nötige Abstand richten sich nach der Laufzeit des Dumps; sie werden zusammen mit der
+Überwachung der Backups in #289 festgelegt.
+
+### Verschlüsselungs-Passwort
+
+> **Verlust des Passworts = Offsite-Backup unbrauchbar.** Hyper Backup kann ohne das Passwort
+> (bzw. den Schlüssel) nichts wiederherstellen, auch Synology nicht.
+
+- Im Passwortmanager ablegen **und** eine Kopie bei einer zweiten Person hinterlegen
+  (Marina bzw. Saskia), nie nur auf der NAS.
+- Das Passwort steht nicht im Repository, nicht in der `.env` und nicht im Log.
+
+### Wiederherstellung testen
+
+Ein Backup gilt erst als sicher, wenn die Wiederherstellung einmal erfolgreich aus der
+Offsite-Kopie geprüft wurde. Der Test (Ablauf, Erfolgskriterien, Turnus) ist in #289 vorgesehen und
+hier noch nicht beschrieben. Das Zurückspielen eines Dumps selbst steht im Abschnitt „Backup“.
+
 ## Hinweise
 
-- Backup und Wiederherstellen: siehe Abschnitt „Backup“.
+- Backup und Wiederherstellen: siehe Abschnitt „Backup“; Kopien außerhalb der NAS:
+  „Offsite-Backup (3-2-1)“.
 - Ohne vorgeschalteten Reverse Proxy läuft alles über unverschlüsseltes HTTP.
   HTTPS-Einrichtung: README.md im Repository, Abschnitt „HTTPS auf Synology“.

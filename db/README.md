@@ -243,6 +243,10 @@ mit weg.
 **Maximaler Datenverlust:** 1 Tag (bei täglichen Backups)
 **Aufbewahrungszeitraum:** mindestens 7 Tage täglich + 4 Wochen wöchentlich
 
+Diese Rotation betrifft nur die Kopie auf der NAS. Kopien auf einem USB-Laufwerk und an einem
+anderen Standort (Hyper Backup) beschreibt
+[`deploy/README.md`](../deploy/README.md#offsite-backup-3-2-1).
+
 ---
 
 ## Um auf die Datenbank zu kommen:
