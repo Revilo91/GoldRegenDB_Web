@@ -25,6 +25,7 @@ import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
 import { naechsteVorlagenNummer, naechstesExemplar } from "../utils/artikelnummer";
+import { produktartCodeVon, zeigtFeldgruppe } from "../utils/produktartFelder";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -674,6 +675,13 @@ export default function Schmuckstuecke() {
 
   const p = data.pagination;
   const isForegroundModalOpen = selected !== null || editing !== null;
+
+  // Welche Feldgruppen das Formular je Produktart zeigt (Werte ausgeblendeter
+  // Felder bleiben im Formular erhalten und werden mitgespeichert)
+  const formProduktart = produktartCodeVon(form);
+  const zeigeLaenge = zeigtFeldgruppe(formProduktart, "laenge");
+  const zeigeAnhaenger = zeigtFeldgruppe(formProduktart, "anhaenger");
+  const zeigeZwischenstueck = zeigtFeldgruppe(formProduktart, "zwischenstueck");
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];
@@ -1567,18 +1575,20 @@ export default function Schmuckstuecke() {
                       }
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Länge ({getLengthUnit(form)})</label>
-                    <input
-                      className="form-control"
-                      type="text"
-                      inputMode="decimal"
-                      value={form.Länge ?? ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Länge: e.target.value })
-                      }
-                    />
-                  </div>
+                  {zeigeLaenge && (
+                    <div className="form-group">
+                      <label>Länge ({getLengthUnit(form)})</label>
+                      <input
+                        className="form-control"
+                        type="text"
+                        inputMode="decimal"
+                        value={form.Länge ?? ""}
+                        onChange={(e) =>
+                          setForm({ ...form, Länge: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Fassung</label>
                     <input
@@ -1673,198 +1683,208 @@ export default function Schmuckstuecke() {
                 </div>
               </div>
 
-              <div className="form-section">
-                <h4>
-                  <FontAwesomeIcon icon={faPaperclip} /> Anhänger
-                </h4>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Anhänger Fassung</label>
-                    <input
-                      list="anhaenger-fassung-list"
-                      className="form-control"
-                      value={form.Anhänger_Fassung || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Anhänger_Fassung: e.target.value })
-                      }
-                    />
-                    <datalist id="anhaenger-fassung-list">
-                      {filterOptions.anhaenger_fassungen?.map((f) => (
-                        <option key={f} value={f} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="form-group">
-                    <label>Anhänger Form</label>
-                    <input
-                      list="anhaenger-form-list"
-                      className="form-control"
-                      value={form.Anhänger_Form || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Anhänger_Form: e.target.value })
-                      }
-                    />
-                    <datalist id="anhaenger-form-list">
-                      {filterOptions.anhaenger_formen?.map((f) => (
-                        <option key={f} value={f} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="form-group">
-                    <label>Anhänger Farbe</label>
-                    <input
-                      list="anhaenger-farbe-list"
-                      className="form-control"
-                      value={form.Anhänger_Farbe || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Anhänger_Farbe: e.target.value })
-                      }
-                    />
-                    <datalist id="anhaenger-farbe-list">
-                      {filterOptions.anhaenger_farben?.map((f) => (
-                        <option key={f} value={f} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="form-group">
-                    <label>Anhänger Größe</label>
-                    <input
-                      className="form-control"
-                      type="text"
-                      inputMode="decimal"
-                      value={form.Anhänger_Grösse ?? ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Anhänger_Grösse: e.target.value,
-                        })
-                      }
-                    />
+              {(zeigeAnhaenger || zeigeZwischenstueck) && (
+                <div className="form-section">
+                  <h4>
+                    <FontAwesomeIcon icon={faPaperclip} /> Anhänger
+                  </h4>
+                  {zeigeAnhaenger && (
+                    <>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Anhänger Fassung</label>
+                          <input
+                            list="anhaenger-fassung-list"
+                            className="form-control"
+                            value={form.Anhänger_Fassung || ""}
+                            onChange={(e) =>
+                              setForm({ ...form, Anhänger_Fassung: e.target.value })
+                            }
+                          />
+                          <datalist id="anhaenger-fassung-list">
+                            {filterOptions.anhaenger_fassungen?.map((f) => (
+                              <option key={f} value={f} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label>Anhänger Form</label>
+                          <input
+                            list="anhaenger-form-list"
+                            className="form-control"
+                            value={form.Anhänger_Form || ""}
+                            onChange={(e) =>
+                              setForm({ ...form, Anhänger_Form: e.target.value })
+                            }
+                          />
+                          <datalist id="anhaenger-form-list">
+                            {filterOptions.anhaenger_formen?.map((f) => (
+                              <option key={f} value={f} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label>Anhänger Farbe</label>
+                          <input
+                            list="anhaenger-farbe-list"
+                            className="form-control"
+                            value={form.Anhänger_Farbe || ""}
+                            onChange={(e) =>
+                              setForm({ ...form, Anhänger_Farbe: e.target.value })
+                            }
+                          />
+                          <datalist id="anhaenger-farbe-list">
+                            {filterOptions.anhaenger_farben?.map((f) => (
+                              <option key={f} value={f} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label>Anhänger Größe</label>
+                          <input
+                            className="form-control"
+                            type="text"
+                            inputMode="decimal"
+                            value={form.Anhänger_Grösse ?? ""}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                Anhänger_Grösse: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Anh. Inhalt Material</label>
+                          <input
+                            list="anhaenger-inhalt-material-list"
+                            className="form-control"
+                            value={form.Anhänger_Inhalt_Material || ""}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                Anhänger_Inhalt_Material: e.target.value,
+                              })
+                            }
+                          />
+                          <datalist id="anhaenger-inhalt-material-list">
+                            {filterOptions.anhaenger_inhalt_materialien?.map((m) => (
+                              <option key={m} value={m} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label>Anh. Inhalt Farbe</label>
+                          <input
+                            list="anhaenger-inhalt-farbe-list"
+                            className="form-control"
+                            value={form.Anhänger_Inhalt_Farbe || ""}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                Anhänger_Inhalt_Farbe: e.target.value,
+                              })
+                            }
+                          />
+                          <datalist id="anhaenger-inhalt-farbe-list">
+                            {filterOptions.anhaenger_inhalt_farben?.map((f) => (
+                              <option key={f} value={f} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label>Anh. Inhalt Farbakzent</label>
+                          <input
+                            list="anhaenger-inhalt-farbakzent-list"
+                            className="form-control"
+                            value={form.Anhänger_Inhalt_Farbakzente || ""}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                Anhänger_Inhalt_Farbakzente: e.target.value,
+                              })
+                            }
+                          />
+                          <datalist id="anhaenger-inhalt-farbakzent-list">
+                            {filterOptions.anhaenger_inhalt_farbakzente?.map((a) => (
+                              <option key={a} value={a} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="form-group">
+                          <label>Anh. Inhalt Zusatzmaterial</label>
+                          <input
+                            list="anhaenger-inhalt-zusatzmaterial-list"
+                            className="form-control"
+                            value={form.Anhänger_Inhalt_Zusatzmaterial || ""}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                Anhänger_Inhalt_Zusatzmaterial: e.target.value,
+                              })
+                            }
+                          />
+                          <datalist id="anhaenger-inhalt-zusatzmaterial-list">
+                            {filterOptions.anhaenger_inhalt_zusatzmaterialien?.map(
+                              (z) => (
+                                <option key={z} value={z} />
+                              ),
+                            )}
+                          </datalist>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <div className="form-row">
+                    {zeigeZwischenstueck && (
+                      <div className="form-group">
+                        <label>Zwischenstück</label>
+                        <input
+                          list="zwischenstuecke-list"
+                          className="form-control"
+                          value={form.Zwischenstück || ""}
+                          onChange={(e) =>
+                            setForm({ ...form, Zwischenstück: e.target.value })
+                          }
+                        />
+                        <datalist id="zwischenstuecke-list">
+                          {filterOptions.zwischenstuecke?.map((z) => (
+                            <option key={z} value={z} />
+                          ))}
+                        </datalist>
+                      </div>
+                    )}
+                    {/* Hier stand ein zweites Feld "Fassung", das auf
+                        form.Fassung des Hauptstücks schrieb – wer im
+                        Anhänger-Block etwas eintrug, überschrieb damit die
+                        Fassung des Hauptstücks. Dazu war die datalist-ID
+                        "fassungen-list" ein zweites Mal im DOM (ungültiges HTML,
+                        list= bindet immer an das erste Vorkommen). Das Hauptstück
+                        hat sein eigenes Feld im Abschnitt "Details", der Anhänger
+                        sein "Anhänger Fassung" weiter oben (Befund G3). */}
+                    {zeigeAnhaenger && (
+                      <div className="form-group">
+                        <label>Anhänger (Allg.)</label>
+                        <input
+                          list="anhaenger-list"
+                          className="form-control"
+                          value={form.Anhänger || ""}
+                          onChange={(e) =>
+                            setForm({ ...form, Anhänger: e.target.value })
+                          }
+                        />
+                        <datalist id="anhaenger-list">
+                          {filterOptions.anhaenger?.map((a) => (
+                            <option key={a} value={a} />
+                          ))}
+                        </datalist>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Anh. Inhalt Material</label>
-                    <input
-                      list="anhaenger-inhalt-material-list"
-                      className="form-control"
-                      value={form.Anhänger_Inhalt_Material || ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Anhänger_Inhalt_Material: e.target.value,
-                        })
-                      }
-                    />
-                    <datalist id="anhaenger-inhalt-material-list">
-                      {filterOptions.anhaenger_inhalt_materialien?.map((m) => (
-                        <option key={m} value={m} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="form-group">
-                    <label>Anh. Inhalt Farbe</label>
-                    <input
-                      list="anhaenger-inhalt-farbe-list"
-                      className="form-control"
-                      value={form.Anhänger_Inhalt_Farbe || ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Anhänger_Inhalt_Farbe: e.target.value,
-                        })
-                      }
-                    />
-                    <datalist id="anhaenger-inhalt-farbe-list">
-                      {filterOptions.anhaenger_inhalt_farben?.map((f) => (
-                        <option key={f} value={f} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="form-group">
-                    <label>Anh. Inhalt Farbakzent</label>
-                    <input
-                      list="anhaenger-inhalt-farbakzent-list"
-                      className="form-control"
-                      value={form.Anhänger_Inhalt_Farbakzente || ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Anhänger_Inhalt_Farbakzente: e.target.value,
-                        })
-                      }
-                    />
-                    <datalist id="anhaenger-inhalt-farbakzent-list">
-                      {filterOptions.anhaenger_inhalt_farbakzente?.map((a) => (
-                        <option key={a} value={a} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="form-group">
-                    <label>Anh. Inhalt Zusatzmaterial</label>
-                    <input
-                      list="anhaenger-inhalt-zusatzmaterial-list"
-                      className="form-control"
-                      value={form.Anhänger_Inhalt_Zusatzmaterial || ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          Anhänger_Inhalt_Zusatzmaterial: e.target.value,
-                        })
-                      }
-                    />
-                    <datalist id="anhaenger-inhalt-zusatzmaterial-list">
-                      {filterOptions.anhaenger_inhalt_zusatzmaterialien?.map(
-                        (z) => (
-                          <option key={z} value={z} />
-                        ),
-                      )}
-                    </datalist>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Zwischenstück</label>
-                    <input
-                      list="zwischenstuecke-list"
-                      className="form-control"
-                      value={form.Zwischenstück || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Zwischenstück: e.target.value })
-                      }
-                    />
-                    <datalist id="zwischenstuecke-list">
-                      {filterOptions.zwischenstuecke?.map((z) => (
-                        <option key={z} value={z} />
-                      ))}
-                    </datalist>
-                  </div>
-                  {/* Hier stand ein zweites Feld "Fassung", das auf
-                      form.Fassung des Hauptstücks schrieb – wer im
-                      Anhänger-Block etwas eintrug, überschrieb damit die
-                      Fassung des Hauptstücks. Dazu war die datalist-ID
-                      "fassungen-list" ein zweites Mal im DOM (ungültiges HTML,
-                      list= bindet immer an das erste Vorkommen). Das Hauptstück
-                      hat sein eigenes Feld im Abschnitt "Details", der Anhänger
-                      sein "Anhänger Fassung" weiter oben (Befund G3). */}
-                  <div className="form-group">
-                    <label>Anhänger (Allg.)</label>
-                    <input
-                      list="anhaenger-list"
-                      className="form-control"
-                      value={form.Anhänger || ""}
-                      onChange={(e) =>
-                        setForm({ ...form, Anhänger: e.target.value })
-                      }
-                    />
-                    <datalist id="anhaenger-list">
-                      {filterOptions.anhaenger?.map((a) => (
-                        <option key={a} value={a} />
-                      ))}
-                    </datalist>
-                  </div>
-                </div>
-              </div>
+              )}
 
               <div className="form-section">
                 <h4>
