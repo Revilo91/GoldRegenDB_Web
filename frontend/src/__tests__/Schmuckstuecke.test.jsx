@@ -802,16 +802,26 @@ describe('Detail-Panel statt Fenster', () => {
       expect(document.querySelector('.modal-overlay')).toBeNull();
     });
 
-    it('der Kopfbereich bis zu den Status-Chips ist fixiert (Sticky-Klasse)', async () => {
+    it('nur Suche, Filter und Status-Chips sind fixiert; Titel und Reiter scrollen mit', async () => {
       rendereSeite();
       await listeBereit();
 
       const kopf = document.querySelector('.schmuck-kopf');
       expect(kopf).toHaveClass('schmuck-kopf--fixiert');
-      expect(kopf).toContainElement(screen.getByRole('heading', { name: 'Schmuckstücke' }));
       expect(kopf).toContainElement(screen.getByPlaceholderText(/Suche nach Artikelnummer/));
       expect(kopf).toContainElement(screen.getByRole('button', { name: /^Alle/ }));
+      expect(kopf).not.toContainElement(screen.getByRole('heading', { name: 'Schmuckstücke' }));
+      expect(kopf).not.toContainElement(screen.getByRole('button', { name: 'Etiketten' }));
       expect(kopf).not.toContainElement(screen.getByRole('table'));
+    });
+
+    it('die Aufteilung Liste/Panel bleibt in .schmuck-split', async () => {
+      rendereSeite();
+      await listeBereit();
+
+      const split = document.querySelector('.schmuck-split');
+      expect(split).toContainElement(screen.getByRole('table'));
+      expect(split).toContainElement(panel());
     });
 
     it('Klick auf eine Zeile füllt das Panel, die Liste bleibt sichtbar und die Zeile ist hervorgehoben', async () => {
@@ -1025,6 +1035,7 @@ describe('Detail-Panel statt Fenster', () => {
       rendereSeite();
       await screen.findByRole('table');
       expect(document.querySelector('.schmuck-kopf')).not.toHaveClass('schmuck-kopf--fixiert');
+      expect(document.querySelector('.schmuck-split')).toBeNull();
 
       taste('ArrowDown');
 

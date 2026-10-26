@@ -8,7 +8,7 @@
 
   .schmuck-split {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 320px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 16px;
     align-items: start;
   }
@@ -21,20 +21,16 @@
     overflow-x: auto;
   }
 
-  /* Fixierter Kopf: Hintergrund und Ränder reichen bis an den Rand des Inhaltsbereichs (.main-content hat 32px Innenabstand).
-     z-index über Tabelle und Panel, unter Seitenleiste (1000) und Fenstern (1400) */
+  /* Fixierter Teil (Suche, Filter, Status-Chips): Hintergrund reicht seitlich bis an den Rand des Inhaltsbereichs
+     (.main-content hat 32px Innenabstand). z-index über Tabelle und Panel, unter Seitenleiste (1000) und Fenstern (1400) */
   .schmuck-kopf--fixiert {
     position: sticky;
     top: 0;
     z-index: 20;
-    margin: -32px -32px 16px;
-    padding: 24px 32px 0;
+    margin: 0 -32px 16px;
+    padding: 12px 32px 0;
     background: var(--bg-primary);
     border-bottom: 1px solid var(--border);
-  }
-
-  .schmuck-kopf--fixiert .page-header {
-    margin-bottom: 12px;
   }
 
   /* Panel liegt unter dem fixierten Kopf; --schmuck-kopf-hoehe misst die Seite (ResizeObserver) */
@@ -102,7 +98,7 @@
 }
 
 .schmuck-panel .detail-grid {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 12px;
   padding: 16px;
 }

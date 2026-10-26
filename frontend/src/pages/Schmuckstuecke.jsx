@@ -826,8 +826,8 @@ export default function Schmuckstuecke() {
     onDelete: canEdit ? () => handleDelete(selected.Artikelnummer) : undefined,
   };
 
-  // Ab Panel-Breite bleibt der Kopf (Titel, Reiter, Suche, Status-Chips) beim Scrollen oben stehen;
-  // das Panel liegt darunter, seine Höhe kommt als CSS-Variable
+  // Ab Panel-Breite bleiben nur Suche/Filter und Status-Chips beim Scrollen oben stehen (Titel und Reiter scrollen mit);
+  // das Panel liegt darunter, die Höhe des fixierten Teils kommt als CSS-Variable
   const kopfFixiert = panelModus && activeTab === "schmuckstuecke";
   const kopfRef = useRef(null);
   const [kopfHoehe, setKopfHoehe] = useState(0);
@@ -847,7 +847,6 @@ export default function Schmuckstuecke() {
 
   return (
     <div style={{ "--schmuck-kopf-hoehe": `${kopfHoehe}px` }}>
-      <div ref={kopfRef} className={kopfFixiert ? "schmuck-kopf schmuck-kopf--fixiert" : "schmuck-kopf"}>
       <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
@@ -905,7 +904,7 @@ export default function Schmuckstuecke() {
       </div>
 
       {activeTab === "schmuckstuecke" && (
-        <>
+      <div ref={kopfRef} className={kopfFixiert ? "schmuck-kopf schmuck-kopf--fixiert" : "schmuck-kopf"}>
       <TableToolbar
         search={search}
         onSearchChange={(value) => {
@@ -967,10 +966,8 @@ export default function Schmuckstuecke() {
           setPage(1);
         }}
       />
-
-        </>
-      )}
       </div>
+      )}
 
       {activeTab === "schmuckstuecke" ? (
         <>
