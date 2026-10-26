@@ -64,6 +64,9 @@ Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
 ## Gelernte Korrekturen (alle Projekte)
 
 - 2026-10-19: GH_TOKEN aus der Umgebung ließ Installer-Tests scheitern → Tests, die install.sh starten, setzen GH_TOKEN immer leer.
+- 2026-10-21: Installer-Fehler wurden über mehrere Runden ohne Klärung von Repo-Sichtbarkeit, Token-Quelle und der laufenden Skriptkopie bearbeitet → bei Installer-/Download-Fehlern zuerst diese drei Punkte prüfen oder abfragen, dann erst Dateien empfehlen.
+- 2026-10-22: Tag-Filter `v[0-9]+.[0-9]+.[0-9]+` löste bei `v1.0.10` nicht aus → Tag-Trigger mit `*` filtern (`v[0-9]*.[0-9]*.[0-9]*`) und das Format im Workflow per Regex prüfen.
+- 2026-10-25: Frage nach plötzlicher RAM-Erhöhung als Monitoring-Thema gelesen, gemeint war ein Angriffsvektor → bei plötzlichem Ressourcenverbrauch zuerst klären, ob Betrieb/Monitoring oder Sicherheit gemeint ist.
 <!-- base:end -->
 
 <!-- Projektspezifische Ergänzungen unterhalb dieser Zeile (werden vom Sync nicht angefasst). -->

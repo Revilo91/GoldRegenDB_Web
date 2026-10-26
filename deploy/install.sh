@@ -69,8 +69,8 @@ TEXT
 
 random_secret() { openssl rand -hex "$SECRET_BYTES"; }
 
-env_value() { # env_value KEY -> Wert aus .env (ohne Anführungszeichen)
-  { grep -E "^$1=" .env || true; } | tail -n1 | cut -d= -f2- | tr -d "\"'"
+env_value() { # env_value KEY [DATEI] -> Wert aus .env (ohne Anführungszeichen)
+  { grep -E "^$1=" "${2:-.env}" || true; } | tail -n1 | cut -d= -f2- | tr -d "\"'"
 }
 
 set_env_value() { # set_env_value KEY VALUE (ersetzt oder hängt an)
@@ -196,6 +196,7 @@ if [[ "$MODE" == "rollback" ]]; then
 fi
 
 # --- 0. Release ermitteln, laden, Image ziehen (noch nichts verändert) -------
+if [[ -z "$GH_TOKEN" && -f "$INSTALL_DIR/.env" ]]; then GH_TOKEN="$(env_value GH_TOKEN "$INSTALL_DIR/.env")"; fi
 AUTH_HINT="Bei privatem Repo: GH_TOKEN setzen (sudo GH_TOKEN=... bash install.sh)."
 gh_curl() { # curl mit Token (falls gesetzt)
   if [[ -n "$GH_TOKEN" ]]; then
@@ -219,11 +220,11 @@ log "Release: $RELEASE_TAG (Image-Tag: $VERSION)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 # GitHub benennt Dateien mit führendem Punkt beim Upload um (.env.example -> default.env.example);
-# der Originalname bleibt als "label" erhalten.
+# der Originalname steht nur im "label", falls er beim Upload gesetzt wurde. Also beide Namen suchen.
 asset_id() { # asset_id DATEI -> Asset-ID aus dem Release-JSON (ohne jq)
   tr ',' '\n' <<< "$ASSETS_JSON" | awk -v n="$1" '
     /\/releases\/assets\/[0-9]+"/ { match($0, /assets\/[0-9]+/); id = substr($0, RSTART + 7, RLENGTH - 7) }
-    (index($0, "\"name\":") || index($0, "\"label\":")) && index($0, "\"" n "\"") && id != "" { print id; exit }'
+    (index($0, "\"name\":") || index($0, "\"label\":")) && (index($0, "\"" n "\"") || index($0, "\"default" n "\"")) && id != "" { print id; exit }'
 }
 download_asset() { # download_asset DATEI
   if [[ -n "$GH_TOKEN" ]]; then # private Repos: Download nur über die API (Asset-ID)
