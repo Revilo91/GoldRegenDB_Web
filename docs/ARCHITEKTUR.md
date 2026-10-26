@@ -415,6 +415,7 @@ POST   /auth/admin/generate-reset-link      Reset-Link generieren und zurückgeb
 ```
 GET    /schmuckstuecke                      Liste (Paginierung, Filter, Suche)
 GET    /schmuckstuecke/filter-options       Verfügbare Filter-Werte
+GET    /schmuckstuecke/status-zahlen        Anzahl je Status (Lager/Ausgelagert/Verkauft/Ausschuss)
 GET    /schmuckstuecke/unique-artikelnummern Basis-Nummern für Inventur
 GET    /schmuckstuecke/:artikelnummer       Einzelnes Stück
 POST   /schmuckstuecke                      Neu anlegen
