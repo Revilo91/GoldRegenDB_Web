@@ -21,6 +21,7 @@ export default function Rechnungen() {
         deleteItem: api.deleteRechnung,
         createItem: api.createRechnung,
         updateItem: api.updateRechnung,
+        resetItem: api.resetRechnung,
         exportExcel: api.exportRechnungExcel,
         exportERechnung: api.exportERechnung,
         getKunden: api.getKunden,

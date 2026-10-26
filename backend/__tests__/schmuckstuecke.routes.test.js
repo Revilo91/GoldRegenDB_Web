@@ -111,6 +111,25 @@ describe('GET /api/schmuckstuecke', () => {
     expect(db.query.mock.calls[0][1]).toContainEqual([0, 15]);
   });
 
+  it('filtert bei ausgelagert=kunden auf Ausgelagert > 0, Suche behält $1', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app).get('/api/schmuckstuecke?search=Rosa&ausgelagert=kunden&verkauft=0&ausschuss=0&limit=-1');
+
+    expect(res.statusCode).toBe(200);
+    const sql = db.query.mock.calls[0][0];
+    expect(sql).toContain('"Ausgelagert" > 0');
+    expect(sql).toContain('ILIKE $1');
+    expect(db.query.mock.calls[0][1]).toEqual(['%Rosa%']);
+  });
+
+  it.each(['kunden,5', 'Kunden'])('lehnt ausgelagert=%s ab (400)', async (wert) => {
+    const res = await request(app).get(`/api/schmuckstuecke?ausgelagert=${wert}`);
+
+    expect(res.statusCode).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it.each(['0,', 'a,15', '0,-1'])('lehnt ausgelagert=%s ab (400)', async (wert) => {
     const res = await request(app).get(`/api/schmuckstuecke?ausgelagert=${wert}`);
 

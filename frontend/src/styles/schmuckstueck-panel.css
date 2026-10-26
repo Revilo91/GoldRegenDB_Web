@@ -1,0 +1,110 @@
+/* ============ SCHMUCKSTÜCKE: DETAIL-PANEL NEBEN DER LISTE ============ */
+/* Breakpoint wie PANEL_BREAKPOINT in utils/breakpoints.js; die Umschaltung Panel/Fenster macht useMediaQuery */
+@media (min-width: 1024px) {
+  /* Flex-Item: ohne min-width: 0 weitet die breite Tabelle die Seite; scrollen soll nur der .card-body (#327, #319) */
+  .main-content {
+    min-width: 0;
+  }
+
+  .schmuck-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .schmuck-split > .card {
+    min-width: 0;
+  }
+
+  .schmuck-split .card-body {
+    overflow-x: auto;
+  }
+
+  /* Fixierter Teil (Suche, Filter, Status-Chips): Hintergrund reicht seitlich bis an den Rand des Inhaltsbereichs
+     (.main-content hat 32px Innenabstand). z-index über Tabelle und Panel, unter Seitenleiste (1000) und Fenstern (1400) */
+  .schmuck-kopf--fixiert {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: 0 -32px 16px;
+    padding: 12px 32px 0;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Panel liegt unter dem fixierten Kopf; --schmuck-kopf-hoehe misst die Seite (ResizeObserver) */
+  .schmuck-split .schmuck-panel {
+    top: calc(var(--schmuck-kopf-hoehe, 0px) + 16px);
+    max-height: calc(100vh - var(--schmuck-kopf-hoehe, 0px) - 32px);
+  }
+
+  .data-table tr.data-table-row-aktiv td {
+    background: var(--gold-bg);
+  }
+}
+
+.schmuck-panel {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.schmuck-panel-hinweis {
+  margin: 0;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Kopf: Titel und Schließen in einer Zeile, Aktionen darunter */
+.schmuck-panel .modal-header {
+  flex-wrap: wrap;
+  padding: 16px;
+}
+
+.schmuck-panel .modal-header h3 {
+  font-size: 16px;
+}
+
+.schmuck-panel .modal-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  order: 3;
+  width: 100%;
+  gap: 8px;
+}
+
+.schmuck-panel .loading {
+  padding: 32px 16px;
+}
+
+.schmuck-panel .schmuck-modal-name {
+  padding: 12px 16px;
+}
+
+.schmuck-panel .schmuck-modal-photo img,
+.schmuck-panel .schmuck-modal-photo-placeholder {
+  max-width: 100%;
+}
+
+.schmuck-panel .schmuck-modal-photo-placeholder {
+  width: 100%;
+  max-width: 200px;
+}
+
+.schmuck-panel .detail-grid {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+/* Gewählte Kachel im Raster; die Kompakt-Zeile hat .schmuckstueck-zeile--aktiv */
+.foto-kachel--aktiv {
+  background: var(--gold-bg);
+  border-color: var(--gold);
+}

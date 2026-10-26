@@ -47,6 +47,8 @@ Die Dateinamen enthalten einen Zeitstempel (`YYYYMMDD_HHMMSS`).
 | `KEEP_DAILY`   | `7`             | Aufbewahrung täglicher Backups in **Tagen**|
 | `KEEP_WEEKLY`  | `4`             | Aufbewahrung wöchentlicher Backups in **Wochen**|
 | `MIN_BACKUP_BYTES` | `1024`      | Mindestgröße, unter der ein Dump verworfen wird|
+| `BACKUP_WEBHOOK_URL` | leer      | optional: Fehlermeldung per HTTP-POST (aus, wenn leer)|
+| `BACKUP_STATUS_DATEI` | `$BACKUP_DIR/backup-status.json` | Status-Datei nach jedem Lauf|
 
 > `KEEP_DAILY`/`KEEP_WEEKLY` sind **Zeiträume, keine Dateizahlen.** Die
 > Rotation läuft über `find -mtime`, löscht also nach Alter. Vorher behielt sie
@@ -221,6 +223,45 @@ spurlos zuzulassen.
 
 ---
 
+## Backup-Status und Fehlermeldung
+
+Teil 1 von #289 (Teil 2 „Jetzt sichern“ und Teil 3 „Restore-Test“ folgen separat).
+
+Nach **jedem** Lauf von `backup.sh`, auch nach Fehler oder Abbruch (EXIT-Trap), entsteht atomar
+(Temporärdatei + `mv`) `/backups/backup-status.json`:
+
+```json
+{
+  "zeitpunkt": "2026-10-26T01:00:12Z",
+  "ergebnis": "ok",
+  "datei": "goldregendb_20261026_020000.sql.gz",
+  "groesse_bytes": 1234567,
+  "dauer_sekunden": 12,
+  "art": "daily"
+}
+```
+
+Bei `"ergebnis": "fehler"` ist `datei` leer, `groesse_bytes` ist `0` und es gibt ein Feld `fehler`
+(Kurztext). `art` ist `daily` oder, an Sonntagen, `weekly` (Art des zuletzt erzeugten Dumps).
+
+- `GET /api/health` liefert daraus nur das Wort `backup.status`: `ok`, `veraltet` (älter als
+  `BACKUP_MAX_ALTER_STUNDEN`, Standard 26, am `app`-Service), `fehler` oder `unbekannt` (Datei fehlt
+  oder ist unlesbar). Keine Pfade, Dateinamen oder Fehlertexte, HTTP-Status unverändert.
+- `BACKUP_WEBHOOK_URL` (am `db`-Service, optional, leer = aus): bei Fehler sendet `backup.sh` einen
+  HTTP-POST mit Klartext-Body an diese URL. Kanal frei wählbar (z. B. ntfy oder Home-Assistant-Webhook),
+  nicht festgelegt. Genutzt wird `curl`, sonst `wget`; ein fehlgeschlagener Aufruf erzeugt nur eine
+  Log-Warnung und ändert weder Exit-Code noch Status-Datei.
+- Die Prüfung „kein Backup seit mehr als 26 Stunden“ ist **passiv**: `/api/health` meldet `veraltet`,
+  versendet aber nichts. Eine Benachrichtigung dafür entsteht, wenn DSM-Aufgabenplaner, ein
+  Uptime-Monitor oder Home Assistant `/api/health` abfragen. Einen eigenen Scheduler im Backend gibt
+  es nicht.
+- Zielwerte (Vorschlag, noch zu bestätigen): RPO 1 Tag, RTO 1 Stunde.
+
+Zeitplan auf der Synology: DSM-Aufgabenplaner, siehe
+[`deploy/README.md`](../deploy/README.md#backup).
+
+---
+
 ## Backup-Strategie im Überblick
 
 ```
@@ -242,6 +283,10 @@ mit weg.
 
 **Maximaler Datenverlust:** 1 Tag (bei täglichen Backups)
 **Aufbewahrungszeitraum:** mindestens 7 Tage täglich + 4 Wochen wöchentlich
+
+Diese Rotation betrifft nur die Kopie auf der NAS. Kopien auf einem USB-Laufwerk und an einem
+anderen Standort (Hyper Backup) beschreibt
+[`deploy/README.md`](../deploy/README.md#offsite-backup-3-2-1).
 
 ---
 

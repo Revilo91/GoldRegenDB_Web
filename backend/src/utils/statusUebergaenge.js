@@ -22,6 +22,15 @@ async function hebeVerkauftAuf(client, rechnungId) {
   return rowCount;
 }
 
+// Nimmt "Verkauft" zurück, lässt die Stücke aber der Rechnung zugeordnet (Zustand eines Entwurfs)
+async function gibVerkaufFrei(client, rechnungId) {
+  const { rowCount } = await client.query(
+    `UPDATE "Schmuckstück" SET "Verkauft" = FALSE WHERE "Rechnung_ID" = $1`,
+    [rechnungId]
+  );
+  return rowCount;
+}
+
 async function lagereAus(client, artikelnummern, kundeId, lieferscheinId) {
   if (leer(artikelnummern)) return 0;
   const { rowCount } = await client.query(
@@ -71,6 +80,7 @@ async function lagereZurueck(client, kundeId, artikelnummern = null) {
 module.exports = {
   markiereVerkauft,
   hebeVerkauftAuf,
+  gibVerkaufFrei,
   lagereAus,
   lagereOffeneAus,
   hebeAuslagerungAuf,

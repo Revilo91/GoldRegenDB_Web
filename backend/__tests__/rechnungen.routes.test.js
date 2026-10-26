@@ -42,6 +42,13 @@ function buildApp(role = 'bearbeiter') {
 
 beforeEach(() => jest.clearAllMocks());
 
+const STATUS_ABFRAGE = 'SELECT status, "Nummer" FROM "Rechnung"';
+const ENTWURF_VORHANDEN = { [STATUS_ABFRAGE]: { rows: [{ status: 'entwurf' }], rowCount: 1 } };
+const FINAL_VORHANDEN = { [STATUS_ABFRAGE]: { rows: [{ status: 'final', Nummer: '2026-001' }], rowCount: 1 } };
+// Schreibende Statements; "FOR UPDATE" im SELECT zählt nicht
+const schreibt = (sql) => /^\s*(UPDATE|INSERT|DELETE)\b/.test(sql);
+const GESPERRT = 'Finale Rechnung ist gesperrt; ein Admin kann sie mit Begründung zurücksetzen';
+
 describe('GET /api/rechnungen', () => {
   it('liefert alle Rechnungen mit Kundennamen', async () => {
     db.query.mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001', KundenName: 'Anna' }] });
@@ -106,6 +113,41 @@ describe('GET /api/rechnungen/:id', () => {
   });
 });
 
+describe('GET /api/rechnungen/:id (Snapshot, Issue #283 Schritt 3)', () => {
+  const eingefroren = {
+    ID: 1, Nummer: '2026-001', status: 'final', snapshot_am: '2026-10-01T10:00:00Z',
+    rabatt_gesamt: '0.00', rabatt_positionen: {}, summe_brutto: '40.00', rabatt_gesamt_betrag: '0.00',
+    provision_prozent: '25.00', versand_betrag: '0.00',
+  };
+  const stueck = {
+    Artikelnummer: 'MHO001_1', Verkaufspreis: '99.00', snapshot_einzelpreis: '40.00', snapshot_positionsrabatt: '0.00',
+  };
+
+  it('liefert bei finalen Rechnungen die eingefrorenen Preise, ohne Hilfsspalten', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [eingefroren] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '40.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.schmuckstuecke).toEqual([{ Artikelnummer: 'MHO001_1', Verkaufspreis: '40.00' }]);
+    expect(String(db.query.mock.calls[1][0])).toContain('LEFT JOIN "Rechnung_Position" p');
+  });
+
+  it('lässt den Preis eines Entwurfs live', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ...eingefroren, status: 'entwurf' }] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '99.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1');
+
+    expect(res.body.schmuckstuecke[0].Verkaufspreis).toBe('99.00');
+  });
+});
+
 describe('GET /api/rechnungen/:id/excel', () => {
   it('liefert eine XLSX-Datei', async () => {
     db.query
@@ -143,15 +185,12 @@ describe('GET /api/rechnungen/:id/excel', () => {
 
 describe('POST /api/rechnungen', () => {
   it('legt eine Rechnung mit gültigen Daten an', async () => {
-    const client = {
-      query: jest.fn()
-        .mockResolvedValueOnce({}) // BEGIN
-        .mockResolvedValueOnce({}) // LOCK
-        .mockResolvedValueOnce({ rows: [{ max_num: '0' }] }) // next-number
-        .mockResolvedValueOnce({ rows: [{ ID: 1, Nummer: '2026-001' }] }) // INSERT
-        .mockResolvedValueOnce({}), // COMMIT
-      release: jest.fn(),
-    };
+    const client = createTxClientMock({
+      ergebnisse: {
+        'SELECT COALESCE(MAX': { rows: [{ max_num: '0' }] },
+        'INSERT INTO "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001' }] },
+      },
+    });
     db.connect.mockResolvedValueOnce(client);
 
     const res = await request(buildApp())
@@ -274,7 +313,7 @@ describe('POST /api/rechnungen', () => {
 describe('PUT /api/rechnungen/:id', () => {
   it('aktualisiert eine bestehende Rechnung und committet', async () => {
     const client = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] } },
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] } },
     });
     db.connect.mockResolvedValueOnce(client);
 
@@ -289,10 +328,10 @@ describe('PUT /api/rechnungen/:id', () => {
 
   it('entfernt den Einmalkunden bei empfaenger: null und lässt ihn sonst unverändert', async () => {
     const mitNull = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
     });
     const ohneFeld = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
     });
     db.connect.mockResolvedValueOnce(mitNull).mockResolvedValueOnce(ohneFeld);
 
@@ -307,10 +346,10 @@ describe('PUT /api/rechnungen/:id', () => {
 
   it('leert die Versandkosten bei leerem Feld und lässt sie ohne Feld unverändert', async () => {
     const leer = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
     });
     const ohneFeld = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'entwurf' }] } },
     });
     db.connect.mockResolvedValueOnce(leer).mockResolvedValueOnce(ohneFeld);
 
@@ -325,7 +364,7 @@ describe('PUT /api/rechnungen/:id', () => {
 
   it('meldet 404 bei unbekannter ID und rollt zurück', async () => {
     const client = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [] } },
+      ergebnisse: { [STATUS_ABFRAGE]: { rows: [], rowCount: 0 } },
     });
     db.connect.mockResolvedValueOnce(client);
 
@@ -343,7 +382,7 @@ describe('PUT /api/rechnungen/:id', () => {
   // Stücke konnten doppelt verkauft werden.
   it('rollt den Kopf-Update zurück, wenn das Neusetzen der Positionen scheitert', async () => {
     const client = createTxClientMock({
-      ergebnisse: { 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'final' }] } },
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'final' }] } },
       fehlerBei: '"Verkauft" = TRUE',
     });
     db.connect.mockResolvedValueOnce(client);
@@ -361,10 +400,225 @@ describe('PUT /api/rechnungen/:id', () => {
   });
 });
 
+describe('Snapshot (Issue #283, Schritt 2)', () => {
+  const snapshotGeschrieben = (client) => sqlVerlauf(client)
+    .some((sql) => sql.includes('INSERT INTO "Rechnung_Position"'));
+
+  it('schreibt beim Anlegen vor dem COMMIT einen Snapshot', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(buildApp()).post('/api/rechnungen').send({ Nummer: '2026-002', Kundennummer: 1 });
+
+    const verlauf = sqlVerlauf(client);
+    expect(snapshotGeschrieben(client)).toBe(true);
+    expect(verlauf.findIndex((s) => s.includes('INSERT INTO "Rechnung_Position"')))
+      .toBeLessThan(verlauf.indexOf('COMMIT'));
+  });
+
+  it('schreibt beim Ändern und beim Finalisieren einen Snapshot', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, status: 'final' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .put('/api/rechnungen/1')
+      .send({ Nummer: '2026-001', Kundennummer: 1, Artikelnummern: ['MHO001_1'], status: 'final' });
+
+    expect(res.statusCode).toBe(200);
+    const verlauf = sqlVerlauf(client);
+    // Snapshot erst nach dem Setzen von Verkauft, damit er den finalen Stand sieht
+    expect(verlauf.findIndex((s) => s.includes('INSERT INTO "Rechnung_Position"')))
+      .toBeGreaterThan(verlauf.findIndex((s) => s.includes('"Verkauft" = TRUE')));
+  });
+
+  it('lässt den Snapshot einer gesperrten Rechnung unangetastet', async () => {
+    const client = createTxClientMock({ ergebnisse: FINAL_VORHANDEN });
+    db.connect.mockResolvedValueOnce(client);
+
+    await request(buildApp()).put('/api/rechnungen/1').send({ Nummer: '2026-001', Kundennummer: 1 });
+
+    expect(snapshotGeschrieben(client)).toBe(false);
+    expect(sqlVerlauf(client).some((s) => s.includes('"Rechnung_Position"'))).toBe(false);
+  });
+
+  it('rollt zurück, wenn der Snapshot scheitert', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { 'INSERT INTO "Rechnung"': { rows: [{ ID: 2, Nummer: '2026-002' }] } },
+      fehlerBei: 'INSERT INTO "Rechnung_Position"',
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp()).post('/api/rechnungen').send({ Nummer: '2026-002', Kundennummer: 1 });
+
+    expect(res.statusCode).toBe(500);
+    expect(sqlVerlauf(client)).toContain('ROLLBACK');
+    expect(sqlVerlauf(client)).not.toContain('COMMIT');
+  });
+
+  it('leert beim Admin-Reset Positionen und Summen', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { ...FINAL_VORHANDEN, 'UPDATE "Rechnung" SET status': { rows: [{ ID: 1, status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp('admin'))
+      .post('/api/rechnungen/1/zuruecksetzen')
+      .send({ begruendung: 'Falscher Kunde ausgewählt' });
+
+    expect(res.statusCode).toBe(200);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((s) => s.includes('DELETE FROM "Rechnung_Position"'))).toBe(true);
+    expect(verlauf.some((s) => s.includes('snapshot_am = NULL'))).toBe(true);
+    expect(verlauf).toContain('COMMIT');
+  });
+});
+
+describe('Sperre finaler Rechnungen (Issue #283)', () => {
+  it('lehnt PUT auf eine finale Rechnung mit 409 ab und ändert nichts', async () => {
+    const client = createTxClientMock({ ergebnisse: FINAL_VORHANDEN });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .put('/api/rechnungen/1')
+      .send({ Nummer: '2026-001', Kundennummer: 2, versandkosten: 5, empfaenger: null, Artikelnummern: ['MHO001_1'] });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe(GESPERRT);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some(schreibt)).toBe(false);
+    expect(verlauf).toContain('ROLLBACK');
+    expect(verlauf).not.toContain('COMMIT');
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  it('erlaubt das Finalisieren eines Entwurfs per PUT (entwurf -> final)', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { ...ENTWURF_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'final' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp())
+      .put('/api/rechnungen/1')
+      .send({ Nummer: '2026-001', Kundennummer: 1, Artikelnummern: ['MHO001_1'], status: 'final' });
+
+    expect(res.statusCode).toBe(200);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some((sql) => sql.includes('"Verkauft" = TRUE'))).toBe(true);
+    expect(verlauf).toContain('COMMIT');
+  });
+
+  it('lehnt DELETE einer finalen Rechnung mit 409 ab und setzt keine Stücke zurück', async () => {
+    const client = createTxClientMock({ ergebnisse: FINAL_VORHANDEN });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp()).delete('/api/rechnungen/1');
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe(GESPERRT);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some(schreibt)).toBe(false);
+    expect(verlauf).toContain('ROLLBACK');
+  });
+});
+
+describe('POST /api/rechnungen/:id/zuruecksetzen', () => {
+  const BEGRUENDUNG = 'Falscher Kunde ausgewählt';
+  const sendeReset = (rolle, body = { begruendung: BEGRUENDUNG }, id = 1) =>
+    request(buildApp(rolle)).post(`/api/rechnungen/${id}/zuruecksetzen`).send(body);
+
+  it('setzt eine finale Rechnung auf Entwurf, gibt Stücke frei und schreibt das Audit-Log', async () => {
+    const client = createTxClientMock({
+      ergebnisse: { ...FINAL_VORHANDEN, 'UPDATE "Rechnung"': { rows: [{ ID: 1, Nummer: '2026-001', status: 'entwurf' }] } },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await sendeReset('admin', { begruendung: `  ${BEGRUENDUNG}  ` });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.status).toBe('entwurf');
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.findIndex((s) => s.includes('UPDATE "Rechnung"'))).toBeGreaterThan(-1);
+    // Stücke bleiben der Rechnung zugeordnet, nur Verkauft fällt weg
+    const freigabe = client.query.mock.calls.find(([sql]) => sql.includes('UPDATE "Schmuckstück"'));
+    expect(freigabe[0]).toContain('"Verkauft" = FALSE');
+    expect(freigabe[0]).not.toContain('"Rechnung_ID" = 0');
+    expect(freigabe[1]).toEqual(['1']);
+    const audit = client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO audit_log'));
+    expect(audit).toBeDefined();
+    expect(audit[0]).toContain("current_setting('app.current_user'");
+    expect(audit[1].join('|')).toContain(BEGRUENDUNG);
+    expect(audit[1].join('|')).not.toContain(`  ${BEGRUENDUNG}`);
+    expect(audit[1].join('|')).toContain('2026-001');
+    expect(verlauf[0]).toBe('BEGIN');
+    expect(verlauf).toContain('COMMIT');
+    expect(client.release).toHaveBeenCalled();
+  });
+
+  it('rollt alles zurück, wenn das Audit-Log scheitert', async () => {
+    const client = createTxClientMock({
+      ergebnisse: FINAL_VORHANDEN,
+      fehlerBei: 'INSERT INTO audit_log',
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await sendeReset('admin');
+
+    expect(res.statusCode).toBe(500);
+    expect(sqlVerlauf(client)).toContain('ROLLBACK');
+    expect(sqlVerlauf(client)).not.toContain('COMMIT');
+  });
+
+  it.each([
+    ['fehlt', {}],
+    ['ist leer', { begruendung: '' }],
+    ['besteht nur aus Leerzeichen', { begruendung: '            ' }],
+    ['ist zu kurz', { begruendung: 'zu kurz' }],
+  ])('meldet 400, wenn die Begründung %s', async (_name, body) => {
+    const res = await sendeReset('admin', body);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toContain('begruendung');
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('meldet 409, wenn die Rechnung kein Final ist', async () => {
+    const client = createTxClientMock({ ergebnisse: ENTWURF_VORHANDEN });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await sendeReset('admin');
+
+    expect(res.statusCode).toBe(409);
+    const verlauf = sqlVerlauf(client);
+    expect(verlauf.some(schreibt)).toBe(false);
+    expect(verlauf).toContain('ROLLBACK');
+  });
+
+  it('meldet 404 bei unbekannter Rechnung', async () => {
+    const client = createTxClientMock({ ergebnisse: { [STATUS_ABFRAGE]: { rows: [], rowCount: 0 } } });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await sendeReset('admin', undefined, 999);
+
+    expect(res.statusCode).toBe(404);
+    expect(sqlVerlauf(client)).toContain('ROLLBACK');
+  });
+
+  it.each(['bearbeiter', 'user'])('lehnt die Rolle %s ab (403)', async (rolle) => {
+    const res = await sendeReset(rolle);
+
+    expect(res.statusCode).toBe(403);
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+});
+
 describe('DELETE /api/rechnungen/:id', () => {
   it('löscht eine bestehende Rechnung und committet', async () => {
     const client = createTxClientMock({
-      ergebnisse: { 'SELECT "ID" FROM "Rechnung"': { rows: [{ ID: 1 }], rowCount: 1 } },
+      ergebnisse: { [STATUS_ABFRAGE]: { rows: [{ status: 'entwurf' }], rowCount: 1 } },
     });
     db.connect.mockResolvedValueOnce(client);
 
@@ -378,7 +632,7 @@ describe('DELETE /api/rechnungen/:id', () => {
   // geliefert – der Reset blieb bestehen.
   it('setzt bei unbekannter ID keine Positionen zurück (404)', async () => {
     const client = createTxClientMock({
-      ergebnisse: { 'SELECT "ID" FROM "Rechnung"': { rows: [], rowCount: 0 } },
+      ergebnisse: { [STATUS_ABFRAGE]: { rows: [], rowCount: 0 } },
     });
     db.connect.mockResolvedValueOnce(client);
 
@@ -395,7 +649,7 @@ describe('DELETE /api/rechnungen/:id', () => {
   // die Rechnung existierte weiter und der Nutzer bekam ein nacktes 500.
   it('rollt den Reset zurück und meldet 409, wenn die Rechnung noch verknüpft ist', async () => {
     const client = createTxClientMock({
-      ergebnisse: { 'SELECT "ID" FROM "Rechnung"': { rows: [{ ID: 42 }], rowCount: 1 } },
+      ergebnisse: { [STATUS_ABFRAGE]: { rows: [{ status: 'entwurf' }], rowCount: 1 } },
       fehlerBei: 'DELETE FROM "Rechnung"',
       fehler: Object.assign(new Error('violates foreign key constraint'), { code: '23503' }),
     });
@@ -455,6 +709,22 @@ describe('GET /api/rechnungen/:id/erechnung', () => {
     expect(res.headers['content-disposition']).toBe('attachment; filename="Rechnung_2026-003_XRechnung.xml"');
     expect(res.text).toContain('<ram:DuePayableAmount>30.00</ram:DuePayableAmount>');
     expect(res.text).toContain('<udt:DateTimeString format="102">20260801</udt:DateTimeString>');
+  }, 30000);
+
+  it('nimmt bei finaler Rechnung mit Snapshot Preis, Provision und Versand aus dem gespeicherten Stand', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ...rechnung, snapshot_am: '2026-10-01T10:00:00Z', summe_brutto: '40.00',
+        rabatt_gesamt_betrag: '0.00', provision_prozent: '25.00', versand_betrag: '0.00', versandkosten: '50.00',
+        rabatt_gesamt: '20.00' }] })
+      .mockResolvedValueOnce({ rows: [{ ...kunde, Provision: 90 }] })
+      .mockResolvedValueOnce({ rows: [{ ...stueck, Verkaufspreis: 999, snapshot_einzelpreis: '40.00', snapshot_positionsrabatt: '0.00' }] })
+      .mockResolvedValueOnce({ rows: [{ min_datum: '2026-08-01', max_datum: '2026-08-15' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/3/erechnung?format=xrechnung');
+
+    expect(res.statusCode).toBe(200);
+    // 40,00 - 25 % Provision, ohne Gesamtrabatt und ohne Versand
+    expect(res.text).toContain('<ram:DuePayableAmount>30.00</ram:DuePayableAmount>');
   }, 30000);
 
   it('liefert ein ZUGFeRD-PDF', async () => {

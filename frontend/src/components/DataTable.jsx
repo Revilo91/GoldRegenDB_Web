@@ -1,4 +1,6 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { MOBILE_QUERY } from "../utils/breakpoints";
 
 export default function DataTable({
   columns = [],
@@ -9,7 +11,10 @@ export default function DataTable({
   defaultSort = { key: null, direction: "asc" },
   getRowKey = (r) => r.id || r.ID || JSON.stringify(r),
   footer = null,
+  onSortedChange, // optional: (Zeilenschlüssel[]) => void, meldet die sichtbare Reihenfolge nach jeder Änderung
+  mobileRow, // optional: (row) => Knoten; ersetzt auf dem Handy die Tabelle durch eine Liste (ohne Sortierauswahl)
 }) {
+  const istMobil = useMediaQuery(MOBILE_QUERY);
   const [sortConfig, setSortConfig] = useState(defaultSort);
   const [draggingRowKey, setDraggingRowKey] = useState(null);
   const suppressClickUntilRef = useRef(0);
@@ -41,6 +46,16 @@ export default function DataTable({
     return arr;
   }, [data, sortConfig, columns]);
 
+  // Nur die Schlüsselfolge als Text ist stabil; `sorted` selbst ist bei jedem neuen `columns`-Array eine neue Liste
+  const reihenfolge = onSortedChange ? JSON.stringify(sorted.map((row) => getRowKey(row))) : null;
+  const onSortedChangeRef = useRef(onSortedChange);
+  useEffect(() => {
+    onSortedChangeRef.current = onSortedChange;
+  });
+  useEffect(() => {
+    if (reihenfolge !== null) onSortedChangeRef.current?.(JSON.parse(reihenfolge));
+  }, [reihenfolge]);
+
   const requestSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
@@ -51,6 +66,37 @@ export default function DataTable({
     if (sortConfig.key !== key) return "↕️";
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
+
+  if (mobileRow && istMobil) {
+    return (
+      <ul className={`data-table-mobil ${className}`.trim()}>
+        {sorted.map((row) => {
+          const klickbar = Boolean(onRowClick);
+          return (
+            <li
+              key={getRowKey(row)}
+              className={klickbar ? "data-table-mobil-item data-table-row-pointer" : "data-table-mobil-item"}
+              role={klickbar ? "button" : undefined}
+              tabIndex={klickbar ? 0 : undefined}
+              onClick={klickbar ? () => onRowClick(row) : undefined}
+              onKeyDown={
+                klickbar
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }>
+              {mobileRow(row)}
+            </li>
+          );
+        })}
+        {footer}
+      </ul>
+    );
+  }
 
   return (
     <table className={`data-table ${className}`.trim()}>
@@ -74,6 +120,7 @@ export default function DataTable({
             onClick: customOnClick,
             onDragStart: customOnDragStart,
             onDragEnd: customOnDragEnd,
+            className: customClassName,
             ...restCustomRowProps
           } = customRowProps;
 
@@ -115,7 +162,7 @@ export default function DataTable({
                   customOnDragEnd(event);
                 }
               }}
-              className={rowCursorClass}
+              className={`${rowCursorClass} ${customClassName || ""}`.trim()}
               {...restCustomRowProps}>
               {columns.map((c) => (
                 <td key={(c.key || c.label) + getRowKey(row)} className={c.className || ""}>

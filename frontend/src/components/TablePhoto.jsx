@@ -12,7 +12,9 @@ import { useFoto } from "../hooks/useFoto";
 // als "alle Thumbnails werden bei jedem Tastendruck zu Platzhaltern", und beim
 // Öffnen eines Modals blieben sie leer, weil pauseLoading das Nachladen
 // unterdrückt (Befund G1).
-export default function TablePhoto({ hatFoto, artikelnummer, pauseLoading = false }) {
+// groesse="gross": Variante für das Foto-Raster (füllt die Kachel); Standard ist die Tabellengröße.
+export default function TablePhoto({ hatFoto, artikelnummer, pauseLoading = false, groesse }) {
+  const gross = groesse === "gross" ? " table-photo--gross" : "";
   const {
     src: photoSrc,
     laedt: isLoading,
@@ -22,7 +24,7 @@ export default function TablePhoto({ hatFoto, artikelnummer, pauseLoading = fals
   if (!photoSrc) {
     return (
       <span
-        className="table-photo-placeholder"
+        className={`table-photo-placeholder${gross}`}
         title={
           isLoading
             ? "Foto wird geladen"
@@ -37,7 +39,7 @@ export default function TablePhoto({ hatFoto, artikelnummer, pauseLoading = fals
 
   return (
     <img
-      className="table-photo-thumb"
+      className={`table-photo-thumb${gross}`}
       src={photoSrc}
       alt={`Foto ${artikelnummer}`}
       title={`Foto ${artikelnummer}`}

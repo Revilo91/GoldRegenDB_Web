@@ -5,8 +5,9 @@ const { where } = require("../../utils/whereClauseBuilder");
 const { GRUNDMATERIAL, PRODUKTART } = require("../../utils/constants");
 const {
   HAT_FOTO_SQL,
-  SEARCHABLE_FIELDS,
   statusFilterAnwenden,
+  ausgelagertFilterAnwenden,
+  suchFilterAnwenden,
   vergleicheFilterwerte,
   FILTER_OPTION_FIELDS,
 } = require("../../services/schmuckstueckService");
@@ -32,7 +33,7 @@ const {
  *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
  *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
  *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
- *       - { name: ausgelagert, in: query, description: '0 oder eine Kunde.ID; mehrere durch Komma ("0,15" = Lager plus Kunde 15)', schema: { type: string, example: '0,15' } }
+ *       - { name: ausgelagert, in: query, description: '0, eine Kunde.ID oder mehrere durch Komma ("0,15" = Lager plus Kunde 15); "kunden" = bei irgendeinem Kunden (Ausgelagert > 0), nicht mit Listen kombinierbar', schema: { type: string, example: '0,15' } }
  *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
  *     responses:
  *       200:
@@ -65,53 +66,9 @@ router.get("/", async (req, res) => {
     let limit = parseInt(req.query.limit);
     if (isNaN(limit)) limit = 50;
     const offset = (page - 1) * limit;
-    const search = req.query.search || "";
-    const artikelnummer_art = req.query.artikelnummer_art;
 
-    // Initialisiere WHERE-Builder
     const builder = where();
-
-    if (search) {
-      // Überprüfe ob das Suchfeld ein Material-NAME ist (z.B. "Perle") oder ein Code (z.B. "P")
-      const searchUpper = search.toUpperCase();
-      let materialCode = null;
-
-      // Versuch 1: Direct lookup (z.B. "P" -> Perle)
-      if (GRUNDMATERIAL[searchUpper]) {
-        materialCode = searchUpper;
-      } else {
-        // Versuch 2: Nach Material-Name suchen (z.B. "Perle" -> P)
-        for (const [code, name] of Object.entries(GRUNDMATERIAL)) {
-          if (name.toUpperCase() === searchUpper) {
-            materialCode = code;
-            break;
-          }
-        }
-      }
-
-      if (materialCode) {
-        // Wenn das Suchfeld einem Material entspricht, suche nach dem Code
-        builder.grundmaterial(materialCode);
-      } else {
-        // Textsuche über alle Schmuckstück-Felder
-        const paramIdx = builder.getNextParamIdx();
-        const searchClause = SEARCHABLE_FIELDS.map(
-          (field) => `COALESCE("${field}"::text, '') ILIKE $${paramIdx}`,
-        ).join(" OR ");
-        builder.raw(
-          `(${searchClause})`,
-          `%${search}%`,
-        );
-      }
-    }
-
-    if (req.query.grundmaterial) {
-      builder.grundmaterial(req.query.grundmaterial);
-    }
-
-    if (artikelnummer_art) {
-      builder.produktart(artikelnummer_art);
-    }
+    suchFilterAnwenden(builder, req.query);
 
     const filterFehler = statusFilterAnwenden(builder, req.query);
     if (filterFehler) {
@@ -250,6 +207,77 @@ router.get("/filter-options", async (req, res) => {
 
 /**
  * @swagger
+ * /schmuckstuecke/status-zahlen:
+ *   get:
+ *     summary: Anzahl je Status (Lager, Ausgelagert, Verkauft, Ausschuss)
+ *     description: 'Eine Abfrage mit COUNT(*) FILTER für die Status-Chips. Nimmt search,
+ *       grundmaterial, artikelnummer_art und ausgelagert wie GET /schmuckstuecke; die Status-Filter
+ *       verkauft und ausschuss werden ignoriert, damit jeder Chip seine Zahl behält. Ist ausgelagert
+ *       gesetzt, gilt der Filter wie in der Liste: ausgelagert=<Kunde> liefert Lager 0 und Verkauft 0,
+ *       ausgelagert=0 liefert nur Lager, ausgelagert=kunden Stücke bei irgendeinem Kunden. Die vier Zustände sind disjunkt, ihre Summe ergibt alle.
+ *       Erfordert eine gültige Anmeldung (jede Rolle).'
+ *     tags: [Schmuckstücke]
+ *     parameters:
+ *       - { name: search, in: query, schema: { type: string } }
+ *       - { name: grundmaterial, in: query, schema: { type: string, example: P } }
+ *       - { name: artikelnummer_art, in: query, description: Produktart-Code, schema: { type: string, example: A } }
+ *       - { name: ausgelagert, in: query, description: '0, eine Kunde.ID, mehrere durch Komma oder "kunden" (bei irgendeinem Kunden, Ausgelagert > 0)', schema: { type: string, example: '15' } }
+ *     responses:
+ *       200:
+ *         description: Zahlen je Status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 alle: { type: integer }
+ *                 lager: { type: integer, description: 'Im Lager (nicht verkauft, kein Ausschuss)' }
+ *                 ausgelagert: { type: integer, description: 'Aktiv ausgelagert (nicht verkauft, kein Ausschuss)' }
+ *                 verkauft: { type: integer }
+ *                 ausschuss: { type: integer }
+ *       400: { description: Ungültiger Wert für ausgelagert }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ */
+router.get("/status-zahlen", async (req, res) => {
+  try {
+    const builder = where();
+    suchFilterAnwenden(builder, req.query);
+
+    const filterFehler = ausgelagertFilterAnwenden(builder, req.query);
+    if (filterFehler) {
+      return res.status(400).json({ error: filterFehler });
+    }
+
+    // Parameterlose Bedingungen, deshalb keine Index-Abstimmung mit dem Basisfilter nötig
+    const zaehle = (statusBuilder) => `COUNT(*) FILTER (WHERE ${statusBuilder.buildConditions()})`;
+    const { rows } = await db.query(
+      `SELECT COUNT(*) AS "alle",
+              ${zaehle(where().verfuegbar())} AS "lager",
+              ${zaehle(where().aktivAusgelagert())} AS "ausgelagert",
+              ${zaehle(where().verkauft())} AS "verkauft",
+              ${zaehle(where().ausschuss())} AS "ausschuss"
+       FROM "Schmuckstück" ${builder.build()}`,
+      builder.getParams(),
+    );
+
+    const zeile = rows[0];
+    res.json({
+      alle: parseInt(zeile.alle, 10),
+      lager: parseInt(zeile.lager, 10),
+      ausgelagert: parseInt(zeile.ausgelagert, 10),
+      verkauft: parseInt(zeile.verkauft, 10),
+      ausschuss: parseInt(zeile.ausschuss, 10),
+    });
+  } catch (err) {
+    logger.error("SCHMUCK", "Fehler beim Laden der Status-Zahlen", {
+      message: err.message,
+    });
+    res.status(500).json({ error: "Fehler beim Laden der Status-Zahlen" });
+  }
+});
+
+/**
+ * @swagger
  * /schmuckstuecke/unique-artikelnummern:
  *   get:
  *     summary: Eindeutige Basis-Artikelnummern (ohne Suffix)
@@ -259,7 +287,7 @@ router.get("/filter-options", async (req, res) => {
  *     tags: [Schmuckstücke]
  *     parameters:
  *       - { name: verkauft, in: query, schema: { type: integer, enum: [0, 1] } }
- *       - { name: ausgelagert, in: query, description: '0 oder Kunde.ID, mehrere durch Komma', schema: { type: string } }
+ *       - { name: ausgelagert, in: query, description: '0, Kunde.ID, mehrere durch Komma oder "kunden" (Ausgelagert > 0)', schema: { type: string } }
  *       - { name: ausschuss, in: query, schema: { type: integer, enum: [0, 1] } }
  *       - { name: artikelnummer_art, in: query, schema: { type: string } }
  *       - { name: grundmaterial, in: query, schema: { type: string } }

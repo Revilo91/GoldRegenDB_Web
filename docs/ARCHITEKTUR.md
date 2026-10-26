@@ -123,6 +123,25 @@ Constraint: `CHECK (NOT (Verkauft AND Ausschuss))` — ein Stück kann nicht gle
 | `rabatt_gesamt` | NUMERIC | Gesamtrabatt auf den Beleg (%) |
 | `versandkosten` | NUMERIC(10,2) | Versandkosten brutto, NULL = keine |
 | `empfaenger` | JSONB | Anschrift eines Einmalkunden (Onlineshop), NULL = Kundenanschrift |
+| `summe_brutto`, `rabatt_gesamt_betrag`, `provision_prozent`, `provision_betrag`, `versand_betrag`, `summe_ueberweisung` | NUMERIC(10,2) | Snapshot der Summen (`belegSummen()`), NULL = nicht eingefroren (Migration 0006, #283) |
+| `snapshot_am` | TIMESTAMPTZ | Zeitpunkt des letzten Snapshots; NULL nach Admin-Reset |
+
+#### `Rechnung_Position`
+
+Eingefrorene Positionen einer Rechnung (`services/rechnungSnapshot.js`, beim Anlegen/Ändern in derselben Transaktion; finale Rechnungen sind gesperrt, der Admin-Reset leert den Snapshot).
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| `rechnung_id` | INTEGER | FK → Rechnung.ID, `ON DELETE CASCADE` |
+| `artikelnummer_id` | VARCHAR(20) | Artikelnummer des Stücks; UNIQUE mit `rechnung_id` |
+| `basis_artikelnummer` | VARCHAR(20) | Basis-Artikelnummer (Schlüssel des Positionsrabatts) |
+| `einzelpreis` | NUMERIC(10,2) | Verkaufspreis zum Zeitpunkt des Snapshots |
+| `positionsrabatt` | NUMERIC(5,2) | Positionsrabatt in % |
+
+**Leser (#283, Schritt 3):** Für `status = 'final' AND snapshot_am IS NOT NULL` lesen alle Auswertungen den gespeicherten Stand; Entwürfe, Rechnungen ohne Snapshot und Lieferscheine rechnen weiter live.
+- `belegSummen()` (`utils/rabatt.js`): eine Abfrage, der CTE `snap` hat nur bei eingefrorenen Rechnungen eine Zeile. Brutto, Gesamtrabatt-, Provisions-, Versandbetrag und Provisionssatz kommen aus `Rechnung`, die Herstellerinnen-Aufteilung aus `Rechnung_Position`. `{ live: true }` rechnet ohne Snapshot (Pflicht in `schreibeSnapshot`).
+- `preisNachAllenRabattenSql()` (Dashboard-Umsatz, Inventur-`wert_verkauft`): Positionspreis per Subselect aus `Rechnung_Position`, Gesamtrabattfaktor `1 - rabatt_gesamt_betrag / summe_brutto`; keine zusätzlichen JOINs nötig.
+- Detail, Excel und E-Rechnung (`routes/rechnungen.js`): `wendeSnapshotAn()` ersetzt Preise, Positionsrabatte, Gesamtrabatt-%, Versand und Provision. Der Gesamtrabatt-% bleibt der gespeicherte Wert, solange er den gespeicherten Betrag reproduziert, sonst wird er aus dem Betrag zurückgerechnet.
 
 #### `Foto`
 
@@ -415,6 +434,7 @@ POST   /auth/admin/generate-reset-link      Reset-Link generieren und zurückgeb
 ```
 GET    /schmuckstuecke                      Liste (Paginierung, Filter, Suche)
 GET    /schmuckstuecke/filter-options       Verfügbare Filter-Werte
+GET    /schmuckstuecke/status-zahlen        Anzahl je Status (Lager/Ausgelagert/Verkauft/Ausschuss)
 GET    /schmuckstuecke/unique-artikelnummern Basis-Nummern für Inventur
 GET    /schmuckstuecke/:artikelnummer       Einzelnes Stück
 POST   /schmuckstuecke                      Neu anlegen
@@ -457,8 +477,10 @@ GET    /rechnungen               Liste (Filter: status=entwurf|final)
 GET    /rechnungen/next-number   Nächste Nummer (YYYY-NNN)
 GET    /rechnungen/:id           Rechnung + Stücke + Rabatte + Summen
 POST   /rechnungen               Anlegen
-PUT    /rechnungen/:id           Bearbeiten
-DELETE /rechnungen/:id           Löschen
+PUT    /rechnungen/:id           Bearbeiten (nur Entwürfe; final = 409, Entwurf -> final erlaubt)
+DELETE /rechnungen/:id           Löschen (nur Entwürfe; final = 409)
+POST   /rechnungen/:id/zuruecksetzen  Final -> Entwurf, nur admin, Pflichtfeld begruendung (min. 10 Zeichen);
+                                 gibt Stücke frei (Verkauft = FALSE, Rechnung_ID bleibt), schreibt audit_log
 GET    /rechnungen/:id/excel     Excel-Export
 GET    /rechnungen/:id/erechnung E-Rechnung (XRechnung-XML oder ZUGFeRD-PDF/A-3)
 ```
@@ -725,6 +747,14 @@ POST /api/backup/import-fotos-zip      ZIP importieren (async Hintergrund-Job, U
 GET  /api/backup/import-fotos-jobs/:id Fortschritt abfragen
 ```
 
+### Backup-Status (`GET /api/health`)
+
+`/api/health` (öffentlich) enthält neben `status` und `database` das Feld `backup: { status }` mit
+genau einem Wort: `ok`, `veraltet`, `fehler` oder `unbekannt`. Quelle ist `/backups/backup-status.json`,
+das `db/backup.sh` nach jedem Lauf schreibt (`services/backupStatus.js`, liest nie mit Fehlern).
+Keine Pfade, Dateinamen oder Fehlertexte; der HTTP-Status bleibt unverändert (200/503 wie bisher).
+Details und Felder: `deploy/README.md`, Abschnitt „Backup-Status und Fehlermeldung“.
+
 ### Bestandsimport (`scripts/import-fotos.js`)
 
 ```bash
@@ -928,6 +958,11 @@ BESTELLUNG_ENCRYPTION_KEY=...   # AES-256 für DSGVO-Felder
 # Schema-Migrationen (siehe Abschnitt 2)
 MIGRATION_BACKUP_DIR=/backups/migrations   # Compose-Default, Volume der db-Backups
 MIGRATION_SKIP_BACKUP=false                # true = Backup-Gate überspringen (nur Warnung)
+
+# Backup-Status (Issue #289): backup.sh schreibt /backups/backup-status.json,
+# das Backend liest daraus das Status-Wort für /api/health
+BACKUP_MAX_ALTER_STUNDEN=26     # app: älter als N Stunden = "veraltet"
+BACKUP_WEBHOOK_URL=             # db: optional, Fehlermeldung per HTTP-POST (leer = aus)
 ```
 
 Secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext auch über `<NAME>_FILE` (Docker-Secret-Datei) gesetzt werden.

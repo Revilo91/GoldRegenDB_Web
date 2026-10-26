@@ -16,6 +16,14 @@
 #   KEEP_DAILY        Days to keep daily backups   (default: 7)
 #   KEEP_WEEKLY       Weeks to keep weekly backups (default: 4)
 #   MIN_BACKUP_BYTES  Plausibility floor           (default: 1024)
+#   BACKUP_WEBHOOK_URL  Optional: bei FEHLER HTTP-POST mit Klartext-Body an
+#                     diese URL (ntfy, Home-Assistant-Webhook o. ae.);
+#                     leer = aus. Ein fehlgeschlagener Aufruf aendert weder
+#                     Exit-Code noch Backup-Ergebnis.
+#   BACKUP_STATUS_DATEI Status-Datei (default: $BACKUP_DIR/backup-status.json)
+#
+# Nach JEDEM Lauf (auch bei vorzeitigem Abbruch) schreibt der EXIT-Trap die
+# Status-Datei atomar; /api/health liest daraus das Status-Wort (Issue #289).
 # ---------------------------------------------------------------------------
 # Befund E2 – vier Logikfehler, die hier behoben sind:
 #
@@ -47,21 +55,98 @@ BACKUP_DIR="${BACKUP_DIR:-/backups}"
 KEEP_DAILY="${KEEP_DAILY:-7}"
 KEEP_WEEKLY="${KEEP_WEEKLY:-4}"
 MIN_BACKUP_BYTES="${MIN_BACKUP_BYTES:-1024}"
+BACKUP_WEBHOOK_URL="${BACKUP_WEBHOOK_URL:-}"
+BACKUP_STATUS_DATEI="${BACKUP_STATUS_DATEI:-${BACKUP_DIR}/backup-status.json}"
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 DOW=$(date +"%u")   # 1=Monday … 7=Sunday
 
-mkdir -p "${BACKUP_DIR}/daily" "${BACKUP_DIR}/weekly"
-
+# Zustand fuer die Status-Datei; der EXIT-Trap wertet ihn aus.
+SEKUNDEN_START=${SECONDS}
+STATUS_ART="daily"
+STATUS_DATEI=""
+STATUS_GROESSE=0
+PHASE="start"
+FEHLER_TEXT=""
 TMP_FILE=""
+
+# Minimales JSON-Escaping fuer Text aus Fehlermeldungen (Anfuehrungszeichen,
+# Backslash, Steuerzeichen).
+json_text() {
+    printf '%s' "$1" | tr '\n\t\r' '   ' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+# Status-Datei atomar schreiben (Temporaerdatei + mv). Ein Fehler hier darf
+# das Backup-Ergebnis nicht aendern, nur warnen.
+schreibe_status() {
+    local ergebnis="$1"
+    local tmp="${BACKUP_STATUS_DATEI}.tmp.$$"
+    local dauer=$((SECONDS - SEKUNDEN_START))
+    {
+        printf '{\n'
+        printf '  "zeitpunkt": "%s",\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        printf '  "ergebnis": "%s",\n' "${ergebnis}"
+        printf '  "datei": "%s",\n' "$(json_text "${STATUS_DATEI}")"
+        printf '  "groesse_bytes": %s,\n' "${STATUS_GROESSE}"
+        printf '  "dauer_sekunden": %s,\n' "${dauer}"
+        if [ "${ergebnis}" = "fehler" ]; then
+            printf '  "art": "%s",\n' "${STATUS_ART}"
+            printf '  "fehler": "%s"\n' "$(json_text "${FEHLER_TEXT}")"
+        else
+            printf '  "art": "%s"\n' "${STATUS_ART}"
+        fi
+        printf '}\n'
+    } > "${tmp}" 2>/dev/null && mv "${tmp}" "${BACKUP_STATUS_DATEI}" 2>/dev/null \
+        || { echo "[$(date)] WARNUNG: Status-Datei ${BACKUP_STATUS_DATEI} konnte nicht geschrieben werden." >&2; rm -f "${tmp}" 2>/dev/null || true; }
+}
+
+# Optionale Benachrichtigung bei Fehler. Kanalneutral: ein HTTP-POST mit
+# Klartext-Body. Die URL kann ein Token enthalten und wird nie geloggt.
+melde_fehler() {
+    [ -n "${BACKUP_WEBHOOK_URL}" ] || return 0
+    local text="GoldRegenDB-Backup FEHLGESCHLAGEN (${PHASE}): ${FEHLER_TEXT}"
+    local ok=0
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS -m 15 -H 'Content-Type: text/plain; charset=utf-8' \
+            --data-binary "${text}" "${BACKUP_WEBHOOK_URL}" >/dev/null 2>&1 && ok=1
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -T 15 -O /dev/null --header='Content-Type: text/plain; charset=utf-8' \
+            --post-data="${text}" "${BACKUP_WEBHOOK_URL}" >/dev/null 2>&1 && ok=1
+    else
+        echo "[$(date)] WARNUNG: BACKUP_WEBHOOK_URL gesetzt, aber weder curl noch wget gefunden." >&2
+        return 0
+    fi
+    if [ "${ok}" -ne 1 ]; then
+        echo "[$(date)] WARNUNG: Fehlermeldung per Webhook konnte nicht gesendet werden." >&2
+    fi
+    return 0
+}
+
 # shellcheck disable=SC2317  # trap-Handler, wird vom Signal aufgerufen
-aufraeumen() {
+beenden() {
+    local rc=$?
+    trap - EXIT
+    set +e
     if [ -n "${TMP_FILE}" ] && [ -f "${TMP_FILE}" ]; then
         echo "[$(date)] Removing incomplete dump: ${TMP_FILE}" >&2
         rm -f "${TMP_FILE}"
     fi
+    if [ "${rc}" -eq 0 ]; then
+        schreibe_status "ok"
+    else
+        STATUS_DATEI=""
+        STATUS_GROESSE=0
+        [ -n "${FEHLER_TEXT}" ] || FEHLER_TEXT="Abbruch mit Exit-Code ${rc}"
+        schreibe_status "fehler"
+        melde_fehler
+    fi
+    exit "${rc}"
 }
-trap aufraeumen EXIT
+trap beenden EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+mkdir -p "${BACKUP_DIR}/daily" "${BACKUP_DIR}/weekly"
 
 # Prüft einen fertigen Dump, bevor er ein gültiges Backup werden darf.
 pruefe_dump() {
@@ -69,6 +154,7 @@ pruefe_dump() {
 
     if ! gzip -t "${datei}" 2>/dev/null; then
         echo "[$(date)] FEHLER: ${datei} ist kein lesbares gzip-Archiv." >&2
+        FEHLER_TEXT="Dump ist kein lesbares gzip-Archiv"
         return 1
     fi
 
@@ -77,6 +163,7 @@ pruefe_dump() {
     if [ "${groesse}" -lt "${MIN_BACKUP_BYTES}" ]; then
         echo "[$(date)] FEHLER: ${datei} ist nur ${groesse} Bytes gross" \
              "(Minimum ${MIN_BACKUP_BYTES}). Das ist kein vollstaendiger Dump." >&2
+        FEHLER_TEXT="Dump zu klein (${groesse} Bytes, Minimum ${MIN_BACKUP_BYTES})"
         return 1
     fi
 
@@ -102,6 +189,7 @@ pruefe_dump() {
     done
     if [ -n "${fehlend}" ]; then
         echo "[$(date)] FEHLER: im Dump fehlen Tabellen:${fehlend}" >&2
+        FEHLER_TEXT="Im Dump fehlen Tabellen:${fehlend}"
         return 1
     fi
 
@@ -115,8 +203,12 @@ erstelle_backup() {
 
     TMP_FILE="${ziel}.tmp.$$"
     echo "[$(date)] Creating ${beschriftung}: ${ziel}"
+    PHASE="pg_dump"
+    FEHLER_TEXT="pg_dump fehlgeschlagen (${beschriftung})"
     pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "${TMP_FILE}"
 
+    PHASE="pruefung"
+    FEHLER_TEXT=""
     if ! pruefe_dump "${TMP_FILE}"; then
         echo "[$(date)] ${beschriftung} VERWORFEN – bestehende Backups bleiben unangetastet." >&2
         return 1
@@ -126,6 +218,9 @@ erstelle_backup() {
     # Verzeichnisses ist atomar.
     mv "${TMP_FILE}" "${ziel}"
     TMP_FILE=""
+    STATUS_DATEI=$(basename "${ziel}")
+    STATUS_GROESSE=$(wc -c < "${ziel}" | tr -d ' ')
+    FEHLER_TEXT=""
     echo "[$(date)] ${beschriftung} completed ($(du -sh "${ziel}" | cut -f1))"
 }
 
@@ -138,11 +233,14 @@ erstelle_backup "${DAILY_FILE}" "daily backup"
 # korrupten Weekly.
 if [ "${DOW}" -eq 7 ]; then
     WEEKLY_FILE="${BACKUP_DIR}/weekly/goldregendb_weekly_${TIMESTAMP}.sql.gz"
+    STATUS_ART="weekly"
     erstelle_backup "${WEEKLY_FILE}" "weekly backup"
 fi
 
 # ── Rotate old backups ────────────────────────────────────────────────────────
 # find -mtime statt `ls -1t | tail`: gelöscht wird nach ALTER, nicht nach Anzahl.
+PHASE="rotation"
+FEHLER_TEXT="Rotation alter Backups fehlgeschlagen"
 echo "[$(date)] Rotating daily backups older than ${KEEP_DAILY} days..."
 find "${BACKUP_DIR}/daily" -maxdepth 1 -name '*.sql.gz' -type f \
      -mtime "+${KEEP_DAILY}" -print -delete
@@ -154,4 +252,5 @@ find "${BACKUP_DIR}/weekly" -maxdepth 1 -name '*.sql.gz' -type f \
 # Verwaiste Temporärdateien abgebrochener Läufe (älter als ein Tag) mitnehmen.
 find "${BACKUP_DIR}" -maxdepth 2 -name '*.sql.gz.tmp.*' -type f -mtime +1 -print -delete
 
+FEHLER_TEXT=""
 echo "[$(date)] Backup finished."
