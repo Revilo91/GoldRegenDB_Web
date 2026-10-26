@@ -6,14 +6,19 @@ import { formatEur } from "../utils/zahlen";
 // Auf Modulebene (nicht im Render-Body anderer Komponenten), siehe Kommentar in TablePhoto.jsx.
 // Das Foto wird erst geladen, wenn die Kachel nahe am Sichtbereich ist (useFoto lädt beim Mount,
 // loading="lazy" am img würde den Abruf nicht verzögern).
-function FotoKachel({ stueck, onSelect, pauseLoading, kundenName }) {
+function FotoKachel({ stueck, onSelect, pauseLoading, kundenName, aktiv, markierbar }) {
   const [ref, sichtbar] = useSichtbar();
   const [basis, exemplar] = String(stueck.Artikelnummer).split("_");
   const preis = Number(stueck.Verkaufspreis) > 0 ? formatEur(stueck.Verkaufspreis) : "-";
   const badge = statusBadge(stueck, kundenName);
 
   return (
-    <button type="button" ref={ref} className="foto-kachel" onClick={() => onSelect(stueck)}>
+    <button
+      type="button"
+      ref={ref}
+      className={`foto-kachel${aktiv ? " foto-kachel--aktiv" : ""}`}
+      aria-pressed={markierbar ? aktiv : undefined}
+      onClick={() => onSelect(stueck)}>
       <span className="foto-kachel-bild">
         <TablePhoto
           groesse="gross"
@@ -34,7 +39,8 @@ function FotoKachel({ stueck, onSelect, pauseLoading, kundenName }) {
 }
 
 // stuecke: Datenzeilen der Liste; onSelect(stueck): wie Zeilenklick der Tabelle
-export default function FotoRaster({ stuecke, onSelect, pauseLoading = false, kundenName }) {
+// aktiveArtikelnummer: (optional) hebt die gewählte Kachel hervor, wenn daneben ein Detail-Panel steht
+export default function FotoRaster({ stuecke, onSelect, pauseLoading = false, kundenName, aktiveArtikelnummer }) {
   return (
     <div className="foto-raster">
       {stuecke.map((s) => (
@@ -44,6 +50,8 @@ export default function FotoRaster({ stuecke, onSelect, pauseLoading = false, ku
           onSelect={onSelect}
           pauseLoading={pauseLoading}
           kundenName={kundenName}
+          markierbar={aktiveArtikelnummer !== undefined}
+          aktiv={s.Artikelnummer === aktiveArtikelnummer}
         />
       ))}
     </div>

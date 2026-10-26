@@ -1,0 +1,75 @@
+/* ============ SCHMUCKSTÜCKE: DETAIL-PANEL NEBEN DER LISTE ============ */
+/* Breakpoint wie PANEL_BREAKPOINT in utils/breakpoints.js; die Umschaltung Panel/Fenster macht useMediaQuery */
+@media (min-width: 1024px) {
+  .schmuck-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 320px);
+    gap: 16px;
+    align-items: start;
+  }
+}
+
+.schmuck-panel {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.schmuck-panel-hinweis {
+  margin: 0;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Kopf: Titel und Schließen in einer Zeile, Aktionen darunter */
+.schmuck-panel .modal-header {
+  flex-wrap: wrap;
+  padding: 16px;
+}
+
+.schmuck-panel .modal-header h3 {
+  font-size: 16px;
+}
+
+.schmuck-panel .modal-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  order: 3;
+  width: 100%;
+  gap: 8px;
+}
+
+.schmuck-panel .loading {
+  padding: 32px 16px;
+}
+
+.schmuck-panel .schmuck-modal-name {
+  padding: 12px 16px;
+}
+
+.schmuck-panel .schmuck-modal-photo img,
+.schmuck-panel .schmuck-modal-photo-placeholder {
+  max-width: 100%;
+}
+
+.schmuck-panel .schmuck-modal-photo-placeholder {
+  width: 100%;
+  max-width: 200px;
+}
+
+.schmuck-panel .detail-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 16px;
+}
+
+/* Gewählte Kachel im Raster; die Kompakt-Zeile hat .schmuckstueck-zeile--aktiv */
+.foto-kachel--aktiv {
+  background: var(--gold-bg);
+  border-color: var(--gold);
+}

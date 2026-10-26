@@ -23,6 +23,9 @@ import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
 import StatusChips from "../components/StatusChips";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import SchmuckstueckDetailPanel from "../components/SchmuckstueckDetailPanel";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { PANEL_QUERY } from "../utils/breakpoints";
 import TablePhoto from "../components/TablePhoto";
 import FotoRaster from "../components/FotoRaster";
 import { ANSICHT, leseAnsicht, schreibeAnsicht } from "../utils/ansichtSpeicher";
@@ -111,6 +114,10 @@ const klonbareFelderVon = (item) =>
       item[feld] ?? (ZAHLENFELDER.includes(feld) ? 0 : ""),
     ]),
   );
+
+// Pfeiltasten und Esc gehören einem Eingabefeld, solange der Fokus darin liegt.
+const EINGABEFELD = 'input, select, textarea, [contenteditable=""], [contenteditable="true"]';
+const liegtImEingabefeld = (element) => element instanceof Element && element.closest(EINGABEFELD) !== null;
 
 // Wert von `editing`, wenn das große Formular eine Zeile der Vorlagen-Tabelle bearbeitet.
 const BULK_ZEILE = "bulk-zeile";
@@ -716,7 +723,11 @@ export default function Schmuckstuecke() {
   };
 
   const p = data.pagination;
-  const isForegroundModalOpen = selected !== null || editing !== null;
+  // Breit: Stück-Detail als Panel neben der Liste; schmal: als Fenster
+  const panelModus = useMediaQuery(PANEL_QUERY);
+  // Das Panel verdeckt die Liste nicht, deshalb pausieren ihre Fotos nur bei einem echten Fenster
+  const isForegroundModalOpen =
+    (selected !== null && !panelModus) || editing !== null;
 
   const sortedData = useMemo(() => {
     let sortableData = [...data.data];
@@ -746,6 +757,63 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
+  // Ist das gewählte Stück nach Filter, Suche oder Seitenwechsel nicht mehr in der Liste, wird die Auswahl aufgehoben.
+  // Direkt im Render statt im Effekt (React-Muster "State beim Rendern anpassen").
+  if (
+    panelModus &&
+    selected !== null &&
+    !loading &&
+    !sortedData.some((s) => s.Artikelnummer === selected.Artikelnummer)
+  ) {
+    setSelected(null);
+  }
+
+  // Pfeil hoch/runter wählt das vorige/nächste Stück, Esc hebt die Auswahl auf (nur mit Panel).
+  // Bei offenem Formular oder Fenster und im Eingabefeld bleiben die Tasten unberührt.
+  const modalOffen = editing !== null || bulkModalOpen;
+  useEffect(() => {
+    if (!panelModus || activeTab !== "schmuckstuecke" || modalOffen) return undefined;
+    const beiTaste = (e) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if (liegtImEingabefeld(e.target)) return;
+      if (e.key === "Escape") {
+        setSelected(null);
+        return;
+      }
+      const schritt = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (schritt === 0 || sortedData.length === 0) return;
+      e.preventDefault();
+      setSelected((aktuell) => {
+        const index = aktuell
+          ? sortedData.findIndex((s) => s.Artikelnummer === aktuell.Artikelnummer)
+          : -1;
+        // Ohne Auswahl: runter beginnt oben, hoch unten
+        const ziel = index === -1 ? (schritt === 1 ? 0 : sortedData.length - 1) : index + schritt;
+        return sortedData[Math.min(Math.max(ziel, 0), sortedData.length - 1)];
+      });
+    };
+    document.addEventListener("keydown", beiTaste);
+    return () => document.removeEventListener("keydown", beiTaste);
+  }, [panelModus, activeTab, modalOffen, sortedData]);
+
+
+  // Aktionen des gewählten Stücks, gleich für Fenster und Panel
+  const stueckAktionen = {
+    onClose: () => setSelected(null),
+    onDuplicate: canEdit
+      ? (item) => {
+          setSelected(null);
+          item && openDuplicate(item);
+        }
+      : undefined,
+    onEdit: canEdit
+      ? () => {
+          setSelected(null);
+          openEdit(selected);
+        }
+      : undefined,
+    onDelete: canEdit ? () => handleDelete(selected.Artikelnummer) : undefined,
+  };
 
   return (
     <div>
@@ -869,6 +937,7 @@ export default function Schmuckstuecke() {
         }}
       />
 
+      <div className={panelModus ? "schmuck-split" : undefined}>
       <div className="card">
         <div className="card-body">
           {loading ? (
@@ -881,7 +950,26 @@ export default function Schmuckstuecke() {
               onSelect={(s) => setSelected(s)}
               pauseLoading={isForegroundModalOpen}
               kundenName={getKundenName}
+              aktiveArtikelnummer={panelModus ? (selected?.Artikelnummer ?? null) : undefined}
             />
+          ) : panelModus ? (
+            sortedData.length === 0 ? (
+              <div className="empty-state">Keine Schmuckstücke gefunden.</div>
+            ) : (
+              <ul className="data-table-mobil">
+                {sortedData.map((s) => (
+                  <li key={s.Artikelnummer} className="data-table-mobil-item">
+                    <SchmuckstueckZeile
+                      stueck={s}
+                      kundenName={getKundenName}
+                      pauseLoading={isForegroundModalOpen}
+                      aktiv={selected?.Artikelnummer === s.Artikelnummer}
+                      onClick={setSelected}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
             <DataTable
               data={sortedData}
@@ -1012,30 +1100,23 @@ export default function Schmuckstuecke() {
         )}
       </div>
 
-      {selected && (
-        <SchmuckstueckModal
-          artikelnummer={selected.Artikelnummer}
-          onClose={() => setSelected(null)}
-          onDuplicate={
-            canEdit
-              ? (item) => {
-                  setSelected(null);
-                  item && openDuplicate(item);
-                }
-              : undefined
-          }
-          onEdit={
-            canEdit
-              ? () => {
-                  setSelected(null);
-                  openEdit(selected);
-                }
-              : undefined
-          }
-          onDelete={
-            canEdit ? () => handleDelete(selected.Artikelnummer) : undefined
-          }
-        />
+      {panelModus && (
+        <aside className="schmuck-panel" aria-label="Details des gewählten Stücks">
+          {selected ? (
+            <SchmuckstueckDetailPanel
+              artikelnummer={selected.Artikelnummer}
+              schliessenLabel="Auswahl aufheben"
+              {...stueckAktionen}
+            />
+          ) : (
+            <p className="schmuck-panel-hinweis">Stück in der Liste auswählen, um Details zu sehen.</p>
+          )}
+        </aside>
+      )}
+      </div>
+
+      {selected && !panelModus && (
+        <SchmuckstueckModal artikelnummer={selected.Artikelnummer} {...stueckAktionen} />
       )}
 
       {bulkModalOpen && (

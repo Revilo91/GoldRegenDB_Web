@@ -1,9 +1,10 @@
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { rendereMitToast } from './helpers/rendern';
 import Schmuckstuecke from '../pages/Schmuckstuecke';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { mockeBreite } from './helpers/matchMedia';
 
 vi.mock('../api', () => ({
   api: {
@@ -19,7 +20,10 @@ vi.mock('../api', () => ({
 }));
 
 vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }));
-vi.mock('../components/TablePhoto', () => ({ default: () => null }));
+// Meldet pauseLoading als Attribut, damit die Tests prüfen können, wann Fotos pausieren.
+vi.mock('../components/TablePhoto', () => ({
+  default: ({ pauseLoading }) => <i data-testid="tablephoto" data-pause={String(Boolean(pauseLoading))} />,
+}));
 // Stellvertreter für den Upload: zeigt die übergebene Nummer und meldet auf Klick ein Foto.
 vi.mock('../components/PhotoUpload', () => ({
   default: ({ artikelnummer, disabled, onPhotoSelected }) => (
@@ -750,5 +754,265 @@ describe('Ansicht: Tabelle oder Foto-Raster', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^Verkauft/ }));
     await waitFor(() => expect(api.getSchmuckstuecke.mock.calls.at(-1)[0]).toMatchObject({ verkauft: '1', page: 1 }));
+  });
+});
+
+describe('Detail-Panel statt Fenster', () => {
+  const stueck = (nr, extra = {}) => ({
+    Artikelnummer: nr, Name: 'Seerose', Art: 'Ohrring', Verkaufspreis: 24.5,
+    Ausgelagert: 0, Verkauft: false, Ausschuss: false, hatFoto: false, ...extra,
+  });
+  const HINWEIS = 'Stück in der Liste auswählen, um Details zu sehen.';
+  const liste = [
+    stueck('MHO1_1'),
+    stueck('MHO2_1', { Name: 'Welle', Art: 'Armband' }),
+    stueck('MHO3_1', { Name: 'Düne', Art: 'Kette' }),
+  ];
+  // Kompakt-Zeile bzw. Kachel, deren Text den Namen enthält (das Panel zeigt den Namen ebenfalls)
+  const zeile = (name) =>
+    [...document.querySelectorAll('.schmuckstueck-zeile')].find((z) => z.textContent.includes(name));
+  const kachel = (name) => [...document.querySelectorAll('.foto-kachel')].find((k) => k.textContent.includes(name));
+  const listeBereit = () => waitFor(() => expect(zeile('Welle')).toBeTruthy());
+  const panel = () => document.querySelector('.schmuck-panel');
+  const taste = (key, ziel = document.body) => fireEvent.keyDown(ziel, { key });
+  const markiert = () => [...document.querySelectorAll('.schmuckstueck-zeile--aktiv')];
+
+  beforeEach(() => {
+    localStorage.clear();
+    api.getSchmuckstuecke.mockResolvedValue({ data: liste, pagination: { total: 3, totalPages: 1 } });
+    api.getSchmuckstueck.mockImplementation(async (nr) => liste.find((s) => s.Artikelnummer === nr));
+  });
+  afterEach(() => {
+    delete window.matchMedia;
+  });
+
+  describe('breites Fenster (ab 1024 px)', () => {
+    beforeEach(() => mockeBreite(1280));
+
+    it('zeigt ohne Auswahl den Hinweis im Panel und die Kompakt-Liste statt der Tabelle', async () => {
+      rendereSeite();
+
+      await listeBereit();
+      expect(panel()).toHaveTextContent(HINWEIS);
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(document.querySelector('.modal-overlay')).toBeNull();
+    });
+
+    it('Klick auf eine Zeile füllt das Panel, die Liste bleibt sichtbar und die Zeile ist hervorgehoben', async () => {
+      rendereSeite();
+      await listeBereit();
+
+      fireEvent.click(zeile('Welle'));
+
+      expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+      expect(panel()).not.toHaveTextContent(HINWEIS);
+      expect(document.querySelector('.modal-overlay')).toBeNull();
+      expect(zeile('Düne')).toBeTruthy();
+      expect(zeile('Welle')).toHaveAttribute('aria-pressed', 'true');
+      expect(zeile('Düne')).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('pausiert die Fotos der Liste nicht, solange nur das Panel offen ist', async () => {
+      rendereSeite();
+      await listeBereit();
+
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+
+      screen.getAllByTestId('tablephoto').forEach((f) => expect(f).toHaveAttribute('data-pause', 'false'));
+    });
+
+    it('Esc hebt die Auswahl auf', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+
+      taste('Escape');
+
+      expect(panel()).toHaveTextContent(HINWEIS);
+      expect(markiert()).toHaveLength(0);
+    });
+
+    it('Pfeil runter wählt zuerst das erste Stück, dann das nächste; Pfeil hoch geht zurück', async () => {
+      rendereSeite();
+      await listeBereit();
+
+      taste('ArrowDown');
+      expect(await within(panel()).findByRole('heading', { name: /MHO1_1/ })).toBeInTheDocument();
+      taste('ArrowDown');
+      expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+      taste('ArrowUp');
+      expect(await within(panel()).findByRole('heading', { name: /MHO1_1/ })).toBeInTheDocument();
+      expect(markiert()).toHaveLength(1);
+    });
+
+    it('bleibt an den Enden der Liste stehen', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(zeile('Düne'));
+      await within(panel()).findByRole('heading', { name: /MHO3_1/ });
+
+      taste('ArrowDown');
+      expect(await within(panel()).findByRole('heading', { name: /MHO3_1/ })).toBeInTheDocument();
+    });
+
+    it('Pfeil hoch ohne Auswahl wählt das letzte Stück', async () => {
+      rendereSeite();
+      await listeBereit();
+
+      taste('ArrowUp');
+
+      expect(await within(panel()).findByRole('heading', { name: /MHO3_1/ })).toBeInTheDocument();
+    });
+
+    it('Pfeiltasten und Esc wirken nicht im Suchfeld', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+      const suche = screen.getByPlaceholderText(/Suche nach Artikelnummer/);
+
+      taste('ArrowDown', suche);
+      taste('Escape', suche);
+
+      expect(within(panel()).getByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+      expect(zeile('Welle')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('Pfeiltasten wirken nicht in einem Auswahlfeld', async () => {
+      rendereSeite();
+      await listeBereit();
+      const auswahl = screen.getByDisplayValue('Alle Arten');
+
+      taste('ArrowDown', auswahl);
+
+      expect(panel()).toHaveTextContent(HINWEIS);
+    });
+
+    it('Esc schließt die Auswahl nicht, solange ein Modal offen ist', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+      fireEvent.click(screen.getByRole('button', { name: '+ Aus Vorlage anlegen' }));
+      await screen.findByRole('heading', { name: 'Schmuckstücke aus Vorlage anlegen' });
+
+      taste('Escape');
+      taste('ArrowDown');
+
+      expect(within(panel()).getByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+    });
+
+    it('hebt die Auswahl auf, wenn das Stück durch die Suche aus der Liste verschwindet', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+      api.getSchmuckstuecke.mockResolvedValue({ data: [liste[0]], pagination: { total: 1, totalPages: 1 } });
+
+      fireEvent.change(screen.getByPlaceholderText(/Suche nach Artikelnummer/), { target: { value: 'MHO1' } });
+
+      await waitFor(() => expect(panel()).toHaveTextContent(HINWEIS));
+      expect(markiert()).toHaveLength(0);
+    });
+
+    it('behält die Auswahl, wenn das Stück nach einem Filterwechsel weiter in der Liste steht', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+
+      fireEvent.change(screen.getByPlaceholderText(/Suche nach Artikelnummer/), { target: { value: 'MHO' } });
+      await waitFor(() => expect(api.getSchmuckstuecke.mock.calls.at(-1)[0]).toMatchObject({ search: 'MHO' }));
+      await listeBereit();
+
+      expect(within(panel()).getByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+    });
+
+    it('Panel funktioniert auch in der Raster-Ansicht', async () => {
+      rendereSeite();
+      await listeBereit();
+      fireEvent.click(screen.getByRole('button', { name: 'Rasteransicht' }));
+
+      expect(document.querySelectorAll('.foto-kachel')).toHaveLength(3);
+      fireEvent.click(kachel('Welle'));
+
+      expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+      expect(document.querySelectorAll('.foto-kachel')).toHaveLength(3);
+      expect(document.querySelector('.modal-overlay')).toBeNull();
+      expect(document.querySelector('.foto-kachel--aktiv')).toHaveTextContent('Welle');
+      taste('Escape');
+      expect(panel()).toHaveTextContent(HINWEIS);
+      expect(document.querySelector('.foto-kachel--aktiv')).toBeNull();
+    });
+
+    it('Bearbeiten im Panel öffnet das Formular mit demselben Handler wie im Fenster', async () => {
+      rendereSeite('admin');
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+
+      fireEvent.click(await within(panel()).findByRole('button', { name: /Bearbeiten/ }));
+
+      expect(await screen.findByRole('heading', { name: /bearbeiten/i })).toBeInTheDocument();
+      expect(panel()).toHaveTextContent(HINWEIS);
+      screen.getAllByTestId('tablephoto').forEach((f) => expect(f).toHaveAttribute('data-pause', 'true'));
+    });
+
+    it('ohne Rolle Bearbeiter zeigt das Panel keine Aktionen', async () => {
+      rendereSeite('user');
+      await listeBereit();
+      fireEvent.click(zeile('Welle'));
+      await within(panel()).findByRole('heading', { name: /MHO2_1/ });
+
+      expect(within(panel()).queryByRole('button', { name: /Bearbeiten/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('schmales Fenster (unter 1024 px)', () => {
+    it('öffnet das Stück als Fenster und zeigt kein Panel', async () => {
+      mockeBreite(900);
+      rendereSeite();
+      await screen.findByRole('table');
+
+      fireEvent.click(screen.getByText('Armband'));
+
+      await waitFor(() => expect(document.querySelector('.schmuck-modal')).not.toBeNull());
+      expect(panel()).toBeNull();
+      expect(await screen.findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+    });
+
+    it('Pfeiltasten und Esc ändern nichts', async () => {
+      mockeBreite(900);
+      rendereSeite();
+      await screen.findByRole('table');
+
+      taste('ArrowDown');
+
+      expect(document.querySelector('.schmuck-modal')).toBeNull();
+    });
+
+    it('wechselt beim Verbreitern des Fensters vom Fenster ins Panel', async () => {
+      const fenster = mockeBreite(900);
+      rendereSeite();
+      await screen.findByRole('table');
+      fireEvent.click(screen.getByText('Armband'));
+      await waitFor(() => expect(document.querySelector('.schmuck-modal')).not.toBeNull());
+
+      act(() => fenster.setze(1280));
+
+      await waitFor(() => expect(document.querySelector('.schmuck-modal')).toBeNull());
+      expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+    });
+  });
+
+  it('ohne matchMedia (jsdom) bleibt es beim Fenster', async () => {
+    rendereSeite();
+    await screen.findByRole('table');
+
+    fireEvent.click(screen.getByText('Armband'));
+
+    await waitFor(() => expect(document.querySelector('.schmuck-modal')).not.toBeNull());
+    expect(panel()).toBeNull();
   });
 });

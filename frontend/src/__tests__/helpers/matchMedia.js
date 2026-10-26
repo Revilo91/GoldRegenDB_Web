@@ -1,10 +1,12 @@
-// Ersetzt window.matchMedia für "(max-width: Npx)"-Abfragen; setze() ändert die Breite und benachrichtigt Hörer.
+// Ersetzt window.matchMedia für "(max-width: Npx)"- und "(min-width: Npx)"-Abfragen; setze() ändert die Breite und benachrichtigt Hörer.
 export function mockeBreite(anfangsbreite) {
   let breite = anfangsbreite;
   const hoerer = new Set();
   const trifft = (query) => {
     const max = /max-width:\s*(\d+)px/.exec(query);
-    return max ? breite <= Number(max[1]) : false;
+    if (max) return breite <= Number(max[1]);
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    return min ? breite >= Number(min[1]) : false;
   };
   window.matchMedia = (query) => ({
     get matches() {
