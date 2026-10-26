@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { MOBILE_QUERY } from "../utils/breakpoints";
 
 export default function DataTable({
   columns = [],
@@ -9,7 +11,9 @@ export default function DataTable({
   defaultSort = { key: null, direction: "asc" },
   getRowKey = (r) => r.id || r.ID || JSON.stringify(r),
   footer = null,
+  mobileRow, // optional: (row) => Knoten; ersetzt auf dem Handy die Tabelle durch eine Liste (ohne Sortierauswahl)
 }) {
+  const istMobil = useMediaQuery(MOBILE_QUERY);
   const [sortConfig, setSortConfig] = useState(defaultSort);
   const [draggingRowKey, setDraggingRowKey] = useState(null);
   const suppressClickUntilRef = useRef(0);
@@ -51,6 +55,37 @@ export default function DataTable({
     if (sortConfig.key !== key) return "↕️";
     return sortConfig.direction === "asc" ? "🔼" : "🔽";
   };
+
+  if (mobileRow && istMobil) {
+    return (
+      <ul className={`data-table-mobil ${className}`.trim()}>
+        {sorted.map((row) => {
+          const klickbar = Boolean(onRowClick);
+          return (
+            <li
+              key={getRowKey(row)}
+              className={klickbar ? "data-table-mobil-item data-table-row-pointer" : "data-table-mobil-item"}
+              role={klickbar ? "button" : undefined}
+              tabIndex={klickbar ? 0 : undefined}
+              onClick={klickbar ? () => onRowClick(row) : undefined}
+              onKeyDown={
+                klickbar
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }>
+              {mobileRow(row)}
+            </li>
+          );
+        })}
+        {footer}
+      </ul>
+    );
+  }
 
   return (
     <table className={`data-table ${className}`.trim()}>

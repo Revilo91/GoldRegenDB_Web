@@ -29,10 +29,10 @@ Zugangsdaten für `auth.setup.ts` und `smoke.spec.ts`.
 - `mobil.spec.ts` – Handy-Viewport 390 px (Issue #291, Stufe 1), nur im Projekt `mobile`
   (`npx playwright test --project=mobile`): Login, Stück suchen, Stück mit Foto anlegen
   (`setInputFiles`), Bestellübersicht anlegen sowie je Seite ein eigener Test „scrollt nicht
-  seitlich“. Die Prüfungen für die Schmuckstück-Seite laufen erst mit
-  `MOBIL_SCROLL_SCHMUCKSTUECK=1`, weil sie bis zur Kompakt-Liste (#317) rot sind (620 px breit).
-  Bis dahin klicken die Schmuckstück-Ablauf-Tests Buttons per `dispatchEvent`, weil sie
-  außerhalb des Fensters liegen bzw. überdeckt sind; die Bestellübersicht klickt seit #327 echt.
+  seitlich“, auch für die Schmuckstück-Seite. Dort ersetzt seit #317 eine Kompakt-Liste
+  (`.data-table-mobil`, Zeilen `.data-table-mobil-item`) die Tabelle; die Tests prüfen darum diese
+  Locators statt `tbody tr` und klicken Buttons echt (kein `dispatchEvent` mehr). Die Bestellübersicht
+  hat auf dem Handy weiter eine Tabelle.
   Der Test „Bestellübersicht scrollt nicht seitlich“ ist nur mit vorhandenen Bestellungen
   aussagekräftig (vor #327 war er dann mit 453 px rot, der Ablauf-Test legt eine Bestellung an).
 

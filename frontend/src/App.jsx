@@ -52,10 +52,11 @@ import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import Datensicherung from "./pages/Datensicherung";
 import Inventur from "./pages/Inventur";
 import SchmuckstueckDetail from "./pages/SchmuckstueckDetail";
+import { MOBILE_BREAKPOINT } from "./utils/breakpoints";
 import "./index.css";
 
 const COLLAPSE_KEY = "sidebarCollapsed";
-const DRAWER_BREAKPOINT = 768;
+const DRAWER_BREAKPOINT = MOBILE_BREAKPOINT;
 
 // Von Vite zur Build-Zeit ersetzt (siehe vite.config.js). Fallback für Tests,
 // in denen das define nicht greift.

@@ -60,3 +60,88 @@
 .status-chip--aktiv .status-chip-zahl {
   color: var(--gold);
 }
+
+/* ============ SCHMUCKSTÜCKE: KOMPAKT-ZEILE / HANDY-LISTE ============ */
+.data-table-mobil {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.data-table-mobil-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table-mobil-item:last-child {
+  border-bottom: 0;
+}
+
+.schmuckstueck-zeile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 4px;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+}
+
+button.schmuckstueck-zeile {
+  cursor: pointer;
+}
+
+.schmuckstueck-zeile--aktiv {
+  background: var(--gold-bg);
+}
+
+.schmuckstueck-zeile .table-photo-thumb,
+.schmuckstueck-zeile .table-photo-placeholder {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+}
+
+.schmuckstueck-zeile-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.schmuckstueck-zeile-nummer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schmuckstueck-zeile-unter {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schmuckstueck-zeile-preis {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.schmuckstueck-zeile-punkt {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.schmuckstueck-zeile-punkt--lager { background: var(--gold); }
+.schmuckstueck-zeile-punkt--ausgelagert { background: var(--info); }
+.schmuckstueck-zeile-punkt--verkauft { background: var(--success); }
+.schmuckstueck-zeile-punkt--ausschuss { background: var(--danger); }

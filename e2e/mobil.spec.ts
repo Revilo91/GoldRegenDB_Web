@@ -13,6 +13,10 @@ const PNG_1X1 = Buffer.from(
   'base64',
 );
 
+// Schmuckstück-Liste: auf dem Handy eine Kompakt-Liste (#317) statt der Tabelle.
+const KOMPAKT_LISTE = '.data-table-mobil';
+const KOMPAKT_ZEILE = '.data-table-mobil-item';
+
 // Kein horizontales Scrollen: Dokumentbreite darf die Fensterbreite nicht überschreiten.
 async function seitlichesScrollen(page: Page) {
   return page.evaluate(() => ({
@@ -28,11 +32,7 @@ async function erwarteKeinSeitlichesScrollen(page: Page) {
 
 async function neuesSchmuckstueckOeffnen(page: Page) {
   await page.goto('/schmuckstuecke');
-  // dispatchEvent statt click(): Die Seite ist heute 620 px breit, der Button liegt rechts
-  // außerhalb der 390 px und wird vom fixen Handy-Header bzw. Nachbarbutton verdeckt.
-  // Bis die Kompakt-Liste aus #317 da ist, soll der Ablauf trotzdem geprüft werden; die
-  // Breite selbst prüft der eigene Scroll-Test unten.
-  await page.getByRole('button', { name: '+ Neues Schmuckstück' }).dispatchEvent('click');
+  await page.getByRole('button', { name: '+ Neues Schmuckstück' }).click();
   const modal = page.locator('.modal').first();
   await expect(modal).toBeVisible();
 
@@ -64,12 +64,12 @@ test.describe('Handy: Abläufe', () => {
   test('Stück suchen', async ({ page }) => {
     // Eigenes Stück anlegen, damit die Suche unabhängig von Seed-Daten etwas findet
     const { artikelnummer } = await neuesSchmuckstueckOeffnen(page);
-    await page.getByRole('button', { name: 'Speichern + Schließen' }).dispatchEvent('click');
+    await page.getByRole('button', { name: 'Speichern + Schließen' }).click();
     await expect(page.locator('.modal-overlay')).toHaveCount(0, { timeout: 8_000 });
 
     const suche = page.locator('input[placeholder*="Suche"]').first();
     await suche.fill(artikelnummer);
-    await expect(page.locator('tbody tr').first()).toContainText(artikelnummer, { timeout: 8_000 });
+    await expect(page.locator(KOMPAKT_ZEILE).first()).toContainText(artikelnummer, { timeout: 8_000 });
   });
 
   test('Stück mit Foto anlegen (Kamera-Upload per Datei)', async ({ page }) => {
@@ -87,12 +87,12 @@ test.describe('Handy: Abläufe', () => {
     expect((await uploadAntwort).ok()).toBeTruthy();
     await expect(modal.locator('.photo-preview img')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Speichern + Schließen' }).dispatchEvent('click');
+    await page.getByRole('button', { name: 'Speichern + Schließen' }).click();
     await expect(page.locator('.modal-overlay')).toHaveCount(0, { timeout: 8_000 });
 
     const suche = page.locator('input[placeholder*="Suche"]').first();
     await suche.fill(artikelnummer);
-    await expect(page.locator('tbody tr').first()).toContainText(artikelnummer, { timeout: 8_000 });
+    await expect(page.locator(KOMPAKT_ZEILE).first()).toContainText(artikelnummer, { timeout: 8_000 });
   });
 
   test('Bestellübersicht: Neue Bestellung anlegen', async ({ page }) => {
@@ -138,22 +138,23 @@ test.describe('Handy: kein horizontales Scrollen', () => {
     await erwarteKeinSeitlichesScrollen(page);
   });
 
-  // BEKANNT ROT (Issue #317): Die Schmuckstück-Seite ist auf 390 px heute 620 px breit
-  // (zehnspaltige Tabelle, Kopfzeilen-Buttons). Diese Prüfungen laufen im Standardlauf nicht mit,
-  // damit der Standardlauf nicht dauerhaft rot ist (E2E läuft nicht in der CI); sie sind NICHT gelöscht. Gemessen: scrollWidth 620 > 390.
-  // Ausführen mit MOBIL_SCROLL_SCHMUCKSTUECK=1. Mit der Kompakt-Liste aus #317 die Bedingung
-  // entfernen, damit die Prüfungen immer laufen.
-  if (process.env.MOBIL_SCROLL_SCHMUCKSTUECK === '1') {
-    test('Schmuckstück-Liste scrollt nicht seitlich', async ({ page }) => {
-      await page.goto('/schmuckstuecke');
-      await page.waitForLoadState('networkidle');
-      await expect(page.locator('table, .data-table').first()).toBeVisible({ timeout: 8_000 });
-      await erwarteKeinSeitlichesScrollen(page);
-    });
+  // Seit #327 scrollt die Seite nicht mehr seitlich; die Kompakt-Liste (#317) ersetzt die
+  // zehnspaltige Tabelle, damit auch der Karteninhalt nicht mehr seitlich scrollt.
+  test('Schmuckstück-Liste scrollt nicht seitlich', async ({ page }) => {
+    await page.goto('/schmuckstuecke');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator(KOMPAKT_LISTE)).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('table')).toHaveCount(0);
+    await erwarteKeinSeitlichesScrollen(page);
+    const karte = await page.locator('.card-body').first().evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(karte.scrollWidth, 'Karteninhalt scrollt seitlich').toBeLessThanOrEqual(karte.clientWidth);
+  });
 
-    test('Schmuckstück-Anlegen-Dialog scrollt nicht seitlich', async ({ page }) => {
-      await neuesSchmuckstueckOeffnen(page);
-      await erwarteKeinSeitlichesScrollen(page);
-    });
-  }
+  test('Schmuckstück-Anlegen-Dialog scrollt nicht seitlich', async ({ page }) => {
+    await neuesSchmuckstueckOeffnen(page);
+    await erwarteKeinSeitlichesScrollen(page);
+  });
 });
