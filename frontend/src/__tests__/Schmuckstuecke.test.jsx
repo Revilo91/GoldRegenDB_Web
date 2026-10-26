@@ -473,7 +473,7 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
   }
 
   const laenge = () => screen.queryByText(/^Länge \(/);
-  const anhaenger = () => screen.queryByText('Anhänger Fassung');
+  const anhaenger = () => screen.queryByText('Aussehen');
   const zwischenstueck = () => screen.queryByText('Zwischenstück', { selector: 'label' });
 
   it('zeigt vor der Wahl der Produktart alle Felder', async () => {
@@ -503,7 +503,7 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
   it('behält den Wert eines ausgeblendeten Feldes', async () => {
     await oeffneNeuesStueck();
     waehleProduktart('H');
-    fireEvent.change(screen.getByText('Anhänger Fassung').parentElement.querySelector('input'), {
+    fireEvent.change(screen.getByText('Aussehen').parentElement.querySelector('input'), {
       target: { value: 'Silber' },
     });
 
@@ -520,14 +520,13 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
     expect(screen.queryByText('Standort / Ausgelagert')).not.toBeInTheDocument();
   });
 
-  it('klappt die Anhänger-Inhalt-Felder erst auf Klick auf', async () => {
+  it('gruppiert die Anhänger-Felder in Aussehen und Inhalt', async () => {
     await oeffneNeuesStueck();
     waehleProduktart('H');
-    expect(screen.queryByText('Anh. Inhalt Material')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Inhalt/ }));
-
-    expect(screen.getByText('Anh. Inhalt Material')).toBeInTheDocument();
+    expect(screen.getByText('Aussehen')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Inhalt', level: 5 })).toBeInTheDocument();
+    expect(screen.getByText('Zusatzmaterial', { selector: 'label' })).toBeInTheDocument();
   });
 
   it('zeigt die erzeugte Artikelnummer mit Anzahl im Kopf statt als Feld', async () => {

@@ -26,7 +26,6 @@ import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
 import { naechsteVorlagenNummer, naechstesExemplar } from "../utils/artikelnummer";
 import { produktartCodeVon, zeigtFeldgruppe } from "../utils/produktartFelder";
-import Einklappbar from "../components/Einklappbar";
 
 const HERSTELLER_OPTIONS = [
   { code: "M", label: "Marina" },
@@ -106,14 +105,6 @@ const klonbareFelderVon = (item) =>
       item[feld] ?? (ZAHLENFELDER.includes(feld) ? 0 : ""),
     ]),
   );
-
-// Felder des Anhänger-Inhalts: bleiben eingeklappt, solange keines befüllt ist.
-const ANHAENGER_INHALT_FELDER = [
-  "Anhänger_Inhalt_Material",
-  "Anhänger_Inhalt_Farbe",
-  "Anhänger_Inhalt_Farbakzente",
-  "Anhänger_Inhalt_Zusatzmaterial",
-];
 
 // Wert von `editing`, wenn das große Formular eine Zeile der Vorlagen-Tabelle bearbeitet.
 const BULK_ZEILE = "bulk-zeile";
@@ -690,7 +681,6 @@ export default function Schmuckstuecke() {
   const formProduktart = produktartCodeVon(form);
   const zeigeLaenge = zeigtFeldgruppe(formProduktart, "laenge");
   const zeigeAnhaenger = zeigtFeldgruppe(formProduktart, "anhaenger");
-  const hatAnhaengerInhalt = ANHAENGER_INHALT_FELDER.some((feld) => form[feld]);
   const zeigeZwischenstueck = zeigtFeldgruppe(formProduktart, "zwischenstueck");
 
   const sortedData = useMemo(() => {
@@ -1709,10 +1699,12 @@ export default function Schmuckstuecke() {
                   {zeigeAnhaenger ? "Anhänger" : "Zwischenstück"}
                   </h4>
                   {zeigeAnhaenger && (
-                    <>
+                    <div className="schmuckstuecke-anhaenger-gruppen">
+                      <div className="schmuckstuecke-anhaenger-gruppe">
+                      <h5>Aussehen</h5>
                       <div className="form-row">
                         <div className="form-group">
-                          <label>Anhänger Fassung</label>
+                          <label>Fassung</label>
                           <input
                             list="anhaenger-fassung-list"
                             className="form-control"
@@ -1729,7 +1721,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                         <div className="form-group">
-                          <label>Anhänger Form</label>
+                          <label>Form</label>
                           <input
                             list="anhaenger-form-list"
                             className="form-control"
@@ -1746,7 +1738,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                         <div className="form-group">
-                          <label>Anhänger Farbe</label>
+                          <label>Farbe</label>
                           <input
                             list="anhaenger-farbe-list"
                             className="form-control"
@@ -1763,7 +1755,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                         <div className="form-group">
-                          <label>Anhänger Größe</label>
+                          <label>Größe</label>
                           <input
                             className="form-control"
                             placeholder=" "
@@ -1779,13 +1771,12 @@ export default function Schmuckstuecke() {
                           />
                         </div>
                       </div>
-                      <Einklappbar
-                        key={editing}
-                        titel="Inhalt des Anhängers"
-                        startOffen={hatAnhaengerInhalt}>
+                      </div>
+                      <div className="schmuckstuecke-anhaenger-gruppe">
+                      <h5>Inhalt</h5>
                       <div className="form-row">
                         <div className="form-group">
-                          <label>Anh. Inhalt Material</label>
+                          <label>Material</label>
                           <input
                             list="anhaenger-inhalt-material-list"
                             className="form-control"
@@ -1805,7 +1796,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                         <div className="form-group">
-                          <label>Anh. Inhalt Farbe</label>
+                          <label>Farbe</label>
                           <input
                             list="anhaenger-inhalt-farbe-list"
                             className="form-control"
@@ -1825,7 +1816,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                         <div className="form-group">
-                          <label>Anh. Inhalt Farbakzent</label>
+                          <label>Farbakzent</label>
                           <input
                             list="anhaenger-inhalt-farbakzent-list"
                             className="form-control"
@@ -1845,7 +1836,7 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                         <div className="form-group">
-                          <label>Anh. Inhalt Zusatzmaterial</label>
+                          <label>Zusatzmaterial</label>
                           <input
                             list="anhaenger-inhalt-zusatzmaterial-list"
                             className="form-control"
@@ -1867,8 +1858,8 @@ export default function Schmuckstuecke() {
                           </datalist>
                         </div>
                       </div>
-                      </Einklappbar>
-                    </>
+                      </div>
+                    </div>
                   )}
                   <div className="form-row">
                     {zeigeZwischenstueck && (
