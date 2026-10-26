@@ -116,6 +116,44 @@ test.describe('Handy: Abläufe', () => {
   });
 });
 
+// Tab-Leiste unten (#320): echte Klicks statt page.goto, Seitenleiste und Mobile-Header entfallen.
+test.describe('Handy: Navigation', () => {
+  test('Tab-Leiste: Wechsel zwischen Tabs', async ({ page }) => {
+    await page.goto('/schmuckstuecke');
+    const leiste = page.getByRole('navigation', { name: 'Hauptnavigation mobil' });
+    await expect(leiste).toBeVisible();
+    await expect(page.locator('.sidebar')).toBeHidden();
+    await expect(leiste.getByRole('link', { name: 'Stücke' })).toHaveAttribute('aria-current', 'page');
+
+    await leiste.getByRole('link', { name: 'Inventur' }).click();
+    await expect(page).toHaveURL(/\/inventur$/);
+    await expect(leiste.getByRole('link', { name: 'Inventur' })).toHaveAttribute('aria-current', 'page');
+
+    await leiste.getByRole('link', { name: 'Kunden' }).click();
+    await expect(page).toHaveURL(/\/kunden$/);
+
+    await leiste.getByRole('button', { name: 'Mehr' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Mehr' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole('link', { name: 'Bestellübersicht' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Abmelden' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+
+    await leiste.getByRole('button', { name: 'Mehr' }).click();
+    await sheet.getByRole('link', { name: 'Bestellübersicht' }).click();
+    await expect(page).toHaveURL(/\/bestelluebersicht$/);
+    await expect(sheet).toHaveCount(0);
+
+    // Zuletzt: Auf Belege-Seiten ist die Seite derzeit breiter als 390 px (Filterzeile), danach
+    // trifft Playwrights Klick auf die fixierte Leiste daneben.
+    await leiste.getByRole('button', { name: 'Belege' }).click();
+    await page.getByRole('group', { name: 'Belege' }).getByRole('link', { name: 'Rechnungen' }).click();
+    await expect(page).toHaveURL(/\/rechnungen$/);
+    await expect(leiste.getByRole('button', { name: 'Belege' })).toHaveAttribute('aria-current', 'page');
+  });
+});
+
 // Eigene Tests je Seite, damit ein Befund pro Seite sichtbar bleibt.
 test.describe('Handy: kein horizontales Scrollen', () => {
   test.describe('Login-Seite', () => {

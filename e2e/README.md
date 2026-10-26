@@ -33,6 +33,8 @@ Zugangsdaten für `auth.setup.ts` und `smoke.spec.ts`.
   (`.data-table-mobil`, Zeilen `.data-table-mobil-item`) die Tabelle; die Tests prüfen darum diese
   Locators statt `tbody tr` und klicken Buttons echt (kein `dispatchEvent` mehr). Die Bestellübersicht
   hat auf dem Handy weiter eine Tabelle.
+  Seit #320 ersetzt die Tab-Leiste unten (`MobileTabBar`) Seitenleiste und Mobile-Header; der Test „Tab-Leiste:
+  Wechsel zwischen Tabs“ klickt sich durch Tabs, Mehr-Sheet und Belege-Umschalter.
   Der Test „Bestellübersicht scrollt nicht seitlich“ ist nur mit vorhandenen Bestellungen
   aussagekräftig (vor #327 war er dann mit 453 px rot, der Ablauf-Test legt eine Bestellung an).
 

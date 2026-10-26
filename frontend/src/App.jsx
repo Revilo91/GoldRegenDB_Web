@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -9,27 +9,13 @@ import {
 } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faChartBar,
-  faGem,
-  faUsers,
-  faBox,
-  faFileInvoice,
-  faCreditCard,
-  faClipboardList,
-  faWrench,
-  faUserLock,
-  faDatabase,
   faUser,
   faTimes,
-  faBars,
-  faWarehouse,
   faKey,
   faSignOutAlt,
-  faTruck,
   faAnglesLeft,
   faAnglesRight,
   faCodeBranch,
-  faCircleQuestion,
 } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authApi } from "./api";
@@ -52,11 +38,11 @@ import Benutzerverwaltung from "./pages/Benutzerverwaltung";
 import Datensicherung from "./pages/Datensicherung";
 import Inventur from "./pages/Inventur";
 import SchmuckstueckDetail from "./pages/SchmuckstueckDetail";
-import { MOBILE_BREAKPOINT } from "./utils/breakpoints";
+import MobileTabBar from "./components/MobileTabBar";
+import { baueNavGruppen } from "./utils/navGroups";
 import "./index.css";
 
 const COLLAPSE_KEY = "sidebarCollapsed";
-const DRAWER_BREAKPOINT = MOBILE_BREAKPOINT;
 
 // Von Vite zur Build-Zeit ersetzt (siehe vite.config.js). Fallback für Tests,
 // in denen das define nicht greift.
@@ -78,7 +64,6 @@ function readCollapsed() {
 function AppLayout() {
   const { user, loading, logout, mustChangePassword, clearMustChangePassword } =
     useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readCollapsed);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -89,9 +74,6 @@ function AppLayout() {
   const [showNewPasswordField, setShowNewPasswordField] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
-
-  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   const toggleSidebarCollapsed = useCallback(() => {
     setIsSidebarCollapsed((prev) => {
@@ -104,25 +86,6 @@ function AppLayout() {
       return next;
     });
   }, []);
-
-  // Escape schliesst den mobilen Drawer; oberhalb des Breakpoints gibt es keinen
-  useEffect(() => {
-    if (!isMobileMenuOpen) return undefined;
-
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") setIsMobileMenuOpen(false);
-    };
-    const onResize = () => {
-      if (window.innerWidth > DRAWER_BREAKPOINT) setIsMobileMenuOpen(false);
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("resize", onResize);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [isMobileMenuOpen]);
 
   const toggleUserMenu = () => setShowUserMenu(!showUserMenu);
   const closeUserMenu = () => setShowUserMenu(false);
@@ -137,7 +100,6 @@ function AppLayout() {
     setPasswordError("");
     setPasswordSuccess("");
     closeUserMenu();
-    closeMobileMenu();
   };
 
   const closePasswordModal = () => {
@@ -206,49 +168,8 @@ function AppLayout() {
     );
   }
 
-  const isAdmin = user.role === "admin";
   const isBearbeiter = user.role === "admin" || user.role === "bearbeiter";
-
-  const adminLinks = [
-    { to: "/audit-log", icon: faClipboardList, label: "Audit Log" },
-    { to: "/debug", icon: faWrench, label: "Debug" },
-    { to: "/benutzerverwaltung", icon: faUserLock, label: "Benutzerverwaltung" },
-    { to: "/datensicherung", icon: faDatabase, label: "Datensicherung" },
-  ];
-
-  // Navigation in dezente Gruppen geteilt \u2013 die \u00dcberschriften sind reine
-  // Labels (keine K\u00e4sten), Administration ist einfach die letzte Gruppe.
-  const navGroups = [
-    {
-      links: [
-        { to: "/", end: true, icon: faChartBar, label: "Dashboard", show: isBearbeiter },
-        { to: "/schmuckstuecke", icon: faGem, label: "Schmuckst\u00fccke", show: true },
-        { to: "/inventur", icon: faWarehouse, label: "Inventur", show: isBearbeiter },
-        { to: "/kunden", icon: faUsers, label: "Kunden", show: isBearbeiter }
-      ],
-    },
-    {
-      label: "Verkauf",
-      links: [
-        { to: "/lieferscheine", icon: faBox, label: "Lieferscheine", show: isBearbeiter },
-        { to: "/rechnungen", icon: faFileInvoice, label: "Rechnungen", show: isBearbeiter },
-        { to: "/bestelluebersicht", icon: faTruck, label: "Bestell\u00fcbersicht", show: isBearbeiter },
-        { to: "/sumup", icon: faCreditCard, label: "SumUp", show: isBearbeiter },
-      ],
-    },
-    {
-      links: [{ to: "/hilfe", icon: faCircleQuestion, label: "Hilfe", show: isBearbeiter }],
-    },
-  ];
-  if (isAdmin) {
-    navGroups.push({ label: "Administration", muted: true, links: adminLinks });
-  }
-  const visibleGroups = navGroups
-    .map((group) => ({
-      ...group,
-      links: group.links.filter((link) => link.show !== false),
-    }))
-    .filter((group) => group.links.length > 0);
+  const visibleGroups = baueNavGruppen(user);
 
   const renderNavLink = ({ to, end, icon, label }, extraClass = "") => (
     <NavLink
@@ -259,7 +180,6 @@ function AppLayout() {
       className={({ isActive }) =>
         `nav-link ${extraClass} ${isActive ? "active" : ""}`.replace(/\s+/g, " ").trim()
       }
-      onClick={closeMobileMenu}
     >
       <span className="nav-link-icon">
         <FontAwesomeIcon icon={icon} />
@@ -274,36 +194,9 @@ function AppLayout() {
 
   return (
     <>
-      {/* Mobile Top Header */}
-      <header className="mobile-header">
-        <div className="mobile-brand">
-          <img
-            src="/Logo transparent.svg"
-            alt="GoldRegen"
-            className="mobile-logo"
-          />
-        </div>
-        <button
-          className="menu-toggle"
-          onClick={toggleMobileMenu}
-          aria-label="Menu"
-        >
-          <FontAwesomeIcon icon={isMobileMenuOpen ? faTimes : faBars} />
-        </button>
-      </header>
-
-      {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div className="sidebar-overlay" onClick={closeMobileMenu}></div>
-      )}
-
       <aside
         id="app-sidebar"
-        className={`sidebar ${isSidebarCollapsed ? "collapsed" : ""} ${
-          isMobileMenuOpen ? "open" : ""
-        }`
-          .replace(/\s+/g, " ")
-          .trim()}
+        className={`sidebar ${isSidebarCollapsed ? "collapsed" : ""}`.trim()}
         aria-label="Hauptnavigation"
       >
         <div className="sidebar-brand">
@@ -370,6 +263,13 @@ function AppLayout() {
           </a>
         </div>
       </aside>
+
+      <MobileTabBar
+        groups={visibleGroups}
+        username={user.username}
+        onAccount={toggleUserMenu}
+        onLogout={logout}
+      />
 
       {/* User Menu Modal */}
       {showUserMenu && (
