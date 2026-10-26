@@ -523,6 +523,55 @@ describe('Status-Chips statt Status-Dropdown', () => {
     );
   });
 
+  it('Kundenwahl setzt den Chip "Ausgelagert"', async () => {
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+
+    fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '7' } });
+
+    await waitFor(() =>
+      expect(letzteListenParams()).toMatchObject({ ausgelagert: '7', verkauft: '0', ausschuss: '0' }),
+    );
+    expect(screen.getByRole('button', { name: /^Ausgelagert/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Standort "Lager" setzt den Chip "Im Lager"', async () => {
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+
+    fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '0' } });
+
+    await waitFor(() =>
+      expect(letzteListenParams()).toMatchObject({ ausgelagert: '0', verkauft: '0', ausschuss: '0' }),
+    );
+    expect(screen.getByRole('button', { name: /^Im Lager/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('ein anderer Chip setzt den Kunden-Filter zurück', async () => {
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+    fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '7' } });
+    await waitFor(() => expect(letzteListenParams()).toMatchObject({ ausgelagert: '7' }));
+
+    klickeChip(/^Verkauft/);
+
+    await waitFor(() => expect(letzteListenParams()).toMatchObject({ verkauft: '1' }));
+    expect(letzteListenParams()).not.toHaveProperty('ausgelagert');
+    expect(screen.getByDisplayValue('Alle Standorte')).toBeInTheDocument();
+  });
+
+  it('Klick auf den aktiven Chip "Ausgelagert" setzt auch den Kunden zurück', async () => {
+    rendereSeite();
+    await screen.findByRole('option', { name: 'Laden A' });
+    fireEvent.change(screen.getByDisplayValue('Alle Standorte'), { target: { value: '7' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Ausgelagert/ })).toHaveAttribute('aria-pressed', 'true'));
+
+    klickeChip(/^Ausgelagert/);
+
+    await waitFor(() => expect(letzteListenParams()).not.toHaveProperty('ausgelagert'));
+    expect(screen.getByRole('button', { name: /^Alle/ })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('holt die Zahlen mit Suche und Kunden-Filter, aber ohne Statusparameter', async () => {
     rendereSeite();
     await screen.findByRole('option', { name: 'Laden A' });

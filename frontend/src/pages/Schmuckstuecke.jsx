@@ -811,11 +811,11 @@ export default function Schmuckstuecke() {
               value={filters.ausgelagert ?? ""}
               onChange={(e) => {
                 const { ausgelagert, ...rest } = filters;
-                setFilters(
-                  e.target.value !== ""
-                    ? { ...rest, ausgelagert: e.target.value }
-                    : rest,
-                );
+                const standort = e.target.value;
+                setFilters(standort !== "" ? { ...rest, ausgelagert: standort } : rest);
+                // Der Standort bestimmt den Status: Lager oder Kunde, sonst widersprechen sich Chip und Zahlen
+                if (standort === "0") setStatus(STATUS.LAGER);
+                else if (standort !== "") setStatus(STATUS.AUSGELAGERT);
                 setPage(1);
               }}>
               <option value="">Alle Standorte</option>
@@ -835,6 +835,7 @@ export default function Schmuckstuecke() {
         zahlen={statusZahlen}
         onChange={(neu) => {
           setStatus(neu);
+          setFilters(({ ausgelagert, ...rest }) => rest);
           setPage(1);
         }}
       />
