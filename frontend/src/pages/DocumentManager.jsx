@@ -5,6 +5,8 @@ import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import { formatEur } from "../utils/zahlen";
 import { useToast } from "../components/Toast";
 import EmpfaengerModal from "../components/EmpfaengerModal";
+import RechnungZuruecksetzenModal from "../components/RechnungZuruecksetzenModal";
+import { useAuth } from "../context/AuthContext";
 import { empfaengerZeile } from "../utils/empfaenger";
 
 // Bei Einmalkunden (Onlineshop) steht der Empfänger hinter dem Sammelkunden: "Online · Erika Mustermann"
@@ -23,6 +25,8 @@ export default function DocumentManager({
   eRechnungFormate = [], // nur Rechnungen: [{ format, label, dateiSuffix, endung }]
 }) {
   const toast = useToast();
+  // Ohne AuthProvider (Tests) liefert der Hook null
+  const istAdmin = useAuth()?.user?.role === "admin";
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
@@ -50,6 +54,7 @@ export default function DocumentManager({
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [schmuckstueckOverlay, setSchmuckstueckOverlay] = useState(null);
   const [empfaengerOffen, setEmpfaengerOffen] = useState(false);
+  const [zuruecksetzenOffen, setZuruecksetzenOffen] = useState(false);
 
   // Entwurf bearbeiten
   const openEditDraft = async (doc) => {
@@ -132,6 +137,14 @@ export default function DocumentManager({
     } catch (err) {
       toast.fehler(err.message);
     }
+  };
+
+  const zuruecksetzen = async (begruendung) => {
+    await api.resetItem(detail.ID, begruendung);
+    toast.erfolg(`${labels.excelFilePrefix} ${detail.Nummer} ist wieder ein Entwurf.`);
+    setZuruecksetzenOffen(false);
+    setDetail(null);
+    load();
   };
 
   const dateiBasis = (id, nummer) =>
@@ -402,6 +415,8 @@ export default function DocumentManager({
   }, [sortedData, groupByKunde]);
 
   // Render
+  const finalGesperrt = type === "rechnung" && detail?.status === "final";
+
   return (
     <div>
       <div className="page-header">
@@ -633,11 +648,21 @@ export default function DocumentManager({
                   {f.label}
                 </button>
               ))}
-              <button
-                className="btn btn-danger btn-sm header-delete-btn"
-                onClick={() => handleDelete(detail.ID)}>
-                <FontAwesomeIcon icon={icons.trash} /> {labels.delete}
-              </button>
+              {/* Finale Rechnungen sind gesperrt (#283): nur ein Admin kann sie zurücksetzen */}
+              {finalGesperrt && istAdmin && (
+                <button
+                  className="btn btn-secondary btn-sm header-delete-btn"
+                  onClick={() => setZuruecksetzenOffen(true)}>
+                  Zurücksetzen
+                </button>
+              )}
+              {!finalGesperrt && (
+                <button
+                  className="btn btn-danger btn-sm header-delete-btn"
+                  onClick={() => handleDelete(detail.ID)}>
+                  <FontAwesomeIcon icon={icons.trash} /> {labels.delete}
+                </button>
+              )}
               <button className="modal-close" onClick={() => setDetail(null)}>
                 ×
               </button>
@@ -842,6 +867,14 @@ export default function DocumentManager({
             </div>
           </div>
         </div>
+      )}
+
+      {zuruecksetzenOffen && detail && (
+        <RechnungZuruecksetzenModal
+          nummer={detail.Nummer}
+          onBestaetigt={zuruecksetzen}
+          onClose={() => setZuruecksetzenOffen(false)}
+        />
       )}
 
       {/* Modal für neues Dokument / Entwurf bearbeiten */}

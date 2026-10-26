@@ -387,6 +387,9 @@ export const api = {
   createRechnung: (data) => request('/rechnungen', { method: 'POST', body: JSON.stringify(data) }),
   updateRechnung: (id, data) => request(`/rechnungen/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRechnung: (id) => request(`/rechnungen/${id}`, { method: 'DELETE' }),
+  // Nur Admin: finale Rechnung mit Begründung auf Entwurf zurücksetzen
+  resetRechnung: (id, begruendung) =>
+    request(`/rechnungen/${id}/zuruecksetzen`, { method: 'POST', body: JSON.stringify({ begruendung }) }),
 
   // Audit Log
   getAuditLog: (params) => {

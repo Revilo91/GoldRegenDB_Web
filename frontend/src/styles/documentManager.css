@@ -164,6 +164,11 @@
   margin-right: 16px;
 }
 
+/* Hinweis im Zurücksetzen-Dialog finaler Rechnungen */
+.zuruecksetzen-hinweis {
+  margin: 0 0 12px;
+}
+
 /* Cursor pointer utility */
 .cursor-pointer {
   cursor: pointer;

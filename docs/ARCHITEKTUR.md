@@ -458,8 +458,10 @@ GET    /rechnungen               Liste (Filter: status=entwurf|final)
 GET    /rechnungen/next-number   Nächste Nummer (YYYY-NNN)
 GET    /rechnungen/:id           Rechnung + Stücke + Rabatte + Summen
 POST   /rechnungen               Anlegen
-PUT    /rechnungen/:id           Bearbeiten
-DELETE /rechnungen/:id           Löschen
+PUT    /rechnungen/:id           Bearbeiten (nur Entwürfe; final = 409, Entwurf -> final erlaubt)
+DELETE /rechnungen/:id           Löschen (nur Entwürfe; final = 409)
+POST   /rechnungen/:id/zuruecksetzen  Final -> Entwurf, nur admin, Pflichtfeld begruendung (min. 10 Zeichen);
+                                 gibt Stücke frei (Verkauft = FALSE, Rechnung_ID bleibt), schreibt audit_log
 GET    /rechnungen/:id/excel     Excel-Export
 GET    /rechnungen/:id/erechnung E-Rechnung (XRechnung-XML oder ZUGFeRD-PDF/A-3)
 ```
