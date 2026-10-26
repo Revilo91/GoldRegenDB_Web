@@ -14,6 +14,8 @@ import {
   faEuroSign,
   faPaperclip,
   faCopy,
+  faList,
+  faTableCellsLarge,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
@@ -22,6 +24,8 @@ import TableToolbar from "../components/TableToolbar";
 import StatusChips from "../components/StatusChips";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
 import TablePhoto from "../components/TablePhoto";
+import FotoRaster from "../components/FotoRaster";
+import { ANSICHT, leseAnsicht, schreibeAnsicht } from "../utils/ansichtSpeicher";
 import SchmuckstueckZeile from "../components/SchmuckstueckZeile";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
@@ -152,6 +156,11 @@ export default function Schmuckstuecke() {
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [activeTab, setActiveTab] = useState("schmuckstuecke");
+  const [ansicht, setAnsicht] = useState(leseAnsicht);
+  const waehleAnsicht = (neu) => {
+    setAnsicht(neu);
+    schreibeAnsicht(neu);
+  };
   // Konstant: setSortConfig wurde nie aufgerufen, die Sortierung stand also
   // schon immer fest auf diesem Wert (Befund G14).
   const sortConfig = { key: "Artikelnummer", direction: "asc" };
@@ -759,6 +768,26 @@ export default function Schmuckstuecke() {
             <button className="btn btn-primary" onClick={openNew}>
               + Neues Schmuckstück
             </button>
+            <div className="ansicht-umschalter" role="group" aria-label="Ansicht">
+              <button
+                type="button"
+                className={`btn btn-sm ${ansicht === ANSICHT.TABELLE ? "btn-primary" : "btn-secondary"}`}
+                aria-label="Tabellenansicht"
+                title="Tabelle"
+                aria-pressed={ansicht === ANSICHT.TABELLE}
+                onClick={() => waehleAnsicht(ANSICHT.TABELLE)}>
+                <FontAwesomeIcon icon={faList} />
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${ansicht === ANSICHT.RASTER ? "btn-primary" : "btn-secondary"}`}
+                aria-label="Rasteransicht"
+                title="Foto-Raster"
+                aria-pressed={ansicht === ANSICHT.RASTER}
+                onClick={() => waehleAnsicht(ANSICHT.RASTER)}>
+                <FontAwesomeIcon icon={faTableCellsLarge} />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -846,6 +875,13 @@ export default function Schmuckstuecke() {
             <div className="loading">
               <div className="spinner"></div>Lade...
             </div>
+          ) : ansicht === ANSICHT.RASTER ? (
+            <FotoRaster
+              stuecke={sortedData}
+              onSelect={(s) => setSelected(s)}
+              pauseLoading={isForegroundModalOpen}
+              kundenName={getKundenName}
+            />
           ) : (
             <DataTable
               data={sortedData}

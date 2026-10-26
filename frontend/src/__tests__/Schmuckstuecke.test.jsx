@@ -661,3 +661,94 @@ describe('Status-Chips statt Status-Dropdown', () => {
     }
   });
 });
+
+describe('Ansicht: Tabelle oder Foto-Raster', () => {
+  const stueck = (nr, extra = {}) => ({
+    Artikelnummer: nr, Name: 'Seerose', Art: 'Ohrring', Verkaufspreis: 24.5,
+    Ausgelagert: 0, Verkauft: false, Ausschuss: false, hatFoto: false, ...extra,
+  });
+  const SCHLUESSEL = 'schmuckstuecke-ansicht';
+  const tabelleBtn = () => screen.getByRole('button', { name: 'Tabellenansicht' });
+  const rasterBtn = () => screen.getByRole('button', { name: 'Rasteransicht' });
+
+  beforeEach(() => {
+    localStorage.clear();
+    api.getSchmuckstuecke.mockResolvedValue({
+      data: [stueck('MHO1_1'), stueck('MHO2_1', { Name: 'Welle' })],
+      pagination: { total: 2, totalPages: 1 },
+    });
+    api.getSchmuckstueck.mockResolvedValue(stueck('MHO2_1', { Name: 'Welle' }));
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('startet mit der Tabelle', async () => {
+    rendereSeite();
+
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(tabelleBtn()).toHaveAttribute('aria-pressed', 'true');
+    expect(rasterBtn()).toHaveAttribute('aria-pressed', 'false');
+    expect(document.querySelector('.foto-raster')).toBeNull();
+  });
+
+  it('wechselt zwischen Tabelle und Raster', async () => {
+    rendereSeite();
+    await screen.findByRole('table');
+
+    fireEvent.click(rasterBtn());
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('.foto-kachel')).toHaveLength(2);
+    expect(rasterBtn()).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(tabelleBtn());
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(document.querySelector('.foto-raster')).toBeNull();
+  });
+
+  it('Klick auf eine Kachel öffnet das Detail des Stücks', async () => {
+    rendereSeite();
+    await screen.findByRole('table');
+    fireEvent.click(rasterBtn());
+
+    fireEvent.click(screen.getByText('Welle').closest('button'));
+
+    await waitFor(() => expect(api.getSchmuckstueck).toHaveBeenCalledWith('MHO2_1'));
+  });
+
+  it('merkt sich die Ansicht über ein Neuladen', async () => {
+    const erste = rendereSeite();
+    await screen.findByRole('table');
+    fireEvent.click(rasterBtn());
+    expect(localStorage.getItem(SCHLUESSEL)).toBe('raster');
+    erste.unmount();
+
+    rendereSeite();
+    await waitFor(() => expect(document.querySelectorAll('.foto-kachel')).toHaveLength(2));
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('funktioniert, wenn localStorage wirft', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('gesperrt'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('gesperrt'); });
+    rendereSeite();
+
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    fireEvent.click(rasterBtn());
+    expect(document.querySelectorAll('.foto-kachel')).toHaveLength(2);
+  });
+
+  it('ignoriert einen ungültigen gespeicherten Wert', async () => {
+    localStorage.setItem(SCHLUESSEL, 'quatsch');
+    rendereSeite();
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+  });
+
+  it('das Raster nutzt dieselben Daten und Filter wie die Tabelle', async () => {
+    api.getStatusZahlen.mockResolvedValue({ alle: 2, lager: 1, ausgelagert: 0, verkauft: 1, ausschuss: 0 });
+    rendereSeite();
+    await screen.findByRole('table');
+    fireEvent.click(rasterBtn());
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Verkauft/ }));
+    await waitFor(() => expect(api.getSchmuckstuecke.mock.calls.at(-1)[0]).toMatchObject({ verkauft: '1', page: 1 }));
+  });
+});
