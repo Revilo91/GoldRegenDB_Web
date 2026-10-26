@@ -726,6 +726,14 @@ POST /api/backup/import-fotos-zip      ZIP importieren (async Hintergrund-Job, U
 GET  /api/backup/import-fotos-jobs/:id Fortschritt abfragen
 ```
 
+### Backup-Status (`GET /api/health`)
+
+`/api/health` (öffentlich) enthält neben `status` und `database` das Feld `backup: { status }` mit
+genau einem Wort: `ok`, `veraltet`, `fehler` oder `unbekannt`. Quelle ist `/backups/backup-status.json`,
+das `db/backup.sh` nach jedem Lauf schreibt (`services/backupStatus.js`, liest nie mit Fehlern).
+Keine Pfade, Dateinamen oder Fehlertexte; der HTTP-Status bleibt unverändert (200/503 wie bisher).
+Details und Felder: `deploy/README.md`, Abschnitt „Backup-Status und Fehlermeldung“.
+
 ### Bestandsimport (`scripts/import-fotos.js`)
 
 ```bash
@@ -929,6 +937,11 @@ BESTELLUNG_ENCRYPTION_KEY=...   # AES-256 für DSGVO-Felder
 # Schema-Migrationen (siehe Abschnitt 2)
 MIGRATION_BACKUP_DIR=/backups/migrations   # Compose-Default, Volume der db-Backups
 MIGRATION_SKIP_BACKUP=false                # true = Backup-Gate überspringen (nur Warnung)
+
+# Backup-Status (Issue #289): backup.sh schreibt /backups/backup-status.json,
+# das Backend liest daraus das Status-Wort für /api/health
+BACKUP_MAX_ALTER_STUNDEN=26     # app: älter als N Stunden = "veraltet"
+BACKUP_WEBHOOK_URL=             # db: optional, Fehlermeldung per HTTP-POST (leer = aus)
 ```
 
 Secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `BESTELLUNG_ENCRYPTION_KEY`) können statt als Klartext auch über `<NAME>_FILE` (Docker-Secret-Datei) gesetzt werden.

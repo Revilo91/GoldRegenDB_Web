@@ -5,6 +5,7 @@ const path = require('path');
 // `// @ts-check` weg, prüft `npm run typecheck` die Datei still nicht mehr –
 // dieser Test macht das sichtbar. Neue Datei unter @ts-check: hier eintragen.
 const TS_CHECK_DATEIEN = [
+  'services/backupStatus.js',
   'middleware/auth.js',
   'middleware/csrf.js',
   'middleware/httpsRedirect.js',

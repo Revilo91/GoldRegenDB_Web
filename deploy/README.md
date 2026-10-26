@@ -74,6 +74,51 @@ docker compose exec db /restore.sh /backups/daily/goldregendb_<zeitstempel>.sql.
 docker compose start app
 ```
 
+## Backup-Status und Fehlermeldung
+
+Teil 1 von #289 (Teil 2 „Jetzt sichern“ und Teil 3 „Restore-Test“ folgen separat).
+
+`db/backup.sh` schreibt nach **jedem** Lauf, auch nach Fehler oder Abbruch, atomar die Datei
+`backups/backup-status.json` (im Container `/backups/backup-status.json`):
+
+| Feld | Inhalt |
+|---|---|
+| `zeitpunkt` | Ende des Laufs, ISO-8601 UTC |
+| `ergebnis` | `ok` oder `fehler` |
+| `datei` | Dateiname des zuletzt erzeugten Dumps, bei Fehler leer |
+| `groesse_bytes` | Größe dieses Dumps, bei Fehler `0` |
+| `dauer_sekunden` | Laufzeit |
+| `art` | `daily`, an Sonntagen `weekly` (Art des zuletzt erzeugten Dumps) |
+| `fehler` | Kurztext, nur bei Fehler |
+
+`GET /api/health` (öffentlich) enthält daraus nur ein Wort: `"backup": { "status": "ok" }`.
+Der HTTP-Status von `/api/health` ändert sich dadurch nicht, der Docker-Healthcheck bleibt unberührt.
+
+| `backup.status` | Bedeutung |
+|---|---|
+| `ok` | letzter Lauf erfolgreich und nicht älter als `BACKUP_MAX_ALTER_STUNDEN` (Standard 26) |
+| `veraltet` | letzter Lauf erfolgreich, aber älter (Aufgabenplaner lief nicht) |
+| `fehler` | letzter Lauf fehlgeschlagen |
+| `unbekannt` | Status-Datei fehlt oder ist unlesbar (z. B. noch nie gelaufen) |
+
+**Fehlermeldung (optional, Kanal frei wählbar):** Ist `BACKUP_WEBHOOK_URL` in der `.env` gesetzt,
+sendet `backup.sh` bei einem Fehler einen HTTP-POST mit kurzem Klartext-Body an diese URL.
+Das passt zu jedem Dienst, der einen Webhook annimmt (z. B. ntfy oder ein Home-Assistant-Webhook).
+Welcher Kanal genutzt wird, ist nicht festgelegt; leer = aus. Die URL kann ein Token enthalten,
+sie steht nur in der `.env` und wird nie geloggt. Scheitert der Aufruf, steht eine Warnung im Log;
+Exit-Code und Status-Datei bleiben unverändert. Nach einer Änderung der `.env`:
+`docker compose up -d`, damit der `db`-Container die Variable bekommt. `backup.sh` nutzt `curl`,
+sonst `wget` aus dem `db`-Image (kein Paket wird nachinstalliert).
+
+**„Kein Backup seit mehr als 26 Stunden“ ist passiv:** `/api/health` meldet dann `veraltet`, schickt
+aber selbst nichts (das Backend hat keinen eigenen Scheduler). Wer dafür eine Benachrichtigung will,
+lässt `/api/health` von DSM-Aufgabenplaner, einem Uptime-Monitor oder Home Assistant regelmäßig
+abfragen und auf `backup.status` ungleich `ok` prüfen. Ein Lauf, der gar nicht startet, meldet sich
+nie von selbst; genau diesen Fall deckt nur die Abfrage von `/api/health` ab.
+
+**Zielwerte (Vorschlag, noch zu bestätigen):** RPO 1 Tag (maximaler Datenverlust), RTO 1 Stunde
+(Zeit bis zur wiederhergestellten Anwendung).
+
 ## Offsite-Backup (3-2-1)
 
 Die Dumps unter `backups/` liegen auf derselben NAS wie die Datenbank. Fällt die NAS aus

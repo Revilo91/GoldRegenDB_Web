@@ -25,6 +25,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const db = require('./config/db');
+const { ermittleBackupStatus } = require('./services/backupStatus');
 const { dbFehlerHinweis } = require('./utils/dbFehlerHinweis');
 
 const securityHeaders = require('./middleware/securityHeaders');
@@ -178,7 +179,13 @@ app.get('/api/health', async (req, res) => {
   }
   try {
     await db.query('SELECT 1 AS ok');
-    res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      database: 'connected',
+      // Nur das Status-Wort (ok/veraltet/fehler/unbekannt); beeinflusst den HTTP-Status nicht.
+      backup: { status: ermittleBackupStatus() },
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
     logger.error('SERVER', 'Health-Check: Datenbankverbindung fehlgeschlagen', { message: err.message });
     res.status(503).json({ status: 'error', database: 'disconnected', timestamp: new Date().toISOString() });
