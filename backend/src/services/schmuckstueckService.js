@@ -1,4 +1,5 @@
 const { hatFotoSql } = require("../utils/fotoService");
+const { GRUNDMATERIAL } = require("../utils/constants");
 
 const HAT_FOTO_SQL = hatFotoSql('"Schmuckstück"');
 
@@ -54,6 +55,25 @@ const FLAG_WERTE = { 1: true, 0: false, true: true, false: false };
 const istLeer = (wert) => wert === undefined || String(wert).trim() === "";
 
 /**
+ * Haengt den Kunden-/Lager-Filter (ausgelagert) an den Builder.
+ * @returns {string|null} Fehlermeldung fuer HTTP 400, oder null
+ */
+function ausgelagertFilterAnwenden(builder, query) {
+  // Mehrere Werte ("0,15") für Direktverkauf-Rechnungen: Lager plus Kunde
+  if (!istLeer(query.ausgelagert)) {
+    const kundeIds = String(query.ausgelagert).split(",").map((v) => (v.trim() === "" ? NaN : Number(v)));
+    if (kundeIds.some((id) => !Number.isInteger(id) || id < 0)) {
+      return "ausgelagert muss eine Kundennummer oder 0 sein (mehrere durch Komma getrennt)";
+    }
+    if (kundeIds.length > 1) builder.ausgelagertIn(kundeIds);
+    else if (kundeIds[0] === 0) builder.imLager();
+    else builder.ausgelagert(kundeIds[0]);
+  }
+
+  return null;
+}
+
+/**
  * Haengt verkauft/ausschuss/ausgelagert an den Builder.
  * @returns {string|null} Fehlermeldung fuer HTTP 400, oder null
  */
@@ -72,18 +92,34 @@ function statusFilterAnwenden(builder, query) {
     else builder.keinAusschuss();
   }
 
-  // Mehrere Werte ("0,15") für Direktverkauf-Rechnungen: Lager plus Kunde
-  if (!istLeer(query.ausgelagert)) {
-    const kundeIds = String(query.ausgelagert).split(",").map((v) => (v.trim() === "" ? NaN : Number(v)));
-    if (kundeIds.some((id) => !Number.isInteger(id) || id < 0)) {
-      return "ausgelagert muss eine Kundennummer oder 0 sein (mehrere durch Komma getrennt)";
+  return ausgelagertFilterAnwenden(builder, query);
+}
+
+// Gemeinsam fuer die Liste und die Status-Zahlen, damit beide dieselben
+// Treffer meinen. search kann ein Grundmaterial-Code ("P") oder -Name
+// ("Perle") sein, sonst Freitext ueber alle Felder.
+function suchFilterAnwenden(builder, query) {
+  const search = query.search || "";
+
+  if (search) {
+    const searchUpper = search.toUpperCase();
+    const materialCode = GRUNDMATERIAL[searchUpper]
+      ? searchUpper
+      : Object.keys(GRUNDMATERIAL).find((code) => GRUNDMATERIAL[code].toUpperCase() === searchUpper);
+
+    if (materialCode) {
+      builder.grundmaterial(materialCode);
+    } else {
+      const paramIdx = builder.getNextParamIdx();
+      const searchClause = SEARCHABLE_FIELDS.map(
+        (field) => `COALESCE("${field}"::text, '') ILIKE $${paramIdx}`,
+      ).join(" OR ");
+      builder.raw(`(${searchClause})`, `%${search}%`);
     }
-    if (kundeIds.length > 1) builder.ausgelagertIn(kundeIds);
-    else if (kundeIds[0] === 0) builder.imLager();
-    else builder.ausgelagert(kundeIds[0]);
   }
 
-  return null;
+  if (query.grundmaterial) builder.grundmaterial(query.grundmaterial);
+  if (query.artikelnummer_art) builder.produktart(query.artikelnummer_art);
 }
 
 // ausschuss kommt aus zod als boolean (Befund B6); aeltere Aufrufer und Tests
@@ -178,6 +214,8 @@ module.exports = {
   SEARCHABLE_FIELDS,
   AUSSCHUSS_GRUND_CONSTRAINT,
   statusFilterAnwenden,
+  ausgelagertFilterAnwenden,
+  suchFilterAnwenden,
   resolveAusschussGrund,
   parseBulkItemsFromPayload,
   vergleicheFilterwerte,
