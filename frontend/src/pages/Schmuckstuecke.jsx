@@ -1292,7 +1292,7 @@ export default function Schmuckstuecke() {
       {editing !== null && (
         <div className="modal-overlay">
           <div
-            className="modal modal-lg schmuckstuecke-maxw-900"
+            className="modal schmuckstuecke-form-modal"
             onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
@@ -1317,7 +1317,7 @@ export default function Schmuckstuecke() {
                 ×
               </button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body schmuckstuecke-form-body">
               <div className="form-section">
                 <h4>
                   <FontAwesomeIcon icon={faHashtag} /> Artikelnummer
@@ -1513,7 +1513,7 @@ export default function Schmuckstuecke() {
                 </div>
               </div>
 
-              <div className="form-section">
+              <div className="form-section schmuckstuecke-form-foto">
                 <h4>Foto</h4>
                 <PhotoUpload
                   artikelnummer={
@@ -1686,7 +1686,8 @@ export default function Schmuckstuecke() {
               {(zeigeAnhaenger || zeigeZwischenstueck) && (
                 <div className="form-section">
                   <h4>
-                    <FontAwesomeIcon icon={faPaperclip} /> Anhänger
+                    <FontAwesomeIcon icon={faPaperclip} />{" "}
+                  {zeigeAnhaenger ? "Anhänger" : "Zwischenstück"}
                   </h4>
                   {zeigeAnhaenger && (
                     <>

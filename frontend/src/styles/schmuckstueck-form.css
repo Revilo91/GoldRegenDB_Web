@@ -1,0 +1,80 @@
+/* ============ SCHMUCKSTÜCK-FORMULAR (Anlegen / Bearbeiten) ============ */
+/* Zwei Spalten: links das Foto (bleibt beim Scrollen sichtbar), rechts die
+   Abschnitte als Karten. Die allgemeinen .form-section-/.modal-body-Regeln
+   bleiben für die anderen Seiten unberührt. */
+.schmuckstuecke-form-modal {
+  max-width: 1120px;
+}
+
+.schmuckstuecke-form-body {
+  --form-foto-breite: 300px;
+  --form-abstand: 20px;
+  display: grid;
+  grid-template-columns: var(--form-foto-breite) minmax(0, 1fr);
+  column-gap: 28px;
+  align-content: start;
+  padding: 24px 28px;
+}
+
+.schmuckstuecke-form-body > .form-section {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--form-abstand);
+  margin-bottom: var(--form-abstand);
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius);
+}
+
+.schmuckstuecke-form-body > .form-section:last-child {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border-hair);
+}
+
+/* Das allgemeine .modal-body h4 rückt Überschriften mit 24 px ein */
+.schmuckstuecke-form-body .form-section h4 {
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.schmuckstuecke-form-body > .schmuckstuecke-form-foto {
+  grid-column: 1;
+  grid-row: 1 / span 20;
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+.schmuckstuecke-form-body .form-row {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--form-abstand);
+}
+
+.schmuckstuecke-form-body .form-group {
+  margin-bottom: 0;
+}
+
+.schmuckstuecke-form-body .photo-upload-container {
+  margin: 0;
+}
+
+.schmuckstuecke-form-body .drag-drop-zone {
+  padding: 24px 16px;
+}
+
+@media (max-width: 900px) {
+  .schmuckstuecke-form-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .schmuckstuecke-form-body > .form-section,
+  .schmuckstuecke-form-body > .schmuckstuecke-form-foto {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+  }
+}

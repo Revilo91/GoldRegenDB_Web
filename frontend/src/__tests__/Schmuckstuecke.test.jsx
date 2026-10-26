@@ -474,7 +474,7 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
 
   const laenge = () => screen.queryByText(/^Länge \(/);
   const anhaenger = () => screen.queryByText('Anhänger Fassung');
-  const zwischenstueck = () => screen.queryByText('Zwischenstück');
+  const zwischenstueck = () => screen.queryByText('Zwischenstück', { selector: 'label' });
 
   it('zeigt vor der Wahl der Produktart alle Felder', async () => {
     await oeffneNeuesStueck();
@@ -497,7 +497,7 @@ describe('Felder je Produktart im Anlegen-Modal', () => {
     expect(!!laenge()).toBe(hatLaenge);
     expect(!!anhaenger()).toBe(hatAnhaenger);
     expect(!!zwischenstueck()).toBe(hatZwischen);
-    expect(screen.queryByRole('heading', { name: /Anhänger/ }) !== null).toBe(hatAnhaenger || hatZwischen);
+    expect(screen.queryByRole('heading', { name: /Anhänger|Zwischenstück/ }) !== null).toBe(hatAnhaenger || hatZwischen);
   });
 
   it('behält den Wert eines ausgeblendeten Feldes', async () => {
