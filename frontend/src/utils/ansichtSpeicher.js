@@ -1,12 +1,14 @@
 const SCHLUESSEL = "schmuckstuecke-ansicht";
-export const ANSICHT = { TABELLE: "tabelle", RASTER: "raster" };
+export const ANSICHT = { LISTE: "liste", TABELLE: "tabelle", RASTER: "raster" };
 
-// localStorage kann fehlen oder werfen (privates Fenster, gesperrte Daten): dann gilt die Tabelle.
+// Liefert die gespeicherte Wahl oder null (nichts gespeichert, ungültig, localStorage fehlt oder wirft):
+// dann bestimmt die Seite den Standard je nach Fensterbreite.
 export function leseAnsicht() {
   try {
-    return localStorage.getItem(SCHLUESSEL) === ANSICHT.RASTER ? ANSICHT.RASTER : ANSICHT.TABELLE;
+    const wert = localStorage.getItem(SCHLUESSEL);
+    return Object.values(ANSICHT).includes(wert) ? wert : null;
   } catch {
-    return ANSICHT.TABELLE;
+    return null;
   }
 }
 

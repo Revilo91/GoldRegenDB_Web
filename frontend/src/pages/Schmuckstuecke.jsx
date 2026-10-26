@@ -15,6 +15,7 @@ import {
   faPaperclip,
   faCopy,
   faList,
+  faTableList,
   faTableCellsLarge,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
@@ -163,9 +164,10 @@ export default function Schmuckstuecke() {
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [activeTab, setActiveTab] = useState("schmuckstuecke");
-  const [ansicht, setAnsicht] = useState(leseAnsicht);
+  // Gespeicherte Wahl hat Vorrang; ohne sie gilt am Rechner (Panel-Breite) die Kompakt-Liste, sonst die Tabelle.
+  const [gewaehlteAnsicht, setGewaehlteAnsicht] = useState(leseAnsicht);
   const waehleAnsicht = (neu) => {
-    setAnsicht(neu);
+    setGewaehlteAnsicht(neu);
     schreibeAnsicht(neu);
   };
   // Konstant: setSortConfig wurde nie aufgerufen, die Sortierung stand also
@@ -725,6 +727,7 @@ export default function Schmuckstuecke() {
   const p = data.pagination;
   // Breit: Stück-Detail als Panel neben der Liste; schmal: als Fenster
   const panelModus = useMediaQuery(PANEL_QUERY);
+  const ansicht = gewaehlteAnsicht ?? (panelModus ? ANSICHT.LISTE : ANSICHT.TABELLE);
   // Das Panel verdeckt die Liste nicht, deshalb pausieren ihre Fotos nur bei einem echten Fenster
   const isForegroundModalOpen =
     (selected !== null && !panelModus) || editing !== null;
@@ -758,7 +761,7 @@ export default function Schmuckstuecke() {
   }, [data.data, sortConfig, kunden]);
 
   // Die Tabelle sortiert nach dem angeklickten Spaltenkopf selbst; Pfeiltasten folgen dieser sichtbaren Reihenfolge.
-  // Das Raster zeigt die Seitenreihenfolge (sortedData).
+  // Liste und Raster zeigen die Seitenreihenfolge (sortedData).
   const [tabellenReihenfolge, setTabellenReihenfolge] = useState(null);
   const navigationsListe = useMemo(() => {
     if (ansicht !== ANSICHT.TABELLE || !tabellenReihenfolge) return sortedData;
@@ -869,12 +872,21 @@ export default function Schmuckstuecke() {
             <div className="ansicht-umschalter" role="group" aria-label="Ansicht">
               <button
                 type="button"
+                className={`btn btn-sm ${ansicht === ANSICHT.LISTE ? "btn-primary" : "btn-secondary"}`}
+                aria-label="Listenansicht"
+                title="Liste"
+                aria-pressed={ansicht === ANSICHT.LISTE}
+                onClick={() => waehleAnsicht(ANSICHT.LISTE)}>
+                <FontAwesomeIcon icon={faList} />
+              </button>
+              <button
+                type="button"
                 className={`btn btn-sm ${ansicht === ANSICHT.TABELLE ? "btn-primary" : "btn-secondary"}`}
                 aria-label="Tabellenansicht"
                 title="Tabelle"
                 aria-pressed={ansicht === ANSICHT.TABELLE}
                 onClick={() => waehleAnsicht(ANSICHT.TABELLE)}>
-                <FontAwesomeIcon icon={faList} />
+                <FontAwesomeIcon icon={faTableList} />
               </button>
               <button
                 type="button"
@@ -986,6 +998,24 @@ export default function Schmuckstuecke() {
               kundenName={getKundenName}
               aktiveArtikelnummer={panelModus ? (selected?.Artikelnummer ?? null) : undefined}
             />
+          ) : ansicht === ANSICHT.LISTE ? (
+            sortedData.length === 0 ? (
+              <div className="empty-state">Keine Schmuckstücke gefunden.</div>
+            ) : (
+              <ul className="data-table-mobil">
+                {sortedData.map((s) => (
+                  <li key={s.Artikelnummer} className="data-table-mobil-item">
+                    <SchmuckstueckZeile
+                      stueck={s}
+                      kundenName={getKundenName}
+                      pauseLoading={isForegroundModalOpen}
+                      aktiv={panelModus && selected?.Artikelnummer === s.Artikelnummer}
+                      onClick={setSelected}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
             <DataTable
               data={sortedData}

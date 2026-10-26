@@ -789,9 +789,13 @@ describe('Detail-Panel statt Fenster', () => {
   });
 
   describe('breites Fenster (ab 1024 px)', () => {
-    beforeEach(() => mockeBreite(1280));
+    // Standard ist hier die Kompakt-Liste; diese Tests prüfen die Tabelle, also wird sie vorab gewählt.
+    beforeEach(() => {
+      mockeBreite(1280);
+      localStorage.setItem('schmuckstuecke-ansicht', 'tabelle');
+    });
 
-    it('zeigt ohne Auswahl den Hinweis im Panel und die breite Tabelle statt der Kompakt-Liste', async () => {
+    it('zeigt ohne Auswahl den Hinweis im Panel und die breite Tabelle, wenn die Tabelle gewählt ist', async () => {
       rendereSeite();
 
       await listeBereit();
@@ -1061,6 +1065,188 @@ describe('Detail-Panel statt Fenster', () => {
     await screen.findByRole('table');
 
     fireEvent.click(screen.getByText('Armband'));
+
+    await waitFor(() => expect(document.querySelector('.schmuck-modal')).not.toBeNull());
+    expect(panel()).toBeNull();
+  });
+});
+
+describe('Ansicht: Liste, Tabelle oder Raster', () => {
+  const stueck = (nr, extra = {}) => ({
+    Artikelnummer: nr, Name: 'Seerose', Art: 'Ohrring', Verkaufspreis: 24.5,
+    Ausgelagert: 0, Verkauft: false, Ausschuss: false, hatFoto: false, ...extra,
+  });
+  const SCHLUESSEL = 'schmuckstuecke-ansicht';
+  const liste = [
+    stueck('MHO1_1'),
+    stueck('MHO2_1', { Name: 'Welle', Art: 'Armband' }),
+    stueck('MHO3_1', { Name: 'Düne', Art: 'Kette' }),
+  ];
+  const listenBtn = () => screen.getByRole('button', { name: 'Listenansicht' });
+  const tabelleBtn = () => screen.getByRole('button', { name: 'Tabellenansicht' });
+  const rasterBtn = () => screen.getByRole('button', { name: 'Rasteransicht' });
+  const zeilen = () => [...document.querySelectorAll('.schmuckstueck-zeile')];
+  const zeile = (name) => zeilen().find((z) => z.textContent.includes(name));
+  const reihenfolge = () => zeilen().map((z) => z.querySelector('strong').textContent);
+  const listeBereit = () => waitFor(() => expect(zeilen()).toHaveLength(3));
+  const panel = () => document.querySelector('.schmuck-panel');
+  const taste = (key) => fireEvent.keyDown(document.body, { key });
+
+  beforeEach(() => {
+    localStorage.clear();
+    api.getSchmuckstuecke.mockResolvedValue({ data: liste, pagination: { total: 3, totalPages: 1 } });
+    api.getSchmuckstueck.mockImplementation(async (nr) => liste.find((s) => s.Artikelnummer === nr));
+  });
+  afterEach(() => {
+    delete window.matchMedia;
+    vi.restoreAllMocks();
+  });
+
+  it('hat drei unterscheidbare Knöpfe mit Titel', async () => {
+    mockeBreite(1280);
+    rendereSeite();
+    await listeBereit();
+
+    expect(listenBtn()).toHaveAttribute('title', 'Liste');
+    expect(tabelleBtn()).toHaveAttribute('title', 'Tabelle');
+    expect(rasterBtn()).toHaveAttribute('title', 'Foto-Raster');
+    const symbole = [listenBtn(), tabelleBtn(), rasterBtn()].map((b) => b.querySelector('svg').getAttribute('data-icon'));
+    expect(new Set(symbole).size).toBe(3);
+  });
+
+  it('Standard bei breitem Fenster ist die Kompakt-Liste', async () => {
+    mockeBreite(1280);
+    rendereSeite();
+    await listeBereit();
+
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(listenBtn()).toHaveAttribute('aria-pressed', 'true');
+    expect(tabelleBtn()).toHaveAttribute('aria-pressed', 'false');
+    expect(rasterBtn()).toHaveAttribute('aria-pressed', 'false');
+    expect(document.querySelector('.schmuck-split')).toContainElement(zeilen()[0]);
+  });
+
+  it('Standard bei schmalem Fenster ist die Tabelle', async () => {
+    mockeBreite(900);
+    rendereSeite();
+
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(tabelleBtn()).toHaveAttribute('aria-pressed', 'true');
+    expect(listenBtn()).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('gespeicherte Wahl hat Vorrang: Tabelle breit, Liste schmal', async () => {
+    mockeBreite(1280);
+    localStorage.setItem(SCHLUESSEL, 'tabelle');
+    const breit = rendereSeite();
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(zeilen()).toHaveLength(0);
+    breit.unmount();
+
+    mockeBreite(900);
+    localStorage.setItem(SCHLUESSEL, 'liste');
+    rendereSeite();
+    await listeBereit();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('speichert die Wahl', async () => {
+    mockeBreite(1280);
+    rendereSeite();
+    await listeBereit();
+
+    fireEvent.click(tabelleBtn());
+    expect(localStorage.getItem(SCHLUESSEL)).toBe('tabelle');
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    fireEvent.click(listenBtn());
+    expect(localStorage.getItem(SCHLUESSEL)).toBe('liste');
+    expect(zeilen()).toHaveLength(3);
+    fireEvent.click(rasterBtn());
+    expect(localStorage.getItem(SCHLUESSEL)).toBe('raster');
+  });
+
+  it('ungültiger gespeicherter Wert fällt auf den Standard zurück', async () => {
+    localStorage.setItem(SCHLUESSEL, 'quatsch');
+    mockeBreite(1280);
+    rendereSeite();
+    await listeBereit();
+    expect(listenBtn()).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('funktioniert, wenn localStorage wirft', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('gesperrt'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('gesperrt'); });
+    mockeBreite(1280);
+    rendereSeite();
+    await listeBereit();
+
+    fireEvent.click(tabelleBtn());
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+  });
+
+  it('zeigt bei leerer Liste den Hinweis', async () => {
+    mockeBreite(1280);
+    api.getSchmuckstuecke.mockResolvedValue({ data: [], pagination: { total: 0, totalPages: 1 } });
+    rendereSeite();
+
+    expect(await screen.findByText('Keine Schmuckstücke gefunden.')).toBeInTheDocument();
+  });
+
+  it('Klick auf eine Listenzeile füllt das Panel und hebt die Zeile hervor', async () => {
+    mockeBreite(1280);
+    rendereSeite();
+    await listeBereit();
+
+    fireEvent.click(zeile('Welle'));
+
+    expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+    expect(document.querySelector('.modal-overlay')).toBeNull();
+    expect(zeilen()).toHaveLength(3);
+    expect(zeile('Welle')).toHaveClass('schmuckstueck-zeile--aktiv');
+    expect(zeile('Welle')).toHaveAttribute('aria-pressed', 'true');
+    expect(zeile('Düne')).not.toHaveClass('schmuckstueck-zeile--aktiv');
+    expect(document.querySelectorAll('.schmuckstueck-zeile--aktiv')).toHaveLength(1);
+  });
+
+  it('Pfeiltasten in der Liste folgen der festen Reihenfolge, auch nach einer Tabellen-Sortierung', async () => {
+    mockeBreite(1280);
+    localStorage.setItem(SCHLUESSEL, 'tabelle');
+    rendereSeite();
+    await screen.findByRole('table');
+    // Art aufsteigend: MHO2, MHO3, MHO1; danach zurück zur Liste (feste Reihenfolge MHO1, MHO2, MHO3)
+    fireEvent.click(screen.getByRole('columnheader', { name: /^Art\s/ }));
+    fireEvent.click(listenBtn());
+    await listeBereit();
+    expect(reihenfolge()).toEqual(['MHO1', 'MHO2', 'MHO3']);
+
+    taste('ArrowDown');
+    expect(await within(panel()).findByRole('heading', { name: /MHO1_1/ })).toBeInTheDocument();
+    taste('ArrowDown');
+    expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+    taste('ArrowDown');
+    expect(await within(panel()).findByRole('heading', { name: /MHO3_1/ })).toBeInTheDocument();
+    expect(zeile('Düne')).toHaveClass('schmuckstueck-zeile--aktiv');
+  });
+
+  it('Pfeiltasten in der Tabelle folgen weiter der sichtbaren Sortierung', async () => {
+    mockeBreite(1280);
+    localStorage.setItem(SCHLUESSEL, 'tabelle');
+    rendereSeite();
+    await screen.findByRole('table');
+    fireEvent.click(screen.getByRole('columnheader', { name: /^Art\s/ }));
+
+    taste('ArrowDown');
+
+    expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+  });
+
+  it('Liste im schmalen Fenster: Klick öffnet das Fenster, kein Panel', async () => {
+    mockeBreite(900);
+    localStorage.setItem(SCHLUESSEL, 'liste');
+    rendereSeite();
+    await listeBereit();
+
+    fireEvent.click(zeile('Welle'));
 
     await waitFor(() => expect(document.querySelector('.schmuck-modal')).not.toBeNull());
     expect(panel()).toBeNull();
