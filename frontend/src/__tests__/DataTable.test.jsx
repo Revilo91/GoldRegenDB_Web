@@ -136,3 +136,41 @@ describe('DataTable: mobileRow (Kompakt-Liste)', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 });
+
+describe('DataTable: Zeilenklasse und Reihenfolge-Meldung', () => {
+  it('hängt eine className aus rowProps an die Zeilenklasse, statt sie zu ersetzen', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        onRowClick={() => {}}
+        rowProps={(r) => (r.id === 2 ? { className: 'aktiv', 'aria-current': 'true' } : {})}
+      />,
+    );
+
+    const zeilen = screen.getAllByRole('row').slice(1);
+    expect(zeilen[1]).toHaveClass('aktiv', 'data-table-row-pointer');
+    expect(zeilen[1]).toHaveAttribute('aria-current', 'true');
+    expect(zeilen[0]).not.toHaveClass('aktiv');
+  });
+
+  it('meldet die sichtbare Reihenfolge der Zeilenschlüssel, auch nach dem Sortieren', () => {
+    const onSortedChange = vi.fn();
+    render(<DataTable columns={columns} data={data} getRowKey={(r) => r.id} onSortedChange={onSortedChange} />);
+    expect(onSortedChange).toHaveBeenLastCalledWith([1, 2, 3]);
+
+    fireEvent.click(screen.getByText(/Menge/));
+
+    expect(onSortedChange).toHaveBeenLastCalledWith([3, 1, 2]);
+  });
+
+  it('meldet bei unveränderter Reihenfolge nichts erneut, auch wenn columns bei jedem Render neu ist', () => {
+    const onSortedChange = vi.fn();
+    const { rerender } = render(
+      <DataTable columns={[...columns]} data={data} getRowKey={(r) => r.id} onSortedChange={onSortedChange} />,
+    );
+    rerender(<DataTable columns={[...columns]} data={data} getRowKey={(r) => r.id} onSortedChange={onSortedChange} />);
+
+    expect(onSortedChange).toHaveBeenCalledTimes(1);
+  });
+});

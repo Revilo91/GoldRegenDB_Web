@@ -768,14 +768,16 @@ describe('Detail-Panel statt Fenster', () => {
     stueck('MHO2_1', { Name: 'Welle', Art: 'Armband' }),
     stueck('MHO3_1', { Name: 'Düne', Art: 'Kette' }),
   ];
-  // Kompakt-Zeile bzw. Kachel, deren Text den Namen enthält (das Panel zeigt den Namen ebenfalls)
+  // Tabellenzeile, deren Text die Art enthält (Name steht nur im Panel); Welle = Armband, Düne = Kette
+  const ART = { Welle: 'Armband', Düne: 'Kette', Seerose: 'Ohrring' };
   const zeile = (name) =>
-    [...document.querySelectorAll('.schmuckstueck-zeile')].find((z) => z.textContent.includes(name));
+    [...document.querySelectorAll('.data-table tbody tr')].find((z) => z.textContent.includes(ART[name] ?? name));
   const kachel = (name) => [...document.querySelectorAll('.foto-kachel')].find((k) => k.textContent.includes(name));
   const listeBereit = () => waitFor(() => expect(zeile('Welle')).toBeTruthy());
+  const reihenfolge = () => [...document.querySelectorAll('.data-table tbody tr')].map((z) => z.querySelector('strong').textContent);
   const panel = () => document.querySelector('.schmuck-panel');
   const taste = (key, ziel = document.body) => fireEvent.keyDown(ziel, { key });
-  const markiert = () => [...document.querySelectorAll('.schmuckstueck-zeile--aktiv')];
+  const markiert = () => [...document.querySelectorAll('.data-table-row-aktiv')];
 
   beforeEach(() => {
     localStorage.clear();
@@ -789,13 +791,27 @@ describe('Detail-Panel statt Fenster', () => {
   describe('breites Fenster (ab 1024 px)', () => {
     beforeEach(() => mockeBreite(1280));
 
-    it('zeigt ohne Auswahl den Hinweis im Panel und die Kompakt-Liste statt der Tabelle', async () => {
+    it('zeigt ohne Auswahl den Hinweis im Panel und die breite Tabelle statt der Kompakt-Liste', async () => {
       rendereSeite();
 
       await listeBereit();
       expect(panel()).toHaveTextContent(HINWEIS);
-      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.getByRole('table')).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: /Grundmaterial/ })).toBeInTheDocument();
+      expect(document.querySelector('.schmuckstueck-zeile')).toBeNull();
       expect(document.querySelector('.modal-overlay')).toBeNull();
+    });
+
+    it('der Kopfbereich bis zu den Status-Chips ist fixiert (Sticky-Klasse)', async () => {
+      rendereSeite();
+      await listeBereit();
+
+      const kopf = document.querySelector('.schmuck-kopf');
+      expect(kopf).toHaveClass('schmuck-kopf--fixiert');
+      expect(kopf).toContainElement(screen.getByRole('heading', { name: 'Schmuckstücke' }));
+      expect(kopf).toContainElement(screen.getByPlaceholderText(/Suche nach Artikelnummer/));
+      expect(kopf).toContainElement(screen.getByRole('button', { name: /^Alle/ }));
+      expect(kopf).not.toContainElement(screen.getByRole('table'));
     });
 
     it('Klick auf eine Zeile füllt das Panel, die Liste bleibt sichtbar und die Zeile ist hervorgehoben', async () => {
@@ -808,8 +824,30 @@ describe('Detail-Panel statt Fenster', () => {
       expect(panel()).not.toHaveTextContent(HINWEIS);
       expect(document.querySelector('.modal-overlay')).toBeNull();
       expect(zeile('Düne')).toBeTruthy();
-      expect(zeile('Welle')).toHaveAttribute('aria-pressed', 'true');
-      expect(zeile('Düne')).toHaveAttribute('aria-pressed', 'false');
+      expect(zeile('Welle')).toHaveClass('data-table-row-aktiv');
+      expect(zeile('Welle')).toHaveAttribute('aria-current', 'true');
+      expect(zeile('Düne')).not.toHaveClass('data-table-row-aktiv');
+      expect(zeile('Düne')).not.toHaveAttribute('aria-current');
+      expect(markiert()).toHaveLength(1);
+    });
+
+    it('Pfeil runter folgt der sichtbaren Reihenfolge nach Klick auf einen Spaltenkopf', async () => {
+      rendereSeite();
+      await listeBereit();
+      expect(reihenfolge()).toEqual(['MHO1', 'MHO2', 'MHO3']);
+
+      // Art aufsteigend: Armband (MHO2), Kette (MHO3), Ohrring (MHO1)
+      fireEvent.click(screen.getByRole('columnheader', { name: /^Art\s/ }));
+      expect(reihenfolge()).toEqual(['MHO2', 'MHO3', 'MHO1']);
+
+      taste('ArrowDown');
+      expect(await within(panel()).findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
+      taste('ArrowDown');
+      expect(await within(panel()).findByRole('heading', { name: /MHO3_1/ })).toBeInTheDocument();
+      taste('ArrowDown');
+      expect(await within(panel()).findByRole('heading', { name: /MHO1_1/ })).toBeInTheDocument();
+      taste('ArrowUp');
+      expect(await within(panel()).findByRole('heading', { name: /MHO3_1/ })).toBeInTheDocument();
     });
 
     it('pausiert die Fotos der Liste nicht, solange nur das Panel offen ist', async () => {
@@ -877,7 +915,7 @@ describe('Detail-Panel statt Fenster', () => {
       taste('Escape', suche);
 
       expect(within(panel()).getByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
-      expect(zeile('Welle')).toHaveAttribute('aria-pressed', 'true');
+      expect(zeile('Welle')).toHaveClass('data-table-row-aktiv');
     });
 
     it('Pfeiltasten wirken nicht in einem Auswahlfeld', async () => {
@@ -982,10 +1020,11 @@ describe('Detail-Panel statt Fenster', () => {
       expect(await screen.findByRole('heading', { name: /MHO2_1/ })).toBeInTheDocument();
     });
 
-    it('Pfeiltasten und Esc ändern nichts', async () => {
+    it('Pfeiltasten und Esc ändern nichts, der Kopf ist nicht fixiert', async () => {
       mockeBreite(900);
       rendereSeite();
       await screen.findByRole('table');
+      expect(document.querySelector('.schmuck-kopf')).not.toHaveClass('schmuck-kopf--fixiert');
 
       taste('ArrowDown');
 

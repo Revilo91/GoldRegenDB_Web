@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { parseZahlOderNull, formatEur } from "../utils/zahlen";
 import { statusBadge, statusVon, STATUS, istWahr } from "../utils/status";
@@ -757,6 +757,17 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
+  // Die Tabelle sortiert nach dem angeklickten Spaltenkopf selbst; Pfeiltasten folgen dieser sichtbaren Reihenfolge.
+  // Das Raster zeigt die Seitenreihenfolge (sortedData).
+  const [tabellenReihenfolge, setTabellenReihenfolge] = useState(null);
+  const navigationsListe = useMemo(() => {
+    if (ansicht !== ANSICHT.TABELLE || !tabellenReihenfolge) return sortedData;
+    const nachNummer = new Map(sortedData.map((s) => [s.Artikelnummer, s]));
+    const liste = tabellenReihenfolge.map((nr) => nachNummer.get(nr)).filter(Boolean);
+    // Veraltet (Daten gerade gewechselt, Tabelle hat noch nicht gemeldet): Seitenreihenfolge nehmen
+    return liste.length === sortedData.length ? liste : sortedData;
+  }, [ansicht, tabellenReihenfolge, sortedData]);
+
   // Ist das gewählte Stück nach Filter, Suche oder Seitenwechsel nicht mehr in der Liste, wird die Auswahl aufgehoben.
   // Direkt im Render statt im Effekt (React-Muster "State beim Rendern anpassen").
   if (
@@ -781,20 +792,20 @@ export default function Schmuckstuecke() {
         return;
       }
       const schritt = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-      if (schritt === 0 || sortedData.length === 0) return;
+      if (schritt === 0 || navigationsListe.length === 0) return;
       e.preventDefault();
       setSelected((aktuell) => {
         const index = aktuell
-          ? sortedData.findIndex((s) => s.Artikelnummer === aktuell.Artikelnummer)
+          ? navigationsListe.findIndex((s) => s.Artikelnummer === aktuell.Artikelnummer)
           : -1;
         // Ohne Auswahl: runter beginnt oben, hoch unten
-        const ziel = index === -1 ? (schritt === 1 ? 0 : sortedData.length - 1) : index + schritt;
-        return sortedData[Math.min(Math.max(ziel, 0), sortedData.length - 1)];
+        const ziel = index === -1 ? (schritt === 1 ? 0 : navigationsListe.length - 1) : index + schritt;
+        return navigationsListe[Math.min(Math.max(ziel, 0), navigationsListe.length - 1)];
       });
     };
     document.addEventListener("keydown", beiTaste);
     return () => document.removeEventListener("keydown", beiTaste);
-  }, [panelModus, activeTab, modalOffen, sortedData]);
+  }, [panelModus, activeTab, modalOffen, navigationsListe]);
 
 
   // Aktionen des gewählten Stücks, gleich für Fenster und Panel
@@ -815,8 +826,28 @@ export default function Schmuckstuecke() {
     onDelete: canEdit ? () => handleDelete(selected.Artikelnummer) : undefined,
   };
 
+  // Ab Panel-Breite bleibt der Kopf (Titel, Reiter, Suche, Status-Chips) beim Scrollen oben stehen;
+  // das Panel liegt darunter, seine Höhe kommt als CSS-Variable
+  const kopfFixiert = panelModus && activeTab === "schmuckstuecke";
+  const kopfRef = useRef(null);
+  const [kopfHoehe, setKopfHoehe] = useState(0);
+  useLayoutEffect(() => {
+    const kopf = kopfRef.current;
+    if (!kopfFixiert || !kopf) {
+      setKopfHoehe(0);
+      return undefined;
+    }
+    const messen = () => setKopfHoehe(kopf.offsetHeight);
+    messen();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const beobachter = new ResizeObserver(messen);
+    beobachter.observe(kopf);
+    return () => beobachter.disconnect();
+  }, [kopfFixiert]);
+
   return (
-    <div>
+    <div style={{ "--schmuck-kopf-hoehe": `${kopfHoehe}px` }}>
+      <div ref={kopfRef} className={kopfFixiert ? "schmuck-kopf schmuck-kopf--fixiert" : "schmuck-kopf"}>
       <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
@@ -873,7 +904,7 @@ export default function Schmuckstuecke() {
         </button>
       </div>
 
-      {activeTab === "schmuckstuecke" ? (
+      {activeTab === "schmuckstuecke" && (
         <>
       <TableToolbar
         search={search}
@@ -937,6 +968,12 @@ export default function Schmuckstuecke() {
         }}
       />
 
+        </>
+      )}
+      </div>
+
+      {activeTab === "schmuckstuecke" ? (
+        <>
       <div className={panelModus ? "schmuck-split" : undefined}>
       <div className="card">
         <div className="card-body">
@@ -952,30 +989,18 @@ export default function Schmuckstuecke() {
               kundenName={getKundenName}
               aktiveArtikelnummer={panelModus ? (selected?.Artikelnummer ?? null) : undefined}
             />
-          ) : panelModus ? (
-            sortedData.length === 0 ? (
-              <div className="empty-state">Keine Schmuckstücke gefunden.</div>
-            ) : (
-              <ul className="data-table-mobil">
-                {sortedData.map((s) => (
-                  <li key={s.Artikelnummer} className="data-table-mobil-item">
-                    <SchmuckstueckZeile
-                      stueck={s}
-                      kundenName={getKundenName}
-                      pauseLoading={isForegroundModalOpen}
-                      aktiv={selected?.Artikelnummer === s.Artikelnummer}
-                      onClick={setSelected}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )
           ) : (
             <DataTable
               data={sortedData}
               getRowKey={(r) => r.Artikelnummer}
               defaultSort={{ key: "Artikelnummer", direction: "asc" }}
               onRowClick={(s) => setSelected(s)}
+              onSortedChange={setTabellenReihenfolge}
+              rowProps={(r) =>
+                panelModus && selected?.Artikelnummer === r.Artikelnummer
+                  ? { className: "data-table-row-aktiv", "aria-current": "true" }
+                  : {}
+              }
               mobileRow={(r) => (
                 <SchmuckstueckZeile
                   stueck={r}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { MOBILE_QUERY } from "../utils/breakpoints";
 
@@ -11,6 +11,7 @@ export default function DataTable({
   defaultSort = { key: null, direction: "asc" },
   getRowKey = (r) => r.id || r.ID || JSON.stringify(r),
   footer = null,
+  onSortedChange, // optional: (Zeilenschlüssel[]) => void, meldet die sichtbare Reihenfolge nach jeder Änderung
   mobileRow, // optional: (row) => Knoten; ersetzt auf dem Handy die Tabelle durch eine Liste (ohne Sortierauswahl)
 }) {
   const istMobil = useMediaQuery(MOBILE_QUERY);
@@ -44,6 +45,16 @@ export default function DataTable({
     });
     return arr;
   }, [data, sortConfig, columns]);
+
+  // Nur die Schlüsselfolge als Text ist stabil; `sorted` selbst ist bei jedem neuen `columns`-Array eine neue Liste
+  const reihenfolge = onSortedChange ? JSON.stringify(sorted.map((row) => getRowKey(row))) : null;
+  const onSortedChangeRef = useRef(onSortedChange);
+  useEffect(() => {
+    onSortedChangeRef.current = onSortedChange;
+  });
+  useEffect(() => {
+    if (reihenfolge !== null) onSortedChangeRef.current?.(JSON.parse(reihenfolge));
+  }, [reihenfolge]);
 
   const requestSort = (key) => {
     let direction = "asc";
@@ -109,6 +120,7 @@ export default function DataTable({
             onClick: customOnClick,
             onDragStart: customOnDragStart,
             onDragEnd: customOnDragEnd,
+            className: customClassName,
             ...restCustomRowProps
           } = customRowProps;
 
@@ -150,7 +162,7 @@ export default function DataTable({
                   customOnDragEnd(event);
                 }
               }}
-              className={rowCursorClass}
+              className={`${rowCursorClass} ${customClassName || ""}`.trim()}
               {...restCustomRowProps}>
               {columns.map((c) => (
                 <td key={(c.key || c.label) + getRowKey(row)} className={c.className || ""}>

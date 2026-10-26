@@ -1,11 +1,50 @@
 /* ============ SCHMUCKSTÜCKE: DETAIL-PANEL NEBEN DER LISTE ============ */
 /* Breakpoint wie PANEL_BREAKPOINT in utils/breakpoints.js; die Umschaltung Panel/Fenster macht useMediaQuery */
 @media (min-width: 1024px) {
+  /* Flex-Item: ohne min-width: 0 weitet die breite Tabelle die Seite; scrollen soll nur der .card-body (#327, #319) */
+  .main-content {
+    min-width: 0;
+  }
+
   .schmuck-split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(280px, 26vw, 320px);
     gap: 16px;
     align-items: start;
+  }
+
+  .schmuck-split > .card {
+    min-width: 0;
+  }
+
+  .schmuck-split .card-body {
+    overflow-x: auto;
+  }
+
+  /* Fixierter Kopf: Hintergrund und Ränder reichen bis an den Rand des Inhaltsbereichs (.main-content hat 32px Innenabstand).
+     z-index über Tabelle und Panel, unter Seitenleiste (1000) und Fenstern (1400) */
+  .schmuck-kopf--fixiert {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -32px -32px 16px;
+    padding: 24px 32px 0;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .schmuck-kopf--fixiert .page-header {
+    margin-bottom: 12px;
+  }
+
+  /* Panel liegt unter dem fixierten Kopf; --schmuck-kopf-hoehe misst die Seite (ResizeObserver) */
+  .schmuck-split .schmuck-panel {
+    top: calc(var(--schmuck-kopf-hoehe, 0px) + 16px);
+    max-height: calc(100vh - var(--schmuck-kopf-hoehe, 0px) - 32px);
+  }
+
+  .data-table tr.data-table-row-aktiv td {
+    background: var(--gold-bg);
   }
 }
 
