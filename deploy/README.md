@@ -26,7 +26,8 @@ Ablauf: Release laden und Image ziehen (noch nichts verändert), dann
 2. Ordner anlegen, 3. Stack stoppen, `:previous` merken, alte Images löschen,
 4. Release-Dateien einspielen, `.env` anlegen bzw. um neue Variablen ergänzen
 (`POSTGRES_PASSWORD`, `JWT_SECRET`, `BESTELLUNG_ENCRYPTION_KEY` erzeugt das Skript selbst),
-5. starten, Health-Check, bei Fehler automatischer Rollback.
+5. starten, Health-Check (bis zu 30 Minuten, weil die App beim Start erst per `pg_dump` sichert und migriert;
+kürzer mit `sudo HEALTH_TIMEOUT_S=300 bash install.sh`), bei Fehler automatischer Rollback.
 
 **Hintergrundlauf:** Nach den Prüfungen startet sich der Installer in einer eigenen Sitzung neu und
 zeigt nur das Log an. Bricht SSH oder das Terminal ab, läuft das Update trotzdem zu Ende.

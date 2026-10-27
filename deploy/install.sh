@@ -49,6 +49,9 @@ SECRET_KEYS=(POSTGRES_PASSWORD JWT_SECRET BESTELLUNG_ENCRYPTION_KEY)            
 SHOW_KEYS=()                    # werden am Ende der Erstinstallation angezeigt
 EXTRA_ASSETS=(init.sql:db/init.sql backup.sh:db/backup.sh restore.sh:db/restore.sh)              # "Release-Datei:Ziel relativ zu INSTALL_DIR"
 ENV_RENAMES=(APP_HOST_PORT:APP_PORT)                # "ALT:NEU" – Wert wird in der .env übernommen, falls NEU fehlt
+# Die App sichert beim Start per pg_dump (Fotos liegen in der DB) und migriert, erst danach ist sie gesund.
+# Ein kürzerer Timeout löst ein unnötiges Rollback aus (v0.3.6). Überschreibbar: sudo HEALTH_TIMEOUT_S=… bash install.sh
+HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-1800}"
 
 # --- Standard (für alle Projekte gleich) -------------------------------------
 INSTALL_DIR="${INSTALL_DIR:-${DEFAULT_INSTALL_DIR:-/volume1/docker/$PROJEKT}}"
