@@ -73,7 +73,7 @@ Modellwahl (Aliase `haiku`, `sonnet`, `opus` nutzen, keine Versionsnummern):
 
 ## Gelernte Korrekturen (laufend ergänzen)
 
-- _(noch leer)_
+- 2026-10-27: Installer wartete 120 s auf Health, die App braucht beim Start aber Migrations-Backup (pg_dump, ~1,6 GB Fotos) → Rollback auf Alt-Image, das mit der neuen Compose nicht startet (`ECONNREFUSED 127.0.0.1`) → Wartezeit des Installers an die längste Startphase anpassen; nach einem Rollback zuerst `docker ps` (welches Image läuft?) prüfen, bevor eine Logzeile gedeutet wird.
 
 ## Git in diesem Projekt
 
