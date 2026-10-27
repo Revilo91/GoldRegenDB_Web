@@ -104,6 +104,16 @@ describe('Deploy-Skripte', () => {
     expect(script).toContain('EXTRA_ASSETS=(init.sql:db/init.sql backup.sh:db/backup.sh restore.sh:db/restore.sh)');
   });
 
+  // Die App migriert beim Start und sichert vorher per pg_dump (Fotos liegen in der DB). Eine kürzere
+  // Wartezeit als diese Startphase löste in v0.3.6 ein Rollback auf ein nicht lauffähiges Alt-Image aus.
+  it('install.sh wartet auf den Health-Check länger als Migrations-Backup und Migration brauchen', () => {
+    const script = read('deploy/install.sh');
+    const config = script.slice(0, script.indexOf('# --- Standard'));
+    const match = config.match(/^HEALTH_TIMEOUT_S="\$\{HEALTH_TIMEOUT_S:-(\d+)\}"/m);
+    expect(match).not.toBeNull();
+    expect(Number(match[1])).toBeGreaterThanOrEqual(1800);
+  });
+
   it('build-release-package.sh stellt alle Release-Assets flach zusammen', () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'release-assets-'));
     try {

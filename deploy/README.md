@@ -26,7 +26,8 @@ Ablauf: Release laden und Image ziehen (noch nichts verändert), dann
 2. Ordner anlegen, 3. Stack stoppen, `:previous` merken, alte Images löschen,
 4. Release-Dateien einspielen, `.env` anlegen bzw. um neue Variablen ergänzen
 (`POSTGRES_PASSWORD`, `JWT_SECRET`, `BESTELLUNG_ENCRYPTION_KEY` erzeugt das Skript selbst),
-5. starten, Health-Check, bei Fehler automatischer Rollback.
+5. starten, Health-Check (bis zu 30 Minuten, weil die App beim Start erst per `pg_dump` sichert und migriert;
+kürzer mit `sudo HEALTH_TIMEOUT_S=300 bash install.sh`), bei Fehler automatischer Rollback.
 
 Bestehende `.env`-Werte werden nie überschrieben. Aufrufen: `http://<synology-ip>:3000`,
 erster Login `admin` / `admin` (Passwort danach ändern).
