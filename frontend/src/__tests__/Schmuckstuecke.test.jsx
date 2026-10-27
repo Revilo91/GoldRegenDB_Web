@@ -450,3 +450,111 @@ describe('Zeile kopieren: weiteres Exemplar derselben Nummer', () => {
     await waitFor(() => expect(api.deleteFoto).toHaveBeenCalledWith('MHO127'));
   });
 });
+
+describe('Felder je Produktart im Anlegen-Modal', () => {
+  const produktarten = [
+    { code: 'A', label: 'Armband' },
+    { code: 'H', label: 'Halskette' },
+    { code: 'O', label: 'Ohrring' },
+    { code: 'S', label: 'Schlüsselanhänger' },
+  ];
+
+  async function oeffneNeuesStueck() {
+    api.getFilterOptions.mockResolvedValue({ grundmaterialien: [], produktarten });
+    rendereSeite('bearbeiter');
+    fireEvent.click(await screen.findByRole('button', { name: '+ Neues Schmuckstück' }));
+    await screen.findByRole('heading', { name: /Neues Schmuckstück/ });
+  }
+
+  function waehleProduktart(code) {
+    fireEvent.change(screen.getByDisplayValue(/^Produktart$|^[AHOS] - /), {
+      target: { value: code },
+    });
+  }
+
+  const laenge = () => screen.queryByText(/^Länge \(/);
+  const anhaenger = () => screen.queryByText('Aussehen');
+  const zwischenstueck = () => screen.queryByText('Zwischenstück', { selector: 'label' });
+
+  it('zeigt vor der Wahl der Produktart alle Felder', async () => {
+    await oeffneNeuesStueck();
+
+    expect(laenge()).toBeInTheDocument();
+    expect(anhaenger()).toBeInTheDocument();
+    expect(zwischenstueck()).toBeInTheDocument();
+  });
+
+  it.each([
+    ['A', true, false, true],
+    ['H', true, true, true],
+    ['O', true, false, false],
+    ['S', false, true, false],
+  ])('Produktart %s: Länge %s, Anhänger %s, Zwischenstück %s', async (code, hatLaenge, hatAnhaenger, hatZwischen) => {
+    await oeffneNeuesStueck();
+
+    waehleProduktart(code);
+
+    expect(!!laenge()).toBe(hatLaenge);
+    expect(!!anhaenger()).toBe(hatAnhaenger);
+    expect(!!zwischenstueck()).toBe(hatZwischen);
+    expect(screen.queryByRole('heading', { name: /Anhänger|Zwischenstück/ }) !== null).toBe(hatAnhaenger || hatZwischen);
+  });
+
+  it('behält den Wert eines ausgeblendeten Feldes', async () => {
+    await oeffneNeuesStueck();
+    waehleProduktart('H');
+    fireEvent.change(screen.getByText('Aussehen').parentElement.querySelector('input'), {
+      target: { value: 'Silber' },
+    });
+
+    waehleProduktart('O');
+    expect(anhaenger()).not.toBeInTheDocument();
+    waehleProduktart('H');
+
+    expect(screen.getByDisplayValue('Silber')).toBeInTheDocument();
+  });
+
+  it('zeigt beim Anlegen kein Standort-Feld', async () => {
+    await oeffneNeuesStueck();
+
+    expect(screen.queryByText('Standort / Ausgelagert')).not.toBeInTheDocument();
+  });
+
+  it('gruppiert die Anhänger-Felder in Aussehen und Inhalt', async () => {
+    await oeffneNeuesStueck();
+    waehleProduktart('H');
+
+    expect(screen.getByText('Aussehen')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Inhalt', level: 5 })).toBeInTheDocument();
+    expect(screen.getByText('Zusatzmaterial', { selector: 'label' })).toBeInTheDocument();
+  });
+
+  it('trennt Zwischenstück und Anhänger (Allg.) per Linie von den Anhänger-Gruppen', async () => {
+    await oeffneNeuesStueck();
+    waehleProduktart('H');
+
+    const zeile = screen.getByText('Anhänger (Allg.)').closest('.form-row');
+    expect(zeile).toHaveClass('schmuckstuecke-anhaenger-trenner');
+  });
+
+  it('zeigt die erzeugte Artikelnummer mit Anzahl im Kopf statt als Feld', async () => {
+    api.getNextArtikelnummer.mockResolvedValue({ prefix: 'MBO', nextNum: 127, artikelnummer: 'MBO127' });
+    api.getFilterOptions.mockResolvedValue({
+      grundmaterialien: [{ code: 'B', label: 'Beton' }],
+      produktarten,
+    });
+    rendereSeite('bearbeiter');
+    fireEvent.click(await screen.findByRole('button', { name: '+ Neues Schmuckstück' }));
+    await screen.findByRole('heading', { name: /Neues Schmuckstück/ });
+
+    fireEvent.change(screen.getByDisplayValue('Hersteller'), { target: { value: 'M' } });
+    fireEvent.change(screen.getByDisplayValue('Grundmaterial'), { target: { value: 'B' } });
+    waehleProduktart('O');
+    fireEvent.change(screen.getByText('Anzahl').parentElement.querySelector('input'), {
+      target: { value: '3' },
+    });
+
+    expect(await screen.findByRole('heading', { name: /MBO127 × 3/ })).toBeInTheDocument();
+    expect(screen.queryByText('Artikelnummer*')).not.toBeInTheDocument();
+  });
+});

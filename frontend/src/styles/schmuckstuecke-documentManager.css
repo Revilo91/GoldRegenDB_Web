@@ -34,10 +34,6 @@
   gap: 8px;
 }
 
-.schmuckstuecke-maxw-900 {
-  max-width: 900px;
-}
-
 .schmuckstuecke-cols-1fr-1fr-1fr-120-ai-end {
   grid-template-columns: 1fr 1fr 1fr 120px;
   align-items: end;
