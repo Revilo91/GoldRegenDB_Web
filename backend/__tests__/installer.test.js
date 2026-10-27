@@ -1,6 +1,8 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { createSandbox, IMAGE } = require('./helpers/installerStub');
 const { validateProductionSecrets } = require('../src/config/secrets');
 
@@ -217,6 +219,81 @@ describe('deploy/install.sh', () => {
       expect(r.status).toBe(1);
       expect(r.err).toContain('init.sql');
       expect(fs.existsSync(sb.installDir)).toBe(false);
+    });
+  });
+
+  describe('Hintergrundlauf', () => {
+    const BACKGROUND = { INSTALL_FOREGROUND: '' };
+    const waitFor = async (condition, timeoutMs = 15000) => {
+      const start = Date.now();
+      while (!condition()) {
+        if (Date.now() - start > timeoutMs) throw new Error('Zeitüberschreitung beim Warten');
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    };
+
+    it('läuft im Hintergrund, zeigt das Log und liefert den Exit-Code', () => {
+      const r = sb.run(['v1.2.3'], { env: BACKGROUND });
+      expect(r.status).toBe(0);
+      expect(r.out).toContain('Installer läuft im Hintergrund');
+      expect(r.out).toContain('Fertig: goldregendb läuft');
+      expect(fs.readFileSync(sb.file('install.log'), 'utf8')).toContain('Fertig: goldregendb läuft');
+      expect(fs.readFileSync(sb.file('install.exit'), 'utf8').trim()).toBe('0');
+      expect(fs.existsSync(sb.file('install.pid'))).toBe(false);
+    });
+
+    it('gibt den Fehlercode des Hintergrundlaufs weiter', () => {
+      const r = sb.run(['v1.2.3'], { env: { ...BACKGROUND, STUB_PULL_RC: '1' } });
+      expect(r.status).toBe(1);
+      expect(r.out).toContain('FEHLER: Image-Download fehlgeschlagen');
+      expect(fs.readFileSync(sb.file('install.exit'), 'utf8').trim()).toBe('1');
+    });
+
+    it('läuft auch als `curl | bash` im Hintergrund und räumt die Skriptkopie weg', () => {
+      const r = sb.run(['v1.2.3'], { env: BACKGROUND, viaStdin: true });
+      expect(r.status).toBe(0);
+      expect(r.out).toContain('Fertig: goldregendb läuft');
+      expect(fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith('tmp.') && fs.statSync(path.join(os.tmpdir(), f)).isFile()
+        && fs.readFileSync(path.join(os.tmpdir(), f), 'utf8').includes('INSTALL_SELF_TMP'))).toEqual([]);
+    });
+
+    it('der Rollback-Modus läuft ebenfalls im Hintergrund', () => {
+      sb.seedInstallation({ env: EXISTING_ENV, previous: true, running: false });
+      const r = sb.run(['--rollback'], { env: BACKGROUND });
+      expect(r.status).toBe(0);
+      expect(r.out).toContain('Rollback auf');
+      expect(fs.readFileSync(sb.file('install.exit'), 'utf8').trim()).toBe('0');
+    });
+
+    it('--help und ungültige Versionen bleiben im Vordergrund (kein Log)', () => {
+      expect(sb.run(['--help'], { env: BACKGROUND }).status).toBe(0);
+      expect(sb.run(['kaputt'], { env: BACKGROUND }).status).toBe(1);
+      expect(fs.existsSync(sb.installDir)).toBe(false);
+    });
+
+    it('verweigert einen zweiten Start, solange ein Installer läuft', () => {
+      fs.mkdirSync(sb.installDir, { recursive: true });
+      fs.writeFileSync(sb.file('install.pid'), `${process.pid}\n`);
+      const r = sb.run(['v1.2.3'], { env: BACKGROUND });
+      expect(r.status).toBe(1);
+      expect(r.err).toContain('läuft bereits');
+      expect(sb.dockerLog()).not.toContain('pull');
+    });
+
+    it('ignoriert eine veraltete PID-Datei', () => {
+      fs.mkdirSync(sb.installDir, { recursive: true });
+      fs.writeFileSync(sb.file('install.pid'), '2147483646\n');
+      expect(sb.run(['v1.2.3'], { env: BACKGROUND }).status).toBe(0);
+    });
+
+    it('läuft weiter, wenn die Anzeige (SSH-Sitzung) abbricht', async () => {
+      const parent = sb.start(['v1.2.3'], { env: { ...BACKGROUND, STUB_PULL_SLEEP: '3' } });
+      await waitFor(() => fs.existsSync(sb.file('install.pid')));
+      process.kill(-parent.pid, 'SIGKILL'); // wie ein abgestürztes Terminal: Eltern samt Prozessgruppe
+      await waitFor(() => fs.existsSync(sb.file('install.exit')));
+      expect(fs.readFileSync(sb.file('install.exit'), 'utf8').trim()).toBe('0');
+      expect(sb.readEnv().APP_VERSION).toBe('1.2.3');
+      expect(fs.readFileSync(sb.file('install.log'), 'utf8')).toContain('Fertig: goldregendb läuft');
     });
   });
 });

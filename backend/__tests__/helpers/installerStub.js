@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const REPO = path.resolve(__dirname, '..', '..', '..');
 const INSTALLER = path.join(REPO, 'deploy', 'install.sh');
@@ -50,7 +50,7 @@ case "$cmd" in
   image)
     if [[ "$1" == inspect ]]; then [[ -f "$STUB_STATE/has_previous" ]]; fi ;;
   tag) touch "$STUB_STATE/has_previous" ;;
-  pull) exit "\${STUB_PULL_RC:-0}" ;;
+  pull) sleep "\${STUB_PULL_SLEEP:-0}"; exit "\${STUB_PULL_RC:-0}" ;;
   images) cat "$STUB_STATE/images" 2>/dev/null || true ;;
   rmi|*) ;;
 esac
@@ -125,8 +125,8 @@ function createSandbox() {
       if (previous) fs.writeFileSync(path.join(state, 'has_previous'), '');
       fs.writeFileSync(path.join(state, 'images'), images.map((t) => `${IMAGE}:${t}\n`).join(''));
     },
-    run(args = [], { env = {}, viaStdin = false } = {}) {
-      const fullEnv = {
+    fullEnv(env = {}) {
+      return {
         ...process.env,
         PATH: `${bin}:${process.env.PATH}`,
         INSTALL_DIR: installDir,
@@ -139,9 +139,18 @@ function createSandbox() {
         HEALTH_POLL_S: '1',
         // Ein GH_TOKEN aus der Umgebung schaltet den API-Pfad für private Repos ein.
         GH_TOKEN: '',
+        // Die meisten Tests prüfen den Ablauf direkt; der Hintergrundlauf hat eigene Tests.
+        INSTALL_FOREGROUND: '1',
+        FOLLOW_POLL_S: '1',
         ...env,
       };
-      const options = { env: fullEnv, encoding: 'utf8' };
+    },
+    // Asynchron starten, damit ein Test das Elternprozess-Ende (SSH-Abbruch) nachstellen kann.
+    start(args = [], { env = {} } = {}) {
+      return spawn('bash', [INSTALLER, ...args], { env: sandbox.fullEnv(env), stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    },
+    run(args = [], { env = {}, viaStdin = false } = {}) {
+      const options = { env: sandbox.fullEnv(env), encoding: 'utf8' };
       const result = viaStdin
         ? spawnSync('bash', ['-s', '--', ...args], { ...options, input: fs.readFileSync(INSTALLER, 'utf8') })
         : spawnSync('bash', [INSTALLER, ...args], options);
