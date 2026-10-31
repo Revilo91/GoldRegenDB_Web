@@ -355,15 +355,18 @@ export default function Bestelluebersicht() {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Telefonnummer *</label>
-                  <input
-                    className="form-control"
-                    value={form.kunde.telefonnummer}
-                    disabled={kundeDisabled}
-                    onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
-                  />
-                </div>
+                {/* Bestehende Abholungen können eine Nummer haben, die sichtbar bleiben muss. */}
+                {(isLieferung || editing !== "new") && (
+                  <div className="form-group">
+                    <label className="form-label">Telefonnummer{isLieferung && " *"}</label>
+                    <input
+                      className="form-control"
+                      value={form.kunde.telefonnummer}
+                      disabled={kundeDisabled}
+                      onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
+                    />
+                  </div>
+                )}
 
                 {isLieferung && (
                   <>

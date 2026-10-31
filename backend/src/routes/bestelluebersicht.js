@@ -156,7 +156,7 @@ router.get('/:id', async (req, res) => {
  * /bestelluebersicht:
  *   post:
  *     summary: Bestellung anlegen (interner, authentifizierter Bereich)
- *     description: 'DSGVO-Datenminimierung: bei Abholung sind Adressfelder nicht erforderlich, bei
+ *     description: 'DSGVO-Datenminimierung: bei Abholung sind Adresse und Telefon nicht erforderlich, bei
  *       Lieferung schon (siehe utils/bestellungService.js validateDatenminimierung). Einwilligung
  *       (consent.erteilt) ist Pflicht. Erfordert Rolle: bearbeiter oder admin.'
  *     tags: [Bestellübersicht]

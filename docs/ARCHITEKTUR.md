@@ -211,7 +211,7 @@ Eingefrorene Positionen einer Rechnung (`services/rechnungSnapshot.js`, beim Anl
 | `trg_audit_schmuckstueck` | Schmuckstück | AFTER UPDATE | Schreibt Statusänderungen in `audit_log` |
 | `trg_audit_log_hash_chain` | audit_log | BEFORE INSERT | Berechnet SHA-256-Hash-Kette |
 | `trg_audit_log_immutable` | audit_log | BEFORE UPDATE OR DELETE | **Blockiert jede Änderung** – Tamper-Schutz |
-| `trg_bestellung_datenminimierung` | bestellung | BEFORE INSERT OR UPDATE | Lieferung erfordert Adresse; Abholung nur Telefon |
+| `trg_bestellung_datenminimierung` | bestellung | BEFORE INSERT OR UPDATE | Lieferung erfordert Telefon und Adresse; Abholung nichts davon |
 | `trg_bestellung_aktualisiert` | bestellung | BEFORE UPDATE | Setzt `aktualisiert_am = NOW()` |
 
 ### Wichtige Indizes
@@ -791,7 +791,7 @@ npm run import:fotos -- --dir <pfad> [--dry-run] [--overwrite] [--log <datei>]
 
 - Alle PII-Felder (Name, E-Mail, Telefon, Adresse) in `bestellung_kunde` AES-256-GCM verschlüsselt
 - IP-Adresse wird gehasht (SHA-256), nie im Klartext gespeichert
-- Datenminimierung per DB-Trigger: Lieferung → Adresse + Telefon erforderlich; Abholung → nur Telefon
+- Datenminimierung per DB-Trigger: Lieferung → Adresse + Telefon erforderlich; Abholung → beides optional (#328)
 - Anonymisierung (DSGVO Art. 17): `POST /api/bestelluebersicht/:id/anonymisieren` löscht alle PII in einer Transaktion: verschlüsselte Kontaktfelder in `bestellung_kunde`, `beschreibung` und `foto_pfad` in `bestellung`, Foto-Binärdaten in `bestellung_foto`. Transaktionsdaten bleiben für Buchhaltung erhalten. Auslöser: Admin-Route und `npm run dsgvo:retention`
 
 ### Öffentliches Formular

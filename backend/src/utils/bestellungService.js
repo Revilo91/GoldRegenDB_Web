@@ -55,10 +55,10 @@ function validateDatenminimierung(versandart, kunde) {
   if (!kunde?.name?.trim()) {
     return 'Name ist erforderlich';
   }
-  if (!kunde.telefonnummer?.trim()) {
-    return 'Telefonnummer ist erforderlich';
-  }
   if (versandart === 'lieferung') {
+    if (!kunde.telefonnummer?.trim()) {
+      return 'Versandart "Lieferung" erfordert eine Telefonnummer';
+    }
     if (!kunde.strasse?.trim() || !kunde.hausnummer?.toString().trim() || !kunde.plz?.toString().trim() || !kunde.ort?.trim()) {
       return 'Versandart "Lieferung" erfordert eine vollständige Adresse';
     }

@@ -163,10 +163,10 @@ export default function BestellungPublic() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Telefonnummer *</label>
+            <label className="form-label">Telefonnummer{isLieferung && " *"}</label>
             <input
               className="form-control"
-              required
+              required={isLieferung}
               value={form.kunde.telefonnummer}
               onChange={(e) => updateKundeField("telefonnummer", e.target.value)}
             />
