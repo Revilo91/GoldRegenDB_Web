@@ -10,6 +10,10 @@
 #   sudo bash install.sh --rollback      # zurück auf die Version vor dem letzten Update
 #   sudo INSTALL_DIR=/volume1/docker/x bash install.sh
 #
+# Der Lauf startet sich selbst im Hintergrund (eigene Sitzung) und zeigt das Log an. Bricht SSH/das
+# Terminal ab, läuft er trotzdem zu Ende: Log $INSTALL_DIR/install.log, Ergebnis install.exit.
+# Im Vordergrund (Debug): sudo INSTALL_FOREGROUND=1 bash install.sh
+#
 # Ablauf: Release ermitteln, laden, Image ziehen (noch nichts verändert) ->
 #   1. DB sichern  2. Ordner anlegen  3. Stack stoppen, alte Images löschen ->
 #   4. Release-Dateien einspielen  5. Starten + Health-Check (bei Fehler: Rollback).
@@ -21,6 +25,14 @@ case ":${SHELLOPTS:-}:" in *posix*) POSIX_MODE=1 ;; *) POSIX_MODE= ;; esac
 if [ -z "${BASH_VERSION:-}" ] || [ -n "$POSIX_MODE" ]; then
   if [ -f "$0" ]; then exec env -u SHELLOPTS bash "$0" "$@"; fi
   exec env -u SHELLOPTS bash -s -- "$@"
+fi
+
+# `curl | bash`: das Skript liegt nur in der Pipe. Den Rest in eine Datei sichern und von dort
+# starten, damit sich der Installer später im Hintergrund neu starten kann (die Pipe stirbt mit SSH).
+if [ ! -f "${BASH_SOURCE[0]:-}" ]; then
+  INSTALL_SELF="$(mktemp)" || exit 1
+  cat > "$INSTALL_SELF"
+  INSTALL_SELF_TMP=1 exec bash "$INSTALL_SELF" "$@"
 fi
 
 set -euo pipefail
@@ -37,6 +49,9 @@ SECRET_KEYS=(POSTGRES_PASSWORD JWT_SECRET BESTELLUNG_ENCRYPTION_KEY)            
 SHOW_KEYS=()                    # werden am Ende der Erstinstallation angezeigt
 EXTRA_ASSETS=(init.sql:db/init.sql backup.sh:db/backup.sh restore.sh:db/restore.sh)              # "Release-Datei:Ziel relativ zu INSTALL_DIR"
 ENV_RENAMES=(APP_HOST_PORT:APP_PORT)                # "ALT:NEU" – Wert wird in der .env übernommen, falls NEU fehlt
+# Die App sichert beim Start per pg_dump (Fotos liegen in der DB) und migriert, erst danach ist sie gesund.
+# Ein kürzerer Timeout löst ein unnötiges Rollback aus (v0.3.6). Überschreibbar: sudo HEALTH_TIMEOUT_S=… bash install.sh
+HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-1800}"
 
 # --- Standard (für alle Projekte gleich) -------------------------------------
 INSTALL_DIR="${INSTALL_DIR:-${DEFAULT_INSTALL_DIR:-/volume1/docker/$PROJEKT}}"
@@ -50,9 +65,95 @@ SECRET_BYTES=32
 PLACEHOLDER_RE='change|replace|xxx|^<'
 HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-120}"
 HEALTH_POLL_S="${HEALTH_POLL_S:-5}"
+FOLLOW_POLL_S="${FOLLOW_POLL_S:-1}"
+START_WAIT_S=30
+# Absolut, weil das Skript später per cd in INSTALL_DIR wechselt.
+case "$INSTALL_DIR" in /*) ;; *) INSTALL_DIR="$PWD/$INSTALL_DIR" ;; esac
+INSTALL_LOG="$INSTALL_DIR/install.log"
+INSTALL_PID_FILE="$INSTALL_DIR/install.pid"
+INSTALL_EXIT_FILE="$INSTALL_DIR/install.exit"
+STAGE=""
+DETACH_PARENT=false
+LOG_OFFSET=0
 
 log()  { printf '\n==> %s\n' "$*"; }
 fail() { printf '\nFEHLER: %s\n' "$*" >&2; exit 1; }
+
+# Läuft bei jedem Ende. Der Hintergrundlauf hinterlässt den Exit-Code, damit man nach einem
+# Verbindungsabbruch nachsehen kann, ob er durchgelaufen ist. Die Eltern-Anzeige räumt nichts weg.
+cleanup() {
+  local rc=$?
+  [[ -z "$STAGE" ]] || rm -rf "$STAGE"
+  if [[ -n "${INSTALL_DETACHED:-}" ]]; then
+    echo "$rc" > "$INSTALL_EXIT_FILE.tmp" && mv -f "$INSTALL_EXIT_FILE.tmp" "$INSTALL_EXIT_FILE"
+    rm -f "$INSTALL_PID_FILE"
+  fi
+  if [[ -n "${INSTALL_SELF_TMP:-}" && "$DETACH_PARENT" == false ]]; then rm -f "${BASH_SOURCE[0]}"; fi
+}
+trap cleanup EXIT
+
+pid_alive() { [[ -n "$1" ]] && kill -0 "$1" 2>/dev/null; }
+
+installer_running() { pid_alive "$(cat "$INSTALL_PID_FILE" 2>/dev/null || true)"; }
+
+flush_log() { # gibt neue Zeilen aus $INSTALL_LOG aus
+  local size
+  size="$(wc -c < "$INSTALL_LOG")"
+  if (( size > LOG_OFFSET )); then
+    { tail -c +"$((LOG_OFFSET + 1))" "$INSTALL_LOG" | head -c "$((size - LOG_OFFSET))"; } || true
+    LOG_OFFSET=$size
+  fi
+}
+
+# Zeigt das Log, bis der Hintergrundlauf fertig ist. Bricht die Anzeige ab, läuft er weiter.
+follow_installer() {
+  local waited=0 pid finished
+  while :; do
+    finished=false
+    if [[ -f "$INSTALL_EXIT_FILE" ]]; then
+      finished=true
+    else
+      pid="$(cat "$INSTALL_PID_FILE" 2>/dev/null || true)"
+      if [[ -n "$pid" ]]; then
+        pid_alive "$pid" || finished=true
+      elif (( waited >= START_WAIT_S )); then
+        finished=true
+      fi
+    fi
+    flush_log
+    [[ "$finished" == true ]] && break
+    sleep "$FOLLOW_POLL_S"
+    waited=$((waited + FOLLOW_POLL_S))
+  done
+}
+
+# Startet das Skript erneut in eigener Sitzung (ohne Terminal, SIGHUP ignoriert) und folgt dem Log.
+detach_installer() {
+  local self launcher=(nohup) rc=1
+  installer_running && fail "Ein Installer läuft bereits (PID $(cat "$INSTALL_PID_FILE")). Fortschritt: tail -f $INSTALL_LOG"
+  self="$(readlink -f "${BASH_SOURCE[0]}")"
+  mkdir -p "$INSTALL_DIR"
+  [[ ! -f "$INSTALL_LOG" ]] || mv -f "$INSTALL_LOG" "$INSTALL_LOG.old"
+  rm -f "$INSTALL_EXIT_FILE" "$INSTALL_PID_FILE"
+  (umask 077; : > "$INSTALL_LOG")
+  command -v setsid >/dev/null 2>&1 && launcher=(setsid nohup)
+
+  INSTALL_DETACHED=1 "${launcher[@]}" bash "$self" "$@" >> "$INSTALL_LOG" 2>&1 < /dev/null &
+  DETACH_PARENT=true # das temporäre Skript (bei curl | bash) räumt der Hintergrundlauf selbst weg
+
+  log "Installer läuft im Hintergrund und läuft bei Verbindungsabbruch weiter"
+  echo "Log:      tail -f $INSTALL_LOG"
+  echo "Ergebnis: cat $INSTALL_EXIT_FILE   (0 = erfolgreich, fehlt = läuft noch)"
+  trap 'echo; echo "Anzeige beendet - der Installer läuft weiter. Fortschritt: tail -f $INSTALL_LOG"; exit 130' INT TERM HUP
+  follow_installer
+  if [[ -f "$INSTALL_EXIT_FILE" ]]; then
+    rc="$(cat "$INSTALL_EXIT_FILE")"
+    [[ "$rc" =~ ^[0-9]+$ ]] || rc=1
+  else
+    echo "Der Installer wurde ohne Ergebnis beendet (abgebrochen?). Log: $INSTALL_LOG" >&2
+  fi
+  exit "$rc"
+}
 
 # Nutzungstext aus Variablen statt aus dem Kopfkommentar: Zeilennummern wären je Projekt verschieden.
 usage() {
@@ -63,6 +164,8 @@ Installation/Update $PROJEKT auf der Synology (als root ausführen):
   sudo bash install.sh v1.2.3          # bestimmtes Release
   sudo bash install.sh --rollback      # zurück auf die Version vor dem letzten Update
   sudo INSTALL_DIR=$INSTALL_DIR bash install.sh
+Der Lauf geht in den Hintergrund und überlebt einen SSH-Abbruch: Log $INSTALL_LOG, Ergebnis $INSTALL_EXIT_FILE.
+Im Vordergrund: sudo INSTALL_FOREGROUND=1 bash install.sh
 Privates Repo/Image: GH_TOKEN (PAT mit Contents:read + Packages:read) setzen.
 TEXT
 }
@@ -180,6 +283,14 @@ else
   fail "Weder 'docker compose' noch 'docker-compose' gefunden. Container Manager installieren."
 fi
 
+# Ab hier ändert der Lauf etwas: im Hintergrund, damit ein SSH-/Terminal-Abbruch ihn nicht
+# mittendrin stoppt (halb ausgetauschte Images/Migrationen). INSTALL_FOREGROUND=1 bleibt im Vordergrund.
+if [[ -n "${INSTALL_DETACHED:-}" ]]; then
+  echo "$$" > "$INSTALL_PID_FILE"
+elif [[ -z "${INSTALL_FOREGROUND:-}" ]]; then
+  detach_installer "$@"
+fi
+
 GENERATED=()
 FIRST_INSTALL=false
 
@@ -218,7 +329,6 @@ VERSION="${TAG#v}"
 log "Release: $RELEASE_TAG (Image-Tag: $VERSION)"
 
 STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
 # GitHub benennt Dateien mit führendem Punkt beim Upload um (.env.example -> default.env.example);
 # der Originalname steht nur im "label", falls er beim Upload gesetzt wurde. Also beide Namen suchen.
 asset_id() { # asset_id DATEI -> Asset-ID aus dem Release-JSON (ohne jq)

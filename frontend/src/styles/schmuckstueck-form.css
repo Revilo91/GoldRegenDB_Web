@@ -1,0 +1,163 @@
+/* ============ SCHMUCKSTÜCK-FORMULAR (Anlegen / Bearbeiten) ============ */
+/* Zwei Spalten: links das Foto (bleibt beim Scrollen sichtbar), rechts die
+   Abschnitte als Karten. Die allgemeinen .form-section-/.modal-body-Regeln
+   bleiben für die anderen Seiten unberührt. */
+.schmuckstuecke-form-modal {
+  max-width: 1120px;
+}
+
+.schmuckstuecke-form-body {
+  --form-foto-breite: 300px;
+  --form-abstand: 20px;
+  display: grid;
+  grid-template-columns: var(--form-foto-breite) minmax(0, 1fr);
+  column-gap: 28px;
+  align-content: start;
+  padding: 24px 28px;
+}
+
+.schmuckstuecke-form-body > .form-section {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--form-abstand);
+  margin-bottom: var(--form-abstand);
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-hair);
+  border-radius: var(--radius);
+}
+
+.schmuckstuecke-form-body > .form-section:last-child {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border-hair);
+}
+
+/* Das allgemeine .modal-body h4 rückt Überschriften mit 24 px ein */
+.schmuckstuecke-form-body .form-section h4 {
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.schmuckstuecke-form-body > .schmuckstuecke-form-foto {
+  grid-column: 1;
+  grid-row: 1 / span 20;
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+
+.schmuckstuecke-form-body .form-row {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--form-abstand);
+}
+
+.schmuckstuecke-form-body .form-group {
+  margin-bottom: 0;
+}
+
+.schmuckstuecke-form-body .photo-upload-container {
+  margin: 0;
+}
+
+.schmuckstuecke-form-body .drag-drop-zone {
+  padding: 24px 16px;
+}
+
+@media (max-width: 900px) {
+  .schmuckstuecke-form-body {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .schmuckstuecke-form-body > .form-section,
+  .schmuckstuecke-form-body > .schmuckstuecke-form-foto {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+  }
+}
+
+/* Schwebende Labels (wie Android TextInputLayout): Das Label sitzt im Feld und
+   rutscht nach oben, sobald das Feld fokussiert oder gefüllt ist. Felder
+   brauchen dafür placeholder=" ". */
+.schmuckstuecke-form-body .form-group:has(> input.form-control, > select.form-control) {
+  position: relative;
+}
+
+.schmuckstuecke-form-body .form-group > input.form-control,
+.schmuckstuecke-form-body .form-group > select.form-control {
+  padding-top: 22px;
+  padding-bottom: 6px;
+}
+
+.schmuckstuecke-form-body .form-group:has(> input.form-control, > select.form-control) > label {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  max-width: calc(100% - 44px);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: top 0.15s ease, font-size 0.15s ease, color 0.15s ease;
+}
+
+.schmuckstuecke-form-body .form-group:has(> input.form-control:focus) > label,
+.schmuckstuecke-form-body .form-group:has(> input.form-control:not(:placeholder-shown)) > label,
+.schmuckstuecke-form-body .form-group:has(> select.form-control) > label {
+  top: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.schmuckstuecke-form-body .form-group:has(> input.form-control:focus) > label {
+  color: var(--accent-hover);
+}
+
+/* Vorgeschlagene Artikelnummer (und Anzahl) im Kopf des Anlege-Modals */
+.schmuckstuecke-form-nummer {
+  margin-left: 12px;
+  padding: 2px 10px;
+  border: 1px solid var(--border-hair);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Anhänger: zwei Gruppen nebeneinander (Aussehen | Inhalt), je zwei Felder pro Zeile */
+.schmuckstuecke-anhaenger-gruppen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--form-abstand);
+}
+
+.schmuckstuecke-anhaenger-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schmuckstuecke-anhaenger-gruppe h5 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.schmuckstuecke-anhaenger-gruppe .form-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Trennlinie zwischen den Anhänger-Gruppen und den allgemeinen Feldern darunter */
+.schmuckstuecke-anhaenger-trenner {
+  padding-top: var(--form-abstand);
+  border-top: 1px solid var(--border-hair);
+}
