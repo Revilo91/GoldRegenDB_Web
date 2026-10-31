@@ -246,6 +246,7 @@ erst danach lauscht Express und `/api/health` meldet `ok`.
 | `0004_artikelnummer_grossschreibung.sql` | `schmuck_artikelnummer_gross_chk`, bei Kleinbuchstaben im Bestand `NOT VALID` (Befund D4) |
 | `0005_ausschuss_grund_und_trigger.sql` | Ausschuss_Grund-Constraint (`NOT VALID`) und Trigger auf `Schmuckstück` |
 | `0006_rechnung_snapshot.sql` | Tabelle `Rechnung_Position` und Summen-Snapshot je Rechnung; `snapshot_am` NULL = noch nicht eingefroren (Issue #283) |
+| `0007_telefon_nur_bei_lieferung.sql` | Telefonnummer nur noch bei Lieferung Pflicht, Trigger `check_datenminimierung_versandart` gelockert (Issue #328) |
 
 **Ablauf des Runners:**
 
