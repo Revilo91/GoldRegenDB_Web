@@ -298,6 +298,10 @@ export const api = {
     return request(`/schmuckstuecke/unique-artikelnummern?${qs}`);
   },
   getFilterOptions: () => request('/schmuckstuecke/filter-options'),
+  getStatusZahlen: (params) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return request(`/schmuckstuecke/status-zahlen?${qs}`);
+  },
   getNextArtikelnummer: (prefix) => request(`/schmuckstuecke/next-artikelnummer?${new URLSearchParams({ prefix }).toString()}`),
   getSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`),
   createSchmuckstueck: (data) => request('/schmuckstuecke', { method: 'POST', body: JSON.stringify(data) }),
@@ -383,6 +387,9 @@ export const api = {
   createRechnung: (data) => request('/rechnungen', { method: 'POST', body: JSON.stringify(data) }),
   updateRechnung: (id, data) => request(`/rechnungen/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRechnung: (id) => request(`/rechnungen/${id}`, { method: 'DELETE' }),
+  // Nur Admin: finale Rechnung mit Begründung auf Entwurf zurücksetzen
+  resetRechnung: (id, begruendung) =>
+    request(`/rechnungen/${id}/zuruecksetzen`, { method: 'POST', body: JSON.stringify({ begruendung }) }),
 
   // Audit Log
   getAuditLog: (params) => {

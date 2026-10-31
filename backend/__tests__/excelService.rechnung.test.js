@@ -39,6 +39,17 @@ describe('generateExcel – Versandkosten', () => {
     expect(zeilen[versand + 1]).toEqual(['Überweisungsbetrag', 44.9]);
   });
 
+  it('nimmt Versandkosten aus summen (eingefrorener Stand), nicht aus der Rechnungszeile', async () => {
+    const summen = {
+      gesamtwert: '40.00', gesamtrabatt_betrag: '0.00', summe_nach_rabatt: '40.00',
+      provision_betrag: '0.00', versandkosten: '4.90', ueberweisungsbetrag: '44.90',
+    };
+    const zeilen = await belegZellen({ versandkosten: '99.00', summen });
+    const labels = zeilen.map(([label]) => label);
+
+    expect(zeilen[labels.indexOf('+ Versandkosten')][1]).toBe(4.9);
+  });
+
   it('lässt die Zeile ohne Versandkosten weg', async () => {
     const labels = (await belegZellen({ versandkosten: null })).map(([label]) => label);
 

@@ -148,6 +148,11 @@ Daten liegen relativ zum Installationsordner: Datenbank in `data/postgres`, Back
 Erster Login nach der Installation: `http://<synology-ip>:3000`, `admin` / `admin`
 (das Passwort muss danach geändert werden).
 
+**Offsite-Backup (3-2-1):** Die Dumps in `backups/` liegen auf derselben NAS wie die Datenbank.
+Eine zweite Kopie auf einem externen USB-Laufwerk und eine dritte bei einem anderen Standort
+(jeweils per Hyper Backup, Offsite clientseitig verschlüsselt, 30 Tage Versionen) beschreibt
+[deploy/README.md, Abschnitt „Offsite-Backup (3-2-1)“](deploy/README.md#offsite-backup-3-2-1).
+
 > **Update von älteren Installationen:** Lag die Datenbank bisher direkt in `data/`, übernimmt
 > `install.sh` sie per Dump nach `data/postgres` (das alte Verzeichnis bleibt unangetastet).
 > `IMAGE_TAG` heißt jetzt `APP_VERSION`, `APP_HOST_PORT` heißt `APP_PORT`; `DATA_DIR` entfällt.

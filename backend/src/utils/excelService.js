@@ -519,7 +519,7 @@ async function generateExcel(type, data, logoPath) {
     totalValueCell.font = { name: "Calibri", size: 10 };
 
     // Gesamtrabatt (optional)
-    const gesamtRabattPercent = Number(data.rabatt_gesamt || 0);
+    const gesamtRabattPercent = Number(data.summen?.rabatt_gesamt ?? data.rabatt_gesamt ?? 0);
     let totalNachRabatt = data.summen
       ? Number(data.summen.summe_nach_rabatt)
       : total;
@@ -554,7 +554,7 @@ async function generateExcel(type, data, logoPath) {
 
     // Provision
     currentRow++;
-    const provisionPercent = data.kunde.Provision || 0;
+    const provisionPercent = Number(data.summen?.provision ?? data.kunde.Provision) || 0;
     const provisionValue = data.summen
       ? Number(data.summen.provision_betrag)
       : totalNachRabatt * (provisionPercent / 100);
@@ -576,7 +576,7 @@ async function generateExcel(type, data, logoPath) {
     provValueCell.alignment = { horizontal: "right" };
 
     // Versandkosten (optional): nach der Provision, weil sie nicht provisioniert werden
-    const versandkosten = Number(data.versandkosten) || 0;
+    const versandkosten = Number(data.summen?.versandkosten ?? data.versandkosten) || 0;
     if (versandkosten > 0) {
       currentRow++;
       const versandLabelCell = worksheet.getCell(`G${currentRow}`);

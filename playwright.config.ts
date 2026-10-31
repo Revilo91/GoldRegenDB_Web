@@ -7,6 +7,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+// Typische Handy-Breite; Pixel 7 hätte 412 px, die Akzeptanz aus #291 nennt 390 px.
+const MOBIL_VIEWPORT = { width: 390, height: 844 };
+const MOBIL_SPEC = /mobil\.spec\.ts/;
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -46,7 +50,19 @@ export default defineConfig({
         storageState: 'e2e/.auth/user.json',
       },
       dependencies: ['setup'],
-      testIgnore: /auth\.setup\.ts/,
+      testIgnore: [/auth\.setup\.ts/, MOBIL_SPEC],
+    },
+
+    // Handy-Viewport (Issue #291, Stufe 1): nur die Abläufe in mobil.spec.ts
+    {
+      name: 'mobile',
+      use: {
+        ...devices['Pixel 7'],
+        viewport: MOBIL_VIEWPORT,
+        storageState: 'e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      testMatch: MOBIL_SPEC,
     },
 
     // {

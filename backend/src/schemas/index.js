@@ -153,6 +153,14 @@ const rechnungSchema = lieferscheinSchema.extend({
   versandkosten: zahl({ min: 0, max: 9999.99 }),
 });
 
+// Admin-Reset einer finalen Rechnung: die Begründung landet im Audit-Log
+const MIN_BEGRUENDUNG_ZEICHEN = 10;
+const rechnungZuruecksetzenSchema = z.object({
+  begruendung: pflichttext(500).pipe(
+    z.string().min(MIN_BEGRUENDUNG_ZEICHEN, `muss mindestens ${MIN_BEGRUENDUNG_ZEICHEN} Zeichen lang sein`),
+  ),
+});
+
 // ── Benutzerverwaltung / Auth ────────────────────────────────────────────────
 
 const rolle = z.enum(['admin', 'bearbeiter', 'user'], { error: 'ist keine gültige Rolle' });
@@ -289,6 +297,7 @@ module.exports = {
   schmuckstueckBulkSchema,
   lieferscheinSchema,
   rechnungSchema,
+  rechnungZuruecksetzenSchema,
   userCreateSchema,
   userUpdateSchema,
   resetPasswordSchema,

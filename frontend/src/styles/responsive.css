@@ -62,45 +62,22 @@
     grid-template-columns: 1fr;
   }
 
-  .mobile-header {
-    display: flex;
-  }
+  /* Handy: Navigation übernimmt die Tab-Leiste (mobile-tabbar.css) */
   .sidebar,
   .sidebar.collapsed {
-    left: -280px;
-    width: var(--sidebar-width);
-    padding: 24px 16px;
-    z-index: 1200;
-    top: 60px;
-    height: calc(100vh - 60px);
-  }
-  .sidebar.open {
-    left: 0;
-  }
-  .sidebar-brand {
     display: none;
   }
 
-  .nav-link,
-  .sidebar.collapsed .nav-link,
-  .sidebar.collapsed .user-menu-btn {
-    justify-content: flex-start;
-    gap: 12px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .sidebar.collapsed .nav-section,
-  .sidebar.collapsed .sidebar-username,
-  .sidebar.collapsed .user-menu-btn .role-badge {
-    display: block;
-  }
-  .sidebar.collapsed .sidebar-account-row {
-    flex-direction: row;
-  }
   .main-content,
   .sidebar.collapsed ~ .main-content {
     margin-left: 0;
-    padding: 80px 16px 20px;
+    /* unten Platz für die fixierte Tab-Leiste */
+    padding: 16px 16px calc(var(--mobile-tabbar-hoehe) + var(--mobile-tabbar-unten) + 20px);
+  }
+  /* Flex-Item: ohne min-width: 0 weitet eine breite Tabelle den Inhalt über das Fenster (#327);
+     scrollen soll nur der .card-body. */
+  .main-content {
+    min-width: 0;
   }
 
   /* Page header stacks vertically on mobile */

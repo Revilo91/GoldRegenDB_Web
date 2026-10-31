@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { parseZahlOderNull, formatEur } from "../utils/zahlen";
 import { statusBadge, statusVon, STATUS, istWahr } from "../utils/status";
@@ -14,16 +14,27 @@ import {
   faEuroSign,
   faPaperclip,
   faCopy,
+  faList,
+  faTableList,
+  faTableCellsLarge,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import DataTable from "../components/DataTable";
 import PhotoUpload from "../components/PhotoUpload";
 import TableToolbar from "../components/TableToolbar";
+import StatusChips from "../components/StatusChips";
 import SchmuckstueckModal from "../components/SchmuckstueckModal";
+import SchmuckstueckDetailPanel from "../components/SchmuckstueckDetailPanel";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { PANEL_QUERY } from "../utils/breakpoints";
 import TablePhoto from "../components/TablePhoto";
+import FotoRaster from "../components/FotoRaster";
+import { ANSICHT, leseAnsicht, schreibeAnsicht } from "../utils/ansichtSpeicher";
+import SchmuckstueckZeile from "../components/SchmuckstueckZeile";
 import { useAuth } from "../context/AuthContext";
 import Etiketten from "./Etiketten";
 import { useToast } from "../components/Toast";
+import { STATUS_ALLE, statusListenParams } from "../utils/statusFilter";
 import { naechsteVorlagenNummer, naechstesExemplar } from "../utils/artikelnummer";
 import { produktartCodeVon, zeigtFeldgruppe } from "../utils/produktartFelder";
 
@@ -106,6 +117,10 @@ const klonbareFelderVon = (item) =>
     ]),
   );
 
+// Pfeiltasten und Esc gehören einem Eingabefeld, solange der Fokus darin liegt.
+const EINGABEFELD = 'input, select, textarea, [contenteditable=""], [contenteditable="true"]';
+const liegtImEingabefeld = (element) => element instanceof Element && element.closest(EINGABEFELD) !== null;
+
 // Wert von `editing`, wenn das große Formular eine Zeile der Vorlagen-Tabelle bearbeitet.
 const BULK_ZEILE = "bulk-zeile";
 
@@ -136,6 +151,8 @@ export default function Schmuckstuecke() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
+  const [status, setStatus] = useState(STATUS_ALLE);
+  const [statusZahlen, setStatusZahlen] = useState(null);
   const [filterOptions, setFilterOptions] = useState({});
   // Hersteller-, Grundmaterial- und Produktart-Codes kommen aus
   // backend/src/utils/constants.js und reisen über die Filter-Optionen mit.
@@ -148,6 +165,12 @@ export default function Schmuckstuecke() {
   const [form, setForm] = useState({});
   const [kunden, setKunden] = useState([]);
   const [activeTab, setActiveTab] = useState("schmuckstuecke");
+  // Gespeicherte Wahl hat Vorrang; ohne sie gilt am Rechner (Panel-Breite) die Kompakt-Liste, sonst die Tabelle.
+  const [gewaehlteAnsicht, setGewaehlteAnsicht] = useState(leseAnsicht);
+  const waehleAnsicht = (neu) => {
+    setGewaehlteAnsicht(neu);
+    schreibeAnsicht(neu);
+  };
   // Konstant: setSortConfig wurde nie aufgerufen, die Sortierung stand also
   // schon immer fest auf diesem Wert (Befund G14).
   const sortConfig = { key: "Artikelnummer", direction: "asc" };
@@ -587,7 +610,12 @@ export default function Schmuckstuecke() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const anfrage = JSON.stringify([page, gebremsteSuche, filters, ladeZaehler]);
+  // Der Kunden-Filter kommt zuletzt und gewinnt über den Standort des Status-Chips.
+  const listenFilter = useMemo(
+    () => ({ ...statusListenParams(status), ...filters }),
+    [status, filters],
+  );
+  const anfrage = JSON.stringify([page, gebremsteSuche, listenFilter, ladeZaehler]);
   const loading = geladenFuer !== anfrage;
 
   useEffect(() => {
@@ -595,7 +623,7 @@ export default function Schmuckstuecke() {
     let verworfen = false;
     api
       .getSchmuckstuecke(
-        { page, limit: 50, search: gebremsteSuche, ...filters },
+        { page, limit: 50, search: gebremsteSuche, ...listenFilter },
         { signal: abbruch.signal },
       )
       .then((antwort) => {
@@ -613,7 +641,31 @@ export default function Schmuckstuecke() {
       verworfen = true;
       abbruch.abort();
     };
-  }, [anfrage, page, gebremsteSuche, filters, ladeZaehler, toast]);
+  }, [anfrage, page, gebremsteSuche, listenFilter, ladeZaehler, toast]);
+
+  // Die Zahlen hängen nur an Suche, Produktart und Standort, nicht am gewählten
+  // Chip; ladeZaehler holt sie nach jeder Änderung an den Stücken neu.
+  const zahlenProduktart = filters.artikelnummer_art;
+  const zahlenStandort = filters.ausgelagert;
+  useEffect(() => {
+    let verworfen = false;
+    const params = {
+      ...(gebremsteSuche && { search: gebremsteSuche }),
+      ...(zahlenProduktart && { artikelnummer_art: zahlenProduktart }),
+      ...(zahlenStandort && { ausgelagert: zahlenStandort }),
+    };
+    api
+      .getStatusZahlen(params)
+      .then((zahlen) => {
+        if (!verworfen) setStatusZahlen(zahlen);
+      })
+      .catch((err) => {
+        if (!verworfen) toast.fehler("Fehler beim Laden der Status-Zahlen: " + err.message);
+      });
+    return () => {
+      verworfen = true;
+    };
+  }, [gebremsteSuche, zahlenProduktart, zahlenStandort, ladeZaehler, toast]);
 
   useEffect(() => {
     if (!vorschauAktiv) return undefined;
@@ -674,7 +726,12 @@ export default function Schmuckstuecke() {
   };
 
   const p = data.pagination;
-  const isForegroundModalOpen = selected !== null || editing !== null;
+  // Breit: Stück-Detail als Panel neben der Liste; schmal: als Fenster
+  const panelModus = useMediaQuery(PANEL_QUERY);
+  const ansicht = gewaehlteAnsicht ?? (panelModus ? ANSICHT.LISTE : ANSICHT.TABELLE);
+  // Das Panel verdeckt die Liste nicht, deshalb pausieren ihre Fotos nur bei einem echten Fenster
+  const isForegroundModalOpen =
+    (selected !== null && !panelModus) || editing !== null;
 
   // Welche Feldgruppen das Formular je Produktart zeigt (Werte ausgeblendeter
   // Felder bleiben im Formular erhalten und werden mitgespeichert)
@@ -711,9 +768,96 @@ export default function Schmuckstuecke() {
     return sortableData;
   }, [data.data, sortConfig, kunden]);
 
+  // Die Tabelle sortiert nach dem angeklickten Spaltenkopf selbst; Pfeiltasten folgen dieser sichtbaren Reihenfolge.
+  // Liste und Raster zeigen die Seitenreihenfolge (sortedData).
+  const [tabellenReihenfolge, setTabellenReihenfolge] = useState(null);
+  const navigationsListe = useMemo(() => {
+    if (ansicht !== ANSICHT.TABELLE || !tabellenReihenfolge) return sortedData;
+    const nachNummer = new Map(sortedData.map((s) => [s.Artikelnummer, s]));
+    const liste = tabellenReihenfolge.map((nr) => nachNummer.get(nr)).filter(Boolean);
+    // Veraltet (Daten gerade gewechselt, Tabelle hat noch nicht gemeldet): Seitenreihenfolge nehmen
+    return liste.length === sortedData.length ? liste : sortedData;
+  }, [ansicht, tabellenReihenfolge, sortedData]);
+
+  // Ist das gewählte Stück nach Filter, Suche oder Seitenwechsel nicht mehr in der Liste, wird die Auswahl aufgehoben.
+  // Direkt im Render statt im Effekt (React-Muster "State beim Rendern anpassen").
+  if (
+    panelModus &&
+    selected !== null &&
+    !loading &&
+    !sortedData.some((s) => s.Artikelnummer === selected.Artikelnummer)
+  ) {
+    setSelected(null);
+  }
+
+  // Pfeil hoch/runter wählt das vorige/nächste Stück, Esc hebt die Auswahl auf (nur mit Panel).
+  // Bei offenem Formular oder Fenster und im Eingabefeld bleiben die Tasten unberührt.
+  const modalOffen = editing !== null || bulkModalOpen;
+  useEffect(() => {
+    if (!panelModus || activeTab !== "schmuckstuecke" || modalOffen) return undefined;
+    const beiTaste = (e) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if (liegtImEingabefeld(e.target)) return;
+      if (e.key === "Escape") {
+        setSelected(null);
+        return;
+      }
+      const schritt = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+      if (schritt === 0 || navigationsListe.length === 0) return;
+      e.preventDefault();
+      setSelected((aktuell) => {
+        const index = aktuell
+          ? navigationsListe.findIndex((s) => s.Artikelnummer === aktuell.Artikelnummer)
+          : -1;
+        // Ohne Auswahl: runter beginnt oben, hoch unten
+        const ziel = index === -1 ? (schritt === 1 ? 0 : navigationsListe.length - 1) : index + schritt;
+        return navigationsListe[Math.min(Math.max(ziel, 0), navigationsListe.length - 1)];
+      });
+    };
+    document.addEventListener("keydown", beiTaste);
+    return () => document.removeEventListener("keydown", beiTaste);
+  }, [panelModus, activeTab, modalOffen, navigationsListe]);
+
+
+  // Aktionen des gewählten Stücks, gleich für Fenster und Panel
+  const stueckAktionen = {
+    onClose: () => setSelected(null),
+    onDuplicate: canEdit
+      ? (item) => {
+          setSelected(null);
+          item && openDuplicate(item);
+        }
+      : undefined,
+    onEdit: canEdit
+      ? () => {
+          setSelected(null);
+          openEdit(selected);
+        }
+      : undefined,
+    onDelete: canEdit ? () => handleDelete(selected.Artikelnummer) : undefined,
+  };
+
+  // Ab Panel-Breite bleiben nur Suche/Filter und Status-Chips beim Scrollen oben stehen (Titel und Reiter scrollen mit);
+  // das Panel liegt darunter, die Höhe des fixierten Teils kommt als CSS-Variable
+  const kopfFixiert = panelModus && activeTab === "schmuckstuecke";
+  const kopfRef = useRef(null);
+  const [kopfHoehe, setKopfHoehe] = useState(0);
+  useLayoutEffect(() => {
+    const kopf = kopfRef.current;
+    if (!kopfFixiert || !kopf) {
+      setKopfHoehe(0);
+      return undefined;
+    }
+    const messen = () => setKopfHoehe(kopf.offsetHeight);
+    messen();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const beobachter = new ResizeObserver(messen);
+    beobachter.observe(kopf);
+    return () => beobachter.disconnect();
+  }, [kopfFixiert]);
 
   return (
-    <div>
+    <div style={{ "--schmuck-kopf-hoehe": `${kopfHoehe}px` }}>
       <div className="page-header">
         <div>
           <h2>Schmuckstücke</h2>
@@ -733,6 +877,35 @@ export default function Schmuckstuecke() {
             <button className="btn btn-primary" onClick={openNew}>
               + Neues Schmuckstück
             </button>
+            <div className="ansicht-umschalter" role="group" aria-label="Ansicht">
+              <button
+                type="button"
+                className={`btn btn-sm ${ansicht === ANSICHT.LISTE ? "btn-primary" : "btn-secondary"}`}
+                aria-label="Listenansicht"
+                title="Liste"
+                aria-pressed={ansicht === ANSICHT.LISTE}
+                onClick={() => waehleAnsicht(ANSICHT.LISTE)}>
+                <FontAwesomeIcon icon={faList} />
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${ansicht === ANSICHT.TABELLE ? "btn-primary" : "btn-secondary"}`}
+                aria-label="Tabellenansicht"
+                title="Tabelle"
+                aria-pressed={ansicht === ANSICHT.TABELLE}
+                onClick={() => waehleAnsicht(ANSICHT.TABELLE)}>
+                <FontAwesomeIcon icon={faTableList} />
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${ansicht === ANSICHT.RASTER ? "btn-primary" : "btn-secondary"}`}
+                aria-label="Rasteransicht"
+                title="Foto-Raster"
+                aria-pressed={ansicht === ANSICHT.RASTER}
+                onClick={() => waehleAnsicht(ANSICHT.RASTER)}>
+                <FontAwesomeIcon icon={faTableCellsLarge} />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -750,8 +923,8 @@ export default function Schmuckstuecke() {
         </button>
       </div>
 
-      {activeTab === "schmuckstuecke" ? (
-        <>
+      {activeTab === "schmuckstuecke" && (
+      <div ref={kopfRef} className={kopfFixiert ? "schmuck-kopf schmuck-kopf--fixiert" : "schmuck-kopf"}>
       <TableToolbar
         search={search}
         onSearchChange={(value) => {
@@ -785,11 +958,11 @@ export default function Schmuckstuecke() {
               value={filters.ausgelagert ?? ""}
               onChange={(e) => {
                 const { ausgelagert, ...rest } = filters;
-                setFilters(
-                  e.target.value !== ""
-                    ? { ...rest, ausgelagert: e.target.value }
-                    : rest,
-                );
+                const standort = e.target.value;
+                setFilters(standort !== "" ? { ...rest, ausgelagert: standort } : rest);
+                // Der Standort bestimmt den Status: Lager oder Kunde, sonst widersprechen sich Chip und Zahlen
+                if (standort === "0") setStatus(STATUS.LAGER);
+                else if (standort !== "") setStatus(STATUS.AUSGELAGERT);
                 setPage(1);
               }}>
               <option value="">Alle Standorte</option>
@@ -800,38 +973,76 @@ export default function Schmuckstuecke() {
                 </option>
               ))}
             </select>
-            <select
-              className="form-control"
-              value={filters.verkauft ?? ""}
-              onChange={(e) => {
-                const { verkauft, ...rest } = filters;
-                setFilters(
-                  e.target.value !== ""
-                    ? { ...rest, verkauft: e.target.value }
-                    : rest,
-                );
-                setPage(1);
-              }}>
-              <option value="">Status</option>
-              <option value="0">Nicht verkauft</option>
-              <option value="1">Verkauft</option>
-            </select>
           </div>
         }
       />
 
+      <StatusChips
+        wert={status}
+        zahlen={statusZahlen}
+        onChange={(neu) => {
+          setStatus(neu);
+          setFilters(({ ausgelagert, ...rest }) => rest);
+          setPage(1);
+        }}
+      />
+      </div>
+      )}
+
+      {activeTab === "schmuckstuecke" ? (
+        <>
+      <div className={panelModus ? "schmuck-split" : undefined}>
       <div className="card">
         <div className="card-body">
           {loading ? (
             <div className="loading">
               <div className="spinner"></div>Lade...
             </div>
+          ) : ansicht === ANSICHT.RASTER ? (
+            <FotoRaster
+              stuecke={sortedData}
+              onSelect={(s) => setSelected(s)}
+              pauseLoading={isForegroundModalOpen}
+              kundenName={getKundenName}
+              aktiveArtikelnummer={panelModus ? (selected?.Artikelnummer ?? null) : undefined}
+            />
+          ) : ansicht === ANSICHT.LISTE ? (
+            sortedData.length === 0 ? (
+              <div className="empty-state">Keine Schmuckstücke gefunden.</div>
+            ) : (
+              <ul className="data-table-mobil">
+                {sortedData.map((s) => (
+                  <li key={s.Artikelnummer} className="data-table-mobil-item">
+                    <SchmuckstueckZeile
+                      stueck={s}
+                      kundenName={getKundenName}
+                      pauseLoading={isForegroundModalOpen}
+                      aktiv={panelModus && selected?.Artikelnummer === s.Artikelnummer}
+                      onClick={setSelected}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
             <DataTable
               data={sortedData}
               getRowKey={(r) => r.Artikelnummer}
               defaultSort={{ key: "Artikelnummer", direction: "asc" }}
               onRowClick={(s) => setSelected(s)}
+              onSortedChange={setTabellenReihenfolge}
+              rowProps={(r) =>
+                panelModus && selected?.Artikelnummer === r.Artikelnummer
+                  ? { className: "data-table-row-aktiv", "aria-current": "true" }
+                  : {}
+              }
+              mobileRow={(r) => (
+                <SchmuckstueckZeile
+                  stueck={r}
+                  kundenName={getKundenName}
+                  pauseLoading={isForegroundModalOpen}
+                />
+              )}
               columns={[
                 {
                   key: "foto",
@@ -949,30 +1160,23 @@ export default function Schmuckstuecke() {
         )}
       </div>
 
-      {selected && (
-        <SchmuckstueckModal
-          artikelnummer={selected.Artikelnummer}
-          onClose={() => setSelected(null)}
-          onDuplicate={
-            canEdit
-              ? (item) => {
-                  setSelected(null);
-                  item && openDuplicate(item);
-                }
-              : undefined
-          }
-          onEdit={
-            canEdit
-              ? () => {
-                  setSelected(null);
-                  openEdit(selected);
-                }
-              : undefined
-          }
-          onDelete={
-            canEdit ? () => handleDelete(selected.Artikelnummer) : undefined
-          }
-        />
+      {panelModus && (
+        <aside className="schmuck-panel" aria-label="Details des gewählten Stücks">
+          {selected ? (
+            <SchmuckstueckDetailPanel
+              artikelnummer={selected.Artikelnummer}
+              schliessenLabel="Auswahl aufheben"
+              {...stueckAktionen}
+            />
+          ) : (
+            <p className="schmuck-panel-hinweis">Stück in der Liste auswählen, um Details zu sehen.</p>
+          )}
+        </aside>
+      )}
+      </div>
+
+      {selected && !panelModus && (
+        <SchmuckstueckModal artikelnummer={selected.Artikelnummer} {...stueckAktionen} />
       )}
 
       {bulkModalOpen && (

@@ -1,6 +1,7 @@
 const {
   markiereVerkauft,
   hebeVerkauftAuf,
+  gibVerkaufFrei,
   lagereAus,
   lagereOffeneAus,
   hebeAuslagerungAuf,
@@ -39,6 +40,18 @@ describe('statusUebergaenge', () => {
       const [sql, params] = client.query.mock.calls[0];
       expect(sql).toContain('"Verkauft" = FALSE');
       expect(sql).toContain('"Rechnung_ID" = 0');
+      expect(params).toEqual([5]);
+    });
+  });
+
+  describe('gibVerkaufFrei', () => {
+    it('setzt nur Verkauft = FALSE und behält die Rechnung_ID (Entwurf)', async () => {
+      const client = mockClient(3);
+      expect(await gibVerkaufFrei(client, 5)).toBe(3);
+      const [sql, params] = client.query.mock.calls[0];
+      expect(sql).toContain('"Verkauft" = FALSE');
+      expect(sql).not.toContain('"Rechnung_ID" = 0');
+      expect(sql).toContain('WHERE "Rechnung_ID" = $1');
       expect(params).toEqual([5]);
     });
   });

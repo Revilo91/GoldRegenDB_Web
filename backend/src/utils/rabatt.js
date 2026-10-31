@@ -43,18 +43,35 @@ function preisNachPositionsrabattSql(s = 's', r = 'r') {
     0) / 100)`;
 }
 
+// Finale Rechnung mit eingefrorenem Stand (Issue #283): Entwuerfe und Rechnungen
+// ohne Snapshot rechnen weiter live. r ist der Alias der Rechnung (LEFT JOIN).
+/** @param {string} r */
+const snapshotAktivSql = (r) => `${r}.status = 'final' AND ${r}.snapshot_am IS NOT NULL`;
+
 /**
  * SQL-Ausdruck fuer den Einzelpreis nach Positions- UND Gesamtrabatt.
  * Mathematisch ist SUMME(p) * (1-g) gleich SUMME(p * (1-g)), der Faktor darf
  * also je Zeile stehen -- das erlaubt die Verwendung in FILTER und GROUP BY.
+ *
+ * Bei finalen Rechnungen mit Snapshot kommen Preis und Positionsrabatt aus
+ * "Rechnung_Position", der Gesamtrabattfaktor aus den gespeicherten Betraegen
+ * (1 - rabatt_gesamt_betrag / summe_brutto). Spaetere Aenderungen an
+ * Verkaufspreis oder Rabatten wirken dort nicht mehr. Ohne Snapshot bleibt die
+ * Live-Formel; die Signatur und die benoetigten JOINs sind unveraendert.
  *
  * @param {string} [s='s']
  * @param {string} [r='r']
  * @returns {string}
  */
 function preisNachAllenRabattenSql(s = 's', r = 'r') {
-  return `(${preisNachPositionsrabattSql(s, r)})`
+  const live = `(${preisNachPositionsrabattSql(s, r)})`
     + ` * (1 - COALESCE(${r}.rabatt_gesamt, 0) / 100)`;
+  const eingefroren = `COALESCE((SELECT p.einzelpreis * (1 - p.positionsrabatt / 100)
+        FROM "Rechnung_Position" p
+        WHERE p.rechnung_id = ${r}."ID" AND p.artikelnummer_id = ${s}."Artikelnummer"),
+      ${preisNachPositionsrabattSql(s, r)})
+    * COALESCE(1 - ${r}.rabatt_gesamt_betrag / NULLIF(${r}.summe_brutto, 0), 1)`;
+  return `(CASE WHEN ${snapshotAktivSql(r)} THEN ${eingefroren} ELSE ${live} END)`;
 }
 
 /**
@@ -91,9 +108,11 @@ const BELEGE = {
  * @param {{query: Function}} queryable db oder ein Client
  * @param {'Rechnung'|'Lieferschein'} tabelle
  * @param {number|string} belegId
+ * @param {{live?: boolean}} [optionen] live: true rechnet immer aus den Live-Daten
+ *   (Pflicht fuer schreibeSnapshot, sonst liest der Snapshot sich selbst)
  * @returns {Promise<Record<string, any>|null>}
  */
-async function belegSummen(queryable, tabelle, belegId) {
+async function belegSummen(queryable, tabelle, belegId, { live = false } = {}) {
   const beleg = BELEGE[tabelle];
   if (!beleg) throw new Error(`Unbekannter Belegtyp: ${tabelle}`);
   const nachPosition = beleg.mitRabatt
@@ -102,8 +121,40 @@ async function belegSummen(queryable, tabelle, belegId) {
   const rabattGesamt = beleg.mitRabatt ? 'COALESCE(r.rabatt_gesamt, 0)' : '0';
   // Versandkosten gibt es nur auf der Rechnung
   const versandkosten = beleg.mitRabatt ? 'COALESCE(r.versandkosten, 0)' : '0';
+  const mitSnapshot = beleg.mitRabatt && !live;
+  // snap hat genau eine Zeile, wenn die finale Rechnung eingefroren ist, sonst keine.
+  // Der Prozentwert des Gesamtrabatts bleibt der gespeicherte, solange er den
+  // gespeicherten Betrag reproduziert; sonst wird er aus dem Betrag zurueckgerechnet.
+  const snap = mitSnapshot
+    ? `SELECT COALESCE(r.summe_brutto, 0) AS summe_brutto,
+              COALESCE(r.rabatt_gesamt_betrag, 0) AS rabatt_betrag,
+              CASE WHEN COALESCE(r.summe_brutto, 0) <= 0 THEN COALESCE(r.rabatt_gesamt, 0)
+                   WHEN round(r.summe_brutto * COALESCE(r.rabatt_gesamt, 0) / 100, 2)
+                        = COALESCE(r.rabatt_gesamt_betrag, 0) THEN COALESCE(r.rabatt_gesamt, 0)
+                   ELSE round(r.rabatt_gesamt_betrag / r.summe_brutto * 100, 2) END AS rabatt_prozent,
+              COALESCE(r.provision_prozent, 0) AS provision_prozent,
+              COALESCE(r.provision_betrag, 0) AS provision_betrag,
+              COALESCE(r.versand_betrag, 0) AS versand_betrag
+       FROM "Rechnung" r
+       WHERE r."ID" = $1 AND ${snapshotAktivSql('r')}`
+    : `SELECT NULL::numeric AS summe_brutto, NULL::numeric AS rabatt_betrag,
+              NULL::numeric AS rabatt_prozent, NULL::numeric AS provision_prozent,
+              NULL::numeric AS provision_betrag, NULL::numeric AS versand_betrag
+       WHERE false`;
+  /** @type {(spalte: string, live: string) => string} */
+  const vorSnapshot = (spalte, live) => (mitSnapshot ? `COALESCE(snap.${spalte}, ${live})` : live);
+  const snapshotPositionen = mitSnapshot
+    ? `UNION ALL
+       SELECT LEFT(p.artikelnummer_id, 1),
+              round((p.einzelpreis * (1 - p.positionsrabatt / 100))::numeric, 2)
+       FROM "Rechnung_Position" p
+       WHERE p.rechnung_id = $1 AND EXISTS (SELECT 1 FROM snap)`
+    : '';
   const { rows } = await queryable.query(
-    `WITH positionen AS (
+    `WITH snap AS (
+       ${snap}
+     ),
+     positionen AS (
        SELECT
          LEFT(s."Artikelnummer", 1) AS hersteller,
          -- pro Stueck auf Cent runden, dann summieren: dieselbe Reihenfolge
@@ -111,17 +162,19 @@ async function belegSummen(queryable, tabelle, belegId) {
          round((${nachPosition})::numeric, 2) AS wert
        FROM "Schmuckstück" s
        JOIN "${tabelle}" r ON r."ID" = s."${beleg.fk}"
-       WHERE s."${beleg.fk}" = $1
+       WHERE s."${beleg.fk}" = $1 AND NOT EXISTS (SELECT 1 FROM snap)
+       ${snapshotPositionen}
      ),
      kopf AS (
        -- ::numeric ist Pflicht: "Provision" ist INTEGER (Befund B8), und
        -- 40 / 100 ist in SQL Ganzzahldivision -- also 0. Ohne den Cast war der
        -- Ueberweisungsbetrag gleich der Summe vor Provision.
-       SELECT ${rabattGesamt}::numeric AS rabatt_gesamt,
-              COALESCE(k."Provision", 0)::numeric   AS provision,
-              ${versandkosten}::numeric AS versandkosten
+       SELECT ${vorSnapshot('rabatt_prozent', `${rabattGesamt}::numeric`)} AS rabatt_gesamt,
+              ${vorSnapshot('provision_prozent', 'COALESCE(k."Provision", 0)::numeric')} AS provision,
+              ${vorSnapshot('versand_betrag', `${versandkosten}::numeric`)} AS versandkosten
        FROM "${tabelle}" r
        LEFT JOIN "Kunde" k ON k."ID" = r."Kundennummer"
+       LEFT JOIN snap ON TRUE
        WHERE r."ID" = $1
      ),
      summen AS (
@@ -141,15 +194,16 @@ async function belegSummen(queryable, tabelle, belegId) {
      -- (utils/eRechnung/modell.js), damit XRechnung und Excel denselben Betrag
      -- nennen.
      schritte AS (
-       SELECT round(summen.gesamtwert, 2) AS gesamtwert,
+       SELECT COALESCE(snap.summe_brutto, round(summen.gesamtwert, 2)) AS gesamtwert,
               round(summen.marina, 2)     AS marina,
               round(summen.saskia, 2)     AS saskia,
-              round(round(summen.gesamtwert, 2) * kopf.rabatt_gesamt / 100, 2)
+              COALESCE(snap.rabatt_betrag,
+                round(round(summen.gesamtwert, 2) * kopf.rabatt_gesamt / 100, 2))
                 AS gesamtrabatt_betrag,
               kopf.rabatt_gesamt,
               kopf.provision,
               kopf.versandkosten
-         FROM summen CROSS JOIN kopf
+         FROM summen CROSS JOIN kopf LEFT JOIN snap ON TRUE
      ),
      nach_rabatt AS (
        SELECT schritte.*,
@@ -159,11 +213,12 @@ async function belegSummen(queryable, tabelle, belegId) {
      ),
      nach_provision AS (
        SELECT nach_rabatt.*,
-              round(summe_nach_rabatt * provision / 100, 2) AS provision_betrag,
+              COALESCE(snap.provision_betrag, round(summe_nach_rabatt * provision / 100, 2))
+                AS provision_betrag,
               -- Der Rest geht an Saskia, damit marina_brutto + saskia_brutto
               -- immer exakt summe_nach_rabatt ergibt.
               summe_nach_rabatt - marina_brutto             AS saskia_brutto
-         FROM nach_rabatt
+         FROM nach_rabatt LEFT JOIN snap ON TRUE
      )
      SELECT
        gesamtwert,

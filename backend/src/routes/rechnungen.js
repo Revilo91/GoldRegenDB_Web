@@ -3,9 +3,13 @@ const router = express.Router();
 const db = require('../config/db');
 const logger = require('../utils/logger');
 const { validate } = require('../middleware/validate');
-const { rechnungSchema } = require('../schemas');
+const { rechnungSchema, rechnungZuruecksetzenSchema } = require('../schemas');
+const { requireAdmin } = require('../middleware/auth');
 const { belegSummen } = require('../utils/rabatt');
-const { markiereVerkauft, hebeVerkauftAuf } = require('../utils/statusUebergaenge');
+const { markiereVerkauft, hebeVerkauftAuf, gibVerkaufFrei } = require('../utils/statusUebergaenge');
+const {
+  schreibeSnapshot, leereSnapshot, wendeSnapshotAn, SNAPSHOT_SPALTEN, SNAPSHOT_JOIN,
+} = require('../services/rechnungSnapshot');
 const { FORMATE, erstelleERechnung, ERechnungFehler } = require('../utils/eRechnung');
 
 function formatJahresNummer(jahr, laufnummer) {
@@ -47,6 +51,28 @@ const empfaengerJson = (empfaenger) => (empfaenger ? JSON.stringify(empfaenger) 
 
 // Leer und 0 werden NULL, damit der Beleg keine Versandzeile über 0,00 € zeigt
 const versandkostenWert = (v) => (v > 0 ? Math.round(v * 100) / 100 : null);
+
+// Stücke einer Rechnung samt Snapshot-Positionen (für finale Rechnungen: eingefrorene Preise)
+const STUECKE_DER_RECHNUNG = `SELECT s.*, ${SNAPSHOT_SPALTEN}
+  FROM "Schmuckstück" s ${SNAPSHOT_JOIN}
+  WHERE s."Rechnung_ID" = $1`;
+const entferneSnapshotSpalten = (stueck) => {
+  const kopie = { ...stueck };
+  delete kopie.snapshot_einzelpreis;
+  delete kopie.snapshot_positionsrabatt;
+  return kopie;
+};
+
+const GESPERRT_MELDUNG = 'Finale Rechnung ist gesperrt; ein Admin kann sie mit Begründung zurücksetzen';
+
+// Sperrt die Zeile für die Transaktion und liefert sie, oder null wenn unbekannt
+async function ladeRechnungGesperrt(client, id) {
+  const { rows } = await client.query(
+    'SELECT status, "Nummer" FROM "Rechnung" WHERE "ID" = $1 FOR UPDATE',
+    [id]
+  );
+  return rows[0] || null;
+}
 
 /**
  * @swagger
@@ -164,9 +190,10 @@ router.get('/:id', async (req, res) => {
     }
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      `${STUECKE_DER_RECHNUNG} ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       [req.params.id]
     );
+    const { stuecke, provisionProzent } = wendeSnapshotAn(rows[0], pieces.rows);
 
     // Befund G7: die Auszahlungsaufteilung je Herstellerin wurde im Frontend
     // aus rohen Preisen summiert, ohne Positions- und Gesamtrabatt -- bei 20 %
@@ -175,7 +202,12 @@ router.get('/:id', async (req, res) => {
     // Reihenfolge wie auf dem Beleg.
     const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
-    res.json({ ...rows[0], schmuckstuecke: pieces.rows, summen });
+    res.json({
+      ...rows[0],
+      Provision: provisionProzent ?? rows[0].Provision,
+      schmuckstuecke: stuecke.map(entferneSnapshotSpalten),
+      summen,
+    });
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
@@ -216,11 +248,14 @@ router.get('/:id/excel', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Rechnung nicht gefunden' });
 
     const pieces = await db.query(
-      'SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1 ORDER BY length("Artikelnummer"), "Artikelnummer"',
+      `${STUECKE_DER_RECHNUNG} ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       [req.params.id]
     );
+    // r.* und k.* teilen sich Spaltennamen ("ID"); status/snapshot_am/rabatt_* gibt es nur an der Rechnung
+    const { rechnung: beleg, stuecke, provisionProzent } = wendeSnapshotAn(rows[0], pieces.rows);
+    if (provisionProzent !== null) beleg.Provision = provisionProzent;
 
-    const zeitraum = await ladeLeistungszeitraum(pieces.rows);
+    const zeitraum = await ladeLeistungszeitraum(stuecke);
     const deDatum = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     let rechungsZeitraum = null;
     if (zeitraum) {
@@ -232,11 +267,11 @@ router.get('/:id/excel', async (req, res) => {
     const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
     const buffer = await generateExcel('Rechnung', {
-      ...rows[0],
-      kunde: mitEmpfaenger(rows[0], rows[0].empfaenger),
+      ...beleg,
+      kunde: mitEmpfaenger(beleg, beleg.empfaenger),
       rechungsZeitraum,
       summen,
-      schmuckstuecke: pieces.rows.sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
+      schmuckstuecke: stuecke.map(entferneSnapshotSpalten).sort((a, b) => a.Artikelnummer.localeCompare(b.Artikelnummer, undefined, { numeric: true }))
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -298,13 +333,16 @@ router.get('/:id/erechnung', async (req, res) => {
     const rechnung = rows[0];
 
     const kunde = await db.query('SELECT * FROM "Kunde" WHERE "ID" = $1', [rechnung.Kundennummer]);
-    const pieces = await db.query('SELECT * FROM "Schmuckstück" WHERE "Rechnung_ID" = $1', [req.params.id]);
+    const pieces = await db.query(STUECKE_DER_RECHNUNG, [req.params.id]);
+    const { rechnung: beleg, stuecke, provisionProzent } = wendeSnapshotAn(rechnung, pieces.rows);
+    const kundeDaten = kunde.rows[0] || {};
+    if (provisionProzent !== null) kundeDaten.Provision = provisionProzent;
 
     const ergebnis = await erstelleERechnung({
-      rechnung,
-      kunde: mitEmpfaenger(kunde.rows[0] || {}, rechnung.empfaenger),
-      schmuckstuecke: pieces.rows,
-      leistungszeitraum: await ladeLeistungszeitraum(pieces.rows),
+      rechnung: beleg,
+      kunde: mitEmpfaenger(kundeDaten, rechnung.empfaenger),
+      schmuckstuecke: stuecke.map(entferneSnapshotSpalten),
+      leistungszeitraum: await ladeLeistungszeitraum(stuecke),
     }, format);
 
     logger.info('RECHNUNGEN', 'E-Rechnung erzeugt', {
@@ -420,6 +458,8 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
       }
     }
 
+    await schreibeSnapshot(client, rechnungId);
+
     await client.query('COMMIT');
 
     logger.info('RECHNUNGEN', 'Rechnung erstellt', {
@@ -454,8 +494,9 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
  * /rechnungen/{id}:
  *   put:
  *     summary: Rechnung aktualisieren
- *     description: 'Setzt zuerst alle bisherigen Artikel-Zuordnungen zurück und danach neu (siehe
- *       POST /rechnungen für die Verkauft-Logik nach status). Erfordert Rolle: bearbeiter oder admin.'
+ *     description: 'Nur für Entwürfe: eine finale Rechnung ist komplett gesperrt (409). Setzt zuerst alle
+ *       bisherigen Artikel-Zuordnungen zurück und danach neu (siehe POST /rechnungen für die Verkauft-Logik
+ *       nach status); der Wechsel entwurf -> final ist hier möglich. Erfordert Rolle: bearbeiter oder admin.'
  *     tags: [Rechnungen]
  *     security:
  *       - cookieAuth: []
@@ -494,6 +535,9 @@ router.post('/', validate(rechnungSchema), async (req, res) => {
  *       401: { $ref: '#/components/responses/Unauthorized' }
  *       403: { $ref: '#/components/responses/Forbidden' }
  *       404: { $ref: '#/components/responses/NotFound' }
+ *       409:
+ *         description: Rechnung ist final und gesperrt (Zurücksetzen nur durch einen Admin) oder Rechnungsnummer existiert bereits
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
  */
 // Wie beim Lieferschein sind Zurücksetzen und Neusetzen ein Vorgang: ohne
 // Transaktion stehen nach einem Teilfehler alle Positionen einer finalen
@@ -505,7 +549,6 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
       Nummer, Artikelnummern, Kundennummer, status, rabatt_gesamt, rabatt_positionen, empfaenger, versandkosten,
     } = req.body;
 
-    // Build update query
     let updateQuery = `UPDATE "Rechnung" SET "Nummer" = $1, "Kundennummer" = $2`;
     const params = [Nummer, Kundennummer];
 
@@ -537,11 +580,17 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
     client = await db.connect();
     await client.query('BEGIN');
 
-    const { rows } = await client.query(updateQuery, params);
-    if (rows.length === 0) {
+    const vorhanden = await ladeRechnungGesperrt(client, req.params.id);
+    if (!vorhanden) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
     }
+    if (vorhanden.status === 'final') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: GESPERRT_MELDUNG });
+    }
+
+    const { rows } = await client.query(updateQuery, params);
 
     const currentStatus = rows[0].status;
 
@@ -561,6 +610,9 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
         );
       }
     }
+
+    // Entwurf: Vorschau aktuell halten; Wechsel auf final friert den Stand ein
+    await schreibeSnapshot(client, req.params.id);
 
     await client.query('COMMIT');
 
@@ -592,8 +644,8 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
  * /rechnungen/{id}:
  *   delete:
  *     summary: Rechnung löschen
- *     description: 'Setzt Rechnung_ID und Verkauft der zugeordneten Artikel vor dem Löschen zurück.
- *       Erfordert Rolle: bearbeiter oder admin.'
+ *     description: 'Nur für Entwürfe: eine finale Rechnung ist gesperrt (409). Setzt Rechnung_ID und Verkauft
+ *       der zugeordneten Artikel vor dem Löschen zurück. Erfordert Rolle: bearbeiter oder admin.'
  *     tags: [Rechnungen]
  *     security:
  *       - cookieAuth: []
@@ -607,6 +659,9 @@ router.put('/:id', validate(rechnungSchema), async (req, res) => {
  *       401: { $ref: '#/components/responses/Unauthorized' }
  *       403: { $ref: '#/components/responses/Forbidden' }
  *       404: { $ref: '#/components/responses/NotFound' }
+ *       409:
+ *         description: Rechnung ist final und gesperrt, oder noch mit einer Bestellung verknüpft
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
  */
 router.delete('/:id', async (req, res) => {
   let client;
@@ -616,13 +671,14 @@ router.delete('/:id', async (req, res) => {
 
     // Existenz zuerst prüfen (Befund C3): vorher wurden die Positionen auch
     // dann auf Verkauft = 0 zurückgesetzt, wenn danach 404 geliefert wurde.
-    const { rowCount: vorhanden } = await client.query(
-      'SELECT "ID" FROM "Rechnung" WHERE "ID" = $1 FOR UPDATE',
-      [req.params.id]
-    );
-    if (vorhanden === 0) {
+    const vorhanden = await ladeRechnungGesperrt(client, req.params.id);
+    if (!vorhanden) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+    }
+    if (vorhanden.status === 'final') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: GESPERRT_MELDUNG });
     }
 
     // Reset associations before deleting
@@ -655,6 +711,97 @@ router.delete('/:id', async (req, res) => {
     }
     logger.error('RECHNUNGEN', 'Fehler beim Löschen der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Löschen der Rechnung' });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+/**
+ * @swagger
+ * /rechnungen/{id}/zuruecksetzen:
+ *   post:
+ *     summary: Finale Rechnung auf Entwurf zurücksetzen (nur Admin)
+ *     description: 'Setzt status final -> entwurf und nimmt Verkauft der zugeordneten Artikel zurück
+ *       (sie bleiben der Rechnung zugeordnet). Die Begründung und der Benutzer werden im Audit-Log
+ *       (Hash-Kette) protokolliert. Alles in einer Transaktion. Erfordert Rolle: admin.'
+ *     tags: [Rechnungen]
+ *     security:
+ *       - cookieAuth: []
+ *         csrfHeader: []
+ *       - bearerAuth: []
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [begruendung]
+ *             properties:
+ *               begruendung: { type: string, minLength: 10, maxLength: 500, description: 'Pflicht, wird getrimmt' }
+ *     responses:
+ *       200:
+ *         description: Rechnung ist wieder ein Entwurf
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Rechnung' } } }
+ *       400: { $ref: '#/components/responses/ValidationError' }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409:
+ *         description: Rechnung ist nicht final
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+ */
+router.post('/:id/zuruecksetzen', requireAdmin, validate(rechnungZuruecksetzenSchema), async (req, res) => {
+  let client;
+  try {
+    client = await db.connect();
+    await client.query('BEGIN');
+
+    const vorhanden = await ladeRechnungGesperrt(client, req.params.id);
+    if (!vorhanden) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Rechnung nicht gefunden' });
+    }
+    if (vorhanden.status !== 'final') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Nur finale Rechnungen können zurückgesetzt werden' });
+    }
+
+    const { rows } = await client.query(
+      `UPDATE "Rechnung" SET status = 'entwurf' WHERE "ID" = $1 RETURNING *`,
+      [req.params.id]
+    );
+    const freigegeben = await gibVerkaufFrei(client, req.params.id);
+    await leereSnapshot(client, req.params.id);
+
+    // Audit-Trigger gibt es nur für "Schmuckstück"; wie beim Anlegen von Stücken
+    // schreibt die Route den Eintrag selbst, die Hash-Kette bildet der Insert-Trigger.
+    await client.query(
+      `INSERT INTO audit_log (table_name, column_name, old_value, new_value, action_type, changed_by)
+       VALUES ('Rechnung', $1, 'final', $2, 'UPDATE', COALESCE(current_setting('app.current_user', true), current_user))`,
+      [`status (Rechnung ${vorhanden.Nummer}, ID ${req.params.id})`, `entwurf; Begründung: ${req.body.begruendung}`]
+    );
+
+    await client.query('COMMIT');
+
+    logger.info('RECHNUNGEN', 'Finale Rechnung zurückgesetzt', {
+      id: req.params.id, nummer: vorhanden.Nummer, user: req.user?.username, artikelAnzahl: freigegeben,
+    });
+    res.json(rows[0]);
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('RECHNUNGEN', 'Rollback fehlgeschlagen beim Zurücksetzen der Rechnung',
+          { id: req.params.id, message: rollbackErr.message });
+      }
+    }
+    logger.error('RECHNUNGEN', 'Fehler beim Zurücksetzen der Rechnung', { id: req.params.id, message: err.message });
+    res.status(500).json({ error: 'Fehler beim Zurücksetzen der Rechnung' });
   } finally {
     if (client) {
       client.release();

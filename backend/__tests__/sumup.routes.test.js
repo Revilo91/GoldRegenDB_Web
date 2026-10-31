@@ -71,6 +71,28 @@ describe('POST /api/sumup/import', () => {
 
   // Der Kern von C4: BEGIN muss vor der Auswahl und vor dem Kunden-INSERT
   // liegen, und die Auswahl muss die Stücke sperren.
+  it('friert die neue finale Rechnung vor dem COMMIT ein (Issue #283)', async () => {
+    const client = createTxClientMock({
+      ergebnisse: {
+        'FOR UPDATE': { rows: [{ Artikelnummer: 'MHO001', Verkaufspreis: '20.00' }] },
+        'FROM "Kunde"': { rows: [{ ID: 7, Name: 'Messe' }] },
+        'AS max_num': { rows: [{ max_num: '0' }] },
+        'INSERT INTO "Lieferschein"': { rows: [{ ID: 11, Nummer: '2026-001' }] },
+        'INSERT INTO "Rechnung"': { rows: [{ ID: 21, Nummer: '2026-001' }] },
+      },
+    });
+    db.connect.mockResolvedValueOnce(client);
+
+    const res = await request(buildApp()).post('/api/sumup/import').send({ csvData: CSV });
+
+    expect(res.statusCode).toBe(200);
+    const verlauf = sqlVerlauf(client);
+    const snapshot = verlauf.findIndex((sql) => sql.includes('INSERT INTO "Rechnung_Position"'));
+    expect(snapshot).toBeGreaterThan(-1);
+    expect(snapshot).toBeGreaterThan(verlauf.findIndex((sql) => sql.includes('"Verkauft" = TRUE')));
+    expect(snapshot).toBeLessThan(verlauf.indexOf('COMMIT'));
+  });
+
   it('beginnt die Transaktion vor Auswahl und Kunden-Anlage', async () => {
     const client = createTxClientMock({
       ergebnisse: {

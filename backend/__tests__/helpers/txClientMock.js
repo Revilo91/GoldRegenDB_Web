@@ -13,7 +13,17 @@
 //
 // fehlerBei lässt genau die Query scheitern, deren SQL das Fragment enthält –
 // so wird geprüft, ob der erste Schritt zurückgerollt wird.
-function createTxClientMock({ ergebnisse = {}, fehlerBei = null, fehler = null } = {}) {
+// Standardantwort für belegSummen() (Snapshot beim Speichern einer Rechnung)
+const BELEG_SUMMEN_NULL = {
+  rows: [{
+    gesamtwert: '0.00', gesamtrabatt_betrag: '0.00', provision: '0', provision_betrag: '0.00',
+    versandkosten: '0', ueberweisungsbetrag: '0.00',
+  }],
+  rowCount: 1,
+};
+
+function createTxClientMock({ ergebnisse: eigene = {}, fehlerBei = null, fehler = null } = {}) {
+  const ergebnisse = { ...eigene, 'WITH snap AS': BELEG_SUMMEN_NULL };
   const client = {
     query: jest.fn(async (sql) => {
       const text = String(sql);

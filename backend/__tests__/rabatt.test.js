@@ -66,6 +66,23 @@ describe('SQL-Ausdrücke', () => {
     expect(sql).toContain('NULLIF(');
   });
 
+  it('liest bei finalen Rechnungen mit Snapshot aus "Rechnung_Position", sonst live', () => {
+    const sql = preisNachAllenRabattenSql('s', 'r');
+    expect(sql).toContain("r.status = 'final' AND r.snapshot_am IS NOT NULL");
+    expect(sql).toContain('FROM "Rechnung_Position" p');
+    expect(sql).toContain('p.artikelnummer_id = s."Artikelnummer"');
+    // Gesamtrabatt aus den gespeicherten Beträgen statt aus rabatt_gesamt
+    expect(sql).toContain('r.rabatt_gesamt_betrag / NULLIF(r.summe_brutto, 0)');
+    expect(sql).toMatch(/ELSE[\s\S]*rabatt_positionen[\s\S]*r\.rabatt_gesamt, 0\) \/ 100\)\s*END/);
+  });
+
+  it('übernimmt die übergebenen Aliase auch im Snapshot-Zweig', () => {
+    const sql = preisNachAllenRabattenSql('x', 'rg');
+    expect(sql).toContain("rg.status = 'final' AND rg.snapshot_am IS NOT NULL");
+    expect(sql).toContain('p.rechnung_id = rg."ID"');
+    expect(sql).toContain('p.artikelnummer_id = x."Artikelnummer"');
+  });
+
   it('nimmt im Gesamtausdruck zusätzlich rabatt_gesamt', () => {
     const sql = preisNachAllenRabattenSql();
     expect(sql).toContain('rabatt_positionen');
@@ -152,6 +169,32 @@ describe("belegSummen(queryable, 'Rechnung', id)", () => {
     expect(sql).toMatch(/\(summe_nach_rabatt - provision_betrag\)\s*- round\(marina_brutto/);
   });
 
+  it('bevorzugt den Snapshot finaler Rechnungen (eine Abfrage, gleiche Rückgabefelder)', async () => {
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
+
+    await belegSummen(queryable, 'Rechnung', 10);
+
+    expect(queryable.query).toHaveBeenCalledTimes(1);
+    const sql = String(queryable.query.mock.calls[0][0]);
+    expect(sql).toContain("r.status = 'final' AND r.snapshot_am IS NOT NULL");
+    expect(sql).toContain('FROM "Rechnung_Position" p');
+    expect(sql).toContain('COALESCE(snap.summe_brutto, round(summen.gesamtwert, 2)) AS gesamtwert');
+    expect(sql).toContain('COALESCE(snap.provision_betrag,');
+    expect(sql).toContain('snap.provision_prozent');
+    expect(sql).toContain('snap.versand_betrag');
+  });
+
+  it('rechnet mit { live: true } ohne Snapshot (schreibeSnapshot würde sich sonst selbst lesen)', async () => {
+    const queryable = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
+
+    await belegSummen(queryable, 'Rechnung', 10, { live: true });
+
+    const sql = String(queryable.query.mock.calls[0][0]);
+    expect(sql).not.toContain('snapshot_am');
+    expect(sql).not.toContain('"Rechnung_Position"');
+    expect(sql).toContain('WHERE false');
+  });
+
   it('liefert null, wenn die Rechnung nicht existiert', async () => {
     const queryable = { query: jest.fn().mockResolvedValue({ rows: [] }) };
 
@@ -176,6 +219,8 @@ describe("belegSummen(queryable, 'Lieferschein', id)", () => {
     expect(sql).toContain('0::numeric AS versandkosten');
     expect(sql).not.toContain('r.versandkosten');
     expect(sql).not.toContain('"Rechnung"');
+    expect(sql).not.toContain('"Rechnung_Position"');
+    expect(sql).not.toContain('snapshot_am');
     expect(sql).not.toContain('Rechnung_ID');
     expect(sql).toContain('COALESCE(k."Provision", 0)::numeric');
     expect(sql).toContain('AS ueberweisungsbetrag');
