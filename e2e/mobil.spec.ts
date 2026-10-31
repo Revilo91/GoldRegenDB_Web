@@ -41,9 +41,10 @@ async function neuesSchmuckstueckOeffnen(page: Page) {
   await selects.nth(1).selectOption({ index: 1 });
   await selects.nth(2).selectOption({ index: 1 });
 
-  const vorschau = modal.locator('.form-group', { hasText: 'Artikelnummer' }).locator('.form-control');
-  await expect(vorschau).not.toHaveText('---', { timeout: 8_000 });
-  const artikelnummer = (await vorschau.textContent())?.trim();
+  // Die Vorschau steht im Modal-Kopf und erscheint, sobald die Auswahl vollständig ist.
+  const vorschau = modal.locator('.schmuckstuecke-form-nummer');
+  await expect(vorschau).toBeVisible({ timeout: 8_000 });
+  const artikelnummer = (await vorschau.textContent())?.split('×')[0].trim();
   expect(artikelnummer).toBeTruthy();
   return { modal, artikelnummer: artikelnummer! };
 }
