@@ -136,6 +136,28 @@ describe('GET /api/rechnungen/:id (Snapshot, Issue #283 Schritt 3)', () => {
     expect(String(db.query.mock.calls[1][0])).toContain('LEFT JOIN "Rechnung_Position" p');
   });
 
+  it('liefert bei finalen Rechnungen den eingefrorenen Provisionssatz, nicht den des Kunden', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ...eingefroren, Provision: 20 }] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '40.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1');
+
+    expect(res.body.Provision).toBe('25.00');
+  });
+
+  it('liefert bei Entwürfen weiter den Provisionssatz des Kunden', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ ...eingefroren, status: 'entwurf', Provision: 20 }] })
+      .mockResolvedValueOnce({ rows: [stueck] })
+      .mockResolvedValueOnce({ rows: [{ gesamtwert: '99.00' }] });
+
+    const res = await request(buildApp()).get('/api/rechnungen/1');
+
+    expect(res.body.Provision).toBe(20);
+  });
+
   it('lässt den Preis eines Entwurfs live', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ ...eingefroren, status: 'entwurf' }] })

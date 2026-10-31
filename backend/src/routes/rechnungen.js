@@ -193,7 +193,7 @@ router.get('/:id', async (req, res) => {
       `${STUECKE_DER_RECHNUNG} ORDER BY length(s."Artikelnummer"), s."Artikelnummer"`,
       [req.params.id]
     );
-    const { stuecke } = wendeSnapshotAn(rows[0], pieces.rows);
+    const { stuecke, provisionProzent } = wendeSnapshotAn(rows[0], pieces.rows);
 
     // Befund G7: die Auszahlungsaufteilung je Herstellerin wurde im Frontend
     // aus rohen Preisen summiert, ohne Positions- und Gesamtrabatt -- bei 20 %
@@ -202,7 +202,12 @@ router.get('/:id', async (req, res) => {
     // Reihenfolge wie auf dem Beleg.
     const summen = await belegSummen(db, 'Rechnung', req.params.id);
 
-    res.json({ ...rows[0], schmuckstuecke: stuecke.map(entferneSnapshotSpalten), summen });
+    res.json({
+      ...rows[0],
+      Provision: provisionProzent ?? rows[0].Provision,
+      schmuckstuecke: stuecke.map(entferneSnapshotSpalten),
+      summen,
+    });
   } catch (err) {
     logger.error('RECHNUNGEN', 'Fehler beim Laden der Rechnung', { id: req.params.id, message: err.message });
     res.status(500).json({ error: 'Fehler beim Laden der Rechnung' });
