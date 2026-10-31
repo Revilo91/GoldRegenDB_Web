@@ -27,11 +27,9 @@ test('Login -> Schmuckstück anlegen -> Lieferschein erzeugen', async ({ page })
   await selects.nth(1).selectOption({ index: 1 });
   await selects.nth(2).selectOption({ index: 1 });
 
-  const artikelnummerPreview = modal
-    .locator('.form-group', { hasText: 'Artikelnummer' })
-    .locator('.form-control');
-  await expect(artikelnummerPreview).not.toHaveText('---', { timeout: 8_000 });
-  const artikelnummer = (await artikelnummerPreview.textContent())?.trim();
+  const artikelnummerPreview = modal.locator('.schmuckstuecke-form-nummer');
+  await expect(artikelnummerPreview).toBeVisible({ timeout: 8_000 });
+  const artikelnummer = (await artikelnummerPreview.textContent())?.split('×')[0].trim();
   expect(artikelnummer).toBeTruthy();
 
   await page.getByRole('button', { name: 'Speichern + Schließen' }).click();
@@ -39,7 +37,8 @@ test('Login -> Schmuckstück anlegen -> Lieferschein erzeugen', async ({ page })
 
   const searchInput = page.locator('input[placeholder*="Suche"]').first();
   await searchInput.fill(artikelnummer!);
-  await expect(page.locator('tbody tr').first()).toContainText(artikelnummer!, { timeout: 8_000 });
+  // Unabhängig von der Ansicht: Der Desktop startet in der Listenansicht ohne Tabelle.
+  await expect(page.getByRole('main').getByText(artikelnummer!).first()).toBeVisible({ timeout: 8_000 });
 
   // 3. Lieferschein für das neue Schmuckstück erzeugen
   await page.goto('/lieferscheine');
@@ -51,9 +50,11 @@ test('Login -> Schmuckstück anlegen -> Lieferschein erzeugen', async ({ page })
   await kundeSelect.selectOption({ index: 1 });
   const kundenName = await kundeSelect.locator('option:checked').textContent();
 
-  await docModal.locator('input[placeholder="Artikelnummer eingeben..."]').fill(artikelnummer!);
+  // Der Vorschau-Kopf zeigt die Basisnummer, gespeichert wird das Exemplar mit Suffix.
+  const exemplar = `${artikelnummer}_1`;
+  await docModal.locator('input[placeholder="Artikelnummer eingeben..."]').fill(exemplar);
   await docModal.getByRole('button', { name: 'Hinzufügen' }).click();
-  await expect(docModal.locator('.piece-side').last()).toContainText(artikelnummer!);
+  await expect(docModal.locator('.piece-side').last()).toContainText(exemplar);
 
   await docModal.getByRole('button', { name: 'Speichern & Abschließen' }).click();
   await expect(page.locator('.modal-overlay')).toHaveCount(0, { timeout: 8_000 });
