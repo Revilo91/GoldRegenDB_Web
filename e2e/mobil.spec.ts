@@ -41,9 +41,10 @@ async function neuesSchmuckstueckOeffnen(page: Page) {
   await selects.nth(1).selectOption({ index: 1 });
   await selects.nth(2).selectOption({ index: 1 });
 
-  const vorschau = modal.locator('.form-group', { hasText: 'Artikelnummer' }).locator('.form-control');
-  await expect(vorschau).not.toHaveText('---', { timeout: 8_000 });
-  const artikelnummer = (await vorschau.textContent())?.trim();
+  // Die Vorschau steht im Modal-Kopf und erscheint, sobald die Auswahl vollständig ist.
+  const vorschau = modal.locator('.schmuckstuecke-form-nummer');
+  await expect(vorschau).toBeVisible({ timeout: 8_000 });
+  const artikelnummer = (await vorschau.textContent())?.split('×')[0].trim();
   expect(artikelnummer).toBeTruthy();
   return { modal, artikelnummer: artikelnummer! };
 }
@@ -145,8 +146,6 @@ test.describe('Handy: Navigation', () => {
     await expect(page).toHaveURL(/\/bestelluebersicht$/);
     await expect(sheet).toHaveCount(0);
 
-    // Zuletzt: Auf Belege-Seiten ist die Seite derzeit breiter als 390 px (Filterzeile), danach
-    // trifft Playwrights Klick auf die fixierte Leiste daneben.
     await leiste.getByRole('button', { name: 'Belege' }).click();
     await page.getByRole('group', { name: 'Belege' }).getByRole('link', { name: 'Rechnungen' }).click();
     await expect(page).toHaveURL(/\/rechnungen$/);
@@ -195,4 +194,14 @@ test.describe('Handy: kein horizontales Scrollen', () => {
     await neuesSchmuckstueckOeffnen(page);
     await erwarteKeinSeitlichesScrollen(page);
   });
+
+  // #329: Filterzeile und Belegtabelle weiteten die Seite auf 565 px.
+  for (const beleg of ['rechnungen', 'lieferscheine']) {
+    test(`Beleg-Liste /${beleg} scrollt nicht seitlich`, async ({ page }) => {
+      await page.goto(`/${beleg}`);
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('.filter-group')).toBeVisible({ timeout: 8_000 });
+      await erwarteKeinSeitlichesScrollen(page);
+    });
+  }
 });
