@@ -7,6 +7,7 @@ const { markiereVerkauft, lagereOffeneAus } = require("../utils/statusUebergaeng
 const { PRODUKTART } = require("../utils/constants");
 const { validate } = require("../middleware/validate");
 const { sumupImportSchema } = require("../schemas");
+const { schreibeSnapshot } = require("../services/rechnungSnapshot");
 
 /**
  * @swagger
@@ -287,6 +288,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
         (i) => i.Artikelnummer,
       );
       await markiereVerkauft(client, marinaArtikelnummernArray, rechnungMarina.ID);
+      await schreibeSnapshot(client, rechnungMarina.ID);
     }
 
     // 3. Erstelle Rechnung für Saskia
@@ -308,6 +310,7 @@ router.post("/import", validate(sumupImportSchema), async (req, res) => {
         (i) => i.Artikelnummer,
       );
       await markiereVerkauft(client, saskiaArtikelnummernArray, rechnungSaskia.ID);
+      await schreibeSnapshot(client, rechnungSaskia.ID);
     }
 
     await client.query("COMMIT");
