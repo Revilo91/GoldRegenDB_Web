@@ -308,6 +308,7 @@ export const api = {
   createSchmuckstueckeBulk: (data) => request('/schmuckstuecke/bulk', { method: 'POST', body: JSON.stringify(data) }),
   updateSchmuckstueck: (nr, data) => request(`/schmuckstuecke/${nr}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}`, { method: 'DELETE' }),
+  zuruecklagernSchmuckstueck: (nr) => request(`/schmuckstuecke/${nr}/zuruecklagern`, { method: 'POST' }),
   uploadFoto: (file, artikelnummer) => {
     const formData = new FormData();
     formData.append('foto', file);

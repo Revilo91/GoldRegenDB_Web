@@ -139,4 +139,34 @@ describe('SchmuckstueckDetailPanel', () => {
     await waitFor(() => expect(screen.getByText('Name MHO002')).toBeInTheDocument());
     expect(screen.queryByText('Name MHO001')).not.toBeInTheDocument();
   });
+  describe('Zurücklagern', () => {
+    const zeige = async (stueck, props = {}) => {
+      api.getSchmuckstueck.mockResolvedValue(stueck);
+      rendereMitToast(<SchmuckstueckDetailPanel artikelnummer="MHO001" onClose={() => {}} {...props} />);
+      await screen.findByText('Goldkette');
+    };
+    const button = () => screen.queryByRole('button', { name: /Zurücklagern/ });
+
+    it('zeigt den Button bei ausgelagertem Stück und ruft den Handler auf', async () => {
+      const onZuruecklagern = vi.fn();
+      await zeige({ ...artikel, Ausgelagert: 1 }, { onZuruecklagern });
+
+      fireEvent.click(button());
+      expect(onZuruecklagern).toHaveBeenCalledTimes(1);
+    });
+
+    it('zeigt keinen Button ohne Bearbeitungsrecht (kein Handler)', async () => {
+      await zeige({ ...artikel, Ausgelagert: 1 });
+      expect(button()).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ['im Lager', { Ausgelagert: 0 }],
+      ['verkauft', { Ausgelagert: 1, Verkauft: true }],
+      ['Ausschuss', { Ausgelagert: 1, Ausschuss: true }],
+    ])('zeigt keinen Button bei Stück %s', async (_name, status) => {
+      await zeige({ ...artikel, ...status }, { onZuruecklagern: vi.fn() });
+      expect(button()).not.toBeInTheDocument();
+    });
+  });
 });

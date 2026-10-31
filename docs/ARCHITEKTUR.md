@@ -440,6 +440,7 @@ GET    /schmuckstuecke/:artikelnummer       Einzelnes Stück
 POST   /schmuckstuecke                      Neu anlegen
 PUT    /schmuckstuecke/:artikelnummer       Aktualisieren
 DELETE /schmuckstuecke/:artikelnummer       Löschen (Foto der Basisnummer mit, wenn kein Exemplar übrig bleibt)
+POST   /schmuckstuecke/:artikelnummer/zuruecklagern  Einzelnes ausgelagertes Stück zurücklagern (bearbeiter+)
 POST   /schmuckstuecke/upload               Foto hochladen (max. 5 MB, JPG/PNG/GIF)
 GET    /schmuckstuecke/foto/:fileName       Foto abrufen (ETag-Caching)
 DELETE /schmuckstuecke/foto/:fileName       Foto löschen

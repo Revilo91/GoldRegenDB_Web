@@ -386,3 +386,93 @@ describe('DELETE /api/schmuckstuecke/:artikelnummer', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('POST /api/schmuckstuecke/:artikelnummer/zuruecklagern', () => {
+  const URL = '/api/schmuckstuecke/MHO001_1/zuruecklagern';
+  let client;
+
+  // Antworten nach SQL statt Reihenfolge, damit der Test nicht an BEGIN/COMMIT hängt
+  function clientMit(zeile, updateAnzahl = 1) {
+    client = {
+      release: jest.fn(),
+      query: jest.fn(async (sql) => {
+        if (sql.includes('FOR UPDATE')) return { rows: zeile ? [zeile] : [] };
+        if (sql.startsWith('UPDATE')) return { rowCount: updateAnzahl };
+        return { rows: [] };
+      }),
+    };
+    db.connect.mockResolvedValue(client);
+  }
+  const sqlAufrufe = () => client.query.mock.calls.map(([sql]) => sql);
+  const updateAufruf = () => client.query.mock.calls.find(([sql]) => sql.startsWith('UPDATE'));
+
+  it('lagert ein ausgelagertes Stück zurück und liest die Kunden-ID selbst', async () => {
+    clientMit({ Ausgelagert: 7, Verkauft: false, Ausschuss: false });
+
+    const res = await request(app).post(URL).send({ kundeId: 99 });
+
+    expect(res.statusCode).toBe(200);
+    expect(sqlAufrufe()).toContain('COMMIT');
+    const [sql, params] = updateAufruf();
+    expect(sql).toContain('"Ausgelagert" = 0');
+    expect(params).toEqual(expect.arrayContaining([7]));
+    expect(params).not.toContain(99);
+    expect(client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['im Lager', { Ausgelagert: 0, Verkauft: false, Ausschuss: false }],
+    ['verkauft', { Ausgelagert: 7, Verkauft: true, Ausschuss: false }],
+    ['Ausschuss', { Ausgelagert: 7, Verkauft: false, Ausschuss: true }],
+  ])('antwortet 409 bei Stück %s und ändert nichts', async (_name, zeile) => {
+    clientMit(zeile);
+
+    const res = await request(app).post(URL);
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toMatch(/nicht ausgelagert/i);
+    expect(updateAufruf()).toBeUndefined();
+    expect(sqlAufrufe()).toContain('ROLLBACK');
+    expect(client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('antwortet 404 bei unbekannter Artikelnummer', async () => {
+    clientMit(null);
+
+    const res = await request(app).post(URL);
+
+    expect(res.statusCode).toBe(404);
+    expect(updateAufruf()).toBeUndefined();
+    expect(sqlAufrufe()).toContain('ROLLBACK');
+    expect(client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('antwortet 403 bei Rolle user, ohne die Datenbank anzufassen', async () => {
+    const userApp = buildTestApp({
+      router: schmuckstueckeRoutes,
+      mountPath: '/api/schmuckstuecke',
+      user: { id: 2, username: 'nurUser', role: 'user' },
+    });
+
+    const res = await request(userApp).post(URL);
+
+    expect(res.statusCode).toBe(403);
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('rollt bei einem Datenbankfehler zurück und gibt den Client frei', async () => {
+    clientMit({ Ausgelagert: 7, Verkauft: false, Ausschuss: false });
+    const ursprung = client.query.getMockImplementation();
+    client.query.mockImplementation(async (sql) => {
+      if (sql.startsWith('UPDATE')) throw new Error('DB weg');
+      return ursprung(sql);
+    });
+
+    const res = await request(app).post(URL);
+
+    expect(res.statusCode).toBe(500);
+    expect(res.body.error).not.toMatch(/DB weg/);
+    expect(sqlAufrufe()).toContain('ROLLBACK');
+    expect(client.release).toHaveBeenCalledTimes(1);
+  });
+});
