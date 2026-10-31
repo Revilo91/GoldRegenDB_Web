@@ -5,6 +5,7 @@ const { validate } = require("../../middleware/validate");
 const { schmuckstueckUpdateSchema } = require("../../schemas");
 const { requireBearbeiter } = require("../../middleware/auth");
 const { basisArtikelnummer, loescheFoto } = require("../../utils/fotoService");
+const { lagereZurueck } = require("../../utils/statusUebergaenge");
 const {
   AUSSCHUSS_GRUND_CONSTRAINT,
   resolveAusschussGrund,
@@ -196,6 +197,72 @@ router.delete("/:artikelnummer", requireBearbeiter, async (req, res) => {
       { artikelnummer: req.params.artikelnummer, message: err.message },
     );
     res.status(500).json({ error: "Fehler beim Löschen des Schmuckstücks" });
+  }
+});
+
+/**
+ * @swagger
+ * /schmuckstuecke/{artikelnummer}/zuruecklagern:
+ *   post:
+ *     summary: Einzelnes ausgelagertes Schmuckstück zurücklagern
+ *     description: 'Erfordert Rolle: bearbeiter oder admin. Der Kunde wird aus dem Stück gelesen.'
+ *     tags: [Schmuckstücke]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: artikelnummer
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Schmuckstück zurückgelagert
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409:
+ *         description: Stück ist nicht aktiv ausgelagert
+ */
+router.post("/:artikelnummer/zuruecklagern", requireBearbeiter, async (req, res) => {
+  const { artikelnummer } = req.params;
+  let client;
+  try {
+    client = await db.connect();
+    await client.query("BEGIN");
+    // Sperre vor der Prüfung: Eine parallele Rechnung darf das Stück nicht dazwischen verkaufen.
+    const { rows } = await client.query(
+      'SELECT "Ausgelagert", "Verkauft", "Ausschuss" FROM "Schmuckstück" WHERE "Artikelnummer" = $1 FOR UPDATE',
+      [artikelnummer],
+    );
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Schmuckstück nicht gefunden" });
+    }
+    const [stueck] = rows;
+    const kundeId = Number(stueck.Ausgelagert);
+    if (kundeId <= 0 || stueck.Verkauft || stueck.Ausschuss) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: `Schmuckstück ${artikelnummer} ist nicht ausgelagert und kann nicht zurückgelagert werden`,
+      });
+    }
+    await lagereZurueck(client, kundeId, [artikelnummer]);
+    await client.query("COMMIT");
+    res.json({ message: "Schmuckstück zurückgelagert" });
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackErr) {
+        logger.error("SCHMUCK", "Rollback fehlgeschlagen beim Zurücklagern", { message: rollbackErr.message });
+      }
+    }
+    logger.error("SCHMUCK", "Fehler beim Zurücklagern des Schmuckstücks", { artikelnummer, message: err.message });
+    res.status(500).json({ error: "Fehler beim Zurücklagern des Schmuckstücks" });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 

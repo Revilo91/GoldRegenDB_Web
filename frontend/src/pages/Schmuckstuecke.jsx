@@ -234,6 +234,17 @@ export default function Schmuckstuecke() {
     }
   };
 
+  const handleZuruecklagern = async (nr) => {
+    if (!confirm(`Schmuckstück ${nr} wirklich zurücklagern?`)) return;
+    try {
+      await api.zuruecklagernSchmuckstueck(nr);
+      setSelected(null);
+      neuLaden();
+    } catch (err) {
+      toast.fehler(err.message);
+    }
+  };
+
   const handleSave = async ({ closeAfterSave = true } = {}) => {
     // Ohne diese Sperre erzeugte ein Doppelklick auf "Speichern + Weiter" zwei
     // POSTs mit derselben nextArtikelnummerPreview: sequenziell zwei Datensätze,
@@ -835,6 +846,7 @@ export default function Schmuckstuecke() {
         }
       : undefined,
     onDelete: canEdit ? () => handleDelete(selected.Artikelnummer) : undefined,
+    onZuruecklagern: canEdit ? () => handleZuruecklagern(selected.Artikelnummer) : undefined,
   };
 
   // Ab Panel-Breite bleiben nur Suche/Filter und Status-Chips beim Scrollen oben stehen (Titel und Reiter scrollen mit);

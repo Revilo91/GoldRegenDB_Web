@@ -6,6 +6,7 @@ import {
   faCopy,
   faPen,
   faTrash,
+  faWarehouse,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import { useFoto } from "../hooks/useFoto";
@@ -19,6 +20,7 @@ import { useToast } from "./Toast";
 //   artikelnummer    – Artikelnummer des anzuzeigenden Stücks
 //   onClose          – Schließen bzw. Auswahl aufheben (auch bei Ladefehler)
 //   onDuplicate/onEdit/onDelete – (optional) Aktionen; ohne Handler kein Button
+//   onZuruecklagern  – (optional) Aktion; Button nur bei aktiv ausgelagertem Stück
 //   schliessenLabel  – (optional) Beschriftung des Schließen-Buttons für Screenreader
 export default function SchmuckstueckDetailPanel({
   artikelnummer,
@@ -26,6 +28,7 @@ export default function SchmuckstueckDetailPanel({
   onDuplicate,
   onEdit,
   onDelete,
+  onZuruecklagern,
   schliessenLabel,
 }) {
   const toast = useToast();
@@ -67,6 +70,7 @@ export default function SchmuckstueckDetailPanel({
   };
 
   const displayName = item?.Name?.trim();
+  const zuruecklagernMoeglich = onZuruecklagern && item && statusVon(item) === STATUS.AUSGELAGERT;
 
   return (
     <>
@@ -98,7 +102,7 @@ export default function SchmuckstueckDetailPanel({
           </div>
         )}
       </div>
-      {(onDuplicate || onEdit || onDelete) && (
+      {(onDuplicate || onEdit || onDelete || zuruecklagernMoeglich) && (
         <div className="modal-header-actions">
           {onDuplicate && (
             <button
@@ -106,6 +110,11 @@ export default function SchmuckstueckDetailPanel({
               onClick={() => onDuplicate(item)}
               disabled={!item}>
               <FontAwesomeIcon icon={faCopy} /> Duplizieren
+            </button>
+          )}
+          {zuruecklagernMoeglich && (
+            <button className="btn btn-secondary btn-sm" onClick={onZuruecklagern}>
+              <FontAwesomeIcon icon={faWarehouse} /> Zurücklagern
             </button>
           )}
           {onEdit && (
