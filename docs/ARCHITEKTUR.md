@@ -245,6 +245,7 @@ erst danach lauscht Express und `/api/health` meldet `ok`.
 | `0003_geld_numeric.sql` | Preise DOUBLE PRECISION → `numeric(10,2)`, `schmuck_preis_nicht_negativ` (Befund B1) |
 | `0004_artikelnummer_grossschreibung.sql` | `schmuck_artikelnummer_gross_chk`, bei Kleinbuchstaben im Bestand `NOT VALID` (Befund D4) |
 | `0005_ausschuss_grund_und_trigger.sql` | Ausschuss_Grund-Constraint (`NOT VALID`) und Trigger auf `Schmuckstück` |
+| `0006_rechnung_snapshot.sql` | Tabelle `Rechnung_Position` und Summen-Snapshot je Rechnung; `snapshot_am` NULL = noch nicht eingefroren (Issue #283) |
 
 **Ablauf des Runners:**
 
@@ -429,15 +430,17 @@ POST   /auth/reset-password                 Passwort mit Token neu setzen
 POST   /auth/admin/generate-reset-link      Reset-Link generieren und zurückgeben (admin)
 ```
 
-### Schmuckstücke (bearbeiter+)
+### Schmuckstücke (angemeldet; Ändern und Löschen bearbeiter+)
 
 ```
 GET    /schmuckstuecke                      Liste (Paginierung, Filter, Suche)
 GET    /schmuckstuecke/filter-options       Verfügbare Filter-Werte
 GET    /schmuckstuecke/status-zahlen        Anzahl je Status (Lager/Ausgelagert/Verkauft/Ausschuss)
 GET    /schmuckstuecke/unique-artikelnummern Basis-Nummern für Inventur
+GET    /schmuckstuecke/next-artikelnummer   Nächste Artikelnummer für ein Präfix
 GET    /schmuckstuecke/:artikelnummer       Einzelnes Stück
 POST   /schmuckstuecke                      Neu anlegen
+POST   /schmuckstuecke/bulk                 Mehrere Stücke auf einmal (bearbeiter+)
 PUT    /schmuckstuecke/:artikelnummer       Aktualisieren
 DELETE /schmuckstuecke/:artikelnummer       Löschen (Foto der Basisnummer mit, wenn kein Exemplar übrig bleibt)
 POST   /schmuckstuecke/upload               Foto hochladen (max. 5 MB, JPG/PNG/GIF)
@@ -504,16 +507,17 @@ POST   /lagerinventur/drafts/:id/complete Abschließen
 GET    /lagerinventur/drafts/:id/diff     Soll/Ist-Vergleich mit aktuellem Bestand
 ```
 
-### Bestellungen
+### Bestellungen (bearbeiter+, außer öffentlichem Formular)
 
 ```
-POST   /bestellung                        Öffentlich: Neue Bestellung (Rate-Limit: 10/15 min)
-GET    /bestelluebersicht                 Admin: Alle Bestellungen (inkl. entschlüsselte Kundendaten)
-GET    /bestelluebersicht/:id             Admin: Einzelne Bestellung
-PUT    /bestelluebersicht/:id             Admin: Aktualisieren
-DELETE /bestelluebersicht/:id             Admin: Löschen
-POST   /bestelluebersicht/:id/anonymisieren Admin: DSGVO-Anonymisierung
-GET    /bestelluebersicht/foto/:fileName  Referenzfoto (öffentlich)
+POST   /public/bestellung                 Öffentlich: Neue Bestellung (Rate-Limit)
+GET    /bestelluebersicht                 Alle Bestellungen (inkl. entschlüsselte Kundendaten)
+GET    /bestelluebersicht/next-number     Nächste Bestellnummer
+GET    /bestelluebersicht/foto/:fileName  Referenzfoto
+GET    /bestelluebersicht/:id             Einzelne Bestellung
+POST   /bestelluebersicht                 Anlegen
+PUT    /bestelluebersicht/:id             Aktualisieren
+POST   /bestelluebersicht/:id/anonymisieren DSGVO-Anonymisierung (admin)
 ```
 
 ### Dashboard (bearbeiter+)
@@ -550,14 +554,24 @@ GET    /audit-log/artikel/:nr       Log für ein Schmuckstück
 GET    /audit-log/verify            Hash-Kette verifizieren
 
 GET    /users                       Alle Benutzer
+GET    /users/:id                   Einzelner Benutzer
 POST   /users                       Anlegen
 PUT    /users/:id                   Bearbeiten
+POST   /users/:id/reset-password    Passwort zurücksetzen
 DELETE /users/:id                   Löschen
 
-GET    /etiketten                   Etiketten-Datei (Artikelnummer, Preis, Barcode, QR)
 GET    /debug/tables                DB-Tabellen auflisten (ohne gesperrte)
 GET    /debug/tables/:name          Tabelleninhalt (?limit=&offset=, ohne BYTEA)
 PUT    /debug/tables/:name          Einzelfeld direkt bearbeiten (geloggt)
+```
+
+### Etiketten (bearbeiter+)
+
+```
+GET    /etiketten/sizes             Verfügbare Etikettengrößen
+GET    /etiketten/options           Verfügbare Basis-Artikelnummern zur Auswahl (?q=, ?limit=)
+POST   /etiketten/preview           Druckvorschau erzeugen
+GET    /etiketten/warn.svg          Warnsymbol für das Etikett
 ```
 
 **Debug-Route (#262):** nur mit `DEBUG_ROUTE_ENABLED=true` (Default aus, sonst 404; in `docker-compose.dev.yml` aktiv, in Produktion nicht). Gesperrt (403, nicht in der Liste): `app_users`, `audit_log`, `bestellung*`, `schema_migrations`. GET paginiert (Default 100, max. 500), sortiert nach Primärschlüssel, liefert `total`/`limit`/`offset` und nie BYTEA-Spalten. PUT akzeptiert nur existierende Nicht-BYTEA-Spalten, den echten einspaltigen Primärschlüssel (Änderung des PK-Felds abgelehnt) und schreibt Benutzer, Tabelle, Feld, PK sowie alten/neuen Wert (auf 200 Zeichen gekürzt) per `logger.info`.
@@ -569,15 +583,18 @@ PUT    /debug/tables/:name          Einzelfeld direkt bearbeiten (geloggt)
 | Seite | Komponente | Route | Rollen |
 |-------|-----------|-------|--------|
 | Login | `Login.jsx` | `/login` | öffentlich |
-| Dashboard | `Dashboard.jsx` | `/dashboard` | bearbeiter+ |
-| Schmuckstücke | `Schmuckstuecke.jsx` | `/schmuckstuecke` | bearbeiter+ |
-| Stück-Detail | `SchmuckstueckDetail.jsx` | `/schmuckstuecke/:nr` | bearbeiter+ |
+| Passwort zurücksetzen | `ResetPassword.jsx` | `/reset-password` | öffentlich |
+| Dashboard | `Dashboard.jsx` | `/` | bearbeiter+ |
+| Schmuckstücke | `Schmuckstuecke.jsx` | `/schmuckstuecke` | alle Angemeldeten |
+| Stück-Detail | `SchmuckstueckDetail.jsx` | `/schmuckstuecke/:artikelnummer` | alle Angemeldeten |
 | Kunden | `Kunden.jsx` | `/kunden` | bearbeiter+ |
 | Lieferscheine | `Lieferscheine.jsx` | `/lieferscheine` | bearbeiter+ |
 | Rechnungen | `Rechnungen.jsx` | `/rechnungen` | bearbeiter+ |
 | SumUp | `Sumup.jsx` | `/sumup` | bearbeiter+ |
 | Inventur | `Inventur.jsx` | `/inventur` | bearbeiter+ |
-| Bestellungen | `Bestelluebersicht.jsx` | `/bestellungen` | admin |
+| Etiketten | `Etiketten.jsx` | `/etiketten` | bearbeiter+ |
+| Hilfe | `Hilfe.jsx` | `/hilfe` | bearbeiter+ |
+| Bestellungen | `Bestelluebersicht.jsx` | `/bestelluebersicht` | bearbeiter+ |
 | Bestellung (public) | `BestellungPublic.jsx` | `/bestellung` | öffentlich |
 | Audit-Log | `AuditLog.jsx` | `/audit-log` | admin |
 | Benutzerverwaltung | `Benutzerverwaltung.jsx` | `/benutzerverwaltung` | admin |
@@ -862,7 +879,11 @@ GoldRegenDB_Web/
 │   └── workflows/
 │       ├── tests.yml                 # CI: Jest + Vitest mit Coverage-Schwellen bei jedem PR
 │       ├── check-architektur.yml     # CI: Warnt wenn docs/ARCHITEKTUR.md nicht mitgeändert wurde
-│       └── release.yml               # CI: Release-Workflow
+│       ├── release.yml               # CI: Release-Workflow
+│       ├── security-audit.yml        # CI: Sicherheitsprüfung
+│       ├── issue-analyse.yml         # Issue-Analyse durch Claude
+│       ├── dependabot-auto-merge.yml # Dependabot-PRs automatisch mergen
+│       └── sync-base.yml             # Wöchentlicher Sync aus project-base
 │
 ├── db/
 │   ├── init.sql                      # Eingefrorenes Start-Schema für den Docker-Entrypoint
@@ -874,7 +895,12 @@ GoldRegenDB_Web/
 │
 ├── docs/
 │   ├── ARCHITEKTUR.md                # Diese Datei
-│   └── E-RECHNUNG.md                 # E-Rechnung-Details
+│   ├── E-RECHNUNG.md                 # E-Rechnung-Details
+│   └── ANFORDERUNGEN_REVIEW.md       # Review der Anforderungen
+│
+├── e2e/                              # Playwright-Tests (Desktop und Handy)
+├── mcp-server/                       # MCP-Server mit Lesezugriff auf die Datenbank
+├── scripts/                          # Release, Smoke-Test, Secret-Rotation, Etikettendrucker
 │
 ├── backend/
 │   ├── __tests__/                    # Jest-Tests
@@ -886,7 +912,7 @@ GoldRegenDB_Web/
 │       ├── routes/                   # REST-Endpunkte (auth, kunden, …)
 │       │   ├── schmuckstuecke/       # index.js setzt zusammen (Reihenfolge relevant), foto, bulk, liste, anlegen, bearbeiten
 │       │   └── backup/               # index.js setzt zusammen: json, sql, fotos (Hintergrund-Job), import
-│       ├── services/                 # schmuckstueckService.js (Filter/Bulk-Helfer), backupService.js (Schema-Katalog, Checks)
+│       ├── services/                 # schmuckstueckService.js (Filter/Bulk-Helfer), backupService.js, backupStatus.js, rechnungSnapshot.js
 │       ├── middleware/               # auth.js, csrf.js, cors.js, validate.js, …
 │       ├── schemas/                  # Zod-Schemas für Input-Validierung
 │       └── utils/
@@ -955,12 +981,27 @@ FORCE_HTTPS=true
 COOKIE_SECURE=true
 BESTELLUNG_ENCRYPTION_KEY=...   # AES-256 für DSGVO-Felder
 
+JWT_SECRET_OLD=                 # vorheriges Secret während einer Rotation
+DB_POOL_MAX=25
+DB_PORT=5432
+LOG_LEVEL=debug                 # nur dieser Wert ändert etwas: Debug-Ausgaben an
+LOG_FORMAT=pretty
+ENABLE_API_DOCS=false           # Swagger; ohne Wert nur außerhalb von Produktion aktiv
+
+# Bestellungen (DSGVO)
+PRIVACY_POLICY_VERSION=2026-01-v1
+BESTELLUNG_RETENTION_TAGE_OHNE_RECHNUNG=90
+BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG=10
+
+# E-Rechnung: VERKAEUFER_* (vollständige Liste in .env.example)
+
 # Schema-Migrationen (siehe Abschnitt 2)
 MIGRATION_BACKUP_DIR=/backups/migrations   # Compose-Default, Volume der db-Backups
 MIGRATION_SKIP_BACKUP=false                # true = Backup-Gate überspringen (nur Warnung)
 
 # Backup-Status (Issue #289): backup.sh schreibt /backups/backup-status.json,
 # das Backend liest daraus das Status-Wort für /api/health
+BACKUP_STATUS_DATEI=            # app: abweichender Pfad der Statusdatei
 BACKUP_MAX_ALTER_STUNDEN=26     # app: älter als N Stunden = "veraltet"
 BACKUP_WEBHOOK_URL=             # db: optional, Fehlermeldung per HTTP-POST (leer = aus)
 ```
