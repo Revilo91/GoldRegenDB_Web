@@ -140,13 +140,13 @@ describe('Öffentliches Bestellformular (kein Login)', () => {
     expect(db.connect).not.toHaveBeenCalled();
   });
 
-  it('POST / lehnt fehlende Telefonnummer ab (Datenminimierung)', async () => {
+  it('POST / lehnt Lieferung ohne Telefonnummer ab (Datenminimierung)', async () => {
     const res = await request(buildApp())
       .post('/api/public/bestellung')
       .send({
-        versandart: 'abholung',
+        versandart: 'lieferung',
         beschreibung: 'Test',
-        kunde: { name: 'Max Mustermann' },
+        kunde: { name: 'Max Mustermann', strasse: 'Weg', hausnummer: '1', plz: '12345', ort: 'Ort' },
         consent: { erteilt: true },
       });
 

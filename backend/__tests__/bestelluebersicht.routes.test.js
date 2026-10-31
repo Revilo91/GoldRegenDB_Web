@@ -82,19 +82,24 @@ describe('Bestellübersicht API', () => {
     expect(db.connect).toHaveBeenCalled();
   });
 
-  it('POST / lehnt fehlende Telefonnummer ab (Datenminimierung)', async () => {
+  it('POST / lehnt Lieferung ohne Telefonnummer ab (Datenminimierung)', async () => {
     const res = await request(buildApp())
       .post('/api/bestelluebersicht')
       .send({
-        versandart: 'abholung',
+        versandart: 'lieferung',
         beschreibung: 'Test',
-        kunde: { name: 'Max Mustermann' },
+        kunde: { name: 'Max Mustermann', strasse: 'Weg', hausnummer: '1', plz: '12345', ort: 'Ort' },
         consent: { erteilt: true },
       });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Telefonnummer/);
     expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('validateDatenminimierung: Abholung kommt ohne Telefonnummer aus (#328)', () => {
+    const { validateDatenminimierung } = require('../src/utils/bestellungService');
+    expect(validateDatenminimierung('abholung', { name: 'Max Mustermann' })).toBeNull();
   });
 
   it('POST / lehnt Versandart "lieferung" ohne Adresse ab (Datenminimierung)', async () => {

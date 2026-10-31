@@ -164,9 +164,23 @@ describeDb('Migrationen gegen echte Datenbank', () => {
     await migriere(a);
 
     schemaA = await schemaSnapshot(q(a.pool), { mitSpaltenreihenfolge: true });
-    expect(schemaA.migrationen.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005', '0006']);
+    expect(schemaA.migrationen.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004', '0005', '0006', '0007']);
     const { rows } = await a.pool.query('SELECT username, must_change_password FROM app_users');
     expect(rows).toEqual([{ username: 'admin', must_change_password: true }]);
+  });
+
+  it('Trigger: Abholung ohne Telefon erlaubt, Lieferung ohne Telefon abgelehnt (#328)', async () => {
+    const { rows } = await a.pool.query(
+      "INSERT INTO bestellung_kunde (kunde_pseudonym) VALUES ('MIG-328') RETURNING id"
+    );
+    const bestellung = (nummer, versandart) => a.pool.query(
+      `INSERT INTO bestellung (bestellnummer, kunde_id, versandart, beschreibung, erstellt_von)
+       VALUES ($1, $2, $3, 'Test', 'test')`,
+      [nummer, rows[0].id, versandart]
+    );
+
+    await expect(bestellung('BE-328-1', 'abholung')).resolves.toBeDefined();
+    await expect(bestellung('BE-328-2', 'lieferung')).rejects.toThrow(/Telefonnummer/);
   });
 
   it('(b) init.sql + Migrationen ergibt dasselbe Schema wie (a), inklusive Spaltenreihenfolge', async () => {
