@@ -264,6 +264,7 @@ db.initializeDatabase()
     const server = app.listen(PORT, '0.0.0.0', () => {
       logger.info('SERVER', `GoldRegenDB Backend läuft auf Port ${PORT}`);
       logger.info('SERVER', '=== Backend bereit ===');
+      require('./services/sqlSicherung').sqlSicherung().starteAufraeumen();
     });
 
     // Ohne Signal-Handler reisst `docker stop` laufende Requests ab und der

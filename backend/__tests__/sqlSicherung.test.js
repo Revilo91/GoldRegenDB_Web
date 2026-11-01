@@ -15,6 +15,7 @@ const logger = require('../src/utils/logger');
 const {
   erstelleSqlSicherung,
   BEHALTENE_SICHERUNGEN,
+  AUFBEWAHRUNG_TAGE,
   SICHERUNG_DATEI_MUSTER,
 } = require('../src/services/sqlSicherung');
 
@@ -377,5 +378,62 @@ describe('Dateirechte (Dumps enthalten Kundendaten)', () => {
     } finally {
       spion.mockRestore();
     }
+  });
+});
+
+describe('Altersgrenze', () => {
+  const JETZT = new Date('2026-11-01T12:00:00.000Z');
+  const TAG_MS = 24 * 60 * 60 * 1000;
+
+  const legeAn = (name, alterTage) => {
+    fs.mkdirSync(zielDir, { recursive: true });
+    const pfad = path.join(zielDir, name);
+    fs.writeFileSync(pfad, 'alt');
+    const zeit = new Date(JETZT.getTime() - alterTage * TAG_MS);
+    fs.utimesSync(pfad, zeit, zeit);
+  };
+
+  it('löscht Dumps über der Frist auch ohne neuen Lauf, jüngere bleiben', async () => {
+    legeAn(dateiName(1), AUFBEWAHRUNG_TAGE + 1);
+    legeAn(dateiName(2), AUFBEWAHRUNG_TAGE - 1);
+
+    await dienst({ jetzt: () => JETZT }).raeumeAuf();
+
+    expect(fs.readdirSync(zielDir)).toEqual([dateiName(2)]);
+  });
+
+  it('löscht bei einem Lauf auch abgelaufene Dumps innerhalb der letzten 3', async () => {
+    legeAn(dateiName(1), AUFBEWAHRUNG_TAGE + 1);
+    const d = dienst({ jetzt: () => JETZT });
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(fs.readdirSync(zielDir)).toEqual([stand.datei]);
+  });
+
+  it('lässt fremde Dateien über der Frist liegen', async () => {
+    legeAn('fremd.dump', AUFBEWAHRUNG_TAGE + 1);
+
+    await dienst({ jetzt: () => JETZT }).raeumeAuf();
+
+    expect(fs.readdirSync(zielDir)).toEqual(['fremd.dump']);
+  });
+
+  it('meldet keinen Fehler, solange der Ordner nicht existiert', async () => {
+    await dienst().raeumeAuf();
+
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('räumt beim Start sofort und danach täglich auf', async () => {
+    legeAn(dateiName(1), AUFBEWAHRUNG_TAGE + 1);
+    const unref = jest.fn();
+    const setIntervalImpl = jest.fn(() => ({ unref }));
+
+    await dienst({ jetzt: () => JETZT }).starteAufraeumen(setIntervalImpl);
+
+    expect(fs.readdirSync(zielDir)).toEqual([]);
+    expect(setIntervalImpl).toHaveBeenCalledWith(expect.any(Function), TAG_MS);
+    expect(unref).toHaveBeenCalled();
   });
 });

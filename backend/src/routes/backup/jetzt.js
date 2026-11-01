@@ -7,7 +7,7 @@ const { sqlSicherung } = require("../../services/sqlSicherung");
  *   post:
  *     summary: Datenbank-Dump im Hintergrund starten ("Jetzt sichern")
  *     description: 'Startet pg_dump (Custom-Format, inklusive Fotos) in eine Datei unter
- *       MANUAL_BACKUP_DIR (Standard /backups/manual); die letzten 3 fertigen Dumps bleiben.
+ *       MANUAL_BACKUP_DIR (Standard /backups/manual); die letzten 3 fertigen Dumps bleiben, höchstens 30 Tage.
  *       Die Antwort kommt sofort, den Fortschritt liefert GET /backup/jetzt/status.
  *       Erfordert Rolle: admin.'
  *     tags: [Backup]

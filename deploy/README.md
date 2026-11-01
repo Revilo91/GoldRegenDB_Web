@@ -92,7 +92,7 @@ docker compose start app
 Unter **Datensicherung → Jetzt sichern** startet ein Admin einen Datenbank-Dump im Hintergrund, z. B. nach
 größeren Änderungen. Der Dump (`pg_dump`, Custom-Format, mit Fotos) landet als
 `backups/manual/goldregendb_manuell_<zeitstempel>.dump` im Installationsordner (im Container
-`/backups/manual`, anderer Ort über `MANUAL_BACKUP_DIR`); die letzten 3 bleiben, ältere werden gelöscht.
+`/backups/manual`, anderer Ort über `MANUAL_BACKUP_DIR`); die letzten 3 bleiben, höchstens aber 30 Tage, ältere werden gelöscht.
 Wiederherstellen mit `pg_restore` (nicht mit `restore.sh`, das erwartet `.sql.gz`). Der Dump zählt nicht für
 `backup.status` in `/api/health`, das gehört dem täglichen `db/backup.sh`.
 
@@ -173,6 +173,7 @@ PostgreSQL ist nicht konsistent, die geprüften Dumps schon. Der Ordner enthält
 - `daily/`, `weekly/`: Dumps von `db/backup.sh`
 - `pre-update_*.sql.gz`: Sicherung vor jedem Update durch `install.sh`
 - `migrations/`: Dumps vor Schema-Migrationen (`MIGRATION_BACKUP_DIR`)
+- `manual/`: Dumps von „Jetzt sichern“ (`MANUAL_BACKUP_DIR`), Ordner nur für root lesbar
 - `backup.log` (Log des Aufgabenplaners)
 
 Fotos (ca. 1,6 GB) stecken in den Dumps, ein separater Foto-Ordner entfällt. Unterordner nicht
