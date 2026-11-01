@@ -65,6 +65,8 @@ services:
       # "Schema-Migrationen". Landet neben den täglichen db-Backups.
       MIGRATION_BACKUP_DIR: /backups/migrations
       MIGRATION_SKIP_BACKUP: ${MIGRATION_SKIP_BACKUP:-false}
+      # Ziel von "Jetzt sichern"; ein Ort außerhalb von /backups braucht ein eigenes Volume
+      MANUAL_BACKUP_DIR: ${MANUAL_BACKUP_DIR:-/backups/manual}
       # /api/health meldet "veraltet", wenn das letzte Backup älter ist (Stunden)
       BACKUP_MAX_ALTER_STUNDEN: ${BACKUP_MAX_ALTER_STUNDEN:-26}
       DB_POOL_MAX: ${DB_POOL_MAX:-25}
