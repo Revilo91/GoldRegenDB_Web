@@ -12,6 +12,14 @@ const { pgDumpInvocation, runExecFile, backupFailureMessage } = require('../conf
 
 const DEFAULT_SICHERUNG_DIR = '/backups/manual';
 const BEHALTENE_SICHERUNGEN = 3;
+// Dumps enthalten auch Daten später anonymisierter Kunden, deshalb zusätzlich eine Frist.
+const AUFBEWAHRUNG_TAGE = 30;
+const TAG_MS = 24 * 60 * 60 * 1000;
+// Dumps liegen auf derselben Platte wie die Datenbank; läuft sie voll, kann
+// PostgreSQL abstürzen. Ohne vorhandenen Dump gilt die Untergrenze (Fotos ca. 1,6 GB).
+const GIB = 1024 ** 3;
+const RESERVE_BYTES = 2 * GIB;
+const MINDEST_FREI_BYTES = 4 * GIB;
 const DUMP_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const ZEITSTEMPEL = '\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}-\\d{3}Z';
 const DATEI_PRAEFIX = 'goldregendb_manuell_';
@@ -30,6 +38,7 @@ const LEERER_STAND = {
 
 // Kein Roh-Fehlertext (Pfade, Verbindungsdaten) an den Client: Details stehen im Log.
 function clientFehler(err) {
+  if (err.zuWenigPlatz) return 'Zu wenig freier Speicherplatz für die Sicherung';
   if (err.zielordner) return 'Zielordner nicht beschreibbar (MANUAL_BACKUP_DIR prüfen)';
   if (err.code === 'ENOENT') return 'pg_dump nicht gefunden (postgresql-client installieren)';
   if (err.killed) return 'pg_dump wurde nach Zeitüberschreitung abgebrochen';
@@ -47,6 +56,7 @@ function erstelleSqlSicherung({
   env = process.env,
   execFileImpl = execFile,
   jetzt = () => new Date(),
+  statfsImpl = fs.promises.statfs,
 }) {
   let stand = { ...LEERER_STAND };
 
@@ -55,15 +65,42 @@ function erstelleSqlSicherung({
   async function rotiere(dir) {
     try {
       const fertige = (await listeDateien(dir, SICHERUNG_DATEI_MUSTER)).sort().reverse();
-      for (const name of fertige.slice(BEHALTENE_SICHERUNGEN)) {
+      // Auch Reste abgebrochener Läufe enthalten Kundendaten. Ein laufender Dump
+      // ist nie betroffen, er bricht nach DUMP_TIMEOUT_MS ab.
+      const reste = await listeDateien(dir, SICHERUNG_TMP_MUSTER);
+      const grenze = jetzt().getTime() - AUFBEWAHRUNG_TAGE * TAG_MS;
+      for (const [index, name] of [...fertige, ...reste].entries()) {
         try {
-          await fs.promises.unlink(path.join(dir, name));
+          const pfad = path.join(dir, name);
+          const { mtimeMs } = await fs.promises.stat(pfad);
+          const ueberzaehlig = index >= BEHALTENE_SICHERUNGEN && index < fertige.length;
+          if (ueberzaehlig || mtimeMs < grenze) {
+            await fs.promises.unlink(pfad);
+          }
         } catch (err) {
+          // Der tägliche Lauf und eine Rotation können dieselbe Datei erwischen.
+          if (err.code === 'ENOENT') continue;
           logger.error('BACKUP', 'Rotation: alte Sicherung nicht gelöscht', { datei: name, message: err.message });
         }
       }
     } catch (err) {
+      // Vor der ersten Sicherung gibt es den Ordner noch nicht.
+      if (err.code === 'ENOENT') return;
       logger.error('BACKUP', 'Rotation der manuellen Sicherungen fehlgeschlagen', { message: err.message });
+    }
+  }
+
+  async function pruefePlatz(dir) {
+    let groesster = 0;
+    for (const name of await listeDateien(dir, SICHERUNG_DATEI_MUSTER)) {
+      const { size } = await fs.promises.stat(path.join(dir, name));
+      groesster = Math.max(groesster, size);
+    }
+    const noetig = Math.max(MINDEST_FREI_BYTES, groesster + RESERVE_BYTES);
+    const { bavail, bsize } = await statfsImpl(dir);
+    const frei = bavail * bsize;
+    if (frei < noetig) {
+      throw Object.assign(new Error(`Zu wenig Platz: ${frei} Bytes frei, ${noetig} nötig`), { zuWenigPlatz: true });
     }
   }
 
@@ -78,11 +115,12 @@ function erstelleSqlSicherung({
       for (const name of await listeDateien(dir, SICHERUNG_TMP_MUSTER)) {
         await fs.promises.rm(path.join(dir, name), { force: true });
       }
+      await pruefePlatz(dir);
       // pg_dump übernimmt beim Überschreiben den Modus; 'wx' folgt keinem Symlink.
       const datei = await fs.promises.open(temporaer, 'wx', 0o600);
       await datei.close();
     } catch (err) {
-      err.zielordner = true;
+      if (!err.zuWenigPlatz) err.zielordner = true;
       throw err;
     }
   }
@@ -120,11 +158,21 @@ function erstelleSqlSicherung({
   function starte() {
     if (stand.status === 'running') return { gestartet: false, stand: status() };
     stand = { ...LEERER_STAND, status: 'running', gestartetAm: jetzt().toISOString() };
-    lauf(env.MANUAL_BACKUP_DIR || DEFAULT_SICHERUNG_DIR);
+    lauf(zielordner());
     return { gestartet: true, stand: status() };
   }
 
-  return { starte, status };
+  const zielordner = () => env.MANUAL_BACKUP_DIR || DEFAULT_SICHERUNG_DIR;
+
+  // Die Frist muss auch greifen, wenn nie wieder jemand "Jetzt sichern" klickt.
+  const raeumeAuf = () => rotiere(zielordner());
+
+  async function starteAufraeumen(setIntervalImpl = setInterval) {
+    setIntervalImpl(raeumeAuf, TAG_MS).unref();
+    await raeumeAuf();
+  }
+
+  return { starte, status, raeumeAuf, starteAufraeumen };
 }
 
 // Ein Dienst pro Prozess: der Zustand liegt im Speicher.
@@ -143,6 +191,9 @@ module.exports = {
   erstelleSqlSicherung,
   sqlSicherung,
   BEHALTENE_SICHERUNGEN,
+  AUFBEWAHRUNG_TAGE,
+  MINDEST_FREI_BYTES,
+  RESERVE_BYTES,
   SICHERUNG_DATEI_MUSTER,
   DEFAULT_SICHERUNG_DIR,
 };

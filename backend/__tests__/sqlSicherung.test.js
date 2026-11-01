@@ -15,6 +15,9 @@ const logger = require('../src/utils/logger');
 const {
   erstelleSqlSicherung,
   BEHALTENE_SICHERUNGEN,
+  AUFBEWAHRUNG_TAGE,
+  MINDEST_FREI_BYTES,
+  RESERVE_BYTES,
   SICHERUNG_DATEI_MUSTER,
 } = require('../src/services/sqlSicherung');
 
@@ -51,6 +54,7 @@ const dienst = (optionen = {}) =>
     connectionString: DB_URL,
     env: { MANUAL_BACKUP_DIR: zielDir },
     execFileImpl: execMitDatei(),
+    statfsImpl: async () => ({ bavail: Number.MAX_SAFE_INTEGER / 4096, bsize: 4096 }),
     ...optionen,
   });
 
@@ -377,5 +381,121 @@ describe('Dateirechte (Dumps enthalten Kundendaten)', () => {
     } finally {
       spion.mockRestore();
     }
+  });
+});
+
+describe('Altersgrenze', () => {
+  const JETZT = new Date('2026-11-01T12:00:00.000Z');
+  const TAG_MS = 24 * 60 * 60 * 1000;
+
+  const legeAn = (name, alterTage) => {
+    fs.mkdirSync(zielDir, { recursive: true });
+    const pfad = path.join(zielDir, name);
+    fs.writeFileSync(pfad, 'alt');
+    const zeit = new Date(JETZT.getTime() - alterTage * TAG_MS);
+    fs.utimesSync(pfad, zeit, zeit);
+  };
+
+  it('löscht Dumps über der Frist auch ohne neuen Lauf, jüngere bleiben', async () => {
+    legeAn(dateiName(1), AUFBEWAHRUNG_TAGE + 1);
+    legeAn(dateiName(2), AUFBEWAHRUNG_TAGE - 1);
+
+    await dienst({ jetzt: () => JETZT }).raeumeAuf();
+
+    expect(fs.readdirSync(zielDir)).toEqual([dateiName(2)]);
+  });
+
+  it('löscht bei einem Lauf auch abgelaufene Dumps innerhalb der letzten 3', async () => {
+    legeAn(dateiName(1), AUFBEWAHRUNG_TAGE + 1);
+    const d = dienst({ jetzt: () => JETZT });
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(fs.readdirSync(zielDir)).toEqual([stand.datei]);
+  });
+
+  it('löscht verwaiste .tmp-Dateien über der Frist, jüngere bleiben', async () => {
+    legeAn(`${dateiName(1)}.tmp`, AUFBEWAHRUNG_TAGE + 1);
+    legeAn(`${dateiName(2)}.tmp`, AUFBEWAHRUNG_TAGE - 1);
+
+    await dienst({ jetzt: () => JETZT }).raeumeAuf();
+
+    expect(fs.readdirSync(zielDir)).toEqual([`${dateiName(2)}.tmp`]);
+  });
+
+  it('lässt fremde Dateien über der Frist liegen', async () => {
+    legeAn('fremd.dump', AUFBEWAHRUNG_TAGE + 1);
+
+    await dienst({ jetzt: () => JETZT }).raeumeAuf();
+
+    expect(fs.readdirSync(zielDir)).toEqual(['fremd.dump']);
+  });
+
+  it('meldet keinen Fehler, solange der Ordner nicht existiert', async () => {
+    await dienst().raeumeAuf();
+
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('räumt beim Start sofort und danach täglich auf', async () => {
+    legeAn(dateiName(1), AUFBEWAHRUNG_TAGE + 1);
+    const unref = jest.fn();
+    const setIntervalImpl = jest.fn(() => ({ unref }));
+
+    await dienst({ jetzt: () => JETZT }).starteAufraeumen(setIntervalImpl);
+
+    expect(fs.readdirSync(zielDir)).toEqual([]);
+    expect(setIntervalImpl).toHaveBeenCalledWith(expect.any(Function), TAG_MS);
+    expect(unref).toHaveBeenCalled();
+  });
+});
+
+describe('Platz-Check', () => {
+  const GIB = 1024 ** 3;
+  const freierPlatz = (bytes) => jest.fn().mockResolvedValue({ bavail: bytes / 4096, bsize: 4096 });
+
+  it('startet pg_dump nicht unter der Untergrenze und meldet es verständlich', async () => {
+    const execFileImpl = execMitDatei();
+    const d = dienst({ execFileImpl, statfsImpl: freierPlatz(MINDEST_FREI_BYTES - 4096) });
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(stand.status).toBe('failed');
+    expect(stand.fehler).toMatch(/Speicherplatz/);
+    expect(stand.fehler).not.toContain(zielDir);
+    expect(execFileImpl).not.toHaveBeenCalled();
+    expect(fs.readdirSync(zielDir)).toEqual([]);
+  });
+
+  it('läuft mit genug Platz', async () => {
+    const d = dienst({ statfsImpl: freierPlatz(MINDEST_FREI_BYTES) });
+    d.starte();
+
+    expect((await warteAufEnde(d)).status).toBe('completed');
+  });
+
+  it('rechnet mit der Größe des größten vorhandenen Dumps plus Reserve', async () => {
+    fs.mkdirSync(zielDir, { recursive: true });
+    const vorhanden = path.join(zielDir, dateiName(1));
+    fs.writeFileSync(vorhanden, 'x');
+    fs.truncateSync(vorhanden, 5 * GIB); // Datei mit Loch, belegt keinen Platz
+    const execFileImpl = execMitDatei();
+    const d = dienst({ execFileImpl, statfsImpl: freierPlatz(5 * GIB + RESERVE_BYTES - 4096) });
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(stand.status).toBe('failed');
+    expect(execFileImpl).not.toHaveBeenCalled();
+    expect(fs.existsSync(vorhanden)).toBe(true);
+  });
+
+  it('bricht ab, wenn der freie Platz nicht ermittelbar ist', async () => {
+    const execFileImpl = execMitDatei();
+    const statfsImpl = jest.fn().mockRejectedValue(new Error('ENOSYS'));
+    const d = dienst({ execFileImpl, statfsImpl });
+    d.starte();
+
+    expect((await warteAufEnde(d)).status).toBe('failed');
+    expect(execFileImpl).not.toHaveBeenCalled();
   });
 });
