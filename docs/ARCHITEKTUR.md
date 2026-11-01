@@ -570,7 +570,7 @@ PUT    /debug/tables/:name          Einzelfeld direkt bearbeiten (geloggt)
 
 ```
 GET    /etiketten/sizes             Verfügbare Etikettengrößen
-GET    /etiketten/options           Verfügbare Basis-Artikelnummern zur Auswahl (?q=, ?limit=)
+GET    /etiketten/options           Verfügbare Basis-Artikelnummern zur Auswahl (?q=, ?limit=, ?sort=zuletzt für die zuletzt erstellten)
 POST   /etiketten/preview           Druckvorschau erzeugen
 GET    /etiketten/warn.svg          Warnsymbol für das Etikett
 ```

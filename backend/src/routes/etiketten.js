@@ -338,7 +338,14 @@ router.get("/sizes", (req, res) => {
 });
 
 // --- GET OPTIONS ---
-// Liefert Liste eindeutiger Basis-Artikelnummern für die Artikelauswahl
+// Liefert Liste eindeutiger Basis-Artikelnummern für die Artikelauswahl.
+// ?sort=zuletzt liefert die zuletzt erstellten Basisnummern zuerst.
+const OPTIONS_ORDER_BY = {
+  artikelnummer: "artikel_base",
+  // NULL-Erstelldatum (Altdaten) zuletzt, Artikelnummer als stabiler Tiebreak
+  zuletzt: 'MAX("Erstelldatum") DESC NULLS LAST, artikel_base',
+};
+
 router.get("/options", async (req, res) => {
   try {
     const q = String(req.query.q || "")
@@ -360,6 +367,10 @@ router.get("/options", async (req, res) => {
     }
 
     const limitParam = builder.paramIdx;
+    // Feste Whitelist: unbekannte Werte fallen auf die Standardsortierung zurück
+    const orderBy = Object.hasOwn(OPTIONS_ORDER_BY, req.query.sort)
+      ? OPTIONS_ORDER_BY[req.query.sort]
+      : OPTIONS_ORDER_BY.artikelnummer;
 
     const query = `
       SELECT split_part("Artikelnummer", '_', 1) AS artikel_base,
@@ -367,7 +378,7 @@ router.get("/options", async (req, res) => {
       FROM "Schmuckstück"
       ${builder.build()}
       GROUP BY artikel_base
-      ORDER BY artikel_base
+      ORDER BY ${orderBy}
       LIMIT $${limitParam}
     `;
 
