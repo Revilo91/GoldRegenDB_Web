@@ -65,12 +65,16 @@ function erstelleSqlSicherung({
   async function rotiere(dir) {
     try {
       const fertige = (await listeDateien(dir, SICHERUNG_DATEI_MUSTER)).sort().reverse();
+      // Auch Reste abgebrochener Läufe enthalten Kundendaten. Ein laufender Dump
+      // ist nie betroffen, er bricht nach DUMP_TIMEOUT_MS ab.
+      const reste = await listeDateien(dir, SICHERUNG_TMP_MUSTER);
       const grenze = jetzt().getTime() - AUFBEWAHRUNG_TAGE * TAG_MS;
-      for (const [index, name] of fertige.entries()) {
+      for (const [index, name] of [...fertige, ...reste].entries()) {
         try {
           const pfad = path.join(dir, name);
           const { mtimeMs } = await fs.promises.stat(pfad);
-          if (index >= BEHALTENE_SICHERUNGEN || mtimeMs < grenze) {
+          const ueberzaehlig = index >= BEHALTENE_SICHERUNGEN && index < fertige.length;
+          if (ueberzaehlig || mtimeMs < grenze) {
             await fs.promises.unlink(pfad);
           }
         } catch (err) {

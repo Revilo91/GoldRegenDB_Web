@@ -414,6 +414,15 @@ describe('Altersgrenze', () => {
     expect(fs.readdirSync(zielDir)).toEqual([stand.datei]);
   });
 
+  it('löscht verwaiste .tmp-Dateien über der Frist, jüngere bleiben', async () => {
+    legeAn(`${dateiName(1)}.tmp`, AUFBEWAHRUNG_TAGE + 1);
+    legeAn(`${dateiName(2)}.tmp`, AUFBEWAHRUNG_TAGE - 1);
+
+    await dienst({ jetzt: () => JETZT }).raeumeAuf();
+
+    expect(fs.readdirSync(zielDir)).toEqual([`${dateiName(2)}.tmp`]);
+  });
+
   it('lässt fremde Dateien über der Frist liegen', async () => {
     legeAn('fremd.dump', AUFBEWAHRUNG_TAGE + 1);
 
