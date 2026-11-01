@@ -71,6 +71,36 @@
   padding: 6px 10px;
 }
 
+/* Vorschläge "Zuletzt erstellt" */
+
+.etikett-zuletzt {
+  margin-bottom: 12px;
+}
+
+.etikett-zuletzt-liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.etikett-zuletzt-btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  max-width: 100%;
+  text-align: left;
+}
+
+.etikett-zuletzt-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
 .etikett-row-active td {
   background: var(--accent-glow);
 }

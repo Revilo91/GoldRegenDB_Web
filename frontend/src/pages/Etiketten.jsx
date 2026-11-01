@@ -4,6 +4,7 @@ import DataTable from "../components/DataTable";
 
 const PRESET_HINTS = ["Edelstahl", "Nickelfrei", "versilbert", "vergoldet"];
 const MAX_HINTS = 6;
+const ZULETZT_LIMIT = 20;
 
 export default function Etiketten({ showHeader = true }) {
   // Artikelauswahl
@@ -12,6 +13,11 @@ export default function Etiketten({ showHeader = true }) {
   const [options, setOptions] = useState([]);
   const [loadedSearch, setLoadedSearch] = useState(null);
   const [rowQty, setRowQty] = useState({});
+
+  // Vorschläge "Zuletzt erstellt": null = nie geöffnet, nur per Klick geladen
+  const [zuletzt, setZuletzt] = useState(null);
+  const [zuletztOpen, setZuletztOpen] = useState(false);
+  const [zuletztLoading, setZuletztLoading] = useState(false);
 
   // Druckliste
   const [items, setItems] = useState([]);
@@ -143,6 +149,28 @@ export default function Etiketten({ showHeader = true }) {
       return next;
     });
     setRowQty((prev) => ({ ...prev, [artikelnummer]: 1 }));
+  }
+
+  async function toggleZuletzt() {
+    if (zuletztOpen) {
+      setZuletztOpen(false);
+      return;
+    }
+    setZuletztOpen(true);
+    setZuletztLoading(true);
+    try {
+      const json = await api.getEtikettenOptions({
+        sort: "zuletzt",
+        limit: String(ZULETZT_LIMIT),
+      });
+      setZuletzt(json || []);
+      setError("");
+    } catch (err) {
+      setZuletzt([]);
+      setError(err.message || "Fehler beim Laden der zuletzt erstellten Artikel");
+    } finally {
+      setZuletztLoading(false);
+    }
   }
 
   function updateQty(idx, qty) {
@@ -346,6 +374,38 @@ export default function Etiketten({ showHeader = true }) {
               <span className="badge info">{options.length} Treffer</span>
             </div>
             <div className="card-body">
+              <div className="etikett-zuletzt">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  aria-expanded={zuletztOpen}
+                  onClick={toggleZuletzt}>
+                  Zuletzt erstellt
+                </button>
+                {zuletztOpen && (
+                  <div className="etikett-zuletzt-liste">
+                    {zuletztLoading ? (
+                      <p className="etikett-hint-text">Lade Vorschläge …</p>
+                    ) : zuletzt?.length ? (
+                      zuletzt.map((r) => (
+                        <button
+                          key={r.artikelnummer}
+                          type="button"
+                          className="btn btn-secondary btn-sm etikett-zuletzt-btn"
+                          aria-label={`${r.artikelnummer} übernehmen`}
+                          onClick={() => addItem(r.artikelnummer, 1)}>
+                          <strong>{r.artikelnummer}</strong>
+                          {r.name && <span>{r.name}</span>}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="etikett-hint-text">
+                        Keine verfügbaren Stücke gefunden
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               <input
                 className="form-control etikett-search"
                 placeholder="Suche nach Artikelnummer oder Name"

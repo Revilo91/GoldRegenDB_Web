@@ -87,6 +87,94 @@ describe('Etiketten', () => {
     expect(payload.labelSize).toBe('small');
   });
 
+  describe('Zuletzt erstellt', () => {
+    const zuletzt = [
+      { artikelnummer: 'NEU002', name: 'Neueste Kette' },
+      { artikelnummer: 'ALT001', name: 'Ältere Kette' },
+    ];
+
+    it('lädt Vorschläge nicht automatisch', async () => {
+      render(<Etiketten />);
+
+      await screen.findByText('ART001');
+      expect(
+        api.getEtikettenOptions.mock.calls.some(([p]) => p?.sort === 'zuletzt'),
+      ).toBe(false);
+      expect(screen.queryByLabelText('NEU002 übernehmen')).not.toBeInTheDocument();
+    });
+
+    it('lädt per Klick die letzten 20 Basisnummern und zeigt sie an', async () => {
+      api.getEtikettenOptions.mockImplementation((params) =>
+        Promise.resolve(params?.sort === 'zuletzt'
+          ? zuletzt
+          : [{ artikelnummer: 'ART001', name: 'Test Artikel' }]),
+      );
+      render(<Etiketten />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Zuletzt erstellt' }));
+
+      expect(await screen.findByLabelText('NEU002 übernehmen')).toBeInTheDocument();
+      expect(screen.getByLabelText('ALT001 übernehmen')).toBeInTheDocument();
+      expect(api.getEtikettenOptions).toHaveBeenCalledWith({
+        sort: 'zuletzt',
+        limit: '20',
+      });
+    });
+
+    it('übernimmt einen Vorschlag erst per Klick mit Menge 1', async () => {
+      api.getEtikettenOptions.mockImplementation((params) =>
+        Promise.resolve(params?.sort === 'zuletzt' ? zuletzt : []),
+      );
+      render(<Etiketten />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Zuletzt erstellt' }));
+      const vorschlag = await screen.findByLabelText('NEU002 übernehmen');
+      expect(screen.getByText('Noch keine Artikel in der Druckliste.')).toBeInTheDocument();
+
+      fireEvent.click(vorschlag);
+
+      expect(await screen.findByText('1 Etiketten · 1 Typen')).toBeInTheDocument();
+    });
+
+    it('zeigt einen Hinweis, wenn keine verfügbaren Stücke vorhanden sind', async () => {
+      api.getEtikettenOptions.mockResolvedValue([]);
+      render(<Etiketten />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Zuletzt erstellt' }));
+
+      expect(
+        await screen.findByText('Keine verfügbaren Stücke gefunden'),
+      ).toBeInTheDocument();
+    });
+
+    it('meldet Ladefehler im Fehlerbereich der Seite', async () => {
+      api.getEtikettenOptions.mockImplementation((params) =>
+        params?.sort === 'zuletzt'
+          ? Promise.reject(new Error('Server nicht erreichbar'))
+          : Promise.resolve([]),
+      );
+      render(<Etiketten />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Zuletzt erstellt' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Server nicht erreichbar');
+    });
+
+    it('blendet die Vorschläge per zweitem Klick wieder aus', async () => {
+      api.getEtikettenOptions.mockImplementation((params) =>
+        Promise.resolve(params?.sort === 'zuletzt' ? zuletzt : []),
+      );
+      render(<Etiketten />);
+
+      const button = await screen.findByRole('button', { name: 'Zuletzt erstellt' });
+      fireEvent.click(button);
+      await screen.findByLabelText('NEU002 übernehmen');
+      fireEvent.click(button);
+
+      expect(screen.queryByLabelText('NEU002 übernehmen')).not.toBeInTheDocument();
+    });
+  });
+
   it('zeigt ohne Auswahl den Hinweis auf das Musteretikett', async () => {
     render(<Etiketten />);
 
