@@ -205,5 +205,49 @@ describe('Etiketten API', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual([{ artikelnummer: 'MBH001', name: 'Testkette' }]);
     });
+
+    it('sortiert ohne sort-Parameter weiter nach Artikelnummer', async () => {
+      db.query.mockResolvedValueOnce({ rows: [] });
+
+      await request(app).get('/api/etiketten/options');
+
+      const [sql] = db.query.mock.calls[0];
+      expect(sql).toMatch(/ORDER BY artikel_base\s+LIMIT/);
+      expect(sql).not.toMatch(/Erstelldatum/);
+    });
+
+    it('sortiert mit sort=zuletzt nach jüngstem Erstelldatum, Tiebreak Artikelnummer', async () => {
+      db.query.mockResolvedValueOnce({
+        rows: [
+          { artikel_base: 'MBH002', name: 'Neu' },
+          { artikel_base: 'MBH001', name: 'Alt' },
+        ],
+      });
+
+      const res = await request(app).get('/api/etiketten/options?sort=zuletzt&limit=20');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.map((r) => r.artikelnummer)).toEqual(['MBH002', 'MBH001']);
+      const [sql, params] = db.query.mock.calls[0];
+      expect(sql).toMatch(
+        /ORDER BY MAX\("Erstelldatum"\) DESC NULLS LAST, artikel_base\s+LIMIT/,
+      );
+      // Nur verfügbare Stücke, Limit als Parameter
+      expect(sql).toMatch(/"Verkauft" IS FALSE/);
+      expect(params[params.length - 1]).toBe(20);
+    });
+
+    it('übernimmt keine unbekannten sort-Werte in das SQL', async () => {
+      db.query.mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app).get(
+        '/api/etiketten/options?sort=artikel_base;DROP TABLE x',
+      );
+
+      expect(res.statusCode).toBe(200);
+      const [sql] = db.query.mock.calls[0];
+      expect(sql).not.toMatch(/DROP/);
+      expect(sql).toMatch(/ORDER BY artikel_base\s+LIMIT/);
+    });
   });
 });
