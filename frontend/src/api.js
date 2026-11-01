@@ -463,6 +463,9 @@ export const api = {
     return request('/backup/import-fotos-zip', { method: 'POST', body: formData });
   },
   getBackupFotosImportJob: (jobId) => request(`/backup/import-fotos-jobs/${jobId}`),
+  // "Jetzt sichern": pg_dump läuft im Hintergrund, der Stand wird abgefragt
+  starteSqlSicherung: () => request('/backup/jetzt', { method: 'POST' }),
+  getSqlSicherungStatus: () => request('/backup/jetzt/status'),
 
   // Inventur
   getInventur: () => request('/inventur'),

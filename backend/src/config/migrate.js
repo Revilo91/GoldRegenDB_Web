@@ -226,4 +226,8 @@ module.exports = {
   loadMigrations,
   MIGRATIONS_DIR,
   MIGRATION_LOCK_KEY,
+  // Gemeinsam genutzt von services/sqlSicherung.js (manuelle Sicherung).
+  pgDumpInvocation,
+  runExecFile,
+  backupFailureMessage,
 };

@@ -546,6 +546,8 @@ GET    /backup/export-fotos             ZIP aller Fotos (gestreamt, REPEATABLE R
 POST   /backup/import-fotos-zip         ZIP importieren (async, gibt Job-ID zurück)
 GET    /backup/import-fotos-jobs/:jobId Fortschritt des Foto-Imports
 GET    /backup/export-sql               SQL-Dump als COPY-Blöcke
+POST   /backup/jetzt                    pg_dump im Hintergrund starten (202, 409 wenn einer läuft)
+GET    /backup/jetzt/status             Stand der manuellen Sicherung
 ```
 
 ### Sonstige Admin-Routes
@@ -766,6 +768,16 @@ POST /api/backup/import-fotos-zip      ZIP importieren (async Hintergrund-Job, U
 GET  /api/backup/import-fotos-jobs/:id Fortschritt abfragen
 ```
 
+**„Jetzt sichern“** (`POST /api/backup/jetzt`, `GET /api/backup/jetzt/status`, `services/sqlSicherung.js`):
+`pg_dump` (Custom-Format, enthält die Fotos) läuft per `execFile` im Hintergrund direkt in eine Datei
+(`--file`, nie im Speicher; Passwort per `PGPASSWORD`, Aufruf aus `config/migrate.js` wiederverwendet).
+Zielordner `MANUAL_BACKUP_DIR` (Standard `/backups/manual`): geschrieben wird `goldregendb_manuell_<zeitstempel>.dump.tmp`,
+bei Erfolg umbenannt, bei Fehler gelöscht; die letzten 3 fertigen Dumps bleiben (die Rotation löscht nur Namen
+nach diesem Muster, ein Rotationsfehler wird geloggt und macht das Backup nicht ungültig). Verwaiste `.tmp`-Dateien
+nach einem Neustart räumt der nächste Lauf weg. Der Zustand (`idle`, `running`, `completed`, `failed`) liegt im
+Speicher; ein zweiter Start während des Laufs antwortet `409`. Die Fehlermeldung im Status enthält weder Pfade
+noch Zugangsdaten (Details im Server-Log). Davon unabhängig bleiben `backup-status.json` und `/api/health` beim täglichen `db/backup.sh`.
+
 ### Backup-Status (`GET /api/health`)
 
 `/api/health` (öffentlich) enthält neben `status` und `database` das Feld `backup: { status }` mit
@@ -913,8 +925,8 @@ GoldRegenDB_Web/
 │       ├── config/migrations/        # Nummerierte SQL-Migrationen (0001_baseline.sql, …)
 │       ├── routes/                   # REST-Endpunkte (auth, kunden, …)
 │       │   ├── schmuckstuecke/       # index.js setzt zusammen (Reihenfolge relevant), foto, bulk, liste, anlegen, bearbeiten
-│       │   └── backup/               # index.js setzt zusammen: json, sql, fotos (Hintergrund-Job), import
-│       ├── services/                 # schmuckstueckService.js (Filter/Bulk-Helfer), backupService.js, backupStatus.js, rechnungSnapshot.js
+│       │   └── backup/               # index.js setzt zusammen: json, sql, fotos (Hintergrund-Job), jetzt (Jetzt sichern), import
+│       ├── services/                 # schmuckstueckService.js (Filter/Bulk-Helfer), backupService.js, backupStatus.js, sqlSicherung.js, rechnungSnapshot.js
 │       ├── middleware/               # auth.js, csrf.js, cors.js, validate.js, …
 │       ├── schemas/                  # Zod-Schemas für Input-Validierung
 │       └── utils/
@@ -1000,6 +1012,7 @@ BESTELLUNG_RETENTION_JAHRE_MIT_RECHNUNG=10
 # Schema-Migrationen (siehe Abschnitt 2)
 MIGRATION_BACKUP_DIR=/backups/migrations   # Compose-Default, Volume der db-Backups
 MIGRATION_SKIP_BACKUP=false                # true = Backup-Gate überspringen (nur Warnung)
+MANUAL_BACKUP_DIR=/backups/manual          # Standard; Ziel von „Jetzt sichern“ (liegt im Volume /backups)
 
 # Backup-Status (Issue #289): backup.sh schreibt /backups/backup-status.json,
 # das Backend liest daraus das Status-Wort für /api/health

@@ -87,6 +87,15 @@ docker compose exec db /restore.sh /backups/daily/goldregendb_<zeitstempel>.sql.
 docker compose start app
 ```
 
+## Jetzt sichern (Admin)
+
+Unter **Datensicherung → Jetzt sichern** startet ein Admin einen Datenbank-Dump im Hintergrund, z. B. nach
+größeren Änderungen. Der Dump (`pg_dump`, Custom-Format, mit Fotos) landet als
+`backups/manual/goldregendb_manuell_<zeitstempel>.dump` im Installationsordner (im Container
+`/backups/manual`, anderer Ort über `MANUAL_BACKUP_DIR`); die letzten 3 bleiben, ältere werden gelöscht.
+Wiederherstellen mit `pg_restore` (nicht mit `restore.sh`, das erwartet `.sql.gz`). Der Dump zählt nicht für
+`backup.status` in `/api/health`, das gehört dem täglichen `db/backup.sh`.
+
 ## Backup-Status und Fehlermeldung
 
 Teil 1 von #289 (Teil 2 „Jetzt sichern“ und Teil 3 „Restore-Test“ folgen separat).
