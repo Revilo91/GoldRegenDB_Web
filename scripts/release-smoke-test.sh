@@ -117,10 +117,70 @@ api "$BASE/api/schmuckstuecke/foto/$nummer" -o /dev/null \
   || fehler "Foto für $nummer nach dem Import nicht abrufbar"
 echo "ok   import-fotos.js importiert Foto für $nummer"
 
+# App anhalten: Backup und Zeilenvergleich unten sehen so denselben Stand
+# (kein Hintergrundschreiben) und restore.sh trifft keine laufende Verbindung der App.
+compose stop app || fehler "App-Container ließ sich nicht anhalten"
+
 compose exec -T db /backup.sh || fehler "backup.sh fehlgeschlagen"
 ls "$PAKET"/backups/daily/*.sql.gz >/dev/null 2>&1 \
   || fehler "backup.sh hat keine Datei unter ./backups/daily erzeugt"
 echo "ok   backup.sh schreibt nach ./backups"
+
+# Restore-Test (#289): das frische Backup mit dem echten restore.sh in eine
+# Wegwerf-Datenbank einspielen und die Zeilenzahlen aller Tabellen mit der Quelle
+# vergleichen. restore.sh liest den Zielnamen aus POSTGRES_DB, daher genügt es, ihn
+# nur für diesen Aufruf zu überschreiben. Der pg_dump-Dump darf weder CREATE/DROP
+# DATABASE noch \connect enthalten (wird unten geprüft), sonst würde er die
+# Zieldatenbank umgehen. Die Quelldatenbank bleibt unberührt.
+QUELL_DB="$(compose exec -T db printenv POSTGRES_DB | tr -d '\r')"
+DB_BENUTZER="$(compose exec -T db printenv POSTGRES_USER | tr -d '\r')"
+[ -n "$QUELL_DB" ] && [ -n "$DB_BENUTZER" ] || fehler "POSTGRES_DB/POSTGRES_USER im db-Container nicht lesbar"
+TEST_DB="${QUELL_DB}_restore_test"
+# Harter Namensschutz: restore.sh macht DROP DATABASE auf dem Ziel.
+case "$TEST_DB" in
+  *_restore_test) ;;
+  *) fehler "Restore-Ziel '$TEST_DB' endet nicht auf _restore_test – Abbruch" ;;
+esac
+[ "$TEST_DB" != "$QUELL_DB" ] || fehler "Restore-Ziel '$TEST_DB' ist die Quelldatenbank – Abbruch"
+
+backup_datei="$(basename "$(ls -t "$PAKET"/backups/daily/*.sql.gz | head -n 1)")"
+dump_zeilen="$(compose exec -T db sh -c \
+  "gunzip -c '/backups/daily/$backup_datei' | grep -cE '^(.connect|CREATE DATABASE|DROP DATABASE)' || true" | tr -d '\r')"
+[ "$dump_zeilen" = 0 ] \
+  || fehler "Dump enthält CREATE/DROP DATABASE oder \\connect ($dump_zeilen Zeilen) – würde die Zieldatenbank umgehen"
+
+# Zeilenzahl je Tabelle im Schema public ("tabelle anzahl", sortiert).
+zeilenzahlen() {
+  compose exec -T db psql -U "$DB_BENUTZER" -d "$1" -v ON_ERROR_STOP=1 -At -F ' ' -c \
+    "SELECT table_name, (xpath('/row/c/text()', query_to_xml(format('SELECT count(*) AS c FROM %I.%I', table_schema, table_name), false, true, '')))[1]::text
+       FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name COLLATE \"C\"" | tr -d '\r'
+}
+
+quelle_zahlen="$(zeilenzahlen "$QUELL_DB")" || fehler "Zeilenzahlen der Quelldatenbank nicht lesbar"
+tabellen="$(wc -l <<<"$quelle_zahlen")"
+[ "$tabellen" -ge 1 ] || fehler "Quelldatenbank liefert keine Tabellen im Schema public"
+
+restore_start=$(date +%s%N)
+compose exec -T -e POSTGRES_DB="$TEST_DB" -e SICHERUNG_DIR=/tmp/vor-restore-test db \
+  /restore.sh "/backups/daily/$backup_datei" --yes \
+  || fehler "restore.sh in $TEST_DB fehlgeschlagen"
+restore_ms=$((($(date +%s%N) - restore_start) / 1000000))
+
+test_zahlen="$(zeilenzahlen "$TEST_DB")" || fehler "Zeilenzahlen von $TEST_DB nicht lesbar"
+if [ "$test_zahlen" != "$quelle_zahlen" ]; then
+  echo "Zeilenzahlen weichen ab (< Quelle, > Restore):" >&2
+  diff <(echo "$quelle_zahlen") <(echo "$test_zahlen") >&2 || true
+  fehler "Restore-Test: Zeilenzahlen von $TEST_DB weichen von $QUELL_DB ab"
+fi
+# Die Quelle muss nach dem Restore unverändert sein.
+[ "$(zeilenzahlen "$QUELL_DB")" = "$quelle_zahlen" ] \
+  || fehler "Quelldatenbank $QUELL_DB hat sich während des Restore-Tests verändert"
+
+compose exec -T db psql -U "$DB_BENUTZER" -d postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE \"$TEST_DB\"" >/dev/null \
+  || fehler "Wegwerf-Datenbank $TEST_DB ließ sich nicht entfernen"
+echo "ok   Restore-Test: $backup_datei -> $TEST_DB, $tabellen Tabellen mit gleicher Zeilenzahl, Restore-Dauer $((restore_ms / 1000)),$(printf %03d $((restore_ms % 1000)))s (Testdaten, nicht Produktiv)"
 
 ERFOLG=1
 echo "Smoke-Test bestanden."

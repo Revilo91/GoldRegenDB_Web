@@ -225,7 +225,7 @@ spurlos zuzulassen.
 
 ## Backup-Status und Fehlermeldung
 
-Teil 1 von #289 (Teil 2 „Jetzt sichern“ und Teil 3 „Restore-Test“ folgen separat).
+Teil 1 von #289.
 
 Nach **jedem** Lauf von `backup.sh`, auch nach Fehler oder Abbruch (EXIT-Trap), entsteht atomar
 (Temporärdatei + `mv`) `/backups/backup-status.json`:
@@ -255,7 +255,13 @@ Bei `"ergebnis": "fehler"` ist `datei` leer, `groesse_bytes` ist `0` und es gibt
   versendet aber nichts. Eine Benachrichtigung dafür entsteht, wenn DSM-Aufgabenplaner, ein
   Uptime-Monitor oder Home Assistant `/api/health` abfragen. Einen eigenen Scheduler im Backend gibt
   es nicht.
-- Zielwerte (Vorschlag, noch zu bestätigen): RPO 1 Tag, RTO 1 Stunde.
+- Zielwerte (bestätigt): RPO 1 Tag, RTO 1 Stunde.
+- Restore-Test: Der Release-Smoke-Test (`scripts/release-smoke-test.sh`) spielt den frischen Dump mit
+  `restore.sh` in eine Datenbank `<POSTGRES_DB>_restore_test` ein, vergleicht die Zeilenzahlen aller
+  Tabellen im Schema `public` mit der Quelle und löscht die Testdatenbank wieder. Das Skript bricht ab,
+  wenn der Zielname nicht auf `_restore_test` endet oder der Dump `CREATE DATABASE`/`\connect`
+  enthielte. Gemessene Dauer im Test: unter 1 s für 14 Tabellen mit Testdaten; das ist **kein**
+  Produktivwert (echte Datenbank mit rund 1,6 GB Fotos). Ein Restore-Probelauf auf der NAS steht noch aus.
 
 Zeitplan auf der Synology: DSM-Aufgabenplaner, siehe
 [`deploy/README.md`](../deploy/README.md#backup).
