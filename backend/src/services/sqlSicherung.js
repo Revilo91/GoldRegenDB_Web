@@ -67,14 +67,20 @@ function erstelleSqlSicherung({
     }
   }
 
-  async function bereiteZielvor(dir) {
+  async function bereiteZielvor(dir, temporaer) {
     try {
-      await fs.promises.mkdir(dir, { recursive: true });
+      // Dumps enthalten Kundendaten. chmod zusätzlich, weil mode bei einem
+      // vorhandenen Ordner nicht greift.
+      await fs.promises.mkdir(dir, { recursive: true, mode: 0o700 });
+      await fs.promises.chmod(dir, 0o700);
       // Reste eines Laufs, der mit dem Container starb. Es läuft nie mehr als
       // ein Lauf, also gehört jede passende .tmp-Datei zu einem toten.
       for (const name of await listeDateien(dir, SICHERUNG_TMP_MUSTER)) {
         await fs.promises.rm(path.join(dir, name), { force: true });
       }
+      // pg_dump übernimmt beim Überschreiben den Modus; 'wx' folgt keinem Symlink.
+      const datei = await fs.promises.open(temporaer, 'wx', 0o600);
+      await datei.close();
     } catch (err) {
       err.zielordner = true;
       throw err;
@@ -89,7 +95,7 @@ function erstelleSqlSicherung({
       if (!connectionString) {
         throw Object.assign(new Error('keine Datenbank-URL konfiguriert'), { keineDatenbank: true });
       }
-      await bereiteZielvor(dir);
+      await bereiteZielvor(dir, temporaer);
       const { args, env: dumpEnv } = pgDumpInvocation(connectionString, temporaer);
       await runExecFile(execFileImpl, 'pg_dump', args, {
         env: dumpEnv,

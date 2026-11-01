@@ -314,3 +314,68 @@ describe('Rotation', () => {
     }
   });
 });
+
+describe('Dateirechte (Dumps enthalten Kundendaten)', () => {
+  const modus = (pfad) => fs.statSync(pfad).mode & 0o777;
+
+  it('legt Ordner mit 0700 und Dump mit 0600 an', async () => {
+    const d = dienst();
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(stand.status).toBe('completed');
+    expect(modus(zielDir)).toBe(0o700);
+    expect(modus(path.join(zielDir, stand.datei))).toBe(0o600);
+  });
+
+  it('schützt die .tmp-Datei schon, bevor pg_dump startet', async () => {
+    let modusBeimStart = null;
+    const execFileImpl = jest.fn((cmd, args, opts, cb) => {
+      const ziel = args.find((a) => a.startsWith('--file=')).slice('--file='.length);
+      modusBeimStart = modus(ziel);
+      fs.writeFileSync(ziel, 'PGDMP-Daten');
+      cb(null, '', '');
+    });
+    const d = dienst({ execFileImpl });
+    d.starte();
+    await warteAufEnde(d);
+
+    expect(modusBeimStart).toBe(0o600);
+  });
+
+  it('korrigiert die Rechte eines vorhandenen Ordners', async () => {
+    fs.mkdirSync(zielDir, { mode: 0o755 });
+    fs.chmodSync(zielDir, 0o755);
+    const d = dienst();
+    d.starte();
+    await warteAufEnde(d);
+
+    expect(modus(zielDir)).toBe(0o700);
+  });
+
+  it('folgt keinem untergeschobenen Symlink auf die .tmp-Datei', async () => {
+    fs.mkdirSync(zielDir, { recursive: true });
+    const opfer = path.join(path.dirname(zielDir), 'opfer');
+    fs.writeFileSync(opfer, 'unverändert');
+    const zeit = new Date('2026-10-01T10:00:00.000Z');
+    const tmpName = `goldregendb_manuell_${zeit.toISOString().replace(/[:.]/g, '-')}.dump.tmp`;
+    const execFileImpl = execMitDatei('ueberschrieben');
+    // Nach dem Aufräumen untergeschoben: open() wird als erste Aktion danach gerufen.
+    const echtesOpen = fs.promises.open;
+    const spion = jest.spyOn(fs.promises, 'open').mockImplementation((pfad, ...rest) => {
+      if (String(pfad).endsWith('.dump.tmp')) fs.symlinkSync(opfer, path.join(zielDir, tmpName));
+      return echtesOpen(pfad, ...rest);
+    });
+    try {
+      const d = dienst({ execFileImpl, jetzt: () => zeit });
+      d.starte();
+      const stand = await warteAufEnde(d);
+
+      expect(stand.status).toBe('failed');
+      expect(execFileImpl).not.toHaveBeenCalled();
+      expect(fs.readFileSync(opfer, 'utf8')).toBe('unverändert');
+    } finally {
+      spion.mockRestore();
+    }
+  });
+});
