@@ -112,7 +112,7 @@ describe('starte – Erfolgspfad', () => {
     expect(stand.datei).toMatch(SICHERUNG_DATEI_MUSTER);
     expect(fs.readdirSync(zielDir)).toEqual([stand.datei]);
 
-    const [cmd, args, opts] = execFileImpl.mock.calls[0];
+    const [cmd, args] = execFileImpl.mock.calls[0];
     expect(cmd).toBe('pg_dump');
     expect(args).toContain(`--file=${path.join(zielDir, stand.datei)}.tmp`);
     expect(args).toContain('--format=custom');
