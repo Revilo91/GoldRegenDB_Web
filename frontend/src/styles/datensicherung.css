@@ -67,3 +67,27 @@
   overflow-y: auto;
 }
 
+
+/* Jetzt sichern: Stand der Hintergrund-Sicherung */
+.datensicherung-sicherung-stand {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.datensicherung-sicherung-stand-fertig {
+  border-color: #bbf7d0;
+  background-color: #f0fdf4;
+  color: #15803d;
+}
+
+.datensicherung-sicherung-stand-fehler {
+  border-color: #fecaca;
+  background-color: #fef2f2;
+  color: #b91c1c;
+}

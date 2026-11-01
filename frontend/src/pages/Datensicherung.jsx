@@ -10,6 +10,7 @@ import {
   faFolderOpen,
   faImages,
   faDatabase,
+  faHardDrive,
 } from "@fortawesome/free-solid-svg-icons";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
@@ -39,6 +40,48 @@ const beschriftung = (name) => TABLE_LABELS[name] ?? name;
 // Fällt /backup/tables aus, bleibt die Seite bedienbar: diese Reihenfolge ist
 // FK-sicher und deckt den Stand bei Auslieferung ab.
 const TABELLEN_FALLBACK = Object.keys(TABLE_LABELS);
+
+const SICHERUNG_ABFRAGE_MS = 2000;
+
+const formatiereGroesse = (bytes) => {
+  const einheiten = [
+    [1024 ** 3, "GB"],
+    [1024 ** 2, "MB"],
+    [1024, "KB"],
+  ];
+  const [teiler, name] = einheiten.find(([t]) => bytes >= t) ?? [1, "Byte"];
+  return `${(bytes / teiler).toLocaleString("de-DE", {
+    minimumFractionDigits: teiler === 1 ? 0 : 1,
+    maximumFractionDigits: teiler === 1 ? 0 : 1,
+  })} ${name}`;
+};
+
+const formatiereZeit = (iso) => new Date(iso).toLocaleString("de-DE");
+
+function SicherungStand({ sicherung }) {
+  const { status, gestartetAm, beendetAm, datei, groesse, fehler } = sicherung;
+  if (status === "idle") return null;
+  const art = { running: "laeuft", completed: "fertig", failed: "fehler" }[status];
+  return (
+    <div
+      className={`datensicherung-sicherung-stand datensicherung-sicherung-stand-${art}`}
+      role="status"
+      aria-label="Stand der Sicherung">
+      {status === "running" && (
+        <>Sicherung läuft seit {formatiereZeit(gestartetAm)}. Mit vielen Fotos kann das mehrere Minuten dauern.</>
+      )}
+      {status === "completed" && (
+        <>
+          Sicherung erstellt am {formatiereZeit(beendetAm)}:{" "}
+          <code>{datei}</code> ({formatiereGroesse(groesse)})
+        </>
+      )}
+      {status === "failed" && (
+        <>Sicherung fehlgeschlagen ({formatiereZeit(beendetAm)}): {fehler}</>
+      )}
+    </div>
+  );
+}
 
 const alsAuswahl = (namen) =>
   namen.map((name) => ({ key: name, label: beschriftung(name) }));
@@ -152,6 +195,10 @@ export default function Datensicherung() {
   const [fotoImportLaeuft, setFotoImportLaeuft] = useState(false);
   const [fotoImportJob, setFotoImportJob] = useState(null);
 
+  // --- Jetzt sichern ---
+  const [sicherung, setSicherung] = useState(null);
+  const [sicherungStartet, setSicherungStartet] = useState(false);
+
   const fileInputRef = useRef(null);
   const fotoZipInputRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -186,6 +233,65 @@ export default function Datensicherung() {
       verworfen = true;
     };
   }, []);
+
+  // Solange ein Dump läuft, fragt die Seite den Stand ab. Ein früheres Ergebnis
+  // beim Öffnen wird nur angezeigt, nur ein beobachteter Lauf meldet per Toast.
+  useEffect(() => {
+    if (sicherung?.status !== "running") return undefined;
+    const timer = setTimeout(async () => {
+      try {
+        const { sicherung: stand } = await api.getSqlSicherungStatus();
+        if (!isMountedRef.current) return;
+        setSicherung(stand);
+        if (stand.status === "completed") toast.erfolg("Sicherung erstellt");
+        if (stand.status === "failed") {
+          toast.fehler(`Sicherung fehlgeschlagen: ${stand.fehler}`);
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        // Ohne Stand bliebe der Button gesperrt; läuft der Dump noch, antwortet
+        // der nächste Start mit 409 und die Seite verfolgt ihn wieder.
+        setSicherung(null);
+        toast.fehler(err.message || "Stand der Sicherung nicht abrufbar");
+      }
+    }, SICHERUNG_ABFRAGE_MS);
+    return () => clearTimeout(timer);
+  }, [sicherung, toast]);
+
+  // Beim Öffnen: läuft schon ein Dump (anderer Tab, Seite neu geladen), wird er verfolgt.
+  useEffect(() => {
+    let verworfen = false;
+    api
+      .getSqlSicherungStatus()
+      .then(({ sicherung: stand }) => {
+        if (!verworfen) setSicherung(stand);
+      })
+      .catch(() => {
+        /* Nur Anzeige: der Button funktioniert auch ohne vorherigen Stand. */
+      });
+    return () => {
+      verworfen = true;
+    };
+  }, []);
+
+  const handleSicherungStarten = async () => {
+    setSicherungStartet(true);
+    try {
+      const { sicherung: stand } = await api.starteSqlSicherung();
+      if (isMountedRef.current) setSicherung(stand);
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      if (err.status === 409) {
+        setSicherung(err.payload?.sicherung ?? { status: "running" });
+        return;
+      }
+      toast.fehler(err.message || "Sicherung konnte nicht gestartet werden");
+    } finally {
+      if (isMountedRef.current) setSicherungStartet(false);
+    }
+  };
+
+  const sicherungLaeuft = sicherungStartet || sicherung?.status === "running";
 
   const triggerDownload = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -403,6 +509,36 @@ export default function Datensicherung() {
               unten.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Jetzt sichern */}
+      <div className="card datensicherung-mb-32">
+        <div className="card-header datensicherung-p-20-24">
+          <h3>
+            <FontAwesomeIcon icon={faHardDrive} /> Jetzt sichern
+          </h3>
+        </div>
+        <div className="card-body datensicherung-p-24">
+          <p className="datensicherung-mb-16-lh-1_6">
+            Legt auf dem Server einen vollständigen Datenbank-Dump an, auch mit
+            den Fotos. Er läuft im Hintergrund, Sie können die Seite
+            währenddessen verlassen. Die letzten drei Sicherungen bleiben
+            erhalten. Sinnvoll nach größeren Änderungen.
+          </p>
+          {sicherung && <SicherungStand sicherung={sicherung} />}
+          <button
+            className="btn btn-primary"
+            onClick={handleSicherungStarten}
+            disabled={sicherungLaeuft}>
+            {sicherungLaeuft ? (
+              "Sicherung läuft…"
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faHardDrive} /> Jetzt sichern
+              </>
+            )}
+          </button>
         </div>
       </div>
 
