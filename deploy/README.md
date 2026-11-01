@@ -89,7 +89,7 @@ docker compose start app
 
 ## Backup-Status und Fehlermeldung
 
-Teil 1 von #289 (Teil 2 „Jetzt sichern“ und Teil 3 „Restore-Test“ folgen separat).
+Teil 1 von #289.
 
 `db/backup.sh` schreibt nach **jedem** Lauf, auch nach Fehler oder Abbruch, atomar die Datei
 `backups/backup-status.json` (im Container `/backups/backup-status.json`):
@@ -129,8 +129,18 @@ lässt `/api/health` von DSM-Aufgabenplaner, einem Uptime-Monitor oder Home Assi
 abfragen und auf `backup.status` ungleich `ok` prüfen. Ein Lauf, der gar nicht startet, meldet sich
 nie von selbst; genau diesen Fall deckt nur die Abfrage von `/api/health` ab.
 
-**Zielwerte (Vorschlag, noch zu bestätigen):** RPO 1 Tag (maximaler Datenverlust), RTO 1 Stunde
+**Zielwerte (bestätigt):** RPO 1 Tag (maximaler Datenverlust), RTO 1 Stunde
 (Zeit bis zur wiederhergestellten Anwendung).
+
+**Restore-Test im Release:** Der Smoke-Test (`scripts/release-smoke-test.sh`, läuft im Release-Workflow
+vor dem Push des Images) spielt das frisch erzeugte Backup mit `restore.sh` in eine Wegwerf-Datenbank
+`<POSTGRES_DB>_restore_test` ein, vergleicht die Zeilenzahlen aller Tabellen im Schema `public` mit der
+Quelle und entfernt die Testdatenbank wieder. Bei Abweichung bricht das Release ab. Die Hauptdatenbank
+wird dabei nie überschrieben (Namensschutz im Skript). Gemessene Restore-Dauer in diesem Test:
+**unter 1 s** bei 14 Tabellen mit wenigen Testzeilen. Das ist ein Wert aus den Testdaten des
+Smoke-Tests, **kein Produktivwert**: die echte Datenbank enthält rund 1,6 GB Fotos. Ein
+Restore-Probelauf mit einem echten Dump auf der NAS steht noch aus; erst er zeigt, ob der RTO von
+1 Stunde (inkl. Image-Start und Prüfung) eingehalten wird.
 
 ## Offsite-Backup (3-2-1)
 
@@ -201,8 +211,8 @@ rsync-Ziel. Die Aufgabe wird auf der eigenen NAS angelegt, die NAS der Bekannten
 
 Die Hyper-Backup-Aufgaben laufen **täglich nach** dem Dump von `db/backup.sh` (Aufgabenplaner
 siehe Abschnitt „Backup“), damit stets der aktuelle Dump mitgesichert wird. Die genaue Uhrzeit
-und der nötige Abstand richten sich nach der Laufzeit des Dumps; sie werden zusammen mit der
-Überwachung der Backups in #289 festgelegt.
+und der nötige Abstand richten sich nach der Laufzeit des Dumps; sie werden beim Einrichten
+auf der NAS festgelegt (#288).
 
 ### Verschlüsselungs-Passwort
 
@@ -216,7 +226,7 @@ und der nötige Abstand richten sich nach der Laufzeit des Dumps; sie werden zus
 ### Wiederherstellung testen
 
 Ein Backup gilt erst als sicher, wenn die Wiederherstellung einmal erfolgreich aus der
-Offsite-Kopie geprüft wurde. Der Test (Ablauf, Erfolgskriterien, Turnus) ist in #289 vorgesehen und
+Offsite-Kopie geprüft wurde. Dieser Test gehört zur Einrichtung in #288 und ist
 hier noch nicht beschrieben. Das Zurückspielen eines Dumps selbst steht im Abschnitt „Backup“.
 
 ## Hinweise
