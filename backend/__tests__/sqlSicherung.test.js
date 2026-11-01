@@ -16,6 +16,8 @@ const {
   erstelleSqlSicherung,
   BEHALTENE_SICHERUNGEN,
   AUFBEWAHRUNG_TAGE,
+  MINDEST_FREI_BYTES,
+  RESERVE_BYTES,
   SICHERUNG_DATEI_MUSTER,
 } = require('../src/services/sqlSicherung');
 
@@ -52,6 +54,7 @@ const dienst = (optionen = {}) =>
     connectionString: DB_URL,
     env: { MANUAL_BACKUP_DIR: zielDir },
     execFileImpl: execMitDatei(),
+    statfsImpl: async () => ({ bavail: Number.MAX_SAFE_INTEGER / 4096, bsize: 4096 }),
     ...optionen,
   });
 
@@ -435,5 +438,55 @@ describe('Altersgrenze', () => {
     expect(fs.readdirSync(zielDir)).toEqual([]);
     expect(setIntervalImpl).toHaveBeenCalledWith(expect.any(Function), TAG_MS);
     expect(unref).toHaveBeenCalled();
+  });
+});
+
+describe('Platz-Check', () => {
+  const GIB = 1024 ** 3;
+  const freierPlatz = (bytes) => jest.fn().mockResolvedValue({ bavail: bytes / 4096, bsize: 4096 });
+
+  it('startet pg_dump nicht unter der Untergrenze und meldet es verständlich', async () => {
+    const execFileImpl = execMitDatei();
+    const d = dienst({ execFileImpl, statfsImpl: freierPlatz(MINDEST_FREI_BYTES - 4096) });
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(stand.status).toBe('failed');
+    expect(stand.fehler).toMatch(/Speicherplatz/);
+    expect(stand.fehler).not.toContain(zielDir);
+    expect(execFileImpl).not.toHaveBeenCalled();
+    expect(fs.readdirSync(zielDir)).toEqual([]);
+  });
+
+  it('läuft mit genug Platz', async () => {
+    const d = dienst({ statfsImpl: freierPlatz(MINDEST_FREI_BYTES) });
+    d.starte();
+
+    expect((await warteAufEnde(d)).status).toBe('completed');
+  });
+
+  it('rechnet mit der Größe des größten vorhandenen Dumps plus Reserve', async () => {
+    fs.mkdirSync(zielDir, { recursive: true });
+    const vorhanden = path.join(zielDir, dateiName(1));
+    fs.writeFileSync(vorhanden, 'x');
+    fs.truncateSync(vorhanden, 5 * GIB); // Datei mit Loch, belegt keinen Platz
+    const execFileImpl = execMitDatei();
+    const d = dienst({ execFileImpl, statfsImpl: freierPlatz(5 * GIB + RESERVE_BYTES - 4096) });
+    d.starte();
+    const stand = await warteAufEnde(d);
+
+    expect(stand.status).toBe('failed');
+    expect(execFileImpl).not.toHaveBeenCalled();
+    expect(fs.existsSync(vorhanden)).toBe(true);
+  });
+
+  it('bricht ab, wenn der freie Platz nicht ermittelbar ist', async () => {
+    const execFileImpl = execMitDatei();
+    const statfsImpl = jest.fn().mockRejectedValue(new Error('ENOSYS'));
+    const d = dienst({ execFileImpl, statfsImpl });
+    d.starte();
+
+    expect((await warteAufEnde(d)).status).toBe('failed');
+    expect(execFileImpl).not.toHaveBeenCalled();
   });
 });

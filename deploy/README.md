@@ -93,6 +93,7 @@ Unter **Datensicherung → Jetzt sichern** startet ein Admin einen Datenbank-Dum
 größeren Änderungen. Der Dump (`pg_dump`, Custom-Format, mit Fotos) landet als
 `backups/manual/goldregendb_manuell_<zeitstempel>.dump` im Installationsordner (im Container
 `/backups/manual`, anderer Ort über `MANUAL_BACKUP_DIR`); die letzten 3 bleiben, höchstens aber 30 Tage, ältere werden gelöscht.
+Bei zu wenig Platz (unter 4 GiB oder unter größtem Dump plus 2 GiB) startet der Dump nicht.
 Wiederherstellen mit `pg_restore` (nicht mit `restore.sh`, das erwartet `.sql.gz`). Der Dump zählt nicht für
 `backup.status` in `/api/health`, das gehört dem täglichen `db/backup.sh`.
 

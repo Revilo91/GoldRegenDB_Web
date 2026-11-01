@@ -774,7 +774,8 @@ GET  /api/backup/import-fotos-jobs/:id Fortschritt abfragen
 Zielordner `MANUAL_BACKUP_DIR` (Standard `/backups/manual`): geschrieben wird `goldregendb_manuell_<zeitstempel>.dump.tmp`,
 bei Erfolg umbenannt, bei Fehler gelöscht; die letzten 3 fertigen Dumps bleiben, höchstens aber 30 Tage (die
 Frist prüft der Dienst beim Serverstart und danach täglich, auch ohne neuen Lauf; die Rotation löscht nur Namen
-nach diesem Muster, ein Rotationsfehler wird geloggt und macht das Backup nicht ungültig). Verwaiste `.tmp`-Dateien
+nach diesem Muster, ein Rotationsfehler wird geloggt und macht das Backup nicht ungültig). Vor dem Start bricht der Lauf mit einer Meldung ab, wenn
+weniger frei ist als der größte vorhandene Dump plus 2 GiB, mindestens 4 GiB. Verwaiste `.tmp`-Dateien
 nach einem Neustart räumt der nächste Lauf weg. Der Zustand (`idle`, `running`, `completed`, `failed`) liegt im
 Speicher; ein zweiter Start während des Laufs antwortet `409`. Die Fehlermeldung im Status enthält weder Pfade
 noch Zugangsdaten (Details im Server-Log). Davon unabhängig bleiben `backup-status.json` und `/api/health` beim täglichen `db/backup.sh`.
